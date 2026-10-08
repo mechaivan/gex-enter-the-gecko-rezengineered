@@ -8,6 +8,17 @@
 **Testing:** Not started
 **Last updated:** 2026-10-08
 
+## Ampliación de objetivos (2026-10-08, solo documentación)
+
+- Se ha ampliado el conjunto de objetivos futuros: FA-01…FA-15 (fundamentos),
+  M-01…M-23 (modernización) y X-01 (deferred). Ver MODERNIZATION_GOALS.md.
+- **Ninguna feature está implementada.** Todas están PROPOSED / TO INVESTIGATE
+  (X-01 DEFERRED).
+- La prioridad actual sigue siendo Fase 0 / Research.
+- No se debe saltar a implementación: la documentación precede a cualquier
+  modificación técnica.
+- Orden: ENTENDER → BASE → SENCILLO → DEPENDIENTE → COMPLEJO → EXPERIMENTAL.
+
 ## Current objective
 
 > Understand the original PC version of Gex: Enter the Gecko and existing
