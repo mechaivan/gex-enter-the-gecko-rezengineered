@@ -7,9 +7,6 @@
 > well-understood fixes — without redistributing proprietary game files.
 > Current phase: **0 — Planning / Research**. No game modifications yet.
 
-**REZengineered** combina "**REZ**" —el antagonista de Gex— con "*engineered*":
-reingeniería del juego, basada en evidencia.
-
 ## Objetivo
 
 1. Comprender cómo funciona realmente la versión original de PC.

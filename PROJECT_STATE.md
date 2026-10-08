@@ -25,8 +25,10 @@
 - [x] Recibir y revisar los enlaces/recursos pendientes del mantenedor
   (PCGamingWiki, REA, Gex64Decomp-secundaria, speedrun/setup — jerarquía
   fijada en RESEARCH.md §0).
-- [ ] Inventariar archivos originales proporcionados (hashes, versiones).
-- [ ] Inventariar S-14 (setup package speedrun): README + parches + hashes.
+- [ ] Inventariar archivos originales: **POSPUESTO — no solicitar ni iniciar
+  análisis binario hasta que el mantenedor indique el cambio de fase.**
+- [ ] Inventariar S-14 (setup package speedrun): README + parches + hashes
+  (cuando se indique; no mover datos al sandbox).
 - [ ] Crear estructura de carpetas en Drive (originales, backups, análisis…).
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
 - [ ] Definir entorno de testing en Windows.

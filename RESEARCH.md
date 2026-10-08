@@ -174,10 +174,24 @@ está pendiente de contraste. Recopilación inicial: 2026-10-08.
   profundo. CLI 5.0.0 ya instalado en sandbox, sin backend nativo (ver TOOLKIT).
 - Estado: adoptado como herramienta oficial del proyecto.
 
+## S-19 — Wrappers/herramientas genéricas, ronda 2 (2026-10-08)
+
+- **DDrawCompat** (<https://github.com/narzoul/DDrawCompat>): wrapper
+  DirectDraw/D3D1–7, open source (0BSD), activo. Vía PCGW Community + GOG
+  forums. → T-04.
+- **DxWnd** (ghotik): hooker/ventanado genérico; mirror GitHub estancado
+  (2017), upstream actual pendiente de localizar. → T-05.
+- **WineD3D for Windows** (fdossena.com): DX1–7 sobre OpenGL; mención en guía
+  Steam de wrappers, pendiente de verificación directa. → T-06.
+- Guías consultadas: Steam "DirectX Wrappers/Emulation" (dgVoodoo per-DX),
+  insertmorecoins DxWrapper 2026 (config Dd7to9/Dinputto8/ventana).
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como
   secundaria, speedrun/setup). Jerarquía de referencias fijada.
-- [ ] Archivos originales del juego (irán a Drive `originals/`, nunca al repo).
+- [ ] Archivos originales del juego: **pospuestos por decisión del mantenedor
+  (2026-10-08)**. No solicitarlos ni iniciar análisis binario hasta que lo
+  indique. Cuando lleguen, irán a Drive `originals/`, nunca al repo.
 - [ ] Extraer de S-14 (setup package): README + lista de parches/herramientas
-  + hashes de ejecutables incluidos.
+  + hashes de ejecutables incluidos (cuando el mantenedor lo considere).

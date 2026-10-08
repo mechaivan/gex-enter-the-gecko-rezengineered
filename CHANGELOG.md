@@ -2,6 +2,18 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Taxonomía estricta + Fase 0 estricta + wrappers ronda 2
+
+- README: eliminada la explicación del juego de palabras del nombre (queda
+  solo el nombre del proyecto). Logo IA pendiente (no crear gráficos).
+- PATCH_ANALYSIS: taxonomía §0 (ORIGINAL / F-fix / T-wrapper / R-referencia)
+  + regla explícita: nada catalogado se asume solución final.
+- Nuevos T-04 (DDrawCompat), T-05 (DxWnd, upstream por confirmar), T-06
+  (WineD3D for Windows); fuente S-19.
+- S-14: catalogado como material de investigación; prohibido moverlo al
+  sandbox o modificarlo. Originales y análisis binario pospuestos por
+  decisión del mantenedor (PROJECT_STATE, RESEARCH).
+
 ## 2026-10-08 — 0.0.0 — Referencias del mantenedor + jerarquía + herramientas
 
 - Jerarquía fijada: PC original = fuente de verdad; otras versiones solo

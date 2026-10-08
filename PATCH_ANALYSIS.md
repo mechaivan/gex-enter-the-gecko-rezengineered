@@ -1,10 +1,25 @@
 # PATCH_ANALYSIS — Catálogo y análisis de fixes existentes
 
 > **Nivel de evidencia global: CATALOGADO, NO ANALIZADO.**
-> Este documento lista las soluciones comunitarias encontradas el 2026-10-08.
-> De ninguna se conoce todavía **qué cambia técnicamente**; ese análisis es
-> trabajo de las Fases 1–2. No descargar ni aplicar nada ciegamente:
-> primero determinar qué hace cada fix y por qué funciona.
+
+## 0. Taxonomía (categorías estrictamente separadas)
+
+| Código | Categoría | Qué es | Ejemplos |
+|---|---|---|---|
+| — | **ORIGINAL** | El juego PC de 1998 y sus variantes retail/demo | US/EU/demo (ver COMPATIBILITY.md) |
+| F-xx | **FIX comunitario** | Parches, exes modificados, procedimientos y paquetes creados para Gex PC | F-01…F-09 |
+| T-xx | **WRAPPER / HERRAMIENTA** | Wrappers y utilidades genéricas (no específicas de Gex) | T-01…T-06 |
+| R-xx | **REFERENCIA otra versión** | Proyectos/material de otras versiones de Gex | R-01, R-02 |
+
+Reglas:
+
+- Nada de lo catalogado aquí se asume como solución final de REZengineered.
+- El objetivo posterior es estudiar qué soluciona cada recurso, qué cambia y
+  por qué — y solo después decidir la implementación propia.
+- Este documento lista las soluciones comunitarias encontradas. De ninguna se
+  conoce todavía **qué cambia técnicamente**; ese análisis es trabajo de las
+  Fases 1–2. No descargar ni aplicar nada ciegamente: primero determinar qué
+  hace cada fix y por qué funciona.
 
 ## F-01 — Unofficial Direct3D patch (PAL) — tgames.fr
 
@@ -123,6 +138,32 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 - **Qué es:** wrapper Glide → Direct3D moderno; estándar de facto para Gex2.
 - **Interés:** ruta Glide en GPUs modernas; exe capeado a 30 FPS (F-04).
 - **Fuente:** S-02/S-04. **Estado:** catalogado, sin probar.
+
+## T-04 — DDrawCompat (narzoul, open source, 0BSD)
+
+- **Qué es:** wrapper DirectDraw/Direct3D 1–7 (cubre D3D5) para Vista–11;
+  compatibilidad + rendimiento, sin opciones de configuración por diseño.
+  Activo (último push verificado: ene 2026).
+- **Interés:** alternativa ligera y abierta para la ruta D3D del juego;
+  DxWrapper lo integra (v0.2.0b/0.2.1/0.3.2).
+- **Fuente:** S-19. **Estado:** catalogado, sin probar.
+
+## T-05 — DxWnd (ghotik) — upstream pendiente de confirmar
+
+- **Qué es:** hooker genérico para juegos legacy (modo ventana, hooks de API,
+  shims de compatibilidad).
+- **Nota:** el mirror GitHub `ghotik/DxWnd` está estancado (2017); el upstream
+  actual está **pendiente de localizar y verificar**.
+- **Fuente:** S-19. **Estado:** catalogado, sin probar.
+
+## T-06 — WineD3D for Windows (fdossena)
+
+- **Qué es:** builds de WineD3D para Windows: DX1–7 sobre OpenGL
+  (arrastrar DLLs junto al exe).
+- **Interés:** otra ruta alternativa para Direct3D legacy si Dd7to9/dgVoodoo2
+  no cubren algún caso.
+- **Fuente:** S-19 (mención en guía Steam; pendiente de verificación directa).
+- **Estado:** catalogado, sin probar.
 
 ## Proyectos relacionados (no son fixes de la versión PC)
 
