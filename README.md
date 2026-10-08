@@ -1,3 +1,5 @@
+![Gex: Enter the Gecko — REZengineered](assets/logo01.png)
+
 # Gex: Enter the Gecko — REZengineered
 
 > **English summary:** REZengineered is a reverse-engineering, preservation and
