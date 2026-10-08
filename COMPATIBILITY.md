@@ -22,7 +22,7 @@
 | Windows XP    | ?        | Parche D3D era "for XP" | ?          |
 | Windows 7/8   | ?        | ?                    | ?             |
 | Windows 10/11 | No arranca sin fixes (?) | Manual install + F-01/F-02 | Objetivo principal |
-| Linux + Wine  | Parcial (VOGONS) | Fix Indeo documentado | Objetivo secundario |
+| Linux + Wine  | Parcial (VOGONS) | Fix Indeo documentado | DEFERRED — X-01, secundario, no objetivo |
 
 ## Renderers / wrappers
 
@@ -33,6 +33,22 @@
 | D3D (US)          | Nativo en versión US                     | PCGamingWiki  |
 | D3D (EU + F-01)   | Añadido por parche; cap 24 FPS (?)       | PCGamingWiki  |
 | dgVoodoo2         | Crash con vorpX                          | PCGamingWiki  |
+
+## Dimensiones futuras de la matriz (sin resultados)
+
+Cuando haya testing propio, cubrir: resoluciones, refresh rates, aspect
+ratios, fullscreen / borderless / windowed, multi-monitor, DPI (100–200%),
+APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
+(AMD / NVIDIA / Intel, iGPU/dGPU) y configuraciones modernas de Windows.
+
+## Matriz de hardware (estructura, Fase 13 — vacía)
+
+> Herramienta de QA/documentación, no feature. NO rellenar con datos
+> inventados. Ejemplo de formato (ficticio, solo ilustra columnas):
+
+| GPU | Fabricante | iGPU/dGPU | Windows | Driver | Renderer | Resolución | Refresh | Modo | Mando | Resultado | FPS | Estabilidad | Problemas | Workaround | REZ ver. |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| *(ejemplo)* | AMD | dGPU | 11 | — | Modern | 1080p | 144 Hz | borderless | XInput | ✅ | — | — | — | — | — |
 
 ## Notas
 

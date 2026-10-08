@@ -16,7 +16,8 @@
 - **Abandonware France** — documentación de compatibilidad.
 - Comunidades de **Reddit r/gex** y **MyAbandonware** — reportes de usuarios.
 - **MatBourgon / Tokatta007** — proyectos Gex64Decomp (referencia N64).
-- **Limited Run Games** — Gex Trilogy (referencia de comportamiento PS1).
+- **Limited Run Games** — Gex Trilogy (contexto histórico; no es referencia
+  del proyecto por decisión 2026-10-08).
 
 ## Proyecto REZengineered
 

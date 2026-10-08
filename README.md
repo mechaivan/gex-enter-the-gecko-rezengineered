@@ -49,6 +49,9 @@ Y todo se clasifica según el modelo de evidencia:
 **Confirmado / Inferido / Experimental / Desconocido / Limitación**.
 Nunca se presenta una hipótesis como un hecho confirmado.
 
+Los objetivos futuros de modernización (todos propuestos, ninguno
+implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
+
 ## Jerarquía de referencias
 
 1. **Fuente de verdad:** el *Gex: Enter the Gecko* original para PC.
@@ -73,6 +76,7 @@ Nunca se presenta una hipótesis como un hecho confirmado.
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
 | [TESTING.md](TESTING.md)                               | Metodología de pruebas (pendiente de definir)|
+| [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)       | Objetivos futuros (todos PROPOSED)               |
 | [CREDITS.md](CREDITS.md)                               | Créditos y agradecimientos                   |
 | [LICENSE.md](LICENSE.md)                               | Licencia y política legal                    |
 

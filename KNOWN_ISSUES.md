@@ -160,3 +160,19 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** nota genérica de PCGamingWiki para ejecutables 32-bit.
 - **Fuente:** PCGamingWiki.
 - **Estado:** DESCONOCIDO (nota genérica, no específica de Gex).
+
+## Relación con objetivos (sin duplicar)
+
+Las features futuras viven en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md),
+no aquí. Mapeo orientativo issue → objetivo de investigación:
+
+| Issue | Objetivo relacionado |
+|---|---|
+| I-01, I-02 (timing/FPS) | FA-04, FA-05 → M-13, M-14 |
+| I-03 (D3D en EU) | FA-03 → M-04 |
+| I-04…I-10 (render/arranque) | FA-03, FA-13, FA-14 |
+| I-11…I-13 (audio) | FA-08, FA-09 |
+| I-14 (intro) | FA-10 |
+| I-15…I-17 (instalación/CD/admin) | FA-11, FA-12 → M-01…M-03 |
+| I-18, I-19 (input) | FA-06 → M-06…M-11 |
+| I-20 (LAA) | FA-01 |

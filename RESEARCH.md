@@ -186,6 +186,40 @@ está pendiente de contraste. Recopilación inicial: 2026-10-08.
 - Guías consultadas: Steam "DirectX Wrappers/Emulation" (dgVoodoo per-DX),
   insertmorecoins DxWrapper 2026 (config Dd7to9/Dinputto8/ventana).
 
+## Áreas de investigación futura (separación estricta)
+
+### Reportado por fuentes secundarias (pendiente de verificación propia)
+
+Nada de esto está confirmado por el proyecto; son hechos bien atestiguados
+que habrá que verificar contra el juego real (Fase 1–2):
+
+- Port PC por LTI Gray Matter, septiembre 1998 (Midway US / Ubisoft EU).
+- APIs: Direct3D 5 + Glide; D3D nativo solo reportado en versión US.
+- Claves `HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00` (InstallDir, CDDriveName).
+- Caps de FPS reportados: 30 (base) / 24 (con parche D3D).
+- Audio musical en pistas CD (Red Book); requisitos Win 95/98/ME, P166, 32 MB.
+
+### Hipótesis abiertas (NO confirmadas)
+
+- Lógica/timing acoplados al framerate (I-01).
+- Intro en códec Indeo (I-14); escritura HKLM causa de I-17.
+- Cámara PC similar a PS1 (L1/R1): **sin evidencia en PC**.
+- Formatos de texturas/assets: totalmente desconocidos.
+
+### Investigación futura por área → objetivo
+
+| Área | Alimenta a |
+|---|---|
+| PC camera control, camera architecture | FA-07, M-12, M-17 |
+| Controller input, gamepad APIs | FA-06, M-06…M-11 |
+| Game loop, render loop, refresh rate | FA-04, FA-05, M-13, M-14 |
+| Resolution handling, aspect ratio, viewport, FOV | FA-13, M-04, M-15…M-17 |
+| Fullscreen/window creation, focus, Alt+Tab | FA-14, M-05, M-18 |
+| DPI, multi-monitor | M-19 |
+| Configuration storage, registry usage, launcher behavior | FA-11, M-01…M-03, M-20 |
+| Texture formats, asset loading, texture replacement | M-23 |
+| Audio configuration, CD audio behavior | FA-08, FA-09, M-20 |
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

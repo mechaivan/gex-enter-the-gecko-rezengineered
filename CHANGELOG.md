@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Objetivos M-01…M-23 y roadmap por fases (solo docs)
+
+- Creado MODERNIZATION_GOALS.md: FA-01…FA-15, M-01…M-23, X-01 (DEFERRED);
+  todo PROPOSED / TO INVESTIGATE; jerarquía de implementación.
+- ROADMAP reordenado en fases 0–14 (entender → base → sencillo →
+  dependiente → complejo → experimental).
+- RESEARCH: áreas de investigación futura (reportado vs hipótesis vs futuro).
+- COMPATIBILITY: dimensiones futuras + matriz hardware (vacía) + Linux/Wine
+  como secundario (X-01 DEFERRED).
+- TESTING: categorías futuras; KNOWN_ISSUES: mapeo a objetivos (sin nuevos
+  issues); PATCH_ANALYSIS: mapeo fixes → objetivos; REVERSE_ENGINEERING:
+  vínculo con FA/M; README: enlace a goals.
+- Nada implementado; ninguna afirmación convertida en hecho.
+
 ## 2026-10-08 — 0.0.0 — Taxonomía estricta + Fase 0 estricta + wrappers ronda 2
 
 - README: eliminada la explicación del juego de palabras del nombre (queda

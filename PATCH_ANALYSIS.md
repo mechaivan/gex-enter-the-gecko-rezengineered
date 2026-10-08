@@ -184,6 +184,19 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
   Engine, emulación de versiones PlayStation) **no** forma parte de las
   referencias. Se conserva esta nota solo como contexto histórico.
 
+## Relación fixes → objetivos (qué estudiar de cada fix)
+
+| Fix | Informa a |
+|---|---|
+| F-01 (D3D PAL) | FA-03, M-04 (cómo se habilita D3D) |
+| F-02/F-04 (nGlide, exe capeado) | FA-03, FA-05, M-13 (renderer + cap 30) |
+| F-03 (FPS Limiter) | FA-05, M-13 (mecanismo de límite) |
+| F-05 (instalación manual) | FA-11, M-01…M-03 |
+| F-06 (Indeo) | FA-10 |
+| F-07/F-08 | Pendiente de identificar |
+| F-09 (setup package) | FA-01, procedimiento de referencia |
+| T-01…T-06 (wrappers) | Comparativas de testing (Fase 5+) |
+
 ## Plantilla de análisis (usar en Fases 1–2)
 
 Para cada fix documentar: nombre, autor, fecha, problema, comportamiento

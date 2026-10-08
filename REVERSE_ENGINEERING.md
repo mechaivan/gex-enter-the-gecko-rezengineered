@@ -68,3 +68,13 @@ requiere Windows (limitación actual).
 Cada sistema/problema relevante genera una entrada de engineering log según
 [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md), que se
 archivará en `docs/engineering-log/` cuando exista.
+
+## 6. Relación con MODERNIZATION_GOALS
+
+- Las Etapas A–C cubren FA-01…FA-15 (fundamentos). Sin ellas, ningún M-xx
+  puede pasar de PROPOSED a PLANNED.
+- La Etapa D (diffs de parches) alimenta directamente FA-03/FA-05/FA-10/FA-11
+  y los objetivos M-04, M-13, M-01…M-03 (ver PATCH_ANALYSIS.md § Relación).
+- El orden de implementación vive en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)
+  y [ROADMAP.md](ROADMAP.md): este documento define el *cómo* del análisis,
+  no el *cuándo* de las features.
