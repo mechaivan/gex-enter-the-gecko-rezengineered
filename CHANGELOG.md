@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Referencias del mantenedor + jerarquía + herramientas
+
+- Jerarquía fijada: PC original = fuente de verdad; otras versiones solo
+  secundarias; Gex Trilogy fuera de referencias (README, RESEARCH §0).
+- RESEARCH: S-11/S-12/S-18 enriquecidos (Gex64Decomp, Trilogy-demoted, REA);
+  nuevas S-14 (PC Version Setup Package speedrun), S-15 (guía PS1),
+  S-16 (DxWrapper), S-17 (dgVoodoo2).
+- PATCH_ANALYSIS: F-09 (setup package) + sección herramientas T-01..T-03.
+- Copia privada de S-14 en `Drive → REZengineered/research/` (411 MB,
+  pendiente de extraer README e inventario).
+
 ## 2026-10-08 — 0.0.0 — Entorno RE sandbox operativo
 
 - `tools/setup-sandbox-re.sh`: venv (`pefile`, `capstone`, `yara-python`) +

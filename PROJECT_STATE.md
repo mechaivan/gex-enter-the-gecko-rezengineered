@@ -22,8 +22,11 @@
 - [x] Catálogo inicial de fixes comunitarios (sin analizar técnicamente).
 - [x] Plan de reverse engineering (ver REVERSE_ENGINEERING.md).
 - [x] Inventario de herramientas disponibles en este entorno.
-- [ ] Recibir y revisar los enlaces/recursos pendientes del mantenedor.
+- [x] Recibir y revisar los enlaces/recursos pendientes del mantenedor
+  (PCGamingWiki, REA, Gex64Decomp-secundaria, speedrun/setup — jerarquía
+  fijada en RESEARCH.md §0).
 - [ ] Inventariar archivos originales proporcionados (hashes, versiones).
+- [ ] Inventariar S-14 (setup package speedrun): README + parches + hashes.
 - [ ] Crear estructura de carpetas en Drive (originales, backups, análisis…).
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
 - [ ] Definir entorno de testing en Windows.

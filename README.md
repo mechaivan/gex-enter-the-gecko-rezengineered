@@ -52,6 +52,14 @@ Y todo se clasifica según el modelo de evidencia:
 **Confirmado / Inferido / Experimental / Desconocido / Limitación**.
 Nunca se presenta una hipótesis como un hecho confirmado.
 
+## Jerarquía de referencias
+
+1. **Fuente de verdad:** el *Gex: Enter the Gecko* original para PC.
+2. **Referencias secundarias** (otras versiones: N64, guías PS1…): solo para
+   distinguir comportamiento original de la familia Gex de problemas
+   específicos del port PC. No reproducir otras versiones.
+3. **Gex Trilogy no es referencia** del proyecto (solo contexto histórico).
+
 ## Documentación
 
 | Documento                                              | Contenido                                    |

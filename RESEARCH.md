@@ -1,9 +1,21 @@
-# RESEARCH — Fuentes y bibliografía anotada
+# RESEARCH — Fuentes y jerarquía de referencias
 
-Recopilación inicial (2026-10-08) de fuentes públicas. Son material de
-investigación, **no** instrucciones ciegas. Todo está pendiente de contraste.
+## 0. Jerarquía de referencias (decisión del proyecto, 2026-10-08)
 
-## S-01 — PCGamingWiki: "Gex: Enter the Gecko" ⭐ fuente base
+1. **Fuente de verdad: el Gex: Enter the Gecko original para PC.**
+   El comportamiento a preservar es el del port PC en su contexto. Toda
+   decisión de implementación se juzga contra él.
+2. **Referencias secundarias (otras versiones de Gex):** N64 (Gex64Decomp),
+   guías PS1 de speedrun, etc. Solo sirven para distinguir *"comportamiento
+   original de la familia Gex"* de *"problemas específicos del port de PC"*.
+   **No se debe intentar reproducir el comportamiento de otras versiones.**
+3. **Gex Trilogy (2025) NO forma parte de las referencias del proyecto.**
+   Se mantiene únicamente como contexto histórico (S-12).
+
+Las fuentes son material de investigación, **no** instrucciones ciegas. Todo
+está pendiente de contraste. Recopilación inicial: 2026-10-08.
+
+## S-01 — PCGamingWiki: "Gex: Enter the Gecko" ⭐ referencia pública principal PC
 
 - URL: <https://www.pcgamingwiki.com/wiki/Gex:_Enter_the_Gecko>
 - Datos que aporta: ficha del port PC (desarrollo Crystal Dynamics, port PC
@@ -79,18 +91,24 @@ investigación, **no** instrucciones ciegas. Todo está pendiente de contraste.
 - Utilidad: posible binario de referencia legal y ligero para análisis inicial.
 - Estado: **pendiente de descarga y análisis**.
 
-## S-11 — Gex64Decomp (referencia N64, no PC)
+## S-11 — Gex64Decomp (REFERENCIA SECUNDARIA — no es código PC)
 
-- URLs: <https://github.com/matbourgon/gex64decomp>,
-  <https://github.com/Tokatta007/Gex64Decomp>
-- Utilidad: nombres/sistemas/lógica como referencia arquitectónica. No asumir
-  identidad con el port PC.
+- URLs: <https://github.com/matbourgon/gex64decomp>
+  (fork: <https://github.com/Tokatta007/Gex64Decomp>)
+- Qué es: decompilación WIP de *Gex 64* (N64, MIPS) con splat + decomp.me;
+  activa (211 commits, último sep 2026). Requiere ROM USA propia (`gex64.z64`).
+  flags `-O2`, ficheros mips1/mips3; esquema de nombres aún provisional.
+- Utilidad: nombres, sistemas, lógica como **referencia arquitectónica** para
+  distinguir comportamiento de la familia Gex vs problemas del port PC.
+- Advertencia: **NO es el código de la versión PC** (port distinto:
+  LTI Gray Matter; otra plataforma y CPU). Nunca fuente de verdad.
+- Estado: catalogado como referencia secundaria.
 
-## S-12 — Gex Trilogy (2025, Limited Run / Carbon Engine)
+## S-12 — Gex Trilogy (2025) — CONTEXTO, no referencia
 
-- Dato: reedición basada en versiones PlayStation vía emulación (lanzada
-  junio 2025 en PC/PS/Xbox/Switch). Útil solo para comparar comportamiento;
-  no comparte código con el port PC.
+- Por decisión del proyecto (2026-10-08), Gex Trilogy (Limited Run / Carbon
+  Engine, basado en versiones PlayStation vía emulación) **no** es referencia.
+  Se conserva esta nota solo como contexto histórico.
 
 ## S-13 — Internet Archive: imágenes de CD documentadas
 
@@ -99,7 +117,67 @@ investigación, **no** instrucciones ciegas. Todo está pendiente de contraste.
 - Utilidad: evidencia de estructura del CD (pista datos + pistas audio) y de
   variantes regionales. **No descargar material propietario al repo.**
 
+## S-14 — speedrun.com: "PC Version Setup Package" (Mysticore) ⭐
+
+- URL: <https://www.speedrun.com/gex2/resources/e3dsk>
+- Qué es: paquete (Drive, 25-01-2022, ~411 MB: `Gex 2 PC (Patches & Tools).zip`)
+  que "incluye todo lo necesario para que la versión PC NTSC funcione en
+  sistemas modernos sin el disco físico", con README de instrucciones.
+- Utilidad: procedimiento real de setup usado por speedrunners (versión,
+  ejecutable, fixes, configuración). Análisis pendiente.
+- Copia de trabajo: `Drive → REZengineered/research/` (copiado 2026-10-08
+  desde el enlace público; uso privado de investigación, no redistribuir).
+- Pendiente: extraer README + inventario de parches/herramientas incluidas
+  (requiere descarga en máquina con espacio; 411 MB superan este sandbox).
+- Confianza: media-alta (mismo autor modera el leaderboard PC).
+
+## S-15 — speedrun.com: PS1 Any% Guide + diferencias de versión (secundaria)
+
+- URL: <https://www.speedrun.com/gex2/guides/le6ak>
+- Qué es: guía de mecánicas/rutas basada en PS1; indica que "muchas cosas
+  aplican a PC, no todo" y remite a diferencias de versión (N64/PC).
+- Utilidad secundaria: entender mecánicas originales vs particularidades PC.
+- Estado: pendiente de lectura detallada.
+
+## S-16 — DxWrapper (elishacloud) — herramienta de referencia (open source)
+
+- URL: <https://github.com/elishacloud/dxwrapper>
+- Qué es: wrapper open-source de DLLs DirectX para Win10/11: convierte
+  DirectDraw/D3D 1–7 → D3D9 (Dd7to9, cubre **D3D5**), D3D8 → D9, DirectInput
+  1–7 → 8, hooks de DirectSound; permite cargar `.asi`; hack de resolución
+  legacy; modo ventana; FPS counter.
+- Utilidad: (a) ayuda de testing/compatibilidad para la ruta D3D del juego;
+  (b) **código abierto para estudiar** cómo se interceptan/solucionan APIs
+  legacy (no copiar a ciegas: entender y decidir solución propia).
+- Estado: catalogado; probar en Fase 5 contra ruta D3D si aplica.
+
+## S-17 — dgVoodoo2 (dege-diosg) — herramienta de referencia (freeware, NO OSS)
+
+- URLs: <https://github.com/dege-diosg/dgVoodoo2> · <https://dgvoodoo2.com/>
+- Qué es: wrapper freeware (no open-source) Glide/DirectDraw/D3D3–9 → D3D11/12.
+  Instalación por DLLs junto al exe + `dgVoodooCpl.exe`.
+- Utilidad: alternativa de testing para rutas Glide y D3D; comparar
+  comportamiento nGlide vs dgVoodoo2 vs nativo.
+- Nota: PCGamingWiki reporta crash dgVoodoo2 + vorpX (I-10, sin verificar).
+- Estado: catalogado; probar en Fase 5.
+
+## S-18 — REA (morluto/rea) — herramienta RE del proyecto (MIT)
+
+- URL: <https://github.com/morluto/rea>
+- Qué es: CLI + servidor MCP open-source (MIT, Node 22+) que da a agentes IA
+  una vía uniforme para inspeccionar software sin fuente: decompilación de
+  binarios nativos vía Hopper o Ghidra aportado (12.1.x), análisis estático
+  JS/Electron, evidencias y limitaciones por conclusión. Setup:
+  `npx rea-agents setup`; diagnóstico por proveedor:
+  `rea doctor --provider ghidra --json`.
+- Uso en el proyecto: capa de orquestación/evidencia del RE; Ghidra como motor
+  profundo. CLI 5.0.0 ya instalado en sandbox, sin backend nativo (ver TOOLKIT).
+- Estado: adoptado como herramienta oficial del proyecto.
+
 ## Pendiente del mantenedor
 
-- [ ] Enlaces y recursos adicionales anunciados (por recibir).
-- [ ] Archivos originales del juego (por recibir; irán a Drive, nunca al repo).
+- [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como
+  secundaria, speedrun/setup). Jerarquía de referencias fijada.
+- [ ] Archivos originales del juego (irán a Drive `originals/`, nunca al repo).
+- [ ] Extraer de S-14 (setup package): README + lista de parches/herramientas
+  + hashes de ejecutables incluidos.

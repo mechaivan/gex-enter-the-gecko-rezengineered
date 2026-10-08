@@ -88,24 +88,60 @@
 - **Pendiente:** identificar contenido y autoría.
 - **Estado:** DESCONOCIDO.
 
+## F-09 — PC Version Setup Package (Mysticore, speedrun.com, 2022-01-25)
+
+- **Problema que dice solucionar:** setup completo de la versión PC NTSC en
+  sistemas modernos sin disco físico.
+- **Origen:** <https://www.speedrun.com/gex2/resources/e3dsk> →
+  `Gex 2 PC (Patches & Tools).zip` (~411 MB).
+- **Copia de trabajo:** `Drive → REZengineered/research/` (privada).
+- **Pendiente:** extraer README + inventario (parches, tools, versiones,
+  ejecutables, hashes). Por tamaño, hacerlo en máquina con espacio.
+- **Estado:** DESCONOCIDO (contenido sin inspeccionar).
+
+## Herramientas de compatibilidad (no son fixes del juego)
+
+Se catalogan como ayudas de testing/estudio. El proyecto decidirá en Fase 3
+qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
+
+## T-01 — DxWrapper (elishacloud, open source)
+
+- **Qué es:** DDraw/D3D1–7 → D3D9, D3D8 → D9, DInput1–7 → 8, hooks DirectSound,
+  loader `.asi`, resolution hack legacy, modo ventana.
+- **Interés:** cubre D3D5 (API del juego); código abierto para estudiar
+  intercepción de APIs legacy.
+- **Fuente:** S-16. **Estado:** catalogado, sin probar.
+
+## T-02 — dgVoodoo2 (dege-diosg, freeware, código cerrado)
+
+- **Qué es:** Glide/DirectDraw/D3D3–9 → D3D11/12.
+- **Interés:** comparar rutas Glide y D3D bajo wrappers distintos.
+- **Fuente:** S-17. **Estado:** catalogado, sin probar.
+
+## T-03 — nGlide (Zeus Software, freeware, código cerrado)
+
+- **Qué es:** wrapper Glide → Direct3D moderno; estándar de facto para Gex2.
+- **Interés:** ruta Glide en GPUs modernas; exe capeado a 30 FPS (F-04).
+- **Fuente:** S-02/S-04. **Estado:** catalogado, sin probar.
+
 ## Proyectos relacionados (no son fixes de la versión PC)
 
-## R-01 — Gex64Decomp (MatBourgon / Tokatta007)
+## R-01 — Gex64Decomp (MatBourgon / Tokatta007) — REFERENCIA SECUNDARIA
 
 - **Qué es:** decompilación WIP de *Gex 64* (N64, MIPS) con splat/decomp.me.
 - **Utilidad potencial:** nombres, sistemas, lógica, estructuras como
-  **referencia** arquitectónica.
+  **referencia** arquitectónica para distinguir comportamiento de la familia
+  Gex de problemas del port PC. **NO reproducir su comportamiento;
+  NO es código PC.**
 - **Advertencia:** NO asumir identidad con la versión PC (distinto port:
   LTI Gray Matter; distinta plataforma y CPU).
-- **Estado:** catalogado como referencia.
+- **Estado:** catalogado como referencia secundaria (fuente S-11).
 
-## R-02 — Gex Trilogy (2025, Limited Run Games, Carbon Engine)
+## R-02 — Gex Trilogy (2025) — NO ES REFERENCIA (contexto)
 
-- **Qué es:** reedición basada en las versiones **PlayStation** vía emulación.
-- **Utilidad potencial:** comparación de comportamiento audiovisual original.
-- **Advertencia:** no es la versión PC ni comparte su código; no sirve como
-  fuente de implementación.
-- **Estado:** catalogado como referencia.
+- Por decisión del proyecto (2026-10-08), Gex Trilogy (Limited Run / Carbon
+  Engine, emulación de versiones PlayStation) **no** forma parte de las
+  referencias. Se conserva esta nota solo como contexto histórico.
 
 ## Plantilla de análisis (usar en Fases 1–2)
 
