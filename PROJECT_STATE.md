@@ -48,8 +48,12 @@
 
 ## Limitaciones actuales
 
-- **Sin archivos originales todavía:** no se ha proporcionado ningún ejecutable
-  ni archivo del juego. Todo lo documentado proviene de fuentes secundarias.
+- **Originales inventariados, sin copias locales:** `originals/` en Drive
+  (volcado CloneCD + contenido del CD) catalogado en
+  `docs/ORIGINAL_ARTIFACT_INVENTORY.md` con hashes y análisis estático de
+  solo lectura; no queda ninguna copia en el sandbox ni en el repo.
+  El análisis binario profundo sigue bloqueado hasta que el mantenedor
+  indique el cambio de fase.
 - **Sin entorno Windows de pruebas:** este entorno (Linux) solo permite análisis
   estático; la reproducción de problemas requiere un PC con Windows.
 - **Sin Ghidra/JDK/Rizin en el sandbox:** imposible descargarlos aquí

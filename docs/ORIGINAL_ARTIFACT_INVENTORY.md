@@ -1,0 +1,901 @@
+# INVENTARIO DE ARTEFACTOS ORIGINALES — Gex: Enter the Gecko (PC)
+
+**Fecha:** 2026-10-08 · **Fase:** 1 — Inventario / preservación / documentación
+**Alcance:** `REZengineered/originals/` en Google Drive —
+`disc_image/` (volcado CloneCD del CD original) y `original_install/`
+(contenido del CD / instalación vanilla).
+**Idioma:** Español (documento de trabajo). No se redistribuye ningún
+material propietario: este documento contiene solo metadatos, hashes y
+resultados de análisis estático de solo lectura.
+
+## §0. Método y etiquetas de evidencia
+
+- Metadatos (nombre, tamaño, `modifiedTime`, MD5, SHA-256, IDs) obtenidos
+  vía Google Drive API. Los `modifiedTime` de ficheros de 1996–1998 son
+  los sellos originales del CD; los de carpetas (2026-10-08) son fecha de
+  subida y **no** son evidencia del original.
+- 30 ficheros pequeños (<2 MB) + `DATA2.CAB` (53 MB) se descargaron a una
+  carpeta temporal del sandbox y se verificaron por SHA-256 contra Drive
+  (30/30 coinciden; ver §13). Tras el análisis, **la copia temporal se
+  eliminó**; no queda ninguna copia local de material del juego.
+- `.img`/`.sub` (822 MB + 33 MB) **no** se descargaron ni montaron ni
+  convirtieron: solo se registran sus hashes y la TOC (`.ccd`/`.cue`).
+- Análisis estático de solo lectura (`od`, `strings`, Python/`pefile`).
+  Sin `file`/`xxd`/`cabextract`/`unshield`/`7z` en el sandbox.
+- Etiquetas: **CONFIRMED** (evidencia directa) · **HYPOTHESIS** (inferencia
+  explícita) · **UNKNOWN-PENDING** (pendiente Fase 2+) · **REFERENCE**
+  (fuente secundaria, no evidencia del original PC).
+
+## §1. Mapa de carpetas en Drive
+
+```text
+originals/            id 18jB2kH8_KxbzXbV9Ikr6lzOX-S0bcd8z
+├── disc_image/       id 1waaOB9hrHpywD0tcVfgrxT-Xra75hVV3   (4 ficheros)
+└── original_install/ id 1hHmNfG17pqNHCRCowBYhaJuNgiX5qNYD   (19 ficheros + 2 carpetas)
+    ├── DIRECTX/      id 1j-0rbSqHVngXx4O7JHiVm0DOGgMMAq_V   (85 ficheros + DRIVERS/)
+    │   └── DRIVERS/  id 1maHmIHQSviZuyiTRk3qwRpHCiOWuInoq   (5 × 189 ficheros)
+    │       ├── USA/  id 1UTukswHQ9zcniOBVGCkNHEa817RhL_WX
+    │       ├── ITN/  id 1JxU53pB1qlZW6WCG8FoqW3-sZ-6jUnKh
+    │       ├── FRN/  id 1-7Hy6QWjGKeN3HmrO2MGpzmmy59CPrTQ
+    │       ├── SPA/  id 1U0squE1A4LFspmXoxX4r-q4B-TumxtMZ
+    │       └── GER/  id 1NHkUcjux-zN-WqTpC7ehGWRE4FeOGbYl
+    └── GEX2/         id 1fLvTsyqR0AEmuFUHU82_pOl6c3oxC2t3   (5 ficheros + 3 carpetas)
+        ├── LEVEL/    id 1ZKBdZFuTsxBRdbySwttfQXiRo1KtHsC0  (72 ficheros)
+        ├── AUDIO/    id 1MGYfAkMHHjjqKhAFW1-DU9j2HrG30cgP  (37 ficheros + VOICEUK/)
+        │   └── VOICEUK/ id 1Unx_FEziGto61JtYJoG5Gq54a0RxQXdE (400 ficheros)
+        └── MOVIE/    id 13cuESL7av0zZh-hfqk79rV-N4mMccCJC  (18 ficheros)
+```
+
+Total: **4 + 19 + 85 + 945 + 5 + 72 + 37 + 400 + 18 = 1585 ficheros**,
+13 carpetas (contando `originals/`).
+
+## §2. `disc_image/` — volcado CloneCD del CD máster
+
+| Fichero | Bytes | modifiedTime (UTC) | MD5 | SHA-256 |
+|---|---|---|---|---|
+| `GEX2_3DFX.img` | 822492048 | 2012-06-14T14:31:06 | `c01313c5ca6ada783dcc0cb8532fd3e8` | `df2d202e8088f7e928b44d4fc1618a036b56b2b6dedcf3bde3341414060f441b` |
+| `GEX2_3DFX.sub` | 33571104 | 2012-06-14T14:31:06 | `178a285b74d9dd0e0e3acfb575fdacc3` | `0a9afce962089de7e2402858f84a9917e1b1f0cc219ccd7dd0378f62199a0dc9` |
+| `GEX2_3DFX.ccd` | 4082 | 2012-06-14T14:31:04 | `119b9014bf56cd3e531ebf302124f215` | `8295c2e6122388078c4f6eabc8f1df5a0d0cff482d7914f4b01ac404b89e4d2b` |
+| `GEX2_3DFX.cue` | 1020 | 2012-06-14T14:31:04 | `c990950f8032f268b0acfd3cf3f05aa4` | `4cbbbdea5c6f30c17149eb32aba4f0f949a9ab824455d3a7abb272b9e995259a` |
+
+Aritmética de sectores (CONFIRMED, coherencia interna exacta):
+
+```text
+.img  822492048 / 2352 = 349699 sectores (MODE1/2352 crudo)
+.sub   33571104 /   96 = 349699 sectores (subcanal)
+lead-out .ccd PLBA     = 349699  → 822492048 B exactos
+duración total disco   = 349699 / 75 = 4662,65 s ≈ 77:42,65
+```
+
+**Nota:** los nombres `GEX2_3DFX.*` y la fecha 2012-06-14 son del ripeo
+con CloneCD, **no** del prensado original (el «3DFX» del nombre no es por
+sí solo evidencia de edición; la edición 3dfx se confirma por vías
+independientes, ver §11). Etiqueta de volumen del CD: UNKNOWN-PENDING
+(vive en el sector 16 del `.img`, no leído).
+
+### §2.1. `.cue` (texto íntegro, 1020 B)
+
+```text
+FILE "GEX2_3DFX.img" BINARY
+  TRACK 1 MODE1/2352
+    INDEX 1 00:00:00
+  TRACK 2 AUDIO   INDEX 0 37:05:01  INDEX 1 37:07:01
+  TRACK 3 AUDIO   INDEX 0 39:50:69  INDEX 1 39:52:66
+  TRACK 4 AUDIO   INDEX 0 41:59:05  INDEX 1 42:01:05
+  TRACK 5 AUDIO   INDEX 0 43:38:05  INDEX 1 43:40:05
+  TRACK 6 AUDIO   INDEX 0 46:08:56  INDEX 1 46:10:56
+  TRACK 7 AUDIO   INDEX 0 48:39:07  INDEX 1 48:41:07
+  TRACK 8 AUDIO   INDEX 0 52:32:32  INDEX 1 52:34:32
+  TRACK 9 AUDIO   INDEX 0 55:31:40  INDEX 1 55:33:40
+  TRACK 10 AUDIO  INDEX 0 57:10:59  INDEX 1 57:12:59
+  TRACK 11 AUDIO  INDEX 0 59:45:67  INDEX 1 59:47:67
+  TRACK 12 AUDIO  INDEX 0 61:54:08  INDEX 1 61:56:08
+  TRACK 13 AUDIO  INDEX 0 65:14:49  INDEX 1 65:16:49
+  TRACK 14 AUDIO  INDEX 0 68:50:25  INDEX 1 68:52:25
+  TRACK 15 AUDIO  INDEX 0 72:07:38  INDEX 1 72:09:38
+  TRACK 16 AUDIO  INDEX 0 74:15:40  INDEX 1 74:17:40
+  TRACK 17 AUDIO  INDEX 1 77:38:47  (sin pregap)
+```
+
+### §2.2. TOC (de `.ccd`, CloneCD v3, 1 sesión, 20 entradas, CDText vacío)
+
+```text
+pista tipo   INDEX1 (MSF)   PLBA    longitud aprox
+  1   datos  00:00:00       0       167026 sect ≈ 37:07,0
+  2   audio  37:09:01    167026 12440 sect ≈ 2:45,9
+  3   audio  39:54:66    179466  9614 sect ≈ 2:08,2
+  4   audio  42:03:05    189080  7425 sect ≈ 1:39,0
+  5   audio  43:42:05    196505 11301 sect ≈ 2:30,7
+  6   audio  46:12:56    207806 11276 sect ≈ 2:30,3
+  7   audio  48:43:07    219082 17500 sect ≈ 3:53,3
+  8   audio  52:36:32    236582 13433 sect ≈ 2:59,1
+  9   audio  55:35:40    250015  7444 sect ≈ 1:39,3
+ 10   audio  57:14:59    257459 11633 sect ≈ 2:35,1
+ 11   audio  59:49:67    269092  9616 sect ≈ 2:08,2
+ 12   audio  61:58:08    278708 15041 sect ≈ 3:20,5
+ 13   audio  65:18:49    293749 16176 sect ≈ 3:35,7
+ 14   audio  68:54:25    309925 14788 sect ≈ 3:17,2
+ 15   audio  72:11:38    324713  9602 sect ≈ 2:08,0
+ 16   audio  74:19:40    334315 15082 sect ≈ 3:21,1
+ 17   audio  77:40:47    349397   302 sect ≈ 0:04,0
+lead-out     77:44:49    349699
+```
+
+Disco de modo mixto: pista 1 = datos (`Control=0x04` en `.ccd`),
+pistas 2–17 = CD-DA (`Control=0x00`). Pregap estándar de 150 sectores
+(2 s) en pistas 2–16; la 17 no tiene pregap y dura ~4 s.
+Audio total ≈ 40:36. El juego reproduce CD-DA vía MCI
+(`mciSendCommandA` importado por `GEX3D.EXE`, ver §4.1).
+
+## §3. Raíz de `original_install/` — 19 ficheros + 2 carpetas
+
+Formato: `nombre | bytes | modifiedTime UTC | MD5 | SHA-256 | id Drive`.
+
+```text
+DIRECTX/      (carpeta, subida 2026-10-08T13:41:29.707Z)  id 1j-0rbSqHVngXx4O7JHiVm0DOGgMMAq_V
+GEX2/         (carpeta, subida 2026-10-08T13:41:29.695Z)  id 1fLvTsyqR0AEmuFUHU82_pOl6c3oxC2t3
+CLPD305.TMP   | 0 | 1998-05-19T18:13:50Z | d41d8cd98f00b204e9800998ecf8427e | e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 | 1Ug4fMoSNQoep6l7lAz7etjFS25Lpn9S3
+DATA2.CAB     | 53478129 | 1998-05-19T17:55:00Z | 20fc47a52274ca1008fdf12601f8aadc | 44cedf6e41929a61be04b8f43cd69ef25e5220c675bb03cd0ad2b2a9d68f2346 | 11ti-EFgtJE_mYG-dBJyagUAoL1laUNzK
+SETUP.LID     | 49 | 1998-05-12T12:51:38Z | 1b79748e93a541cc1590505b6c72828a | 708d29c649525882937031b3d73cc851b7b1bc30772eb4e0e2a71523908f2eb5 | 1ejoE_K_CQ4INVB-W-WsmRPU895F0C9gu
+DATA1.CAB     | 35651 | 1998-05-12T12:51:38Z | aeaf3e5c2cde45fb3c9987d978176f99 | 35177d98adb842ac481bf3031810b9e784dc98729750a661d7e06b289e961e87 | 146PZna9H1AOJkJDLeitZhXFNvzCX7cUB
+LAYOUT.BIN    | 374 | 1998-05-12T12:51:38Z | c2c719876b4ea407d7b6262688f92289 | 27dcf3ad3117796a8d1c4cf340b7ed7137353d64b194a79c24b55756b6b8a7b6 | 1Bn0jgl7MisbSTC6uH_ESVPMRjfkvjjip
+SETUP.INI     | 68 | 1998-05-12T12:36:46Z | 7d23112c9dd3fe8776af7d74cd769531 | 96d7a6a1e1e022a1376d43a1b0f2589d40c62246bc17a40b02742cf4de6a8c14 | 19zT9IOVE7JF7GWFwQ9pQAJgHgF5LuUH9
+_USER1.CAB    | 50869 | 1998-05-12T12:36:44Z | 4642244ca1beba866158191c507599d0 | 4945ed16611fb887cece510c47d8c09f2b19d42cf3de79bbf763527079b5120e | 1jUM-YGAAegtAFybTMcwJL7E3QkpQ7oRA
+DATA.TAG      | 131 | 1998-05-12T12:36:44Z | cab03f50a5e7f769b1c14305d458d39c | a3b366acacdaadf21217c804b7e1781894da3f08ec54326f4aa4228db3d18ab1 | 1ghDCKx2T0fLL0MJFm6pO1Ld4-4stzKlP
+_SYS1.CAB     | 208650 | 1998-05-12T12:36:42Z | 7875ae0eb652e3207afc0a0929fed170 | e57f5d0452580113895bc1af6c097d9b74a74bfa82daf85febfc1b4f60a5f0fd | 1y1zjKrvPFlPd-1Bv3JVOc-WtRg40W8Lk
+SETUP.INS     | 57472 | 1998-05-12T06:19:18Z | 4a52e92c6ab9676581addf52c5dd0e18 | a4675fa4f46c127d20b983be8fa6a8dd88dd09d92cfa9ec3868b60b517b7c638 | 1UBinO5fOYzlCPZAeKm_Jef40Hut1MfyA
+AUTORUN.INF   | 52 | 1998-05-07T01:51:26Z | 33376e690103f63baef04f026a118b0b | 9c6dfea0e8493dfb1f3744b3851e909eced148b7c3e8ca5f0117fcb1db44d2eb | 1VpEvKlHPhG6ZZ-d4rT6LgGwU9JzlqVVJ
+__SETUP.BMP   | 82278 | 1998-04-08T14:55:18Z | 199a9fc85b7e06343f9329c2d4c9e15f | c72d9fec78a4d4e7932a120d56a13cec8ee0349ac06d17b48e1c459b43fdff44 | 132uhvNuPQL-uLuNdMwKtFolnKJxBF1Qr
+SETUP.BMP     | 77880 | 1998-04-08T14:55:18Z | ffa5ee47a9fa772002341470636185bb | 2054783b248a0afa7eec2216412d3d1d470d54d47674ac1fda728a0d6bd7f7a8 | 1U1yXsblryjFQaVUNGui6tUPKbNuxfg4y
+_INST32I.EX_  | 290586 | 1997-12-17T18:47:44Z | 4251c8e7962ce3ca98fdcbe096c1d270 | 065443568c396564ec51c72f54f81990c49e4b0cece780acbfc6a7494b65a3e0 | 12doMoKOzoCStWjSFSWvyOMYM7Ivq1avG
+SETUP.EXE     | 59904 | 1997-12-17T18:30:30Z | afe10d250b2c1850b37827c1d4e01eef | 26adea53490125fd31e300da97ef48b9ddc583753789051746b9a31406b418cf | 171ieXppgAD703OVRFS1YT-dKhM7JR9oQ
+_ISDEL.EXE    | 8192 | 1997-12-17T18:30:02Z | 1f9bbfaab8dec9ac4416e5be2d22e315 | dad294b71f24b1eb140d3536ab7abd0336977fe92a18be38abe4f1a5be91939a | 1Ov0TJf-wovibm7uIGuSAJjyzBrPhDPTe
+_SETUP.DLL    | 11264 | 1997-12-17T18:29:50Z | 8c6dc2367841533e1fe0c2e402cabd03 | 2178d6bbb5a3cdb803341c516cb7b06019a2183e3f3572177f186802252209e5 | 1HLMHjtbedQqKvfhP9BMJrKp8msQ741hS
+LANG.DAT      | 4557 | 1997-05-30T11:31:50Z | 90e64689804b4f4b0197c07290965a3c | eb1e8ea9707bc2f6eb4b4cc4d022e6acf0b79e0c66f8406478269eeab05693b8 | 1e7EA3TKoHdTOweLmWg7QVg-_FVWDcPs9
+OS.DAT        | 417 | 1997-05-06T14:15:20Z | af1d8d9435cb10fe2f4b4215eaf6bec4 | 2f148cb3d32ab70a315b5a853761c2702b6deef6ffaff6aa76d513b945ce7ef7 | 1Iem5zjLptd1q1eWZa1vMq6JbbG4dxKpI
+```
+
+### §3.1. Instalador: InstallShield 5.x (CONFIRMED, por bytes, no por nombre)
+
+- `SETUP.EXE` (59904 B): ejecutable **16-bit NE** (`MZ` + `NE`, linker
+  5.60, flags app 0x302, targetOS Windows). Cadenas: `InstallShield
+  Software Corporation. 1996-1997`, referencias a `SETUP.INS`,
+  `_INST32I.EX_`, variantes `BOOT32`/`BOOT16`.
+- `_SETUP.DLL` (11264 B): NE 16-bit (flags DLL 0x8301):
+  `InstallSHIELD Resource DLL (c) Stirling Technologies Inc., 1990-1995`
+  + mensajes de error estándar.
+- `_ISDEL.EXE` (8192 B): NE 16-bit: `Deleter Process (c) 1990-1997
+  InstallShield` (utilidad de desinstalación).
+- `SETUP.INS` (57472 B, magia `b8 c9 0c 00` = script InstallShield
+  compilado): diálogos `SdComponentDialogAdv`/`SdComponentMult`/
+  `SdSelectFolder`, destino `\gex23dfx`, `gex3d.exe`,
+  `\directx\dxsetup.exe`, `Would you like to launch Gex 2 now?`,
+  `Uninst.isu`, aviso `Make sure the _ISRES.DLL is in _SYS.CAB.`
+- `DATA1.CAB` / `_SYS1.CAB` / `_USER1.CAB`: cabeceras `ISc(` versión 4
+  (InstallShield Compressed). `DATA1.CAB` contiene la tabla de ficheros
+  a instalar (ver §10). **No hay `data1.hdr`** en el CD.
+- `_INST32I.EX_` (290586 B): motor 32-bit comprimido de Stirling;
+  magia `2a ab 79 d8` (no es SZDD/KWAJ; formato propio de
+  InstallShield — identificación del compresor: UNKNOWN-PENDING) +
+  `Copyright (c) 1990-1995 Stirling Technologies, Inc.`
+- `LAYOUT.BIN` (374 B, magia `63 07 00 10 …`, contiene `_sys…`):
+  descriptor de layout de medios InstallShield.
+- `LANG.DAT` (4557 B): tabla INTL stock de InstallShield v1.00.000 con
+  **32 locales** (`0409 0407 040c 0410 040a 041d 0416 0c0c 042d 0403
+  0405 0406 0413 040b 0408 040e 0414 0415 0816 0424 041b 0411 0419
+  0804 0404 041f 0401 041e 042a 0412 040d 0421`). No es contenido del
+  juego; el instalador solo ofrece 1 idioma (ver `SETUP.LID`).
+- `OS.DAT` (417 B): tabla PLATFORM stock (`Win 3.1 & 3.11`, `Win 95`,
+  `Win NT 3.51/4.0` Intel/Alpha/MIPS).
+
+### §3.2. Ficheros de identificación y arranque (contenido íntegro)
+
+```text
+SETUP.LID (49 B):  [Languages] key0=0009 Default=0009 count=1   → instalador solo en inglés USA
+SETUP.INI (68 B):  [Startup] AppName=Gex2-Europe FreeDiskSpace=474 EnableLangDlg=Y
+DATA.TAG (131 B):  [TagInfo] Company=Crystal Dynamics / Application=Gex2 /
+                   Version=1.00.000 / Category=Development Tool / Misc=(c)1998 Crystal Dynamics
+AUTORUN.INF (52 B): [autorun] open=setup.exe -autorun / icon=gex3d.ico
+```
+
+### §3.3. Gráficos del instalador
+
+- `SETUP.BMP` (77880 B): BMP 320×240×8bpp (bitmap del asistente).
+- `__SETUP.BMP` (82278 B): BMP 520×316×4bpp (billboard).
+- `CLPD305.TMP` (0 B, 1998-05-19T18:13:50Z — **el sello más tardío del
+  CD**): fichero vacío; HYPOTHESIS: resto del proceso de construcción
+  del máster. El CD se masterizó ≥ 1998-05-19.
+
+### §3.4. `DATA2.CAB` — en realidad un RAR 4.x (CONFIRMED por magia)
+
+Magia `Rar!\x1a\x07\x00`. Contiene **una sola entrada**:
+
+```text
+nombre: data3.ca0 | PACK_SIZE=53478068 | UNP_SIZE=64000000 | METHOD=0x30 | HOST_OS=Win32
+cabecera FILE_HEAD de 41 B (20 + 41 + 53478068 = 53478129 exactos)
+```
+
+HYPOTHESIS: `data3.ca0` es el payload de datos del instalador
+(la tabla de `DATA1.CAB` apunta a los contenidos). Contenido exacto:
+UNKNOWN-PENDING — la extracción con herramientas RAR adecuadas queda
+para Fase 2 (el parseo manual con walker propio se descartó por
+fragilidad; no reintentarlo a mano).
+
+## §4. `GEX2/` — 5 ficheros + 3 carpetas (juego instalado)
+
+```text
+LEVEL/     (carpeta, subida 2026-10-08T13:41:30.415Z)  id 1ZKBdZFuTsxBRdbySwttfQXiRo1KtHsC0
+AUDIO/     (carpeta, subida 2026-10-08T13:41:30.412Z)  id 1MGYfAkMHHjjqKhAFW1-DU9j2HrG30cgP
+MOVIE/     (carpeta, subida 2026-10-08T13:41:30.399Z)  id 13cuESL7av0zZh-hfqk79rV-N4mMccCJC
+GEX3D.EXE  | 1557504 | 1998-05-19T16:52:12Z | 692b12825003417cc4a5a9d4db13eebe | d0932549613f9c08fb895c5f8a6461ce044e1863b4cba42da4715c2b41e73886 | 1HyzDod7WmqUEzfyeWNS3bN8OgA6INCHM
+GEX.VFX    | 1588 | 1998-03-28T13:49:46Z | bed27d6f569f51731c3b2c89d7dc5896 | a6af4a74158c1c40e48a7c0b99763494d98456517260f36bd80ba2bcca3deccc | 1cJxChqK9yNZwP0Z9Okk_ojnvnH-NKvAZ
+GEX.DFX    | 146008 | 1998-03-28T13:49:46Z | d2bfdf74f8f9b63d58c974fa5eb0df2e | 9cf1bf0f43eb760bfc141023745de580685ec07fa7e6815c7f487c91c4edd17b | 1FsSQvnxupjck5MTWbrL8rhj8ho09r9B7
+FONT.3DF   | 4149 | 1997-01-13T11:54:38Z | b1a94d1a54568e8e8b29f9d86a51b8c3 | 265cd7845f672479006daa58fea76c8f3d8f890959887fbbccd0b42c1ef09939 | 1jawDbFXqZ5FFCsNsCJ5Au54kj8gKLMPv
+GEX3D.ICO  | 3310 | 1996-10-08T11:15:06Z | 4aa75525dc55e3db0cbb4848e3093173 | 06cdcfa99acd17613d2a50ef4c9ec52e3dc697bbae39884dd9dc895c54d6a3e9 | 1xfLXVyX0_MPXSDcA1mOx89Xal7nIYlH5
+```
+
+### §4.1. `GEX3D.EXE` — ejecutable principal (CONFIRMED por análisis PE)
+
+- PE32 i386 GUI, `ImageBase=0x400000`, timestamp de link
+  **1998-05-18T21:07:58Z**, sin información de versión. Secciones:
+  `.text` 1354752 B (entropía 6.08), `.rdata`, `.data`, `.idata`, `.rsrc`.
+- **Render exclusivamente Glide (CONFIRMED):** importa 38 funciones de
+  `glide2x.dll` (`grGlideInit/Shutdown`, `grSstWinOpen`,
+  `grDrawTriangle`, `grBufferSwap`, `gu3dfGetInfo/Load`,
+  `grTex*`, `grFog*`, `grAlpha*`, `grLfbWriteRegion`…) y
+  **cero imports de DirectDraw/Direct3D**. Resto de imports: KERNEL32,
+  USER32, GDI32, ADVAPI32, `WINMM` (joystick `joyGetPosEx`, volúmenes
+  `aux*`, **`mciSendCommandA` → CD-DA vía MCI**) y `DSOUND`
+  (`DirectSoundCreate`).
+- Cadenas destacadas (todas verificadas en el binario):
+  - `C:\gex3d\game\3dfx\release_europe/gex3d.exe` (+ `.pdb`) →
+    rama de build **3dfx / release_europe**.
+  - `SOFTWARE\Crystal Dynamics\Gex2\1.00`,
+    `\Program Files\Crystal Dynamics\Gex23dfx`.
+  - `This game requires Glide version 2.1 or higher.` /
+    `Error: Unable to load glide2x.dll` / `Voodoo` / `Voodoo2`.
+  - `A valid Gex: Enter The Gecko CD was not found.` /
+    `Please insert the Gex CD and try again.` (comprobación de CD).
+  - `\gex3d\game\psx\bin\credits.bin` (ruta heredada PSX),
+    `\gex3d\level\rezop\rezop3\rezop3`, patrón de guardado
+    `GEX2%d%d%c.GEX`, `Eric Elliott (Gex)`.
+
+### §4.2. Resto de ficheros de `GEX2/`
+
+- `FONT.3DF` (4149 B): textura de fuente **3dfx Glide `.3df`**
+  (cabecera `3df v1.1`, `rgb332`, `lod range: 128 128`,
+  `aspect ratio: 4 1`). Corrobora edición Glide.
+- `GEX3D.ICO` (3310 B): icono con 3 imágenes (32×32×16c, 32×32×256c,
+  16×16×16c). El más antiguo del juego (1996-10-08).
+- `GEX.VFX` (1588 B): binario sin magia de texto; arranca con una tabla
+  de DWORDs y una rampa tipo paleta/gamma (`04 18 26 33 44 5d 78 9d
+  …`). Formato exacto: UNKNOWN-PENDING.
+- `GEX.DFX` (146008 B): datos del hub/mapa principal; contiene etiquetas
+  de texto (`gex_____`, `lilly___`) y patrones ASCII de mapa
+  (`O`/`C`/`H`/`_`). Estructura: UNKNOWN-PENDING.
+
+## §5. `LEVEL/` — 72 ficheros (36 pares `.DFX`/`.VFX`)
+
+Formato: `nombre | bytes | modifiedTime UTC | MD5 | SHA-256`.
+
+```text
+MAP5.DFX     | 1082940 | 1998-05-12T11:10:36Z | 5d610ca7a5a56094064e6f023e9d90e1 | 77967b5929ecbe27631ba4dee64e7f642d16a736e2de9a14559361f9155dc75f
+MAP5.VFX     | 2133088 | 1998-05-12T11:10:36Z | cc704f1736f777d183714629e6827bdf | 0cd9c264931ee58b96c7f92abef2b46688bb4492fb739ef77934a8ee871d1f36
+SCIFI14.VFX  | 2194328 | 1998-05-11T23:09:10Z | e2c9f479c0073b6655dfe02fb32cbe41 | e395d6c9a8c5f980b24b17f9d6fcbe105442719d6e4dfa139d2848532c0edcd0
+SCIFI14.DFX  | 872376  | 1998-05-11T23:09:10Z | 197a7aed982d45ca78a24f203b55ce87 | 40dd0867d0f771f9986235b182dcce4a10b71f78e1350d52654b52f47942dd5d
+MAP7.VFX     | 2020004 | 1998-05-11T19:46:46Z | 72e5b1535c9244c58bf9405c9d455560 | 859b38209b4e01027a2d7303c640e6f2b86502232967959eb1dc0e6a36950a05
+MAP7.DFX     | 1030848 | 1998-05-11T19:46:46Z | 6417b898d14944ff0b874e085798a914 | 98100280632261a1da25dccf1f03782b533411404b03c4eca0490e90f31e0550
+KUNGFU02.DFX | 1021424 | 1998-05-08T14:30:24Z | c442c8b3e21fe86786e3750b2a4c0873 | 2a9bd2fb3b4c55105db6068691efecb5cd21f54f068f81a971282acf4c904d57
+KUNGFU02.VFX | 1923112 | 1998-05-08T14:30:24Z | 607f996961c4f8cde22e387fc7003b17 | 5449632cf9f9e37a3317dc2dee7b3b18b17ed2fdb70645cba8edd29cace4c81e
+LOONEY69.VFX | 1752904 | 1998-05-08T14:29:48Z | d65c2c7e7c6fdb982d3b543cb507884f | 04745c5590a9276b9b5d775c176188f755454304fc427d29bdbf29d745a0c3dc
+LOONEY69.DFX | 1019112 | 1998-05-08T14:29:48Z | 903a6f41236a4b8cc7b7a748bce091c1 | 7be72c73d50b367d2efeb6ef7b0871451ee7df095d80d8040420a6ff63098179
+LOONEY30.DFX | 1025636 | 1998-05-08T14:29:20Z | f2b96058dc26c426f8b5e161cacb9b14 | 94ad8ddfb98335e06a7b5e8efda0b045b26b92ffd285b6f1ef228d36e649604a
+LOONEY30.VFX | 1807516 | 1998-05-08T14:29:20Z | 22ddbcff7189e786f20e6ac21b040f17 | c7f69f11e6d6f7092950a6b199aa55c9d90f005342d5b698cd43eb435f39ea85
+SCIFI10.DFX  | 971988  | 1998-05-08T14:28:38Z | d69982af9dcef39cdcce6efff2ad9ec9 | 7f3831dca004bb058b0406a68fb052858f14f24da93623d4f27379be6c738a6f
+SCIFI10.VFX  | 2079576 | 1998-05-08T14:28:38Z | 12c7a628d336463741cf05e4f4dc8ce8 | 98cbf7ada24fb8e8cb2c6843750a1c29e56fa9cc11e9c3d6fc6830f1e1ee49eb
+PREHST2.DFX  | 814876  | 1998-05-08T14:27:04Z | b3830e86994dcf0556c309f18e9181e1 | e1e70c9b7cd1491643bdee97ca813c8a475a2535f3e1b34f34350870c93c1f70
+PREHST2.VFX  | 1450424 | 1998-05-08T14:27:04Z | 6db7eb8fd9194988eca904fabb3003d8 | 3e485fb000c724429bca83143837b30140a32e70f09b100bb63d3425284df431
+PREHST3.VFX  | 1500316 | 1998-05-08T14:26:34Z | 7f42a4f2103df542e21dd967855cee91 | 41e95ac5e3e5070eba1f9199cc5684eabfb1a3143cc8bc6d3f39063d6aa11b0c
+PREHST3.DFX  | 1004188 | 1998-05-08T14:26:34Z | d355de28e0e7eff0fd9b1ab54c13bd93 | 2a16f24a08ba660975bcbec4249bdd568290f03ad6c57f55036c072675f9b255
+REZOP3.VFX   | 1983812 | 1998-05-08T14:25:42Z | 9d379b5f36096bb0101a87909679b300 | d751e745cdb63b9c074b7673447781a3a27e16e06359db4df3e97810071808b1
+REZOP3.DFX   | 1051948 | 1998-05-08T14:25:40Z | dd1cdfb8e185e6fea131337c478db41f | fe4fa95b077e3fbc817668b0a0048a5fee9710c1f17f9789b7c7a9c56950b0aa
+HORROR4.VFX  | 1856436 | 1998-05-08T11:21:38Z | 3d51c6c6920e08e17b90aa555e9cffde | 38e416b1356c056a3f30c18cd3d4777a105ff0038a1945ea5de16b9c3555a327
+HORROR4.DFX  | 1048416 | 1998-05-08T11:21:38Z | 77ce03fa81f0c44d47ab4489cc1848b3 | eadb8b88ee03ae155fd92ea877d56f10b770c753d09beeb14146e8536d01d680
+CIRCUIT9.VFX | 1955936 | 1998-05-08T11:18:22Z | 69ac736cd344dddaac81484a0795cc0b | 0205bf4b8b1a067081dd91fda7e765146d17c95d6d7d10bb0f772488977c9433
+CIRCUIT9.DFX | 1041984 | 1998-05-08T11:18:22Z | 1c932344f750311771beb16f8250e98d | 00bf0d8f92a5023ff11bc8823e28c83caea435416e3277bc9c845f5aa3efcfb0
+CIRCUIT5.VFX | 1697248 | 1998-05-08T11:17:56Z | c3959551e6b93aef74168fc8e40e0849 | fae3e0ce464fb061423f09fcf7bc4b89b5c1e02d6acad26f821a1ef2cb7d60c8
+CIRCUIT5.DFX | 923420  | 1998-05-08T11:17:56Z | dd3e2b59400823373311efba2e53225b | e6556685a6c9a1372057058d22f71ee4ce569b40d8016978f15493c9151d7b0c
+GEXZIL9.DFX  | 505760  | 1998-05-08T06:05:04Z | 0af13fb63798d1af2396cf709ec199d5 | 7d18c714838242185d183f0b5e2d4240c01a3ba5db9e82fa1fb09d04aa4c3e83
+GEXZIL9.VFX  | 1579028 | 1998-05-08T06:05:04Z | 7465de0ae1dccffb627a894a7d0a7663 | 7225887284ae08264c966aeb815e4294aa858dc5ce5e139b85c0b2bb83ba9a8f
+GILLIG1.DFX  | 339960  | 1998-05-08T05:04:58Z | 30a74f4970aeb85efa989f18efad1720 | 335e7edd6a9ffd220a9f83c00a40e6055349c4ecf0a7e1db18067075ea2af26e
+GILLIG1.VFX  | 1598656 | 1998-05-08T05:04:58Z | 504f966e0535fa7ec67d47604fa15bab | 753ae00c09fd2d9e28ee3650b89efb36b33149e5441ed9c58dabb945c6dcf208
+AZTEC16.DFX  | 544586  | 1998-05-07T23:55:42Z | da8e6b548547a5f99703da7ffbdf9dbc | e837d9b35250c2ad56f99d197a32c4e744545b0b7f1d8857c2587792898db6ec
+AZTEC16.VFX  | 1140276 | 1998-05-07T23:55:42Z | fd3393c43e201ad9b0185be259fc284e | 9fb96da05892aaaab09e401665a0c66ad9e3fe77e0e59be295c921251cef3bf6
+CIRCUIT0.DFX | 339414  | 1998-05-06T16:32:46Z | dccf94d636dd73f4e2dfa06b207360b8 | a8a4c0cb528e17ded3531ab5dc11ba03be9e155db4f25ada4e2b1462c40c674f
+CIRCUIT0.VFX | 1246896 | 1998-05-06T16:32:46Z | f387ae11deea897f5dbd07e9149a0405 | 188ae45610ea79d38ace0c36351698fd1a9f65315b1893bee04bd4b2ab256668
+KUNGFU1.VFX  | 1519956 | 1998-04-10T22:20:10Z | 12d49f00ed0dc6b2db6edb486ee4f8fa | bf37358ac6f5bc351ce440729a1b2d235c3901c557eaca92c68b62bd08e81fa2
+KUNGFU1.DFX  | 1012908 | 1998-04-10T22:20:10Z | 4528807d64be6af8005168e9b603e7ff | 1d722998719de8165a1a56ea129f79af967e181638113d09d802f502dd090b0b
+NYPD01.VFX   | 1245848 | 1998-04-10T17:50:04Z | a692a9f0019ea104f299876ab7b6bc2a | 4d9fb4c982d5d2c586b827e4536a0b206c2ceebed38d0c379f3783d0bca1a981
+NYPD01.DFX   | 485684  | 1998-04-10T17:50:04Z | 7e90218fc72b40044a0b64220f7447c6 | 37380fcb631ac4f70a834c0cff16ce29642e8053d09065407497ea75ceac73d4
+SPY2.DFX     | 596656  | 1998-04-10T17:44:18Z | ff0e9090a2374e8f024f01745e80beb4 | 11301e48a24db618d1d15e3d80d3ced1e68e7c113982e421782bb58a25b48162
+SPY2.VFX     | 1420384 | 1998-04-10T17:44:18Z | 608e04c1b1cbb0c20a8de72540da5837 | 99141a1bd1046d0356fe7b95ba8df386862538efb951cbddc44ebc8f1dac6b12
+MAP8.DFX     | 808364  | 1998-04-10T17:12:06Z | 2ae505cff1ec01082243a563f99dca2e | ef0e1b2cf0ea182aa8a922c2cbb5b2e7e18ff2f1e70b623952ef37b176bc4c06
+MAP8.VFX     | 1788904 | 1998-04-10T17:12:06Z | 63375e8a3776c8f1c888abf213c02990 | 5e48eb77de63bcfcead637ae3e30d9da25f1eff3d87da009b4aa793dfd7a5c3c
+REZOP2.VFX   | 602872  | 1998-04-09T00:44:28Z | 5e8e98b51c8b992b10cee7c398a32e4a | fd368eb7b02b80172c8de9a49a642a7984db2acb51448abf834de7ebfcc655a6
+REZOP2.DFX   | 137468  | 1998-04-09T00:44:28Z | 22aa3994d7d36fbde13c53080ce75c91 | c9c02326f35ff58d300cf023a72c83c841f8a47ad9050454f758178dd549695d
+REZOP1.VFX   | 1420280 | 1998-04-09T00:44:22Z | f47b7bb2f5f65c78d7fb4aab3357c1f1 | d0b3e42b65e6ae359302ac3291d7a2a54bf7c271f38bc741774d315c5249a3cc
+REZOP1.DFX   | 981600  | 1998-04-09T00:44:22Z | 2c22e0fcc85ddd88c9802988d9a59e7d | dddb7ece3466f21a25a492630c0f43916a1c526b935f107b6bd52d59391af538
+MOOSHU1.DFX  | 395916  | 1998-04-09T00:34:36Z | 41eab44e0f07e7b26b04db4f771cea44 | f37f3263521bcf1feb3f9e7e878ce7d4b6f0e9559325f7ffc23ecfddb96575f2
+MOOSHU1.VFX  | 1609056 | 1998-04-09T00:34:36Z | aef103a52574178294bca0dc980ced7e | 2c98932c2593b5803f61e79e4897c16ad93b9d6b3ed8baaa7415b471219c3984
+LOONEY70.DFX | 0       | 1998-04-07T12:30:02Z | d41d8cd98f00b204e9800998ecf8427e | e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+LOONEY67.DFX | 369084  | 1998-04-07T11:05:32Z | 2a05d850eafda21c9abbd5e18bac6226 | ef84b1fd7a7ef2c49fd3b0bc1d1a2c0c56fc94c53ee2ed99f805e7084e13a77b
+LOONEY67.VFX | 727232  | 1998-04-07T11:05:32Z | 75970f3a9ffd4ed9e6f84f3a3fe9a67a | 716df58638dcd36700aeb2e732f1ed8aaa65ba4e91479697c8ac415e82391c21
+LOONEY88.VFX | 1050736 | 1998-04-07T11:05:26Z | 520b05d399bf5ec90d6bc07a6b2d0cee | 7bafe6120cb6e430968fafbdf7bdd4ca8a6fb199a47a2c8f9c2d9f97b7252550
+LOONEY88.DFX | 465880  | 1998-04-07T11:05:26Z | c5bb462078b531ef42e05019a7af256a | b83d85682d64a210ffa687031334ad9fda0ad04c2eb9d634004b7e35ef169ce3
+LOONEY70.VFX | 1351328 | 1998-04-07T11:05:20Z | 65940378186d27690764c496677194c6 | e27419eab6809003b9bfd6ee4cc74ca9b54735024e1ee52841c3a29fe539cefd
+FINAL01.VFX  | 1632520 | 1998-04-07T11:04:52Z | 5d4fa8e10382fb6d2bcf26e7387e9f9a | dc46293d5adf8f00d0e1ee8a7cf50a9e94120eefd60ad73ec3ed1705b71f4e69
+FINAL01.DFX  | 684940  | 1998-04-07T11:04:52Z | 3f56cc1697dea033c7f34f57409469ac | 6870ea25230edbaf65db95d374a8643b800e7e8f44d1f8a26c73066a8723b260
+LOST01.VFX   | 927016  | 1998-04-07T11:04:36Z | 66001d525df64a373165b0b6675dbc4d | 5a71f5bab4f10abc18e78373a40acd78e4a7fea32f4f4df946c87c52c9914399
+LOST01.DFX   | 628768  | 1998-04-07T11:04:36Z | 8c7ab75257c3181407c00d6df289e2eb | fd1b8cf088e547b391302681485e28e6d7e8428b711bc301fc7abe0cb2446921
+JUNK1.VFX    | 650128  | 1998-04-07T11:04:30Z | db0e530b95b626568ec0cf9dcf6abbe5 | 613ae8a5bb10a3133ec9fd60b51613284a79cdbe85bf2d3e727e919ef987d91f
+JUNK1.DFX    | 503220  | 1998-04-07T11:04:30Z | 49f74f2fe81cd0b887d0aa336ea01fb1 | 2a3c6fc2e728baa050298f259871ba2528768880fdff328d87e205acf43fb25b
+TRAIN30.DFX  | 1062732 | 1998-04-07T11:03:10Z | d5724b120927767865740651e41c9843 | 427013e813d197f81a0b60b1678d2d99ed15467e6c4afa2290a1b24a5770c851
+TRAIN30.VFX  | 1488836 | 1998-04-07T11:03:10Z | a80e3ea93eb296bde9dc2aab353c8a8c | a3b6b9d702a473fd064e1b30fd3ac83e592163f91f8a0910b5e5b1e3bf6cd927
+PREHST1.DFX  | 759084  | 1998-04-07T11:02:02Z | f96662388c70d206a4170db1841f6dab | a8f91db00f6ab62a3392e4622da22145c362433dba821b99fff3b812ab74ba27
+PREHST1.VFX  | 1483612 | 1998-04-07T11:02:02Z | 2633627f1ed94a9063b8b1d18474ecbf | e042f2069759d7a07bf6be8995f85f622b56447caa3b964c97baa581ecc2a036
+KUNGFU4.VFX  | 1011944 | 1998-04-07T11:01:50Z | 8da7d95c82b2547c6ce7383274357e7c | fd7b18d40c949b8bd33a89e79a0b8c4c8f6793cb469bd1496d7e5acee075b291
+KUNGFU4.DFX  | 466896  | 1998-04-07T11:01:50Z | ba517b538a5827cb57744b4722ea05df | 508f3b4e8a5395b011eb84e62690d20f5144055b8b09a63f1fbf5fc135b5da18
+HORROR6.DFX  | 410280  | 1998-04-07T11:00:32Z | 35e43c411ec7a6c9361797f1d9b0263e | 9473dc20eab984fef83758e279620265a8003446202200339e61d28b12e5a8e2
+HORROR6.VFX  | 484148  | 1998-04-07T11:00:32Z | 1a861cfc7597028e177ad6f829d112dc | 3eca343e2fdc2da6ffbc60f29c52223d3393de8dacca8d9049b16a6fa6914692
+HORROR5.DFX  | 759248  | 1998-04-07T11:00:28Z | b8a88087b74f154bb86b6e0a66ba5891 | f7bd5d8ec006e6ddf77d6330885e33277bd13488fd52469528415633584279be
+HORROR5.VFX  | 1052508 | 1998-04-07T11:00:28Z | 5ed6de8184015b421fc85446d9334334 | 2298844f6fe64878215c74435d838f76c095638974784949483a4b0245222654
+HORROR2.VFX  | 1376628 | 1998-04-07T11:00:20Z | b0a780cef9c8bfb2a52abd30f19add10 | 3705e54a17d95ca1d70ec4101bd34666d59f2ca64c1b5a402950fd1dd1b737d5
+HORROR2.DFX  | 1003000 | 1998-04-07T11:00:20Z | f54f48a5349aca0311e6167680549752 | 7656a57ff13340b0c3927f9a6ff98110f275a46763ed3fb9646c47b4b902436d
+```
+
+Notas:
+
+- 36 pares `.DFX`+`.VFX` (mismo `modifiedTime` por par; rango
+  1998-04-07 → 1998-05-12). Sin duplicados de contenido entre sí.
+- `LOONEY70.DFX` = **0 bytes** (hashes del fichero vacío) mientras su
+  `LOONEY70.VFX` (1351328 B) y `LOONEY70.TAD` existen. HYPOTHESIS:
+  slot de nivel sin usar / placeholder. El instalador lo incluye igual
+  (ver §10).
+- Niveles sin par `.DFX`/`.VFX` pero con `.TAD`: `HORROR30`
+  (el `.TAD` es idéntico al de `TRAIN30`, ver §6).
+
+## §6. `AUDIO/` — 37 `.TAD` + `VOICEUK/`
+
+```text
+AZTEC16.TAD  | 686030  | 1998-03-27T12:14:00Z | 2ceeeb92fc071f927ec7995438a81720 | 7a04464b98062f6d8f18981f43d704c7d88d034c3c5e3822c65cf5c966b30d27
+CIRCUIT0.TAD | 925474  | 1998-03-27T12:26:00Z | ee8e1fa72c625834e4421aa29bb3ca12 | 5785405766191470cb9165e34f813581e9a855630ea83bb5b8024c4ec7f22d9e
+CIRCUIT5.TAD | 925474  | 1998-03-27T12:26:00Z | ee8e1fa72c625834e4421aa29bb3ca12 | 5785405766191470cb9165e34f813581e9a855630ea83bb5b8024c4ec7f22d9e
+CIRCUIT9.TAD | 925474  | 1998-03-27T12:26:00Z | ee8e1fa72c625834e4421aa29bb3ca12 | 5785405766191470cb9165e34f813581e9a855630ea83bb5b8024c4ec7f22d9e
+FINAL01.TAD  | 997290  | 1998-03-27T12:38:00Z | c1ba88b0e885915f6cbe5055690627a0 | 1395e5e2f63a3c3d83dc2c9cff665efa72a56d6d74f2c37813f04633d88a51f3
+GEXZIL9.TAD  | 800698  | 1998-03-27T12:47:00Z | afc38e0eaea02f0091ad65a78ea2d450 | e0b7dcb9bfa3171b547f1e67bd1461b7ea0d7a1d1ae2a8dbb74ebfd76475f03d
+GILLIG1.TAD  | 758468  | 1998-03-27T12:57:00Z | b4ae87a13cf7e99c5e97577c1619cf59 | 2ee33e085283b4b12b1a87c5ae10b66a4f1bd5682fe8ae110caab8b7687ed1ce
+HORROR2.TAD  | 1101874 | 1998-03-27T13:10:00Z | 3e04b680c443f92e061ed22d962a5dd1 | 1c35cf2cb4b06a424f08ba50d5d06a99f46f23fd7e4365474e3b6cbcb8b8d472
+HORROR5.TAD  | 1101874 | 1998-03-27T13:10:00Z | 3e04b680c443f92e061ed22d962a5dd1 | 1c35cf2cb4b06a424f08ba50d5d06a99f46f23fd7e4365474e3b6cbcb8b8d472
+HORROR6.TAD  | 1101874 | 1998-03-27T13:10:00Z | 3e04b680c443f92e061ed22d962a5dd1 | 1c35cf2cb4b06a424f08ba50d5d06a99f46f23fd7e4365474e3b6cbcb8b8d472
+HORROR30.TAD | 1115882 | 1998-03-27T13:24:00Z | d18ffeb1771a3c5490bb59ee6728973d | 1afd04de9d5eb48900274a8f918615f1fa48bb1f6bff06241af64c30e10af43a
+TRAIN30.TAD  | 1115882 | 1998-03-27T13:24:00Z | d18ffeb1771a3c5490bb59ee6728973d | 1afd04de9d5eb48900274a8f918615f1fa48bb1f6bff06241af64c30e10af43a
+HORROR4.TAD  | 1115882 | 1998-03-27T13:38:00Z | 405e108ef2e5716c633f224d5fbbe77c | 5a7f34a5e5926348792c276d71ac92be50ff46e357bdc4cc7495b2e118fb89e2
+JUNK1.TAD    | 541994  | 1998-03-27T13:45:00Z | fce8edde477da617302f06fa0a4f91e8 | 204d5ef8c322f7a2f03357ca3b537125870c5cbeb698c7d8b9077e101ef9a809
+KUNGFU02.TAD | 1318430 | 1998-03-27T14:01:00Z | d8092795047506360b01030e20912c0c | 7f8f65e9df3032859d121246e37cf34672ca11301f06b6d426bff51c943907ce
+KUNGFU1.TAD  | 1318430 | 1998-03-27T14:47:00Z | 74bfab8a2027d3e645f58a4579b0c1aa | 2b299d721961a1d97055be6999127fb637426c2d61c5e3a4440ecd39ba89bec2
+KUNGFU4.TAD  | 1318430 | 1998-03-27T14:47:00Z | 74bfab8a2027d3e645f58a4579b0c1aa | 2b299d721961a1d97055be6999127fb637426c2d61c5e3a4440ecd39ba89bec2
+LOONEY70.TAD | 1418124 | 1998-03-27T15:05:00Z | 7fdf78bbacecac9f401d4801f645a797 | b6842e8e40adf29a37ac5713524bc815fc5647126cac2c3717a996ab87cdb863
+LOONEY69.TAD | 1418124 | 1998-03-27T15:05:00Z | 7fdf78bbacecac9f401d4801f645a797 | b6842e8e40adf29a37ac5713524bc815fc5647126cac2c3717a996ab87cdb863
+LOONEY67.TAD | 1418124 | 1998-03-27T15:05:00Z | 7fdf78bbacecac9f401d4801f645a797 | b6842e8e40adf29a37ac5713524bc815fc5647126cac2c3717a996ab87cdb863
+LOONEY30.TAD | 1418124 | 1998-03-27T15:05:00Z | 7fdf78bbacecac9f401d4801f645a797 | b6842e8e40adf29a37ac5713524bc815fc5647126cac2c3717a996ab87cdb863
+LOONEY88.TAD | 1418124 | 1998-03-27T15:05:00Z | 7fdf78bbacecac9f401d4801f645a797 | b6842e8e40adf29a37ac5713524bc815fc5647126cac2c3717a996ab87cdb863
+LOST01.TAD   | 1040578 | 1998-03-27T15:18:00Z | 8cad23ea865aa2fb464483dcfb4108be | adb67066cbd58e50151810d2ab858d15bb5623652a7791481b7e6d59c29a9837
+MAP5.TAD     | 716764  | 1998-03-27T15:27:00Z | 6bb6de4739ff88285f71e1bd9bcbea24 | 741c16e7dfa5a42c6aa6b3e4f6315852af5ae4e6de732b6e4c457f08b87de799
+MAP7.TAD     | 716764  | 1998-03-27T15:36:00Z | 9b55287a04835f0bc7689d09aeb4b865 | 2d94bf902c645e558921d20757e6847c33c548266393659f57454593991e7c7d
+MAP8.TAD     | 716764  | 1998-03-27T15:36:00Z | 9b55287a04835f0bc7689d09aeb4b865 | 2d94bf902c645e558921d20757e6847c33c548266393659f57454593991e7c7d
+MOOSHU1.TAD  | 811850  | 1998-03-27T15:57:00Z | 4d2f8feef4fd4581653d0f289c43bc01 | e0a7d6d8f9a44e3e7c22541a789a7b825179beef76719444b08c2c6f569e7b6f
+NYPD01.TAD   | 1169048 | 1998-03-27T16:26:00Z | 0546de508dbb5c4f22b31cf2d19e43b2 | ec7726336a3dc7b6258548d0cabc6e39e153ff2310ee3a699f0d54a41448601c
+PREHST1.TAD  | 1247556 | 1998-03-27T16:43:00Z | 515f6c3d5d3fcddd42b23288756cf267 | 80c15e1bcc4b80a4ea7ac922d9499dadd6a6ed14c32f0ca253bd5d11c8a3aa5b
+PREHST3.TAD  | 1247556 | 1998-03-27T16:43:00Z | 515f6c3d5d3fcddd42b23288756cf267 | 80c15e1bcc4b80a4ea7ac922d9499dadd6a6ed14c32f0ca253bd5d11c8a3aa5b
+PREHST2.TAD  | 1247556 | 1998-03-27T17:07:00Z | 7cb5bc604774b0dfd45aeb0ede7d2073 | e62bc0fbd3b6a6ed000c874fe223cc942891b3f13579abfd6363580b3416c0dd
+REZOP1.TAD   | 1178136 | 1998-03-27T17:21:00Z | ad86b41a36266134756d7028f8269d35 | fe6c2f594f1526ab3564043dad49664fcf567e14f5e210e47c196fd840db5b48
+REZOP2.TAD   | 1178136 | 1998-03-27T17:35:00Z | 949fa255db65c94c224ce741774eb2f5 | 2466145c592ba7ee2bf00eba420fe0d19714ae91c342dbf87fcd208998db86ee
+REZOP3.TAD   | 1178136 | 1998-03-27T17:49:00Z | 8d3907ed42e4f209fcea97d932ee86b8 | 275ae507076caf9b3d2b8a23db5cd1bcaa96a1b77048469600e2f44e6b0a609c
+SCIFI10.TAD  | 1426340 | 1998-03-27T18:14:00Z | 5db17d797efb41d70e8b8a9c39b45b47 | 354a969ff650672f7d7c5172cc63faa851486d4e8f09f2dd8ba0df86e54be371
+SCIFI14.TAD  | 1461558 | 1998-03-27T18:42:00Z | c117563ceba97499de6f11c6a9b67d96 | af56990c505ac754b53a47c091200c0c9c582efb5892d4db38d5e944537160e2
+SPY2.TAD     | 804046  | 1998-03-27T18:57:00Z | 1863f4c91ab337554b73d0f490fad49a | 420c886b49bdce94bc23c1ca5c00848a20a05dea3f69a2f8464ac0ed17f3518e
+```
+
+Grupos de contenido idéntico (CONFIRMED por hash — 7 grupos, 25
+contenidos distintos en 37 ficheros):
+
+```text
+LOONEY30=LOONEY67=LOONEY69=LOONEY70=LOONEY88 (b6842e8e…, 1418124 B)
+CIRCUIT0=CIRCUIT5=CIRCUIT9                   (57854057…, 925474 B)
+HORROR2=HORROR5=HORROR6                      (1c35cf2c…, 1101874 B)
+MAP7=MAP8                                    (2d94bf90…, 716764 B)
+PREHST1=PREHST3                               (80c15e1b…, 1247556 B)
+HORROR30=TRAIN30                              (1afd04de…, 1115882 B)
+KUNGFU1=KUNGFU4                               (2b299d72…, 1318430 B)
+```
+
+Nota: `HORROR4.TAD` (5a7f34a5…) tiene el **mismo tamaño**
+(1115882 B) que el grupo HORROR30/TRAIN30 pero **distinto contenido**.
+Todos los `.TAD` son del 1998-03-27 (12:14 → 18:57 UTC).
+
+## §7. `MOVIE/` — 18 ficheros (9 pares `.SAG`/`.JAM`)
+
+```text
+LOGO.SAG     | 147032   | 1998-03-27T14:55:00Z | c0963e42e5509de03ef43a310428039b | 92a025b2dbfd043d166c3ba20ee632e5a2ac610cfb526374c5e987f35163f42e
+LOGO.JAM     | 1780102  | 1998-03-30T13:59:24Z | 32f6a32549507b81bdbec830e7fa6443 | a2452fd7a27ae0cb9c16c7b740ab578a6676730cef68b59c0fd21a4cbf05d137
+UBISOFT.SAG  | 108597   | 1998-03-27T14:24:00Z | fcde468122876fe976c5c21de12ee876 | f92b79e04fafc26a32ff3b39fe2a6798782d2fd98ca51241bbaf1a6159957eb0
+UBISOFT.JAM  | 2223786  | 1998-03-27T21:46:56Z | dfac52cce237a7ba5ae2135e2bd33180 | 373b7eec92c960df7467095d1dfe268f2e08264f27e74ab66922abfbab7a9fa7
+INTRO.SAG    | 1381529  | 1998-03-27T14:55:00Z | 42c5d04cafa2fa1b1a39be5955351e7e | 0e3b28d463c68c3c4e428f3af486aa3dc8396fb4e0e590885bbc63a8a122c4b7
+INTRO.JAM    | 19802170 | 1998-03-19T19:56:00Z | 4f0b4fa411cb410f32fdde9e39f390f0 | bd2c84f9555437262c8cee492837c12013a6844a407c72635b68982021dc2dab
+OUTRO.SAG    | 1288982  | 1998-03-27T14:55:00Z | 35707cb3196b631d3e4faac71f5c0856 | 53de072cc1c0a66fad426829d13111701f2bc144a7bfa2a88a996d732d895d71
+OUTRO.JAM    | 23917697 | 1998-03-20T19:01:00Z | 6ddb4bc683b00bc446dd8dcb43f480c5 | fcc970be9c123ab795f0343d1d432d3f79a8278b87754edfd9e51570f2248924
+SCANS.SAG    | 3324621  | 1998-03-27T14:55:00Z | e0ab2ac88d4b92202d4c2262fce4e2cc | 3916c95086d6f810122dedcaa486580f128294618c0460605b017fd4a6e72719
+SCANS.JAM    | 33759276 | 1998-03-09T02:20:00Z | 4646c5e6c512f4854be15701f0e52795 | b0e5ccde3b29e2bb1aee758fa04e4f8308623a007f83c44518ddf9bd725aed1b
+CLAK1.SAG    | 173273   | 1998-03-27T14:55:00Z | dc937bd229ed059a3a497b3b25980506 | fa9d727a64947671ec7e536890c7fb70b002c3d0c9745b46aebe655a2f1116fd
+CLAK1.JAM    | 4572019  | 1998-03-20T13:55:00Z | 96a71fa8a06248128a7effb193610325 | d906914341d1dad9e3112714d7e8f431e1eee98416ac88bbd31147b31286418a
+CLAK2.SAG    | 537301   | 1998-03-27T14:55:00Z | d7dbf4ab520c20b21dfd58fe1e7f6f3f | 4104eabce648e425438e16c30aa5b093e67ed190269fba2c9e8cf9b8a743dc53
+CLAK2.JAM    | 8481639  | 1998-03-23T10:46:00Z | b3a0b395b111e599f274a43ecca0415b | 44aed5af1f72be19234317f6333b81e3d0331d54ee4ada338bbbb5c585f9b9b8
+CLAK3.SAG    | 193002   | 1998-03-27T14:55:00Z | 7b6a25fdd76da30c7a9e7e2ce8e13cfa | d0be38bfe0638c779b9518772ed38cd5eea5c099c8374f7e8624cac5b6870bd3
+CLAK3.JAM    | 3007689  | 1998-03-07T08:05:00Z | 90c4502d4f3146d9bd250936983a18b7 | 6d17e3c61a89c18218a9f15e0c84bab279b19959aee84756a81c2fc221099e8f
+CRYLOGO.SAG  | 495788   | 1997-11-11T04:09:04Z | da1ddac9b8724e7c110aaaf49145325d | 85e84f18686d1e9f322d7e8d69cb8f35d916b703fd7434e618e901b243a5d6c7
+CRYLOGO.JAM  | 1743314  | 1997-03-08T11:39:54Z | 95d8b462cef42c4ea1679a77dfec26f0 | b046cf79d08140d017ac0856762d1bac15bc96a35454afc80b0e3e8a3efbc437
+```
+
+- HYPOTHESIS (solo por tamaños y emparejamiento 1:1): `.JAM` = vídeo,
+  `.SAG` = audio de cada cinemática. Magias de formato:
+  UNKNOWN-PENDING (no se descargó ninguna muestra).
+- `CRYLOGO.JAM` (1997-03-08) es el fichero de contenido de juego más
+  antiguo del CD (solo superado por `GEX3D.ICO` y `FONT.3DF`).
+
+## §8. `AUDIO/VOICEUK/` — 400 `.SAG` (voces inglesas)
+
+Formato: `nombre | bytes | modifiedTime UTC`. Hashes por fichero: no se
+registraron (recuperables vía Drive API con el id de carpeta §1).
+
+```text
+AGTENV01.SAG 14540 1998-03-30T14:16:20Z | AGTENV02.SAG 16780 1998-03-30T14:16:22Z
+AGTENV03.SAG 10396 1998-03-30T14:16:24Z | AGTENV04.SAG 15884 1998-03-30T14:16:24Z
+AGTENV08.SAG 20124 1998-03-30T14:16:24Z | AGTENV10.SAG 5612 1998-03-30T14:16:24Z
+AGTENV11.SAG 11612 1998-03-30T14:16:24Z | AGTENV12.SAG 9052 1998-03-30T14:16:24Z
+AGTENV13.SAG 17564 1998-03-30T14:16:24Z | AGTENV14.SAG 5036 1998-03-30T14:16:24Z
+AZTENV01.SAG 12956 1998-03-30T14:16:26Z | AZTENV02.SAG 10444 1998-03-30T14:16:26Z
+AZTENV03.SAG 9980 1998-03-30T14:16:26Z | AZTENV04.SAG 5804 1998-03-30T14:16:26Z
+AZTENV05.SAG 10860 1998-03-30T14:16:26Z | AZTENV06.SAG 8044 1998-03-30T14:16:26Z
+CIRCHG01.SAG 19436 1998-03-30T14:16:26Z | CIRCHG02.SAG 16028 1998-03-30T14:16:26Z
+CIRCHG03.SAG 13644 1998-03-30T14:16:28Z | CIRCHG04.SAG 14636 1998-03-30T14:16:28Z
+CIRCHG05.SAG 12172 1998-03-30T14:16:28Z | CIRCHG06.SAG 11084 1998-03-30T14:16:28Z
+CIRCHG07.SAG 11000 1998-03-30T14:16:28Z | CIRCHG08.SAG 11644 1998-03-30T14:16:28Z
+CIRCHG09.SAG 9692 1998-03-30T14:16:28Z | CIRENV01.SAG 15308 1998-03-30T14:16:28Z
+CIRENV02.SAG 12268 1998-03-30T14:16:30Z | CIRENV03.SAG 11564 1998-03-30T14:16:30Z
+CIRENV07.SAG 24252 1998-03-30T14:16:30Z | CIRENV09.SAG 18060 1998-03-30T14:16:30Z
+CIRENV11.SAG 29324 1998-03-30T14:16:30Z | CIRENV13.SAG 11708 1998-03-30T14:16:30Z
+CIRENV14.SAG 21196 1998-03-30T14:16:30Z | CIRENV15.SAG 25212 1998-03-30T14:16:30Z
+CIRENV18.SAG 25148 1998-03-30T14:16:32Z | CIRENV19.SAG 22732 1998-03-30T14:16:32Z
+CIRTUB01.SAG 12732 1998-03-30T14:16:32Z | CIRTUB04.SAG 18044 1998-03-30T14:16:32Z
+CIRTUB05.SAG 21932 1998-03-30T14:16:32Z | GENATK01.SAG 9500 1998-03-30T14:16:32Z
+GENATK02.SAG 18268 1998-03-30T14:16:34Z | GENATK03.SAG 5228 1998-03-30T14:16:34Z
+GENATK04.SAG 8140 1998-03-30T14:16:34Z | GENATK05.SAG 16460 1998-03-30T14:16:34Z
+GENATK06.SAG 4924 1998-03-30T14:16:34Z | GENATK07.SAG 6620 1998-03-30T14:16:34Z
+GENATK08.SAG 15436 1998-03-30T14:16:34Z | GENATK09.SAG 11872 1998-03-30T14:16:34Z
+GENATK10.SAG 21884 1998-03-30T14:16:36Z | GENATK11.SAG 15260 1998-03-30T14:16:36Z
+GENATK12.SAG 17788 1998-03-30T14:16:36Z | GENATK13.SAG 8460 1998-03-30T14:16:36Z
+GENATK14.SAG 9708 1998-03-30T14:16:36Z | GENATK15.SAG 9532 1998-03-30T14:16:36Z
+GENATK16.SAG 12188 1998-03-30T14:16:36Z | GENATK17.SAG 12108 1998-03-30T14:16:38Z
+GENATK18.SAG 11288 1998-03-30T14:16:38Z | GENATK19.SAG 11836 1998-03-30T14:16:38Z
+GENATK20.SAG 9852 1998-03-30T14:16:38Z | GENATK21.SAG 10876 1998-03-30T14:16:38Z
+GENATK22.SAG 7372 1998-03-30T14:16:38Z | GENATK23.SAG 21180 1998-03-30T14:16:38Z
+GENATK24.SAG 12676 1998-03-30T14:16:38Z | GENATK25.SAG 12312 1998-03-30T14:16:40Z
+GENATK26.SAG 11836 1998-03-30T14:16:40Z | GENATK27.SAG 13708 1998-03-30T14:16:40Z
+GENATK28.SAG 7308 1998-03-30T14:16:40Z | GENATK29.SAG 13356 1998-03-30T14:16:40Z
+GENATK30.SAG 7100 1998-03-30T14:16:40Z | GENATK31.SAG 12300 1998-03-30T14:16:40Z
+GENATK32.SAG 5676 1998-03-30T14:16:42Z | GENATK33.SAG 9996 1998-03-30T14:16:42Z
+GENATK35.SAG 8732 1998-03-30T14:16:42Z | GENATK36.SAG 18860 1998-03-30T14:16:42Z
+GENBUG01.SAG 13708 1998-03-30T14:16:42Z | GENBUG02.SAG 19996 1998-03-30T14:16:42Z
+GENBUG03.SAG 15372 1998-03-30T14:16:42Z | GENBUG04.SAG 13756 1998-03-30T14:16:42Z
+GENBUG06.SAG 14684 1998-03-30T14:16:44Z | GENBUG07.SAG 22028 1998-03-30T14:16:44Z
+GENBUG08.SAG 17052 1998-03-30T14:16:44Z | GENBUG09.SAG 19084 1998-03-30T14:16:44Z
+GENBUG10.SAG 10860 1998-03-30T14:16:44Z | GENBUG11.SAG 12876 1998-03-30T14:16:44Z
+GENCOL04.SAG 12476 1998-03-30T14:16:44Z | GENCOL05.SAG 20236 1998-03-30T14:16:46Z
+GENCOL07.SAG 7132 1998-03-30T14:16:46Z | GENCOL08.SAG 20172 1998-03-30T14:16:46Z
+GENCOL09.SAG 12076 1998-03-30T14:16:46Z | GENCOL10.SAG 18524 1998-03-30T14:16:46Z
+GENCOL11.SAG 18508 1998-03-30T14:16:46Z | GENCOL12.SAG 12028 1998-03-30T14:16:46Z
+GENCOL13.SAG 9148 1998-03-30T14:16:48Z | GENCOL14.SAG 7164 1998-03-30T14:16:48Z
+GENCOL15.SAG 7644 1998-03-30T14:16:48Z | GENCOL16.SAG 13100 1998-03-30T14:16:48Z
+GENCOL17.SAG 5516 1998-03-30T14:16:48Z | GENCOL18.SAG 11100 1998-03-30T14:16:48Z
+GENCOL19.SAG 10556 1998-03-30T14:16:48Z | GENCOL20.SAG 8284 1998-03-30T14:16:48Z
+GENCOL21.SAG 6700 1998-03-30T14:16:50Z | GENDAM01.SAG 7068 1998-03-30T14:16:50Z
+GENDAM03.SAG 7436 1998-03-30T14:16:50Z | GENDAM04.SAG 7628 1998-03-30T14:16:50Z
+GENDAM05.SAG 9132 1998-03-30T14:16:50Z | GENDAM06.SAG 8076 1998-03-30T14:16:50Z
+GENDAM08.SAG 5916 1998-03-30T14:16:50Z | GENDAM13.SAG 10940 1998-03-30T14:16:50Z
+GENDAM14.SAG 9788 1998-03-30T14:16:52Z | GENDAM15.SAG 10188 1998-03-30T14:16:52Z
+GENEAT01.SAG 15148 1998-03-30T14:16:52Z | GENEAT02.SAG 17676 1998-03-30T14:16:52Z
+GENEAT03.SAG 8412 1998-03-30T14:16:52Z | GENEAT04.SAG 14492 1998-03-30T14:16:52Z
+GENEAT06.SAG 8220 1998-03-30T14:16:52Z | GENEAT07.SAG 14556 1998-03-30T14:16:54Z
+GENEAT08.SAG 6572 1998-03-30T14:16:54Z | GENEAT09.SAG 13020 1998-03-30T14:16:54Z
+GENEAT10.SAG 12892 1998-03-30T14:16:54Z | GENEAT11.SAG 18476 1998-03-30T14:16:54Z
+GENEAT12.SAG 11516 1998-03-30T14:16:54Z | GENEAT~1.SAG 16668 1998-03-30T14:16:54Z
+GENEXT~1.SAG 9756 1998-03-30T14:16:54Z | GENEXT~2.SAG 14316 1998-03-30T14:16:56Z
+GENFAL03.SAG 11452 1998-03-30T14:16:56Z | GENFAL06.SAG 10860 1998-03-30T14:16:56Z
+GENFAL08.SAG 5772 1998-03-30T14:16:56Z | GENFAL09.SAG 8684 1998-03-30T14:16:56Z
+GENFAL10.SAG 9292 1998-03-30T14:16:56Z | GENFIR01.SAG 10460 1998-03-30T14:16:56Z
+GENFIR02.SAG 13452 1998-03-30T14:16:58Z | GENFIR03.SAG 7132 1998-03-30T14:16:58Z
+GENFIR07.SAG 16572 1998-03-30T14:16:58Z | GENFIR08.SAG 21036 1998-03-30T14:16:58Z
+GENFIR09.SAG 11804 1998-03-30T14:16:58Z | GENFIR10.SAG 22476 1998-03-30T14:16:58Z
+GENIDL01.SAG 6972 1998-03-30T14:16:58Z | GENIDL02.SAG 17308 1998-03-30T14:16:58Z
+GENIDL03.SAG 9676 1998-03-30T14:17:00Z | GENIDL04.SAG 11468 1998-03-30T14:17:00Z
+GENIDL05.SAG 10572 1998-03-30T14:17:00Z | GENIDL06.SAG 13676 1998-03-30T14:17:00Z
+GENIDL07.SAG 11340 1998-03-30T14:17:00Z | GENIDL08.SAG 12508 1998-03-30T14:17:00Z
+GENIDL09.SAG 7628 1998-03-30T14:17:02Z | GENIDL10.SAG 15124 1998-03-30T14:17:02Z
+GENIDL11.SAG 14364 1998-03-30T14:17:02Z | GENJMP01.SAG 9100 1998-03-30T14:17:02Z
+GENJMP02.SAG 14876 1998-03-30T14:17:02Z | GENLES01.SAG 8204 1998-03-30T14:17:02Z
+GENLES02.SAG 8684 1998-03-30T14:17:02Z | GENLES03.SAG 12092 1998-03-30T14:17:04Z
+GENLES04.SAG 15228 1998-03-30T14:17:04Z | GENLES05.SAG 14092 1998-03-30T14:17:04Z
+GENLES06.SAG 9996 1998-03-30T14:17:04Z | GENLES07.SAG 11901 1998-03-30T14:17:04Z
+GENLES08.SAG 10522 1998-03-30T14:17:04Z | GENLES09.SAG 8348 1998-03-30T14:17:04Z
+GENLES10.SAG 6108 1998-03-30T14:17:04Z | GENLES11.SAG 11068 1998-03-30T14:17:06Z
+GENLES12.SAG 9852 1998-03-30T14:17:06Z | GENLES13.SAG 16172 1998-03-30T14:17:06Z
+GENLES14.SAG 8700 1998-03-30T14:17:06Z | GENLES15.SAG 7020 1998-03-30T14:17:06Z
+GENLES16.SAG 6668 1998-03-30T14:17:06Z | GENLES17.SAG 15052 1998-03-30T14:17:06Z
+GENLES18.SAG 10522 1998-03-30T14:17:08Z | GENLES19.SAG 9996 1998-03-30T14:17:08Z
+GENLOD01.SAG 7516 1998-03-30T14:17:08Z | GENLOD02.SAG 4620 1998-03-30T14:17:08Z
+GENLOD03.SAG 12172 1998-03-30T14:17:08Z | GENLOD04.SAG 8428 1998-03-30T14:17:08Z
+GENLOD05.SAG 8556 1998-03-30T14:17:08Z | GENLOD06.SAG 12124 1998-03-30T14:17:08Z
+GENLOD07.SAG 8188 1998-03-30T14:17:10Z | GENLOD08.SAG 7196 1998-03-30T14:17:10Z
+GENLOD09.SAG 8636 1998-03-30T14:17:10Z | GENLOD10.SAG 9436 1998-03-30T14:17:10Z
+GENPTL01.SAG 8828 1998-03-30T14:17:10Z | GENPTL03.SAG 10556 1998-03-30T14:17:10Z
+GENPTL04.SAG 9100 1998-03-30T14:17:10Z | GENRUN01.SAG 11692 1998-03-30T14:17:12Z
+GENRUN02.SAG 14972 1998-03-30T14:17:12Z | GENRUN03.SAG 9228 1998-03-30T14:17:12Z
+GENRUN05.SAG 12124 1998-03-30T14:17:12Z | GENSEC02.SAG 26380 1998-03-30T14:17:12Z
+GENSEC03.SAG 16876 1998-03-30T14:17:12Z | GENSEC05.SAG 11516 1998-03-30T14:17:12Z
+GENSEC06.SAG 13244 1998-03-30T14:17:14Z | GENSEC07.SAG 11964 1998-03-30T14:17:14Z
+GENSEC08.SAG 23164 1998-03-30T14:17:14Z | GENTGE01.SAG 7964 1998-03-30T14:17:14Z
+GENTGE02.SAG 9404 1998-03-30T14:17:14Z | GENTGE04.SAG 7644 1998-03-30T14:17:14Z
+GENTGE05.SAG 11468 1998-03-30T14:17:16Z | GENTGE06.SAG 21228 1998-03-30T14:17:16Z
+GENTGE07.SAG 6076 1998-03-30T14:17:16Z | GENTGE08.SAG 14316 1998-03-30T14:17:16Z
+GENWTR01.SAG 10028 1998-03-30T14:17:16Z | GILBOS02.SAG 14876 1998-03-30T14:17:16Z
+GILBOS03.SAG 22220 1998-03-30T14:17:18Z | GILBOS05.SAG 14940 1998-03-30T14:17:18Z
+GILBOS07.SAG 20956 1998-03-30T14:17:18Z | GODENV01.SAG 15836 1998-03-30T14:17:18Z
+GODENV02.SAG 22592 1998-03-30T14:17:18Z | GODENV03.SAG 12316 1998-03-30T14:17:18Z
+HORCOF01.SAG 9852 1998-03-30T14:17:18Z | HORCOF03.SAG 10332 1998-03-30T14:17:20Z
+HORCOF06.SAG 8028 1998-03-30T14:17:20Z | HORCOF07.SAG 7612 1998-03-30T14:17:20Z
+HORENV02.SAG 13868 1998-03-30T14:17:20Z | HORENV03.SAG 18684 1998-03-30T14:17:20Z
+HORENV05.SAG 15964 1998-03-30T14:17:20Z | HORENV10.SAG 19260 1998-03-30T14:17:20Z
+HORENV13.SAG 17900 1998-03-30T14:17:22Z | HORENV14.SAG 17324 1998-03-30T14:17:22Z
+HORENV15.SAG 15100 1998-03-30T14:17:22Z | HORENV21.SAG 25963 1998-03-30T14:17:22Z
+HORENV23.SAG 15228 1998-03-30T14:17:22Z | HORENV24.SAG 11020 1998-03-30T14:17:22Z
+HORENV25.SAG 14380 1998-03-30T14:17:22Z | HORENV27.SAG 12140 1998-03-30T14:17:24Z
+HORENVO1.SAG 16828 1998-03-30T14:17:24Z | HORENVO2.SAG 16732 1998-03-30T14:17:24Z
+HORENVO3.SAG 11964 1998-03-30T14:17:24Z | HORENVO4.SAG 13948 1998-03-30T14:17:24Z
+HORENVO9.SAG 20375 1998-03-30T14:17:24Z | HORFLT03.SAG 25988 1998-03-30T14:17:26Z
+HORGST01.SAG 28604 1998-03-30T14:17:26Z | HORGST03.SAG 24012 1998-03-30T14:17:26Z
+HORGST06.SAG 24940 1998-03-30T14:17:26Z | HORGST07.SAG 11228 1998-03-30T14:17:26Z
+HORHUK01.SAG 21324 1998-03-30T14:17:26Z | HORHUK03.SAG 14460 1998-03-30T14:17:26Z
+HORHUK04.SAG 18876 1998-03-30T14:17:28Z | HORHUK05.SAG 14172 1998-03-30T14:17:28Z
+HORHUK06.SAG 11612 1998-03-30T14:17:28Z | HORHUK08.SAG 13164 1998-03-30T14:17:28Z
+HORHUK09.SAG 12748 1998-03-30T14:17:28Z | HORHUK11.SAG 18220 1998-03-30T14:17:28Z
+HORZOM12.SAG 24300 1998-03-30T14:17:30Z | HORZOM13.SAG 17756 1998-03-30T14:17:30Z
+HORZOMO1.SAG 11836 1998-03-30T14:17:30Z | HORZOMO5.SAG 13676 1998-03-30T14:17:30Z
+HORZOMO6.SAG 11116 1998-03-30T14:17:30Z | JNKENV04.SAG 15884 1998-03-30T14:17:30Z
+JNKENV06.SAG 16108 1998-03-30T14:17:30Z | JNKENV07.SAG 18156 1998-03-30T14:17:32Z
+JNKENV08.SAG 12204 1998-03-30T14:17:32Z | KFUBDA01.SAG 18156 1998-03-30T14:17:32Z
+KFUBDA03.SAG 7204 1998-03-30T14:17:32Z | KFUBDA07.SAG 13100 1998-03-30T14:17:32Z
+KFUENV01.SAG 11532 1998-03-30T14:17:32Z | KFUENV08.SAG 10284 1998-03-30T14:17:34Z
+KFUENV09.SAG 16588 1998-03-30T14:17:34Z | KFUENV11.SAG 17580 1998-03-30T14:17:34Z
+KFUENV12.SAG 17964 1998-03-30T14:17:34Z | KFUENV13.SAG 19628 1998-03-30T14:17:34Z
+KFUENV15.SAG 14708 1998-03-30T14:17:34Z | KFUENV16.SAG 12540 1998-03-30T14:17:34Z
+KFUENV17.SAG 13580 1998-03-30T14:17:36Z | KFUENV18.SAG 13564 1998-03-30T14:17:36Z
+KFUENV19.SAG 20684 1998-03-30T14:17:36Z | KFUENV20.SAG 21036 1998-03-30T14:17:36Z
+KFUENV22.SAG 20988 1998-03-30T14:17:36Z | KFUENV25.SAG 24764 1998-03-30T14:17:36Z
+KFUENV26.SAG 11468 1998-03-30T14:17:38Z | KFUSAM02.SAG 13084 1998-03-30T14:17:38Z
+KFUSAM03.SAG 12004 1998-03-30T14:17:38Z | KFUSAM04.SAG 13964 1998-03-30T14:17:38Z
+KFUSAM05.SAG 13180 1998-03-30T14:17:38Z | KFUSAM07.SAG 18012 1998-03-30T14:17:38Z
+KFUSAM08.SAG 11484 1998-03-30T14:17:38Z | KFUSAM09.SAG 15888 1998-03-30T14:17:40Z
+KFUSAMO2.SAG 11464 1998-03-30T14:17:40Z | LOOBOT05.SAG 17868 1998-03-30T14:17:40Z
+LOOCAS02.SAG 13036 1998-03-30T14:17:40Z | LOOCAS07.SAG 14236 1998-03-30T14:17:40Z
+LOOCAS08.SAG 16652 1998-03-30T14:17:40Z | LOODCK02.SAG 10140 1998-03-30T14:17:42Z
+LOODCK03.SAG 17404 1998-03-30T14:17:42Z | LOODCK04.SAG 15388 1998-03-30T14:17:42Z
+LOODCK05.SAG 13292 1998-03-30T14:17:42Z | LOOENV01.SAG 6476 1998-03-30T14:17:42Z
+LOOENV03.SAG 12508 1998-03-30T14:17:42Z | LOOENV04.SAG 15052 1998-03-30T14:17:42Z
+LOOENV05.SAG 18220 1998-03-30T14:17:44Z | LOOENV07.SAG 23948 1998-03-30T14:17:44Z
+LOOENV10.SAG 14124 1998-03-30T14:17:44Z | LOOENV11.SAG 23420 1998-03-30T14:17:44Z
+LOOFSH01.SAG 14908 1998-03-30T14:17:44Z | LOOFSH02.SAG 8812 1998-03-30T14:17:44Z
+LOOFSH03.SAG 12012 1998-03-30T14:17:46Z | LOOFSH04.SAG 4448 1998-03-30T14:17:46Z
+LOOFSH05.SAG 13500 1998-03-30T14:17:46Z | LOOFUS01.SAG 9452 1998-03-30T14:17:46Z
+LOOFUS02.SAG 20428 1998-03-30T14:17:46Z | LOOFUS03.SAG 12252 1998-03-30T14:17:46Z
+LOOFUS04.SAG 17004 1998-03-30T14:17:48Z | LOOFUS05.SAG 25292 1998-03-30T14:17:48Z
+LSTENV01.SAG 20940 1998-03-30T14:17:48Z | LSTENV03.SAG 19116 1998-03-30T14:17:48Z
+LSTENV05.SAG 18220 1998-03-30T14:17:48Z | MAPEN01.SAG 16700 1998-03-30T14:17:48Z
+MAPEN02.SAG 24572 1998-03-30T14:17:50Z | MAPEN05.SAG 6988 1998-03-30T14:17:50Z
+MAPEN06.SAG 11948 1998-03-30T14:17:50Z | MAPEN07.SAG 12844 1998-03-30T14:17:50Z
+MSHBOS01.SAG 18244 1998-03-30T14:17:50Z | MSHBOS03.SAG 26604 1998-03-30T14:17:50Z
+MSHBOS04.SAG 18268 1998-03-30T14:17:52Z | MSHBOS06.SAG 12892 1998-03-30T14:17:52Z
+MSHBOS08.SAG 15548 1998-03-30T14:17:52Z | NYCENV01.SAG 27404 1998-03-30T14:17:52Z
+NYCENV02.SAG 21548 1998-03-30T14:17:52Z | NYCENV16.SAG 31340 1998-03-30T14:17:52Z
+NYCENV17.SAG 24892 1998-03-30T14:17:54Z | NYCENV18.SAG 19116 1998-03-30T14:17:54Z
+PREBAR01.SAG 8700 1998-03-30T14:17:54Z | PREBAR03.SAG 28788 1998-03-30T14:17:54Z
+PREBAR04.SAG 18608 1998-03-30T14:17:54Z | PREEEN~1.SAG 12828 1998-03-30T14:17:56Z
+PREEN01.SAG 36036 1998-03-30T14:17:56Z | PREEN08.SAG 22028 1998-03-30T14:17:56Z
+PREENV01.SAG 32924 1998-03-30T14:17:56Z | PREENV03.SAG 15468 1998-03-30T14:17:56Z
+PREENV04.SAG 22732 1998-03-30T14:17:56Z | PREENV08.SAG 21132 1998-03-30T14:17:58Z
+PREENV09.SAG 17644 1998-03-30T14:17:58Z | PREENV10.SAG 23532 1998-03-30T14:17:58Z
+PREENV12.SAG 16220 1998-03-30T14:17:58Z | PREENV13.SAG 13596 1998-03-30T14:19:36Z
+PREENV14.SAG 15276 1998-03-30T14:19:38Z | PREFRB01.SAG 18604 1998-03-30T14:19:38Z
+PREFRB04.SAG 29164 1998-03-30T14:19:38Z | PREHOT03.SAG 10676 1998-03-30T14:19:38Z
+PREHOT04.SAG 22234 1998-03-30T14:19:38Z | PREHOT05.SAG 19500 1998-03-30T14:19:40Z
+PREHOT06.SAG 6540 1998-03-30T14:19:40Z | PREHOT07.SAG 25740 1998-03-30T14:19:42Z
+PREHOT08.SAG 23500 1998-03-30T14:19:42Z | PREHOT09.SAG 20028 1998-03-30T14:19:42Z
+PRELAV01.SAG 12912 1998-03-30T14:19:42Z | PRELAV02.SAG 15388 1998-03-30T14:19:42Z
+PRELAV04.SAG 19164 1998-03-30T14:19:42Z | PRELAV05.SAG 21148 1998-03-30T14:19:42Z
+PRELAV06.SAG 19612 1998-03-30T14:19:44Z | PRELDY02.SAG 19452 1998-03-30T14:19:44Z
+PRELDY03.SAG 21916 1998-03-30T14:19:44Z | PRENGX01.SAG 14236 1998-03-30T14:19:44Z
+PRENGX02.SAG 19308 1998-03-30T14:19:44Z | PRENGX04.SAG 19004 1998-03-30T14:19:44Z
+PRENGX06.SAG 15308 1998-03-30T14:19:44Z | PRERFT02.SAG 25148 1998-03-30T14:19:46Z
+PRESEC01.SAG 20276 1998-03-30T14:19:46Z | PRESEC02.SAG 11880 1998-03-30T14:19:46Z
+PRESEC03.SAG 15404 1998-03-30T14:19:46Z | PRESEC04.SAG 13804 1998-03-30T14:19:46Z
+PRESTK01.SAG 19676 1998-03-30T14:19:46Z | REZBLT01.SAG 23116 1998-03-30T14:19:46Z
+REZBLT03.SAG 11612 1998-03-30T14:19:48Z | REZBOS02.SAG 11484 1998-03-30T14:19:48Z
+REZBOS04.SAG 13772 1998-03-30T14:19:48Z | REZBOS05.SAG 15260 1998-03-30T14:19:48Z
+REZBOS06.SAG 17868 1998-03-30T14:19:48Z | REZENV01.SAG 27056 1998-03-30T14:19:48Z
+REZENV02.SAG 26076 1998-03-30T14:19:48Z | REZENV04.SAG 13948 1998-03-30T14:19:50Z
+REZENV05.SAG 6268 1998-03-30T14:19:50Z | REZENV06.SAG 17500 1998-03-30T14:19:50Z
+REZENV07.SAG 15468 1998-03-30T14:19:50Z | SCIAIR02.SAG 23388 1998-03-30T14:19:50Z
+SCIAIR03.SAG 13644 1998-03-30T14:19:50Z | SCIAIR05.SAG 19404 1998-03-30T14:19:52Z
+SCIALN01.SAG 19876 1998-03-30T14:19:52Z | SCIALN03.SAG 24232 1998-03-30T14:19:52Z
+SCIALNO4.SAG 11014 1998-03-30T14:19:52Z | SCIALNO5.SAG 20844 1998-03-30T14:19:52Z
+SCIDRD01.SAG 14364 1998-03-30T14:19:52Z | SCIDRD03.SAG 16780 1998-03-30T14:19:52Z
+SCIDRD05.SAG 19004 1998-03-30T14:19:54Z | SCIENV01.SAG 27532 1998-03-30T14:19:54Z
+SCIENV02.SAG 18236 1998-03-30T14:19:54Z | SCIENV05.SAG 17516 1998-03-30T14:19:54Z
+SCIENV06.SAG 12460 1998-03-30T14:19:54Z | SCIENV08.SAG 14860 1998-03-30T14:19:54Z
+SCIENV12.SAG 14484 1998-03-30T14:19:54Z | SCIENV14.SAG 19182 1998-03-30T14:19:56Z
+SCIENV15.SAG 9260 1998-03-30T14:19:56Z | SCIENV16.SAG 17068 1998-03-30T14:19:56Z
+SCIGAR02.SAG 12156 1998-03-30T14:19:56Z | SCIGAR03.SAG 18956 1998-03-30T14:19:56Z
+SCIRUN02.SAG 9532 1998-03-30T14:19:56Z | SCIRUN03.SAG 11420 1998-03-30T14:19:56Z
+SCIRUN04.SAG 15468 1998-03-30T14:19:58Z | SCITEL01.SAG 11292 1998-03-30T14:19:58Z
+SCITEL02.SAG 7756 1998-03-30T14:19:58Z | SCITEL03.SAG 11724 1998-03-30T14:19:58Z
+SCITEL04.SAG 6700 1998-03-30T14:19:58Z | SCITWR01.SAG 15292 1998-03-30T14:19:58Z
+```
+
+Notas:
+
+- Distribución por prefijo (17 grupos, suma 400):
+  GEN 160 · PRE 41 · HOR 39 · SCI 29 · KFU 26 · LOO 25 · CIR 23 ·
+  REZ 12 · AGT 10 · AZT 6 · NYC 5 · MSH 5 · MAP 5 · JNK 4 · GIL 4 ·
+  LST 3 · GOD 3.
+- Sellos 1998-03-30T14:16:20Z → 14:19:58Z en orden alfabético (pasos
+  de ~2 s; salto de 98 s entre `PREENV12` y `PREENV13`, resto de
+  proceso por lotes del máster). Total ≈ 6 MB (estimación).
+- 4 ficheros con nombre corto 8.3 (`GENEAT~1`, `GENEXT~1`,
+  `GENEXT~2`, `PREEEN~1`) + erratas con letra `O` en vez de `0`
+  (`KFUSAMO2`, `HORENVO1/2/3/4/9`, `HORZOMO1/5/6`, `SCIALNO4/5`):
+  así están en el original (CONFIRMED, byte a byte en el manifiesto).
+- Formato `.SAG`: UNKNOWN-PENDING (sin muestras descargadas).
+
+## §9. `DIRECTX/` — redistribuible Microsoft (85 ficheros + `DRIVERS/`)
+
+Formato: `nombre | bytes | modifiedTime UTC`. Hashes por fichero:
+recuperables vía Drive API (no se registraron salvo `DRIVERS.DDB`).
+
+Versión CONFIRMED por `DXVER.INF` (210 B, 1998-01-26):
+
+```text
+HKLM,"%DX%","Version",,"4.05.01.1600"   HKLM,"%DX%","RC",,"00"
+```
+
+→ **Microsoft DirectX 4.05.01.1600 RC00** (archivos del 1997-07-14;
+instalador `DSETUP`/`DXSETUP.EXE` del 1998-01).
+
+```text
+DIJOY.HLP 16339 1997-06-21T07:09:50Z | LICENSE.TXT 1315 1997-07-14T17:00:00Z
+MSANALOG.VXD 12101 1997-07-14T17:00:00Z | VMCPD.X86 18602 1997-07-14T17:00:00Z
+VMCPD.NEC 18602 1997-07-14T17:00:00Z | MTRR.VXD 12009 1997-07-14T17:00:00Z
+VJOYD.VXD 30320 1997-07-14T17:00:00Z | DINPUT.VXD 16986 1997-07-14T17:00:00Z
+DSOUND.VXD 59839 1997-07-14T17:00:00Z | DDRAW16.DLL 27808 1997-07-14T17:00:00Z
+DDRAW.DLL 270848 1997-07-14T17:00:00Z | DSOUND.DLL 145920 1997-07-14T17:00:00Z
+DINPUT.DLL 175616 1997-07-14T17:00:00Z | DPLAY.DLL 39936 1997-07-14T17:00:00Z
+DPLAYX.DLL 172440 1997-07-14T17:00:00Z | DPWSOCK.DLL 24064 1997-07-14T17:00:00Z
+DPWSOCKX.DLL 47568 1997-07-14T17:00:00Z | DPSERIAL.DLL 41472 1997-07-14T17:00:00Z
+DPMODEMX.DLL 81352 1997-07-14T17:00:00Z | D3DIM.DLL 161792 1997-07-14T17:00:00Z
+D3DRM.DLL 344576 1997-07-14T17:00:00Z | D3DXOF.DLL 120320 1997-07-14T17:00:00Z
+D3DPMESH.DLL 104448 1997-07-14T17:00:00Z | D3DHALF.DLL 124928 1997-07-14T17:00:00Z
+D3DRGBF.DLL 96256 1997-07-14T17:00:00Z | D3DRGBXF.DLL 100864 1997-07-14T17:00:00Z
+D3DRG8F.DLL 224768 1997-07-14T17:00:00Z | D3DRG8X.DLL 228352 1997-07-14T17:00:00Z
+D3DRG16F.DLL 224768 1997-07-14T17:00:00Z | D3DRG24F.DLL 168448 1997-07-14T17:00:00Z
+D3DRG24X.DLL 172544 1997-07-14T17:00:00Z | D3DRG32F.DLL 166912 1997-07-14T17:00:00Z
+D3DRG32X.DLL 171520 1997-07-14T17:00:00Z | D3DRG55X.DLL 305152 1997-07-14T17:00:00Z
+D3DRG56X.DLL 305152 1997-07-14T17:00:00Z | D3DRM8F.DLL 458240 1997-07-14T17:00:00Z
+D3DRM16F.DLL 459264 1997-07-14T17:00:00Z | D3DRM24F.DLL 125952 1997-07-14T17:00:00Z
+D3DRM32F.DLL 125952 1997-07-14T17:00:00Z | D3DRAMPF.DLL 95744 1997-07-14T17:00:00Z
+GCHAND.DLL 80384 1997-07-14T17:00:00Z | GCDEF.DLL 564224 1997-07-14T17:00:00Z
+DSETUP16.DLL 63056 1997-07-14T17:00:00Z | DXSETUP.EXE 88576 1997-07-14T17:00:00Z
+DPLAYSVR.EXE 23960 1997-07-14T17:00:00Z | DDHELP.EXE 32256 1997-07-14T17:00:00Z
+DXTOOL.EXE 33280 1997-07-14T17:00:00Z | JOY.CPL 229888 1997-07-14T17:00:00Z
+D3D.INF 1147 1997-07-14T17:00:00Z | DDRAW.INF 4107 1997-07-14T17:00:00Z
+DSOUND.INF 815 1997-07-14T17:00:00Z | DPLAY.INF 2408 1997-07-14T17:00:00Z
+DPLAYDX2.INF 1549 1997-07-14T17:00:00Z | DINP.INF 4416 1997-07-14T17:00:00Z
+DINPBRZ.INF 4458 1997-07-14T17:00:00Z | DINPCHS.INF 4370 1997-07-14T17:00:00Z
+DINPCHT.INF 4366 1997-07-14T17:00:00Z | DINPCZE.INF 4394 1997-07-14T17:00:00Z
+DINPDUT.INF 4410 1997-07-14T17:00:00Z | DINPFRN.INF 4444 1997-07-14T17:00:00Z
+DINPGER.INF 4433 1997-07-14T17:00:00Z | DINPITN.INF 4453 1997-07-14T17:00:00Z
+DINPJPN.INF 4397 1997-07-14T17:00:00Z | DINPKOR.INF 4387 1997-07-14T17:00:00Z
+DINPNEC.INF 4397 1997-07-14T17:00:00Z | DINPPOL.INF 4389 1997-07-14T17:00:00Z
+DINPRUS.INF 4374 1997-07-14T17:00:00Z | DINPSPA.INF 4491 1997-07-14T17:00:00Z
+DINPSPM.INF 4416 1997-07-14T17:00:00Z | DINPSWE.INF 4382 1997-07-14T17:00:00Z
+DPLAYBRZ.INF 2618 1997-07-14T17:00:00Z | DPLAYFRN.INF 2614 1997-07-14T17:00:00Z
+DPLAYGER.INF 2629 1997-07-14T17:00:00Z | DPLAYITN.INF 2620 1997-07-14T17:00:00Z
+DPLAYJPN.INF 2394 1997-07-14T17:00:00Z | DPLAYNEC.INF 2303 1997-07-14T17:00:00Z
+DPLAYPOL.INF 2397 1997-07-14T17:00:00Z | DPLAYSPA.INF 2615 1997-07-14T17:00:00Z
+DEVNODE1.DLL 22016 1997-11-05T18:37:06Z | DEVNODE2.DLL 6656 1997-11-05T18:28:22Z
+DXINFO.EXE 305152 1998-01-12T20:13:14Z | DXVER.INF 210 1998-01-26T18:43:10Z
+DIRECTX.INF 5209 1998-01-27T11:57:10Z | DSETUP32.DLL 41984 1998-01-27T11:29:26Z
+DSETUP.DLL 127488 1998-01-27T11:31:12Z
+```
+
+### §9.1. `DRIVERS/` — 5 idiomas × 189 ficheros (controladores Win95)
+
+Los 5 listados contienen **los mismos 189 nombres** (verificado por
+inspección de los 5 listados completos); los contenidos binarios están
+localizados (tamaños y hashes difieren por idioma). Misma base Microsoft
+DirectX de julio 1997; `DRIVERS.DDB` del 1998-01-25.
+
+```text
+5631_DIG.INI 5631_HWC.INI 5631_SWC.INI 8811_DIG.INI 8811_HWC.INI 8811_SWC.INI
+8814_DIG.INI 8814_HWC.INI 8814_SWC.INI ATI.VXD ATI_D3D.DLL ATI_DD16.DLL
+ATI_DD32.DLL ATI_HAL.DLL ATI_M64.DRV ATI_M64.VXD ATI_VPE.DLL ATIM32.DLL
+ATIM32.DRV ATIM64.DLL ATIM64.DRV ATIM8.DRV AZT16.VXD AZT16C.DRV AZT16W.DRV
+CHIPMM.DLL CHIPMM.DRV CHIPMM.VXD CHIPS.DLL CHIPS.DRV CHIPS.VXD CIRRUS.DLL
+CIRRUS.DRV CIRRUS.VXD CIRRUSLG.DLL CIRRUSLG.DRV CIRRUSLG.VXD CIRRUSMM.DLL
+CIRRUSMM.DRV CLD3D.DLL CPQ_BB.DLL CSPMAN.DLL CT_65550.DLL CWBAUDIO.BIN
+CWBAUDIO.DRV CWBAUDIO.INF CWBAUDIX.VXD CWBFM.DRV CWBJOY.VXD CWBMIDI.DRV
+CWBMIDI.VXD CWBPCPLE.DLL DRIVERS.DDB DX_VER.DLL DXATI.INF DXCHIPS.INF
+DXCIRRUS.INF DXGLINT.INF DXI128.INF DXMGA.INF DXMM3DFX.INF DXNEOM.INF
+DXPMEDIA.INF DXREND.INF DXS3.INF DXTRID.INF DXTSENG.INF DXVER.INF DXWD.INF
+ES1488.DRV ES1488.VXD ES1688.DRV ES1688.VXD ES1788.DRV ES1788.VXD ES488.DRV
+ES488.VXD ES688.DRV ES688.VXD ESFM.DRV ESSFM.DRV ESSMPORT.DRV ESSMPU.DRV
+ET6000.DLL ET6000.DRV ET6000.VXD F3AUDIO.INF F3DRIVER.VXD F3DSOUND.VXD
+F3JOYSTK.VXD F3MIDI.DRV F3VRTSB.VXD F3WAVMIX.DRV FINDMVI.DLL FRAMEBUF.DLL
+FRAMEBUF.DRV I128.DLL I128.DRV I128.VXD ISNA.DLL ISS3_765.DLL LICENSE.TXT
+MGALLX64.DLL MGAPDX64.DRV MGAPDX64.VXD MGAXDD.DRV MGAXDD.VXD MGAXDD32.DLL
+MM3DFX.DRV MM3DFX.VXD MM3DFX16.DLL MM3DFX32.DLL MMMIXER.DLL MSANALOG.VXD
+MSDDRAW.INF MSDSOUND.INF MSJSTICK.DRV MSMPU401.DRV MSOPL.DRV MSSBLST.DRV
+MSSBLST.VXD MSSNDSYS.DRV MSSNDSYS.VXD MVI514MX.DRV MVIWAVE.DRV MVMIXER.DRV
+MVPAS.VXD MVPROAUD.DRV NEOM.DLL NEOM.DRV NEOM.VXD OAK.VXD PA3DMXD.DRV
+PMEDIA.DRV PMEDIA.VXD PMEDIA32.DLL REND.DRV REND.VXD REND2D.UC REND32.DLL
+REND3D.UC RENDUC.DLL S3.DLL S3.DRV S3.VXD S3_CP3CQ.DLL S3M65.DLL S3M65.DRV
+S3M65.VXD S3MM.DLL S3MM.DRV S3V.DLL S3V.DRV SB16.VXD SB16AWE.INF SB16SND.DRV
+SBAWE.VXD SBAWE32.DRV SBFM.DRV SUPERVGA.DRV SYNTHGM.SBK TMV1.MPD
+TRID_BIO.DLL TRID_PCI.DLL TRID_PCI.DRV TRID_PCI.VXD TSD32.DLL TSENG.DLL
+TSENG.DRV TSENG.VXD VGA.DRV VIDEO7.VXD VJOYD.VXD VMVID.VXD VPASD.VXD
+VWSTREAM.VXD WAVE.INF WD.DLL WD.DRV WD.VXD WFM0200.ACV WFM0200A.CSP
+WFM0201.ACV WFM0201A.CSP WFM0202.ACV WFM0202A.CSP WFM0203.ACV WFM0203A.CSP
+WSTREAM.DLL
+```
+
+Testigo por idioma — `DRIVERS.DDB` (18249 B; atribución por `parents`
+de la API, inequívoca):
+
+```text
+USA  1998-01-25T22:30:18Z  md5 056b472980183847f739aa6cca092375  sha256 bf5f6438a0536a079899cd5de3335ba8d690bdf7846158c134587e6575856b43
+ITN  1998-01-25T22:30:18Z  md5 f25189f77d3436318b475934b31f0f7c  sha256 c4d25689f3bee5a60c90873b16e29365cc97014b682d63444f49a0d1388e2f7c
+FRN  1998-01-25T22:30:18Z  md5 bf88f6ee367682a9d17373ec2961899c  sha256 999098a878efae46df21c78009b7e196ea64950472e435d0cb0c6b0b5f2055c5
+SPA  1998-01-25T22:30:20Z  md5 ae4eb6407e93a2cc744c5cb2021c5ff9  sha256 73a6fa0b642a7a69566f634e8448f7a892d44e818407d094c731a6076e8da1bc
+GER  1998-01-25T22:30:18Z  md5 22795efd7d6496238141fb611529a65b  sha256 4763f351f33c6c8d8245c08ea627e745df61d46b88dea03520373d76fe81626e
+```
+
+(`DXVER.INF` de 209 B es idéntico en los 5 idiomas:
+`md5 dc840855731e68f0796b265407666e2a`,
+`sha256 10e8a26a36c42f17b5a2ce4fbd783b8544f1b57f6db5dc094e25f9bfe2c8993`.)
+Nota metodológica: en este inventario los listados multifichero por
+lotes llegaron desordenados; la atribución por idioma se fijó por
+contenido (`DDB`+tamaños discriminantes), no por orden de respuesta.
+
+## §10. Conciliación CD → instalación (manifiesto en `DATA1.CAB`)
+
+Método: extracción de cadenas de `DATA1.CAB` (InstallShield `ISc(` v4,
+35651 B). Cobertura verificada nombre a nombre:
+
+```text
+VOICEUK/  400/400  (17/17 prefijos con conteo exacto + 50 huecos de
+                   numeración verificados ausentes + 18 muestras incl.
+                   los 4 nombres 8.3; el .SAG nº 401 del manifiesto es
+                   UBISOFT.SAG, que vive en MOVIE/)
+LEVEL/     72/72   (35 pares en mayúsculas + circuit0.dfx/vfx en
+                   minúsculas + GEX.DFX/VFX de la raíz; incluye el
+                   LOONEY70.DFX vacío)
+AUDIO/     37/37   (todos los .tad, en minúsculas)
+MOVIE/     18/18   (8 .sag minús. + UBISOFT.SAG + 7 .jam minús. +
+                   LOGO.JAM + UBISOFT.JAM)
+raíz GEX2/ gex3d.exe + gex3d.ico (+<TARGETDIR>) + Font.3df + GEX.DFX/VFX
+```
+
+Conclusión (CONFIRMED con la salvedad indicada): el instalador
+despliega exactamente el árbol `GEX2/` documentado. Salvedad: la
+extracción por `strings` no es un parseo formal del CAB; la
+verificación con `unshield` queda para Fase 2. El payload de datos
+(`data3.ca0` dentro del RAR `DATA2.CAB`, §3.4) no se extrajo:
+UNKNOWN-PENDING.
+
+## §11. Identificación de versión y edición
+
+### CONFIRMED
+
+- **Juego:** Gex2 PC — `Company=Crystal Dynamics`,
+  `Application=Gex2`, **`Version=1.00.000`** (`DATA.TAG`),
+  `(c)1998 Crystal Dynamics.
+- **Edición europea:** `AppName=Gex2-Europe` (`SETUP.INI`) +
+  ruta de build `…\3dfx\release_europe\gex3d.pdb` + instalador solo
+  inglés (`SETUP.LID` 0009) + voces `VOICEUK`.
+- **Edición 3dfx / Glide exclusiva:** 38 imports a `glide2x.dll` y
+  ninguno a DirectDraw/Direct3D; `requires Glide 2.1+`;
+  `Gex23dfx` como carpeta de destino; `FONT.3DF` 3dfx;
+  rama `game\3dfx`.
+- **Instalador:** InstallShield serie 5 (stub NE 16-bit del
+  1997-12-17 + script `.INS` + CABs `ISc(` v4 + motor `_INST32I`).
+- **Soporte:** CD mixto 1 pista datos + 16 CD-DA; masterizado
+  ≥ 1998-05-19 (sello de `CLPD305.TMP`); ventana de build de
+  contenidos 1997-03 → 1998-05 (§12).
+- **DirectX del CD:** 4.05.01.1600 RC00 (Microsoft, julio 1997).
+
+### HYPOTHESIS
+
+- `data3.ca0` = payload de datos del instalador; `CLPD305.TMP` = resto
+  del máster; `.JAM`=vídeo/`.SAG`=audio en `MOVIE/` (por tamaños);
+  `LOONEY70.DFX` vacío = slot sin usar; `HORROR30.TAD` = alias de
+  `TRAIN30` (contenidos idénticos, sin nivel propio).
+
+### UNKNOWN-PENDING (Fase 2+)
+
+Etiqueta de volumen del CD · extracción de `data3.ca0` · magias de
+`.SAG/.JAM/.TAD/.DFX/.VFX` (solo muestreados `GEX.VFX/DFX`) · hashes
+por fichero de `VOICEUK/` y `DRIVERS/` · parseo formal con `unshield`.
+
+### REFERENCE (no evidencia del original PC)
+
+`Gex64Decomp` (N64, secundaria) · setup package de speedrun S-14
+(investigación, en Drive `research/`) · guías de wrappers.
+
+## §12. Cronología de build (sellos de fichero, UTC)
+
+```text
+1996-10-08  GEX3D.ICO              icono del juego
+1997-01-13  FONT.3DF               fuente 3dfx
+1997-03-08  CRYLOGO.JAM            cinemática más antigua
+1997-05-06  OS.DAT                 tabla InstallShield
+1997-05-30  LANG.DAT               tabla INTL InstallShield
+1997-07-14  DIRECTX/ + DRIVERS/     base Microsoft DX 4.05.01.1600
+1997-11-05  DEVNODE*.DLL           añadidos DirectX
+1997-11-11  CRYLOGO.SAG
+1997-12-17  SETUP.EXE/_SETUP.DLL/_ISDEL/_INST32I  motor InstallShield 5.x
+1998-01-12→27  DXINFO/DXVER/DIRECTX.INF/DSETUP   cierre del redist DX
+1998-01-25  DRIVERS.DDB (×5)
+1998-03-07→30  MOVIE/ (.JAM then .SAG), AUDIO/ .TAD (27-03), VOICEUK/ (30-03)
+1998-03-28  GEX.DFX / GEX.VFX
+1998-04-07→05-12  LEVEL/ .DFX/.VFX (36 pares)
+1998-04-08  SETUP.BMP / __SETUP.BMP
+1998-05-07  AUTORUN.INF
+1998-05-12  SETUP.INS / _SYS1 / _USER1 / DATA.TAG / SETUP.INI / DATA1 / LAYOUT / SETUP.LID
+1998-05-18  link de GEX3D.EXE (timestamp PE 21:07:58Z)
+1998-05-19  GEX3D.EXE en CD (16:52) / DATA2.CAB RAR (17:55) / CLPD305.TMP (18:13)
+2012-06-14  ripeo CloneCD (.img/.sub/.ccd/.cue) — no es fecha del original
+```
+
+## §13. Verificación de integridad (descargas temporales, ya eliminadas)
+
+30 ficheros descargados al sandbox y comparados por SHA-256 local vs
+Drive API: **30/30 coinciden** (raíz completa salvo `CLPD305.TMP`
+vacío; `.ccd`/`.cue`; `DXVER.INF`/`DIRECTX.INF`). Sin discrepancias.
+La carpeta temporal se borró tras el análisis; el repositorio no
+contiene ningún byte del juego original.
+
+## §14. Pendientes para Fase 2+ (STOP — no iniciar sin el mantenedor)
+
+1. Extraer `data3.ca0` de `DATA2.CAB` (unrar) y conciliar con §10.
+2. Parseo formal de CABs `ISc(` con `unshield`.
+3. Magias/muestras de `.SAG/.JAM/.TAD/.DFX/.VFX` y audio `.SAG`.
+4. Leer etiqueta de volumen (sector 16 del `.img`, solo lectura).
+5. Hashes restantes (`VOICEUK/`, `DRIVERS/`) si se requieren.
+6. Entorno RE (Ghidra) y plan de análisis en `REVERSE_ENGINEERING.md`.

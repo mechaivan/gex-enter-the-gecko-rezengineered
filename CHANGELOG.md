@@ -2,6 +2,23 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Fase 1: inventario de artefactos originales (solo docs)
+
+- Nuevo `docs/ORIGINAL_ARTIFACT_INVENTORY.md`: inventario completo de
+  `REZengineered/originals/` (1585 ficheros): `disc_image/` (volcado
+  CloneCD: hashes, TOC 1+16 pistas, aritmética de sectores) y
+  `original_install/` (raíz 19+2, `GEX2/`, `LEVEL/` 72, `AUDIO/` 37,
+  `VOICEUK/` 400, `MOVIE/` 18, `DIRECTX/` 85 + `DRIVERS/` 5×189).
+- Identificados con evidencia: instalador InstallShield 5.x (stub NE +
+  CABs `ISc(` v4), `GEX3D.EXE` (PE32, Glide exclusivo, rama
+  `3dfx\release_europe`), edición europea v1.00.000 (`SETUP.INI` +
+  `DATA.TAG`), DirectX 4.05.01.1600, CD mixto masterizado ≥1998-05-19.
+- Conciliación CD→instalación vía manifiesto de `DATA1.CAB` (100%):
+  400/400 voces, 72/72 niveles, 37/37 TADs, 18/18 vídeos.
+- Verificación: 30 descargas temporales con SHA-256 30/30, eliminadas
+  tras el análisis; el repo no contiene bytes del juego original.
+- PROJECT_STATE: checklist y limitaciones actualizados. STOP Fase 1.
+
 ## 2026-10-08 — 0.0.0 — Nuevas ideas M-24 (localización) y X-02 (Rust/Bevy)
 
 - M-24 Localization (PROPOSED, P3): estudio futuro de localización de
