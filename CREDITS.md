@@ -1,0 +1,26 @@
+# CREDITS — Créditos
+
+## El juego original
+
+- **Crystal Dynamics** — desarrollo original.
+- **LTI Gray Matter** — port a PC.
+- **Midway Games / Ubisoft** — distribución (US / EU).
+
+## Comunidad e información (fuentes consultadas)
+
+- **PCGamingWiki** y sus editores — ficha técnica y fixes documentados.
+- **Zeus Software (nGlide)** — wrapper Glide y parches/ejecutables Gex2.
+- **tgames.fr** — parche Direct3D (PAL), FPS Limiter, configs Windows 10.
+- **VOGONS** — troubleshooting (códec Indeo, Wine).
+- **patches-scrolls.de** — archivo de parches.
+- **Abandonware France** — documentación de compatibilidad.
+- Comunidades de **Reddit r/gex** y **MyAbandonware** — reportes de usuarios.
+- **MatBourgon / Tokatta007** — proyectos Gex64Decomp (referencia N64).
+- **Limited Run Games** — Gex Trilogy (referencia de comportamiento PS1).
+
+## Proyecto REZengineered
+
+- Mantenedor: (por definir).
+- Ver `git log` para contribuciones al repositorio.
+
+*Si falta algún crédito o hay un error, abrir un issue/PR para corregirlo.*
