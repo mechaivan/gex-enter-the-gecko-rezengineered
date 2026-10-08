@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Entorno RE sandbox operativo
+
+- `tools/setup-sandbox-re.sh`: venv (`pefile`, `capstone`, `yara-python`) +
+  REA CLI 5.0.0 en `/opt/rea-toolkit`. Verificado con self-test.
+- `tools/setup-re-env.sh`: script (sin probar) para entorno completo
+  Ghidra 12.1.4 + JDK 21 en máquinas con internet completo.
+- Verificado e imposible en sandbox: JDK/Ghidra/Rizin/radare2 (documentado
+  el porqué en `docs/TOOLKIT.md`); `rea doctor` confirma falta de backend.
+- Estructura Drive `REZengineered/{originals,backups,analysis,builds,research}`.
+- Actualizados PROJECT_STATE, TOOLKIT, tools/README.
+
 ## 2026-10-08 — 0.0.0 — Inicialización Fase 0
 
 - Creación de la estructura inicial del repositorio.

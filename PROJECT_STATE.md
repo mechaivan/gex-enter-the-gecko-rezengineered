@@ -34,7 +34,12 @@
   ni archivo del juego. Todo lo documentado proviene de fuentes secundarias.
 - **Sin entorno Windows de pruebas:** este entorno (Linux) solo permite análisis
   estático; la reproducción de problemas requiere un PC con Windows.
-- **Sin Ghidra instalado:** pendiente de instalar/configurar (requiere Java).
+- **Sin Ghidra/JDK/Rizin en el sandbox:** imposible descargarlos aquí
+  (egress restringido: sin apt, sin release-assets de GitHub, sin headers
+  `-dev`). Documentado y verificado en `docs/TOOLKIT.md`. Ghidra se usará en
+  una máquina sin restricciones (`tools/setup-re-env.sh` listo, sin probar).
+- **REA sin backend nativo aquí:** CLI instalado pero `rea doctor` indica
+  host no soportado y falta de Ghidra/Hopper.
 
 ## Criterio de salida de la Fase 0
 
