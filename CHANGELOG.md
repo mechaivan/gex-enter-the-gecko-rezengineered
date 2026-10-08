@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Nuevas ideas M-24 (localización) y X-02 (Rust/Bevy)
+
+- M-24 Localization (PROPOSED, P3): estudio futuro de localización de
+  textos (English original + Español + otros); solo textos, sin doblaje;
+  English = source of truth; Trilogy no reutilizable ni referencia.
+- X-02 Posible rewrite Rust/Bevy (DEFERRED, long-term research, prioridad
+  muy baja): solo registrar la posibilidad lejana; no es fase de
+  implementación; no abandona el engine original.
+- ROADMAP Fase 14 menciona X-02 como long-term (sin fase de implementación).
+- Nada implementado; prioridades actuales intactas.
+
 ## 2026-10-08 — 0.0.0 — Objetivos M-01…M-23 y roadmap por fases (solo docs)
 
 - Creado MODERNIZATION_GOALS.md: FA-01…FA-15, M-01…M-23, X-01 (DEFERRED);

@@ -18,6 +18,8 @@
 - No se debe saltar a implementación: la documentación precede a cualquier
   modificación técnica.
 - Orden: ENTENDER → BASE → SENCILLO → DEPENDIENTE → COMPLEJO → EXPERIMENTAL.
+- 2026-10-08: +M-24 localización (PROPOSED, P3, sin fase) y +X-02 posible
+  rewrite Rust/Bevy (DEFERRED, long-term research, fuera de implementación).
 
 ## Current objective
 

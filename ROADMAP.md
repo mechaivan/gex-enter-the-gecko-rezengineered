@@ -112,7 +112,9 @@ demuestra que es necesario.
 ## Fase 14 — Experimental / Deferred ⬜
 
 - X-01 Linux / Proton / Steam Deck: DEFERRED, baja prioridad.
-- No compite con Windows ni con el objetivo principal.
+- X-02 Posible rewrite Rust/Bevy: LONG-TERM RESEARCH, prioridad muy baja;
+  no es una fase de implementación (ver MODERNIZATION_GOALS.md).
+- Nada de esta fase compite con Windows ni con el objetivo principal.
 
 ---
 

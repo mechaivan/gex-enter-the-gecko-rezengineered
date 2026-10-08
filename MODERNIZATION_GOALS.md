@@ -446,7 +446,36 @@ depende, directa o indirectamente, de esta fase. Detalle del cómo en
 
 ---
 
-# DEFERRED — Plataformas futuras
+# NIVEL 9 — LOCALIZACIÓN
+
+## M-24 — Localization / Language Selection
+
+- **Categoría:** Nivel 9 — Localización
+- **Descripción:** Estudiar la posibilidad futura de localizar **textos**
+  (no doblar voces): English (original) + Español (primero) + más idiomas
+  después. Alcance posible: menús, opciones, mensajes, interfaz y demás
+  textos que realmente existan en la versión PC. Arquitectura ideal:
+  `Localization → English / Español / Other`, con selector en el futuro
+  menú de opciones (M-20).
+- **Prioridad:** P3 (interesante, posterior a fundamentos) · **Complejidad estimada:** Desconocida (TO INVESTIGATE) · **Estado:** PROPOSED
+- **Dependencias:** FA-01, M-20, M-22
+- **Investigar antes:** dónde están los textos; codificación; exe vs
+  ficheros externos; identificación de strings; sistema de fuentes;
+  soporte de caracteres para español (ñ, tildes); límites de longitud;
+  caracteres especiales; viabilidad de un sistema externo de localización
+  sin alterar el comportamiento original.
+- **Riesgos / incógnitas:** strings cableados; fuentes bitmap sin acentos;
+  límites de longitud; texto como textura; renders de texto propietarios.
+- **Relación con comportamiento original:** English original = source of
+  truth; las traducciones serían aditivas y opcionales. **No asumir que
+  las traducciones de Gex Trilogy sean reutilizables; Trilogy no es
+  fuente de verdad.** Otras versiones, solo referencias secundarias.
+- **Compatible con Original Mode:** Sí (English original) · **Pertenece a Modern Mode:** Sí
+- **Notas:** sin fase de roadmap asignada todavía (post-Fase 11, TBD).
+
+---
+
+# DEFERRED / LONG-TERM RESEARCH (fuera del roadmap normal)
 
 ## X-01 — Linux / Proton / Steam Deck — DEFERRED
 
@@ -461,6 +490,32 @@ depende, directa o indirectamente, de esta fase. Detalle del cómo en
 - **Compatible con Original Mode:** n/a · **Pertenece a Modern Mode:** n/a
 - **Notas:** explícitamente NO objetivo principal; no compite con Windows.
   La info Wine existente (VOGONS) queda como secundaria (S-05).
+
+## X-02 — Possible Engine Rewrite in Rust + Bevy (long-term research)
+
+- **Categoría:** Experimental / Long-term research (fuera del roadmap normal)
+- **Descripción:** Dejar registrada la posibilidad de estudiar, en un futuro
+  muy lejano, una reimplementación del engine en Rust + Bevy + arquitectura
+  moderna a partir del conocimiento del RE. **No** convierte el proyecto en
+  un remake; **no** abandona el engine original. Hipotéticamente podría ser
+  una arquitectura independiente capaz de reproducir el comportamiento original.
+- **Prioridad:** P3 (muy baja) · **Complejidad estimada:** Desconocida (posible XL) · **Estado:** DEFERRED
+- **Dependencias:** conocimiento suficiente del engine original (FA-01…FA-15
+  y Fases 1–4 esencialmente completas).
+- **Investigar antes (preguntas fundamentales):** ¿tenemos suficiente
+  conocimiento del engine?; ¿podemos reproducir su lógica?; ¿qué sistemas
+  reconstruir?; ¿qué es específico de PC vs del engine?; ¿cómo reproducir
+  física, cámara, timing, animaciones, colisiones, audio, niveles, enemigos,
+  triggers?; ¿diferencias reimplementación vs ejecutable?; ¿compatibilidad
+  con assets originales?; ¿reimplementación vs remake?
+- **Riesgos / incógnitas:** explosión de alcance; desenfoque del proyecto;
+  línea reimplementación/remake; compatibilidad de assets; todo desconocido.
+- **Relación con comportamiento original:** el original seguiría siendo la
+  fuente de verdad contra la que validarse.
+- **Compatible con Original Mode:** n/a · **Pertenece a Modern Mode:** n/a
+- **Notas:** solo se estudiaría si el conocimiento futuro lo justifica. El
+  proyecto principal sigue siendo entender → documentar → analizar →
+  corregir/modernizar el juego original.
 
 ---
 
@@ -477,8 +532,10 @@ depende, directa o indirectamente, de esta fase. Detalle del cómo en
 | M-20 | 10 (In-Game Configuration) |
 | M-21, M-22 | 11 (Original Mode / Modern Mode) |
 | M-23 | 12 (Optional Enhanced Visuals) |
+| M-24 | Sin fase asignada (post-11, TBD) |
 | Matriz hardware | 13 (Extended Compatibility) |
 | X-01 | 14 (Experimental / Deferred) |
+| X-02 | 14 mención long-term (no es fase de implementación) |
 
 Ver [ROADMAP.md](ROADMAP.md). Orden de principio a fin:
 
