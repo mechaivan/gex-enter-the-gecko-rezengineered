@@ -12,8 +12,11 @@
 3. **Gex Trilogy (2025) NO forma parte de las referencias del proyecto.**
    Se mantiene únicamente como contexto histórico (S-12).
 
-Las fuentes son material de investigación, **no** instrucciones ciegas. Todo
-está pendiente de contraste. Recopilación inicial: 2026-10-08.
+Las fuentes son material de investigación, **no** instrucciones ciegas.
+Recopilación inicial: 2026-10-08. El contraste propio comenzó en Fase 1
+(inventario + análisis estático de los originales EU — ver
+[docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md));
+lo ya verificado se indica en § «Áreas de investigación futura».
 
 ## S-01 — PCGamingWiki: "Gex: Enter the Gecko" ⭐ referencia pública principal PC
 
@@ -114,8 +117,9 @@ está pendiente de contraste. Recopilación inicial: 2026-10-08.
 
 - `gex-3d-enter-the-gecko-pc-pointsoft` (FR, Pointsoft, pistas CD-audio),
   `gex-enter-the-gecko-3dfx` (bundle Quantum3D Raven).
-- Utilidad: evidencia de estructura del CD (pista datos + pistas audio) y de
-  variantes regionales. **No descargar material propietario al repo.**
+- Utilidad: evidencia de estructura del CD y de variantes regionales (la
+  estructura 1+16 del CD EU ya está confirmada con originales propios,
+  Fase 1). **No descargar material propietario al repo.**
 
 ## S-14 — speedrun.com: "PC Version Setup Package" (Mysticore) ⭐
 
@@ -146,10 +150,11 @@ está pendiente de contraste. Recopilación inicial: 2026-10-08.
   DirectDraw/D3D 1–7 → D3D9 (Dd7to9, cubre **D3D5**), D3D8 → D9, DirectInput
   1–7 → 8, hooks de DirectSound; permite cargar `.asi`; hack de resolución
   legacy; modo ventana; FPS counter.
-- Utilidad: (a) ayuda de testing/compatibilidad para la ruta D3D del juego;
+- Utilidad: (a) ayuda de testing/compatibilidad para la ruta D3D (versión
+  US / parche F-01: el binario EU inventariado no tiene ruta D3D);
   (b) **código abierto para estudiar** cómo se interceptan/solucionan APIs
   legacy (no copiar a ciegas: entender y decidir solución propia).
-- Estado: catalogado; probar en Fase 5 contra ruta D3D si aplica.
+- Estado: catalogado; probar en Fase 5 donde aplique.
 
 ## S-17 — dgVoodoo2 (dege-diosg) — herramienta de referencia (freeware, NO OSS)
 
@@ -188,23 +193,35 @@ está pendiente de contraste. Recopilación inicial: 2026-10-08.
 
 ## Áreas de investigación futura (separación estricta)
 
+### Verificado por el proyecto (Fase 1, 2026-10-08)
+
+Evidencia estática propia sobre los originales EU (ver
+[docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)):
+
+- Edición europea v1.00.000 (`SETUP.INI` + `DATA.TAG` + PDB `release_europe`).
+- EU Glide-exclusiva: 38 imports a `glide2x.dll`, 0 a DirectDraw/Direct3D.
+- Claves `HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00` en strings del exe.
+- Música en pistas CD: TOC 1 datos + 16 CD-DA, `mciSendCommandA` importado.
+- Joystick vía WinMM (`joyGetPosEx`); sin imports a DirectInput en EU.
+- Instalador InstallShield 5.x (stub NE 16-bit + CABs `ISc(` v4).
+
 ### Reportado por fuentes secundarias (pendiente de verificación propia)
 
 Nada de esto está confirmado por el proyecto; son hechos bien atestiguados
 que habrá que verificar contra el juego real (Fase 1–2):
 
 - Port PC por LTI Gray Matter, septiembre 1998 (Midway US / Ubisoft EU).
-- APIs: Direct3D 5 + Glide; D3D nativo solo reportado en versión US.
-- Claves `HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00` (InstallDir, CDDriveName).
+- D3D 5 nativo en versión US (en EU, ausente de fábrica — ver arriba).
 - Caps de FPS reportados: 30 (base) / 24 (con parche D3D).
-- Audio musical en pistas CD (Red Book); requisitos Win 95/98/ME, P166, 32 MB.
+- Requisitos Win 95/98/ME, P166, 32 MB, DX5.
 
 ### Hipótesis abiertas (NO confirmadas)
 
 - Lógica/timing acoplados al framerate (I-01).
 - Intro en códec Indeo (I-14); escritura HKLM causa de I-17.
 - Cámara PC similar a PS1 (L1/R1): **sin evidencia en PC**.
-- Formatos de texturas/assets: totalmente desconocidos.
+- Formatos de assets: `FONT.3DF` identificado (textura 3dfx `.3df`);
+  `.DFX/.VFX/.SAG/.JAM/.TAD` pendientes (UNKNOWN-PENDING).
 
 ### Investigación futura por área → objetivo
 
@@ -224,8 +241,9 @@ que habrá que verificar contra el juego real (Fase 1–2):
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como
   secundaria, speedrun/setup). Jerarquía de referencias fijada.
-- [ ] Archivos originales del juego: **pospuestos por decisión del mantenedor
-  (2026-10-08)**. No solicitarlos ni iniciar análisis binario hasta que lo
-  indique. Cuando lleguen, irán a Drive `originals/`, nunca al repo.
+- [x] Archivos originales del juego: recibidos y custodiados en Drive
+  `originals/` (nunca en el repo); inventariados en Fase 1 (2026-10-08).
+  El análisis binario profundo sigue bloqueado hasta que el mantenedor
+  indique el cambio de fase.
 - [ ] Extraer de S-14 (setup package): README + lista de parches/herramientas
   + hashes de ejecutables incluidos (cuando el mantenedor lo considere).

@@ -1,6 +1,6 @@
 # BUILD — Construcción
 
-> Estado: **pendiente de definir** (Fase 0: no hay nada que construir).
+> Estado: **pendiente de definir** (Fase 1: no hay nada que construir).
 
 Cuando exista implementación (Fase 4), este documento describirá:
 

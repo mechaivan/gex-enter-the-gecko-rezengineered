@@ -49,8 +49,11 @@ Con `pefile` + `capstone` + `objdump` + `strings` se puede hacer, sin Ghidra:
 - desensamblado dirigido de funciones localizadas por patrones/YARA;
 - diff binario entre variantes (original vs exes parcheados).
 
+Este kit ejecutó la Etapa A en Fase 1 (2026-10-08): resultados en
+[ORIGINAL_ARTIFACT_INVENTORY.md](ORIGINAL_ARTIFACT_INVENTORY.md) §2–§4.
 Ghidra (decompilador, xrefs, call-graphs) se usará en la máquina del
-mantenedor u otro entorno sin restricciones cuando lleguen los binarios.
+mantenedor u otro entorno sin restricciones cuando se indique el cambio
+de fase (Etapas B+ bloqueadas).
 
 ## 5. Plan pendiente
 

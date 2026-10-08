@@ -21,9 +21,11 @@ Siempre comparar:
 
 ## Protocolo de registro (futuro)
 
-Cada test registra: fecha, versión del juego (hash), OS/GPU/driver, wrapper
-y versión, fix aplicado, pasos, FPS medidos, resultado observado y artefactos
-(logs/vídeo). Matriz de resultados en [COMPATIBILITY.md](COMPATIBILITY.md).
+Cada test registra: fecha, versión del juego (hash — referencia EU en
+[docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)),
+OS/GPU/driver, wrapper y versión, fix aplicado, pasos, FPS medidos,
+resultado observado y artefactos (logs/vídeo). Matriz de resultados en
+[COMPATIBILITY.md](COMPATIBILITY.md).
 
 ## Categorías futuras de prueba
 

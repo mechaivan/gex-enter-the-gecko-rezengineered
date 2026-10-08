@@ -2,6 +2,26 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-08 — 0.0.0 — Regla permanente de sincronización + revisión global
+
+- Nueva regla permanente `docs/REPO_SYNC_RULE.md`: cada cambio relevante
+  exige revisión global (README/ROADMAP/PROJECT_STATE/CHANGELOG/objetivos/
+  issues/RE/compatibilidad/testing), corrección de contradicciones y
+  checklist final antes del commit. Sin avances de fase unilaterales.
+- Primera aplicación: Fase 0 cerrada, Fase 1 en curso en README, ROADMAP
+  y PROJECT_STATE (antes decían Fase 0); ROADMAP Fase 1 con inventario
+  completado y entorno/S-14 pendientes; Fase 2 anota el estático
+  adelantado sin darse por iniciada.
+- Evidencia Fase 1 propagada sin convertir hipótesis en hechos:
+  REVERSE_ENGINEERING (Etapa A ✅, B+ bloqueadas), RESEARCH (nueva
+  sección «Verificado por el proyecto», originales recibidos),
+  KNOWN_ISSUES (notas estáticas en I-03/I-05/I-11/I-15/I-16/I-19, ningún
+  issue reproducido), COMPATIBILITY (fila EU confirmada), PATCH_ANALYSIS
+  (T-01/T-04: D3D = US/F-01, no EU), MODERNIZATION_GOALS (M-07: sin
+  DirectInput en EU; avance parcial FA), TOOLKIT (Etapa A ejecutada),
+  TESTING/BUILD/CREDITS (punteros, fase, crédito Mysticore).
+- Historial preservado: entradas anteriores intactas.
+
 ## 2026-10-08 — 0.0.0 — Fase 1: inventario de artefactos originales (solo docs)
 
 - Nuevo `docs/ORIGINAL_ARTIFACT_INVENTORY.md`: inventario completo de

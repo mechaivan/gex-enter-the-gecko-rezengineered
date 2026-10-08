@@ -7,7 +7,8 @@
 > Goal: understand how the PC version really works, document every known issue
 > and existing community fix with evidence, and only then implement native,
 > well-understood fixes — without redistributing proprietary game files.
-> Current phase: **0 — Planning / Research**. No game modifications yet.
+> Current phase: **1 — Research & Original PC Documentation**.
+> Original artifacts inventoried; no game modifications yet.
 
 ## Objetivo
 
@@ -26,9 +27,10 @@
 
 | Campo               | Valor                                                        |
 |---------------------|--------------------------------------------------------------|
-| Fase                | **0 — Planning / Research**                                  |
+| Fase                | **1 — Research & Original PC Documentation**                 |
 | Versión             | 0.0.0                                                        |
-| Reverse engineering | No iniciado                                                  |
+| Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`)  |
+| Reverse engineering | Profundo no iniciado (Etapa A documentada en Fase 1)         |
 | Implementación      | **No iniciada (prohibida hasta completar la investigación)**  |
 | Testing             | No iniciado                                                  |
 
@@ -74,6 +76,8 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [PATCH_ANALYSIS.md](PATCH_ANALYSIS.md)                 | Catálogo y análisis de fixes existentes      |
 | [COMPATIBILITY.md](COMPATIBILITY.md)                   | Matriz de compatibilidad                     |
 | [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md)       | Plan y metodología de reverse engineering    |
+| [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md) | Inventario de artefactos originales (Fase 1) |
+| [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)       | Regla permanente de sincronización global    |
 | [docs/TOOLKIT.md](docs/TOOLKIT.md)                     | Entorno y herramientas disponibles           |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |

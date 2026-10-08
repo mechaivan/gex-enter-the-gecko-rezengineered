@@ -61,6 +61,13 @@ depende, directa o indirectamente, de esta fase. Detalle del cómo en
 | FA-14 | Fullscreen / ventana (creación, foco, Alt+Tab) | RE Etapa C | TO INVESTIGATE |
 | FA-15 | Comportamiento de referencia en hardware/software de época | TESTING + COMPATIBILITY | TO INVESTIGATE |
 
+**Avance de Fase 1 (2026-10-08, parcial — estados sin cambiar):** evidencia
+estática propia en [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)
+para FA-01 (exe EU inventariado), FA-02 (dependencias: Glide/WinMM/DSound;
+sin D3D/DirectInput), FA-03 (ruta Glide única en EU), FA-09 (TOC 1+16,
+MCI), FA-11 (claves `Gex2\1.00` en strings) y FA-12 (mensajes de
+CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
+
 ---
 
 # NIVEL 1 — MEJORAS MODERNAS DE BAJO RIESGO
@@ -169,8 +176,10 @@ depende, directa o indirectamente, de esta fase. Detalle del cómo en
 - **Descripción:** Soporte para mandos XInput modernos.
 - **Prioridad:** P2 · **Complejidad estimada:** M · **Estado:** PROPOSED
 - **Dependencias:** M-06, FA-06
-- **Investigar antes:** qué API usa el juego (DirectInput legacy probable,
-  sin confirmar); enumeración de dispositivos.
+- **Investigar antes:** qué API usa el juego (Fase 1: sin imports a
+  DirectInput en el binario EU — joystick vía WinMM `joyGetPosEx`;
+  carga dinámica pendiente de descartar en Fase 2); enumeración de
+  dispositivos.
 - **Riesgos / incógnitas:** triggers/sticks sin equivalente original.
 - **Relación con comportamiento original:** nueva vía de entrada; no cambia
   acciones del juego.

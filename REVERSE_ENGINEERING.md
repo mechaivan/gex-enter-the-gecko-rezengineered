@@ -1,6 +1,9 @@
 # REVERSE_ENGINEERING — Plan y metodología
 
-> Estado: **planificación**. No hay binarios todavía; ningún análisis iniciado.
+> Estado: **Etapa A completada como documentación (Fase 1, 2026-10-08)** —
+> binarios EU inventariados + análisis estático básico registrado en
+> [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md).
+> RE profundo (Etapas B+) **no iniciado** (bloqueado hasta cambio de fase).
 
 ## 1. Principios
 
@@ -15,7 +18,8 @@
 
 1. Inventario de binarios: ejecutables, DLLs, versiones, regiones, hashes
    (SHA-256), fechas, entry points.
-2. Dependencias: imports/exports (Glide, D3D5, WinMM, DirectInput, Indeo…).
+2. Dependencias: imports/exports (Fase 1 en EU: Glide ✅, WinMM ✅, DSound ✅;
+   Direct3D ❌, DirectInput ❌; Indeo pendiente).
 3. Superficie de configuración: strings del registro (`Gex2`, `InstallDir`,
    `CDDriveName`), ficheros de config, argumentos CLI.
 4. Sistemas internos: timing/game-loop, render (Glide vs D3D), audio/CD-audio,
@@ -25,12 +29,12 @@
 
 ## 3. Plan por etapas
 
-### Etapa A — Inventario (sin desensamblar)
+### Etapa A — Inventario (sin desensamblar) ✅ (Fase 1, ver inventario §2–§4)
 
-- [ ] Recibir y hashear originales (SHA-256) + registrar procedencia.
-- [ ] `file`, headers PE (máquina, subsistema, timestamp, secciones).
-- [ ] Tablas de imports/exports y DLLs implícitas.
-- [ ] Extracción de strings (rutas, claves de registro, mensajes, DX/Glide).
+- [x] Recibir y hashear originales (SHA-256) + registrar procedencia.
+- [x] `file`, headers PE (máquina, subsistema, timestamp, secciones).
+- [x] Tablas de imports/exports y DLLs implícitas.
+- [x] Extracción de strings (rutas, claves de registro, mensajes, DX/Glide).
 - [ ] Comparar variantes disponibles (US/EU/demo/exes parcheados).
 
 ### Etapa B — Proyecto Ghidra + naming inicial
@@ -44,12 +48,14 @@
 
 - [ ] Timing/FPS (I-01, I-02): buscar sleeps, `timeGetTime`, contadores,
       divisores de frame; explicar por qué 30 FPS es "correcto".
-- [ ] Render (I-03–I-10): puntos de selección Glide/D3D; modos de vídeo;
-      petición de 75 Hz; paths de resolución.
+- [ ] Render (I-03–I-10): ruta Glide única en EU (sin selección D3D en el
+      binario); modos de vídeo; petición de 75 Hz; paths de resolución.
+      Selección Glide/D3D solo en US/F-01 (pendiente de binario).
 - [ ] Audio/CD (I-11–I-13): MCI/WinMM/CD-audio; qué ocurre al cambiar de nivel.
 - [ ] FMV (I-14): reproductor de intro; dependencia Indeo.
 - [ ] Instalación/CD-check (I-15–I-17): lecturas de registro; detección de CD.
-- [ ] Input (I-18–I-19): DirectInput/teclado; confirmar ausencia de ratón.
+- [ ] Input (I-18–I-19): teclado + joystick WinMM (sin imports DirectInput
+      en EU); confirmar ausencia de ratón.
 
 ### Etapa D — Diffs de parches comunitarios
 

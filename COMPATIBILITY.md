@@ -1,15 +1,16 @@
 # COMPATIBILITY — Matriz de compatibilidad
 
-> **Nivel de evidencia global: SIN DATOS PROPIOS.**
-> Las notas proceden de fuentes secundarias (2026-10-08) y están sin verificar.
-> Esta matriz se rellenará con resultados de testing propio en Fase 5.
+> **Nivel de evidencia global: PRIMEROS DATOS PROPIOS (Fase 1, solo
+> estáticos).** Sin testing todavía: las notas no marcadas proceden de
+> fuentes secundarias (2026-10-08) y están sin verificar. Esta matriz se
+> rellenará con resultados de testing propio desde Fase 4/5.
 
 ## Versiones del juego
 
 | Versión              | Región | Render de fábrica     | Evidencia      |
 |----------------------|--------|-----------------------|----------------|
 | PC retail US         | US     | Direct3D + Glide (?)  | PCGamingWiki   |
-| PC retail EU         | EU/PAL | Glide/3Dfx (solo ?)   | PCGamingWiki   |
+| PC retail EU         | EU/PAL | Glide/3Dfx (solo)     | Inventario Fase 1 (CONFIRMED: 38 imports glide2x, 0 D3D) |
 | PC retail FR (Pointsoft) | FR | (por determinar)      | Archive.org    |
 | PC OEM Quantum3D Raven | US  | 3Dfx bundle           | Archive.org    |
 | Demo PC (Toon TV)    | ?      | 3Dfx-only             | PCGW Community |
@@ -52,6 +53,9 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 
 ## Notas
 
+- Datos propios Fase 1 (binario EU v1.00.000): Glide exclusivo; joystick vía
+  WinMM (`joyGetPosEx`, sin DirectInput); audio vía WinMM/DSound + CD-DA por
+  MCI (`mciSendCommandA`); CD 1 datos + 16 pistas audio. Ver inventario.
 - El comportamiento de referencia ("correcto") debe definirse per sistema:
   física, timing, velocidad de juego y render en hardware de época.
 - Todo resultado futuro debe registrar: versión del juego, OS, GPU, wrapper,

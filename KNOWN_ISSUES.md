@@ -1,10 +1,13 @@
 # KNOWN_ISSUES — Mapa inicial de problemas conocidos
 
-> **Nivel de evidencia global: NO VERIFICADO.**
+> **Nivel de evidencia global: SIN REPRODUCIR.**
 > Todos los problemas de este documento provienen de fuentes secundarias
 > (PCGamingWiki, foros, reportes de usuarios) recensadas el 2026-10-08.
-> Ninguno ha sido reproducido ni confirmado por este proyecto todavía.
-> Ver [RESEARCH.md](RESEARCH.md) para las fuentes.
+> Ninguno ha sido reproducido por este proyecto todavía; varios tienen
+> evidencia estática propia (Fase 1) anotada en cada issue.
+> Ver [RESEARCH.md](RESEARCH.md) para las fuentes y
+> [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)
+> para la evidencia propia.
 
 Formato por problema: identificador, descripción, fuente(s), estado.
 
@@ -33,7 +36,10 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** solo la versión US trae soporte Direct3D integrado; la
   versión EU sería exclusiva Glide/3Dfx y necesita parche no oficial o wrapper.
 - **Fuente:** PCGamingWiki.
-- **Estado:** DESCONOCIDO.
+- **Evidencia Fase 1 (CONFIRMED):** el exe EU v1.00.000 no importa ninguna API
+  D3D (38 imports `glide2x`). La afirmación sobre EU queda confirmada a nivel
+  binario; la parte US sigue pendiente de binario.
+- **Estado:** DESCONOCIDO (issue no reproducido; premisa EU confirmada).
 
 ### I-04 — Pantalla negra + cuelgue/bloqueo al arrancar
 
@@ -47,8 +53,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** el juego exige Glide; sin tarjeta 3Dfx o wrapper, error de
   DLL faltante.
 - **Fuente:** MyAbandonware (comentarios).
-- **Estado:** DESCONOCIDO (esperable por diseño original; pendiente de
-  confirmar dependencias del exe).
+- **Estado:** DESCONOCIDO (esperable por diseño original; dependencias
+  confirmadas en Fase 1: 38 funciones `glide2x` importadas).
 
 ### I-06 — Resolución/tamaño de ventana anómalos
 
@@ -90,6 +96,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** la música Red Book CD no suena correctamente en Windows
   moderno; varios usuarios reportan ausencia total de audio o de música.
 - **Fuentes:** PCGamingWiki, Reddit r/gex, MyAbandonware.
+- **Evidencia Fase 1:** base confirmada (16 pistas CD-DA en la TOC +
+  `mciSendCommandA` importado). El fallo en Windows moderno sigue sin
+  reproducir.
 - **Estado:** DESCONOCIDO.
 
 ### I-12 — La música se corta tras completar cada nivel
@@ -124,6 +133,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** PCGamingWiki (procedimiento de instalación manual).
 - **Claves implicadas:** `HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00`
   (`Version`, `InstallDir`, `CDDriveName`).
+- **Evidencia Fase 1:** instalador identificado (InstallShield 5.x, stub NE
+  16-bit) — coherente con la rotura en Windows moderno (HYPOTHESIS, sin
+  probar). Claves `...\Gex2\1.00` confirmadas en strings del exe.
 - **Estado:** DESCONOCIDO.
 
 ### I-16 — Comprobación de CD ("valid gex 2 disk")
@@ -131,6 +143,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** el juego exige el CD; problemas de detección con ISOs
   montadas.
 - **Fuente:** MyAbandonware (comentarios).
+- **Evidencia Fase 1:** mensajes de CD-check presentes en strings del exe
+  («A valid Gex: Enter The Gecko CD was not found.»).
 - **Estado:** DESCONOCIDO.
 
 ### I-17 — Requiere ejecución como administrador
@@ -151,6 +165,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 ### I-19 — Estado del soporte de mando desconocido
 
 - **Descripción:** no hay información clara sobre DirectInput/XInput.
+- **Evidencia parcial Fase 1:** joystick vía WinMM (`joyGetPosEx`), sin
+  imports a DirectInput en el binario EU. Comportamiento real pendiente.
 - **Estado:** DESCONOCIDO.
 
 ## Memoria / estabilidad

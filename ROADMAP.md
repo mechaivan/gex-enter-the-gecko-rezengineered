@@ -7,34 +7,44 @@ ENTENDER → BASE → SENCILLO → DEPENDIENTE → COMPLEJO → EXPERIMENTAL
 ```
 
 Los objetivos de modernización viven en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)
-(M-01…M-23, todos PROPOSED). Este roadmap puede cambiar si la investigación
-demuestra que es necesario.
+(M-01…M-24, todos PROPOSED; X-01/X-02 DEFERRED). Este roadmap puede cambiar
+si la investigación demuestra que es necesario.
 
-## Fase 0 — Planning / Documentation 🟡 (en curso)
+## Fase 0 — Planning / Documentation ✅ (cerrada 2026-10-08)
 
 - [x] Definir objetivos y principios del proyecto.
 - [x] Recopilar recursos públicos iniciales.
 - [x] Preparar estructura del repositorio y documentación base.
 - [x] Fijar jerarquía de referencias y taxonomía (ORIGINAL/F/T/R).
-- [x] Definir objetivos futuros M-01…M-23 + FA-01…FA-15 (PROPOSED).
-- [ ] Cerrar la recopilación de material público pendiente.
+- [x] Definir objetivos futuros M-01…M-24 + FA-01…FA-15 (PROPOSED) + X-01/X-02.
+- [x] Cerrar la recopilación de material público pendiente (S-01…S-19).
+- Entorno RE y máquina de testing → movidos a Fase 1 (pendientes).
+
+## Fase 1 — Research & Original PC Documentation 🟡 (en curso)
+
+- [x] Inventariar archivos originales (hashes, versiones, regiones):
+  edición EU v1.00.000 completa —
+  [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md).
+  Variantes US/demo/parcheadas: pendientes.
+- [~] Documentar la versión PC: ejecutable identificado (`GEX3D.EXE`,
+  Glide exclusivo, rama `3dfx\release_europe`), dependencias
+  (Glide/WinMM/DSound; sin D3D ni DirectInput en EU), claves de
+  registro, CD-audio (TOC 1+16). Dinámico: pendiente.
+- [ ] Analizar fixes existentes (qué cambian técnicamente).
+- [~] Lista de problemas conocidos con niveles de evidencia (evidencia
+  estática propia añadida; ningún issue reproducido todavía).
+- [ ] Cubrir las áreas FA-01…FA-15 a nivel documental.
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [ ] Definir máquina Windows de testing + protocolo de captura.
+- [ ] Inventariar S-14 (setup package): README + parches + hashes.
 
-## Fase 1 — Research & Original PC Documentation ⬜
+## Fase 2 — Reverse Engineering ⬜ (no iniciada)
 
-- Recopilar y contrastar toda la información disponible.
-- Analizar fixes existentes (qué cambian técnicamente).
-- Inventariar archivos originales (hashes, versiones, regiones).
-- Lista de problemas conocidos con niveles de evidencia.
-- Documentar la versión PC: ejecutables, dependencias, registro, CD-audio.
-- Cubrir las áreas FA-01…FA-15 a nivel documental.
-
-## Fase 2 — Reverse Engineering ⬜
-
-- Análisis estático del ejecutable (imports, strings, secciones).
+- [x] Análisis estático del ejecutable (imports, strings, secciones) —
+  adelantado en Fase 1 como documentación (ver inventario §4.1).
 - Proyecto Ghidra + naming inicial de funciones/sistemas.
-- Dependencias (Glide, Direct3D 5, WinMM, DirectInput, Indeo…).
+- Dependencias: confirmar en dinámico (estático Fase 1 en EU: Glide ✅,
+  WinMM ✅, DSound ✅; Direct3D ❌, DirectInput ❌; Indeo ?).
 - Sistemas: timing/FPS, render, audio, input, cámara, CD-check.
 - Comparación binaria: original vs ejecutables parcheados.
 - Confirmar causas raíz (o refutar hipótesis).

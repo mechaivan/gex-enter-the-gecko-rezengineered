@@ -32,6 +32,8 @@ Reglas:
 - **Efectos conocidos (sin verificar):** cap de FPS pasaría a 24.
 - **Pendiente:** conseguir copia, identificar ejecutables afectados, diff
   binario original vs parcheado, APIs utilizadas.
+- **Nota Fase 1:** coherente con el inventario — el exe EU carece de imports
+  D3D, luego F-01 añade una ruta inexistente de fábrica en EU.
 - **Estado:** DESCONOCIDO.
 
 ## F-02 — nGlide + `gex2_patch.zip` — Zeus Software
@@ -74,8 +76,9 @@ Reglas:
 - **Contenido:** copiar carpeta `gex2`; crear claves
   `HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00` (`Version=2`, `InstallDir`,
   `CDDriveName`); ejecutar `gex3d.exe` como administrador; aplicar F-01.
-- **Pendiente:** confirmar qué lee el exe del registro (análisis estático de
-  strings/imports + dinámico).
+- **Pendiente:** confirmar qué lee el exe del registro (estático Fase 1:
+  claves `...\Gex2\1.00` confirmadas en strings; valores y uso real
+  requieren dinámico).
 - **Estado:** DESCONOCIDO.
 
 ## F-06 — Fix del códec Indeo (intro) — VOGONS
@@ -123,7 +126,8 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 
 - **Qué es:** DDraw/D3D1–7 → D3D9, D3D8 → D9, DInput1–7 → 8, hooks DirectSound,
   loader `.asi`, resolution hack legacy, modo ventana.
-- **Interés:** cubre D3D5 (API del juego); código abierto para estudiar
+- **Interés:** cubre D3D5 (API de la versión US / parche F-01; el binario EU
+  inventariado no tiene ruta D3D); código abierto para estudiar
   intercepción de APIs legacy.
 - **Fuente:** S-16. **Estado:** catalogado, sin probar.
 
@@ -144,7 +148,8 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 - **Qué es:** wrapper DirectDraw/Direct3D 1–7 (cubre D3D5) para Vista–11;
   compatibilidad + rendimiento, sin opciones de configuración por diseño.
   Activo (último push verificado: ene 2026).
-- **Interés:** alternativa ligera y abierta para la ruta D3D del juego;
+- **Interés:** alternativa ligera y abierta para la ruta D3D (US/F-01; no
+  aplica al binario EU sin modificar);
   DxWrapper lo integra (v0.2.0b/0.2.1/0.3.2).
 - **Fuente:** S-19. **Estado:** catalogado, sin probar.
 
