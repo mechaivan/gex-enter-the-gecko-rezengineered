@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — 7ª sesión: hash idéntico, sin sustitución, vendedor indeterminado
+
+- TESTING 7ª (equipo real, solo lectura): `SysWOW64\glide2x.dll` =
+  mismo hash 7cbd… (1630208 B) ⇒ sin sustitución; relectura 2.61.00.0658
+  (disputa 3ª cerrada: error transcripción); ProductName ES vs EN en
+  igual hash (recurso multilingüe probable); `nglide_config.exe` existe
+  ⇒ instalador ejecutado, uso por Gex sin demostrar.
+- RESEARCH S-22: resolución + docs oficiales nGlide (backend D3D+Vulkan,
+  Glide 2.60, sin política de sobrescritura documentada; foro: aparece
+  en Agregar/quitar) + 3 escenarios de coexistencia. d3d9 sigue sin
+  probar nada.
+- Siguiente paso mínimo: registro desinstalación (versión/fecha) +
+  versión y lectura del configurador. Sin cambios de hitos/%: panel
+  intacto («¿nGlide?» sigue vigente).
+
 ## 2026-10-09 — 0.0.0 — Atribución Glide: nGlide sin demostrar + corpus S-22
 
 - Análisis de atribución (sin nuevos datos del PC): demostrado = carga

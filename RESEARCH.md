@@ -346,6 +346,21 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Uso: corpus de comparación para el futuro hash de
   `SysWOW64\glide2x.dll` (A2.3). Etiquetas de estos sitios: confianza
   baja; hashes: objetivos.
+- RESOLUCIÓN 7ª sesión (PC): hash idéntico ⇒ sin sustitución; relectura
+  `2.61.00.0658` ⇒ disputa cerrada (3ª: error transcripción). Recurso
+  ES+EN probable (mismo hash, dos idiomas).
+- Docs oficiales nGlide (zeus-software.com/downloads/nglide, leídos
+  2026-10-09): backend Direct3D+Vulkan; Glide 2.60 API; instalador sin
+  política documentada de copia de seguridad/sobrescritura/versiones;
+  FAQ confirma VSync/splash en configurador. Foro t=560: nGlide SÍ
+  aparece en Agregar/quitar; desinstalación manual = borrar glide*.dll
+  (sin copias mencionadas).
+- Coexistencia configurador+fichero antiguo, explicaciones: (1) el
+  instalador omitió un fichero preexistente (solo documentado para
+  versiones nGlide previas: fuente estrecha); (2) 7cbd es el payload
+  de nGlide 2.x (sin referencia; v1.x marcaba «nGlide»); (3) sustituyó
+  y algo restauró (sin fuente). Fecha de instalación (registro,
+  lectura) discrimina (1)/(2) de forma fuerte.
 
 ## Áreas de investigación futura (separación estricta)
 

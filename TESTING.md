@@ -90,7 +90,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 > Primer hito funcional confirmado del proyecto: instalación manual F-05
 > (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
 > ejecutable EU original inalterado (MD5 verificado). Renderer:
-> wrapper=SÍ (nGlide probable, 5ª sesión); API efectiva pendiente.
+> wrapper=SÍ (vendedor nGlide sin demostrar, 5ª–7ª sesión); API efectiva pendiente.
 > FPS ≈25 estables (5ª–6ª sesión, método Steam); A/B VSync nulo (6ª);
 > sin logs ni capturas archivadas todavía.
 
@@ -172,7 +172,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Ficha `glide2x.dll` (CONFIRMADO, solo lectura):**
   `SysWOW64\glide2x.dll` (1630208 B) — Descripción `3Dfx Interactive, Inc.
   Glide DLL`; Producto `Glide para Voodoo Banshee` (transcripción aproximada;
-  nombre exacto en 4ª sesión); Versión de producto `2.60.0.658` (EN DISPUTA: dllme extrae `2.61.00.0658` del mismo SHA-256, S-22); SHA-256
+  nombre exacto en 4ª sesión); Versión de producto `2.60.0.658` (disputa RESUELTA en 7ª: relectura PC `2.61.00.0658`; 3ª fue error de transcripción); SHA-256
   `7cbd095872e821b54cd6fa03f76aa22073271567175069c53ebb2e73b0299aab`.
   Presente en los módulos de `GEX3D.EXE` en ejecución.
 - **Ficha `3dfxSpl2.dll` (CONFIRMADO):** Descripción y Producto `3dfx
@@ -214,15 +214,13 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   con sesiones anteriores: LIMITADA (config distinta).
 - **`glide2x` cargada (OBSERVADO, ficha nueva):** versión mostrada
   `2.61.00.0658`, metadatos 3Dfx Voodoo Banshee/Voodoo3 — cadena
-  DISTINTA A CONFIRMAR frente a la ficha 3ª sesión (2.60.0.658 en
-  disputa, S-22; 1630208 B, SHA-256
-  `7cbd…9aab`). Tamaño/hash de ESTE fichero: PENDIENTES
-  (confirman sustitución o relectura; no es re-solicitud).
+  MISMO fichero que 3ª sesión (hash idéntico, 7ª): NO hubo sustitución
+  (1630208 B, SHA-256 `7cbd…9aab`; tamaño/hash resueltos en 7ª).
 - **Wrapper (CONCLUSIÓN SÍ → A2.2):** nGlide instalado + su instalador
   coloca su `glide2x.dll` en SysWOW64 (S-02, triple fuente) + el juego
   carga desde SysWOW64 + render funcional en HW moderno sin 3dfx (un
   driver de época no podría operar aquí) ⇒ wrapper=SÍ. Vendedor
-  «nGlide» PROBABLE (hash pendiente); la atribución a fichero queda
+  «nGlide» PROBABLE entonces (7ª: sin demostrar tras hash idéntico; ver S-22); la atribución queda
   en A2.3.
 - **FPS (OBSERVADO, método pendiente):** ≈25 estables. Método de medida
   NO registrado ⇒ cifra provisional. Sin logs/vídeo.
@@ -267,8 +265,35 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   Refresco de escritorio: sigue pendiente.
 - **Siguiente paso (PROPUESTO, sin cambios):** medida precisa de FPS +
   pacing con vídeo slow-mo del móvil (120/240 fps) + lecturas de solo
-  lectura pendientes (refresco escritorio, hash/tamaño DLL). Pacing
+  lectura pendientes (refresco escritorio; hash DLL resuelto en 7ª). Pacing
   regular a 25.00 ⇒ temporización propia; irregular ⇒ otra causa.
+
+### Nota post-Hito 1 (2026-10-09, 7ª sesión): hash idéntico + metadatos completos
+
+- **Fichero (CONFIRMADO):** `SysWOW64\glide2x.dll`, SHA-256 idéntico al
+  de 3ª sesión (`7cbd…9aab`), 1630208 B ⇒ MISMO fichero, NO hubo
+  sustitución entre sesiones. Versión releída `2.61.00.0658` ⇒ disputa
+  3ª RESUELTA (transcripción errónea).
+- **Metadatos (OBSERVADO):** Company `3Dfx Interactive, Inc.`;
+  ProductName «Glide para Voodoo Banshee/Voodoo3» (ES) vs «Glide® for
+  Voodoo Banshee®» (EN, 4ª sesión) sobre el MISMO hash ⇒ hipótesis
+  líder: recurso de versión multilingüe (sin confirmar hasta enumerar
+  bloques). Archivo 3dfx en ambos idiomas; nada dice «nGlide».
+- **nGlide (CONFIRMADO presencia, uso SIN DEMOSTRAR):**
+  `nglide_config.exe` existe en SysWOW64 ⇒ instalador ejecutado. Pero
+  el fichero cargado es el 7cbd preexistente ⇒ instalador NO sustituyó
+  (omisión) O 7cbd es su propio payload (sin referencia) ⇒ coexistencia
+  sin resolver (S-22). Configurador instalado ≠ wrapper en uso por Gex.
+- **Interpretación (rigurosa):** wrapper=SÍ intacto; vendedor
+  INDETERMINADO (nGlide posible, no preferido). `d3d9.dll` en proceso
+  sigue sin probar nada (compatible con backend D3D oficial de nGlide,
+  nunca probatorio; criterio 2ª sesión intacto).
+- **Siguiente paso (PROPUESTO, solo lectura):** registro de
+  desinstalación nGlide (DisplayVersion/InstallDate) + versión de
+  `nglide_config.exe` + lectura de ajustes sin cambiar nada. Instalado
+  tras 4ª sesión ⇒ instalador no sustituyó ⇒ nGlide puenteado;
+  instalado antes de Hito 1 ⇒ payload-propio posible. Slow-mo/FPS
+  aplazados hasta aclarar la ruta.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
