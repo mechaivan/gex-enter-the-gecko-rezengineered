@@ -75,4 +75,5 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
   build D3D.
 - M-25 (PROPOSED): set de voces USA de PC (`voice/`) sin verificar; al
   testear audio registrar siempre la variante regional (UK/USA).
-- 5ª sesión proyecto (2026-10-09, config nGlide 2.10): `glide2x` 2.61.00.0658; ≈25 FPS (método pendiente); RTSS/Afterburner incompatibles (cierre); wrapper=SÍ. Ver TESTING.
+- 5ª sesión proyecto (2026-10-09, config nGlide 2.10): `glide2x` 2.61.00.0658; ≈25 FPS (método: Steam, 6ª); RTSS/Afterburner incompatibles (cierre); wrapper=SÍ. Ver TESTING.
+- 6ª sesión (A/B VSync On/Off, Steam): ≈25 en ambos, nulo (VSync solo descartado); intros percibidas ~15 (no medido); parpadeo = 1 cambio de modo. Ver TESTING.

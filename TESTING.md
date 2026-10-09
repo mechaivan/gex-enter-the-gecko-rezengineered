@@ -91,8 +91,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 > (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
 > ejecutable EU original inalterado (MD5 verificado). Renderer:
 > wrapper=SÍ (nGlide probable, 5ª sesión); API efectiva pendiente.
-> FPS ≈25 estables (5ª sesión, método pendiente); sin logs ni capturas
-> archivadas todavía.
+> FPS ≈25 estables (5ª–6ª sesión, método Steam); A/B VSync nulo (6ª);
+> sin logs ni capturas archivadas todavía.
 
 1. **Entorno (CONFIRMADO, parcial):** Windows 11 de 64 bits. Build de
    Windows, CPU/RAM, GPU + driver, refresco y layout de monitores:
@@ -203,8 +203,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   pista relevante, no demuestra la API de renderizado ni descarta un
   wrapper. `3dfxSpl2.dll` = pantalla de inicio (S-21), no prueba de
   renderer. I-21/I-22 pendientes, sin causa definitiva.
-- **Siguiente diagnóstico (DEFINIDO, 5ª sesión):** experimento A/B VSync
-  nGlide (ver abajo). Metadatos/hash 3ª–4ª sesión archivan la ficha
+- **Siguiente diagnóstico (DEFINIDO 5ª, EJECUTADO 6ª: nulo):** A/B VSync
+  nGlide (ver 6ª sesión). Metadatos/hash 3ª–4ª sesión archivan la ficha
   anterior; la ficha nueva (2.61.00.0658) necesita tamaño+hash propios.
 
 ### Nota post-Hito 1 (2026-10-09, 5ª sesión): nGlide + 25 FPS + DLL 2.61
@@ -232,15 +232,42 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   con un cambio de modo. Refresco de escritorio: pendiente.
 - **Herramientas (LIMITACIÓN CONFIRMADA):** MSI Afterburner/RTSS ⇒
   negro + cierre (inyección incompatible con esta ruta); contador de
-  Steam inservible. NO proponer overlays con inyección. Checklist #7
-  pendiente de método válido (Game Bar o conteo slow-mo).
-- **Siguiente experimento (DEFINIDO, pendiente de autorización):** A/B
+  Steam inservible en aquel intento (en 6ª sí aportó lecturas en nivel).
+  NO proponer overlays con inyección. Checklist #7: Steam válido para
+  FPS en nivel; pacing preciso pendiente (conteo slow-mo).
+- **Siguiente experimento (DEFINIDO 5ª, EJECUTADO 6ª: nulo):** A/B
   de `Vertical synchronization` en nGlide Configurator (On→Off→On):
   si los FPS saltan ⇒ 25 impuesto por sincronización/presentación;
   si persisten ⇒ límite propio del juego (y podría cerrar «API
   efectiva» si el ajuste mueve el render). Prerrequisitos: ajustes
   actuales anotados, refresco de escritorio, hash/tamaño DLL, método
   FPS. Reversión: volver a On + verificar retorno a ≈25.
+
+### Nota post-Hito 1 (2026-10-09, 6ª sesión): A/B VSync nulo + intros ≈15
+
+- **A/B VSync (CONFIRMADO, 1 variable):** config de referencia, solo
+  `Vertical synchronization` On→Off→On. Nivel: ≈25 estables en AMBOS
+  estados, sin diferencia visual relevante. Método: contador Steam
+  (cierra la laguna de método de 5ª para FPS en nivel). Sin tocar
+  originales ni registro.
+- **Interpretación (rigurosa):** VSync por sí solo DESCARTADO como
+  causa del 25. No demuestra la causa real. Hipótesis líder: límite
+  propio del juego (~40 ms); alternativas: otro factor de
+  sincronización/presentación (menos probable tras el nulo).
+  «API efectiva» (A2.2) sigue abierta (el ajuste no movió el render).
+- **Intros (OBSERVACIÓN usuario, NO medida):** secuencias Ubisoft,
+  Crystal Dynamics y logo Gex —percibidas como vídeos— a ~15 FPS
+  ESTIMADOS visualmente. Formato/frecuencia reales: SIN CONFIRMAR
+  (repo: pares `MOVIE/` UBISOFT/CRYLOGO/LOGO+INTRO…, inventario §7;
+  `.JAM`=vídeo/`.SAG`=audio solo hipótesis por tamaños; magias sin
+  muestrear, §14.3). I-14 NO reproducida aquí (las intros SÍ se ven).
+- **Modo vídeo (OBSERVADO):** el parpadeo del 2º monitor es UN único
+  cambio de modo/resolución al arrancar, no parpadeo continuo (I-22).
+  Refresco de escritorio: sigue pendiente.
+- **Siguiente paso (PROPUESTO, sin cambios):** medida precisa de FPS +
+  pacing con vídeo slow-mo del móvil (120/240 fps) + lecturas de solo
+  lectura pendientes (refresco escritorio, hash/tamaño DLL). Pacing
+  regular a 25.00 ⇒ temporización propia; irregular ⇒ otra causa.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 

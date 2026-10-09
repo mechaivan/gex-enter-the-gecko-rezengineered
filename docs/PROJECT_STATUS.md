@@ -98,7 +98,7 @@ Prohibido derivar cifras de commits, ficheros, líneas o sesiones.
 | Obj. | Hitos (peso) ✓/✗ | Pts | Estado | Evidencia |
 |---|---|---|---|---|
 | A2.1 DLLs cargadas (FA-02) | Enumeración 32-bit (S) ✓ · Ficha glide2x (S) ✓ · Ficha 3dfxSpl2 (XS) ✓ · Fecha/firma (S) ✓ · Rol acompañantes (S) ✗ · Resto deps dinámicas (M) ✗ | 7/12 | EN CURSO | TESTING 2ª–4ª sesión |
-| A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✓ SÍ | 8/13 | EN INVESTIGACIÓN | TESTING 2ª+5ª sesión; instalador nGlide→SysWOW64 |
+| A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✓ SÍ | 8/13 | EN INVESTIGACIÓN | TESTING 2ª+5ª+6ª sesión; instalador nGlide→SysWOW64 |
 | A2.3 Procedencia (RESEARCH) | Atribución origen (L) ✗ · Cadena/mecanismo (M) ✗ | 0/8 | EN INVESTIGACIÓN | Ficha A2.1 como indicio; RESEARCH hipótesis |
 | A2.4 Base decisiones (FA-01, Etapa A) | Inventario EU (L) ✓ · Variantes US/demo (M) ✗ · Confirm. dinámicas mín. (L) ✗ · Etapa B Ghidra (XL) ✗ BLOQUEADO | 5/21 | EN CURSO +BLOQ | Inventario §4; RE plan (B+ bloqueadas) |
 
@@ -216,8 +216,8 @@ Actualizar estas líneas solo con hechos verificados (§6). Hipótesis, no.
 ficha glide2x.
 **EN INVESTIGACIÓN**: Wrapper SÍ · nGlide probable / I-21 · I-22 ·
 API efectiva.
-**SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05, I-01/I-02);
-experimento A/B VSync nGlide definido en TESTING 5ª sesión.
+**SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05 · I-01/I-02);
+A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª).
 
 ## 5. Registro de cambios del panel
 
@@ -227,7 +227,7 @@ experimento A/B VSync nGlide definido en TESTING 5ª sesión.
 | v2.0 | 2026-10-09 | 3e56f1c | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
 | v3.0 | 2026-10-09 | 6ae7059 | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
 | v3.1 | 2026-10-09 | 87f33e3 | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
-| v3.2 | 2026-10-09 | (este commit) | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
+| v3.2 | 2026-10-09 | 6114f0b | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
 
 ## 6. Procedimiento de actualización (Arena)
 

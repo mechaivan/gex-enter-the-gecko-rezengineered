@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — 6ª sesión: A/B VSync nulo + intros ≈15 (estimado)
+
+- TESTING 6ª sesión (equipo real): A/B VSync On/Off ⇒ ≈25 FPS en ambos
+  (método: Steam; cierra laguna de método); VSync solo DESCARTADO como
+  causa; líder: límite propio del juego. Intros percibidas ~15 FPS
+  (NO medido; formato/frecuencia sin confirmar). Parpadeo = 1 cambio
+  de modo. Sin tocar originales ni registro.
+- KNOWN (I-01/I-02/I-14/I-22), COMPATIBILITY, PROJECT_STATE actualizados;
+  §4.10/Trazabilidad A2.2 al día; registro v3.2→6114f0b. RESEARCH sin
+  cambios (revisado; sin fuentes nuevas).
+- Sin cambios de hitos ni porcentajes (resultado nulo, completa ningún
+  criterio): dashboard intacto (v3.2).
+
 ## 2026-10-09 — 0.0.0 — 5ª sesión: nGlide 2.10 + 25 FPS + wrapper=SÍ (A2.2)
 
 - TESTING 5ª sesión (equipo real): nGlide 2.10 instalado; `glide2x`

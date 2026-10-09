@@ -26,7 +26,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   3DFX + Win 98–XP); F-04 sin pieza separada (probable duplicado de F-02);
   caps PCGW 30/24 re-verificados.
 - **Hipótesis (no confirmada):** lógica/timing ligada al número de frames.
-- **5ª sesión (2026-10-09):** ≈25 FPS estables (método pendiente); causa sin atribuir (ver experimento 5ª sesión).
+- **5ª sesión (2026-10-09):** ≈25 FPS estables (método: Steam, 6ª); causa sin atribuir.
+- **6ª sesión (2026-10-09):** A/B VSync On/Off ⇒ ≈25 en ambos (nulo): VSync solo DESCARTADO; líder: límite propio del juego.
 - **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
 
 ### I-02 — Límite de FPS distinto según versión/parche
@@ -35,7 +36,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   parche D3D no oficial.
 - **Fuente:** PCGamingWiki (tabla de vídeo).
 - **Lote 1 (2026-10-09):** re-verificado en la página (sin cambios).
-- **5ª sesión (2026-10-09):** ≈25 FPS estables (método pendiente); nuevo dato para la tabla de caps.
+- **5ª–6ª sesión (2026-10-09):** ≈25 FPS estables (método: Steam); nuevo dato para la tabla de caps; persiste con VSync off.
 - **Estado:** DESCONOCIDO.
 
 ## Render / vídeo
@@ -154,9 +155,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   Wine/OSX, sin validar). Reporte adyacente distinto (Zeus t=743, Win7):
   la intro SÍ se reproduce pero el audio se desincroniza (logo Midway y
   escena de Gex) + música ausente.
+- **6ª sesión (2026-10-09, equipo real):** las intros SÍ se reproducen
+  aquí (I-14 NO reproducida en esta config): secuencias Ubisoft/Crystal
+  Dynamics/logo Gex percibidas a ~15 FPS ESTIMADOS (NO medido).
+  Formato/frecuencia sin confirmar (repo: `MOVIE/` §7, magias §14.3).
 - **Estado:** DESCONOCIDO.
-
-## Instalación / arranque
 
 ### I-15 — El instalador original no funciona en Windows moderno
 
@@ -252,7 +255,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   principal (patrón de re-modos en cada transición de vídeo). Causa sigue
   UNKNOWN; layout/resoluciones/refrescos sin registrar.
 - **5ª sesión (2026-10-09):** un único parpadeo al iniciar (compatible con un cambio de modo); config distinta (nGlide) ⇒ comparabilidad limitada.
-- **Estado:** OBSERVADO 3 veces (causa UNKNOWN).
+- **6ª sesión (2026-10-09):** UN único cambio de modo/resolución al
+  arrancar, no parpadeo continuo (refina 5ª; modo sin medir).
+- **Estado:** OBSERVADO 4 veces (causa UNKNOWN).
 
 ## Relación con objetivos (sin duplicar)
 
