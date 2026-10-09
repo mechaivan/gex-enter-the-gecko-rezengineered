@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Panel SVG de progreso + metodología (PROJECT_STATUS v1.0)
+
+- Nuevo `docs/PROJECT_STATUS.svg`: panel de diagnóstico retrofuturista
+  (morado/negro, estático, sin scripts ni remotos) con 5 áreas + global.
+- Nuevo `docs/PROJECT_STATUS.md`: fuente de verdad — metodología de hitos
+  ponderados (XS1/S2/M3/L5/XL8), estados verificables, fórmulas, exclusiones
+  N/A documentadas, evidencias y procedimiento de actualización Arena.
+- Cifras iniciales v1.0: global 16% (47/285 PTS); A1 32%, A2 28%, A3 0%,
+  A4 0%, A5 33%. Trazables a FA/M-xx, TESTING, KNOWN_ISSUES y BUILD/LICENSE.
+- README: sección «Panel de progreso» + fila en la tabla de docs.
+- Fase 1 en curso; RE no iniciada; exe intacto. Sin preview raster (entorno
+  sin renderizador SVG; validado por auditoría estática).
+
 ## 2026-10-09 — 0.0.0 — Hito 1 (4ª sesión): fecha/firma Glide + plan de publicación
 
 - TESTING.md: nota 4ª sesión — producto exacto `Glide® for Voodoo Banshee®`

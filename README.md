@@ -37,6 +37,12 @@
 
 Ver [PROJECT_STATE.md](PROJECT_STATE.md) para el estado detallado.
 
+### Panel de progreso
+
+<img src="docs/PROJECT_STATUS.svg" alt="REZengineered — panel de estado del proyecto" width="760" />
+
+Metodología, evidencias y cifras: [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+
 ## Principio fundamental
 
 > **Primero entendemos Gex. Después lo reingenierizamos.**
@@ -80,6 +86,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md) | Inventario de artefactos originales (Fase 1) |
 | [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)       | Regla permanente de sincronización global    |
 | [docs/TOOLKIT.md](docs/TOOLKIT.md)                     | Entorno y herramientas disponibles           |
+| [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)       | Metodología y registro del panel de progreso |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |
