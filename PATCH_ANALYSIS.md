@@ -200,7 +200,9 @@ Reglas:
 - **Inspección documental (2026-10-09, sin descarga/extracción/ejecución):**
   411301184 bytes (411.3 MB = 392.2 MiB; discrepancia 411/~393 resuelta
   como redondeo en unidades distintas); SHA-256 `60d9e430…` (completo en
-  S-14); copia `research/` bit-idéntica. La página NO publica contenidos,
+  S-14); copia `research/` bit-idéntica (re-verificado 2026-10-09, 2ª
+  comprobación); listado ZIP + README bloqueados en este entorno (sin
+  lectura parcial disponible; detalle en S-14). La página NO publica contenidos,
   README ni hashes → payload DESCONOCIDO.
 - **Método futuro seguro (fuera del sandbox):** descargar → hash → `unzip -l`
   → extraer solo README → inventario; jamás ejecutar. Copia de trabajo ya

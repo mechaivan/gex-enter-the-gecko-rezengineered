@@ -170,6 +170,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   público**. Discrepancia 411 vs ~393 resuelta con evidencia: redondeo en
   unidades distintas del mismo fichero. (Identidad del propietario visible
   en metadatos; no registrada por privacidad.)
+- **Re-verificación 2026-10-09 (2ª comprobación, solo metadatos):** ambas
+  copias accesibles, no trashed, sin modificar desde la 1ª comprobación;
+  MD5/SHA-256 coinciden con lo documentado.
 - **DECLARADO POR LA FUENTE (página releída 2026-10-09, sin verificar):**
   «Includes everything you need to get the NTSC PC version to run on modern
   systems, without needing the physical disc. Simply follow the instructions
@@ -183,6 +186,12 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - **SIGUIENTE PASO (seguro, fuera del sandbox):** hash local → `unzip -l` →
   extraer solo README → inventario; jamás ejecutar. Requiere máquina con
   espacio + decisión del mantenedor.
+- **BLOQUEO en este entorno (2026-10-09, verificado):** sin capacidad de
+  listado ZIP ni lectura parcial sin descarga completa — `read_file_text`
+  falla (25 MB cap frente a 411301184 bytes); `download_file` solo ofrece
+  bytes completos o URL no consumible aquí; la copia completa al workspace
+  está prohibida por seguridad. Índice + README pendientes de máquina con
+  espacio.
 - Copia de trabajo: `Drive → REZengineered/research/` (2026-10-08; uso
   privado de investigación, no redistribuir).
 - Utilidad futura: procedimiento real de setup usado por speedrunners

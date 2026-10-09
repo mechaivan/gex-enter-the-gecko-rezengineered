@@ -59,8 +59,10 @@
   F-01…F-12 verificadas en fuente; diffs binarios pendientes (Fase 2).
 - [ ] Cubrir FA-01…FA-15 a nivel documental.
 - [~] Inventariar S-14 (setup package speedrun): metadatos + hashes
-  verificados 2026-10-09 (Drive, solo lectura; copia bit-idéntica);
-  README + contenido pendientes (cuando se indique; no mover datos al sandbox).
+  verificados 2026-10-09 (Drive, solo lectura; copia bit-idéntica;
+  re-verificados, 2ª comprobación); README + contenido bloqueados en este
+  entorno (sin listado ZIP sin descarga completa; requiere máquina con
+  espacio, cuando se indique).
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
 - [ ] Definir entorno de testing en Windows.
 

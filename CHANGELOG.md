@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — S-14: inventario interno bloqueado (solo metadatos)
+
+- Acceso + hashes re-verificados (2ª comprobación, Drive solo lectura):
+  ambas copias intactas (MD5/SHA-256 coinciden, no trashed, sin modificar).
+- Índice ZIP + README: BLOQUEADOS en este entorno con evidencia —
+  `read_file_text` falla (25 MB cap vs 411301184 bytes) y `download_file`
+  solo ofrece bytes completos o URL no consumible; copia completa al
+  workspace prohibida. Sin descarga, extracción ni ejecución.
+- Sync: RESEARCH (S-14: re-verificación + bloqueo), PATCH_ANALYSIS (F-09),
+  PROJECT_STATE/ROADMAP (S-14 [~] con bloqueo). Contenido sigue
+  DESCONOCIDO; Fase 1 en curso, Fase 2 sin iniciar.
+- Historial preservado: entradas anteriores intactas.
+
 ## 2026-10-09 — 0.0.0 — Precisión F-12 + inspección documental S-14
 
 - Bloque A: F-12 ya no presenta el menú debug como confirmado
