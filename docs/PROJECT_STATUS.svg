@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" font-family="monospace">
   <title>REZengineered — panel de progreso</title>
-  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 16% (47/285). A1 32, A2 28, A3 0, A4 0, A5 33.</desc>
+  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 18% (52/285). A1 32, A2 37, A3 0, A4 0, A5 33.</desc>
   <defs>
     <linearGradient id="gradMain" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#7c3aed"/>
@@ -27,7 +27,7 @@
   <!-- cabecera -->
   <text x="44" y="50" font-size="15" font-weight="bold" letter-spacing="3" fill="#e9d5ff">REZENGINEERED</text>
   <text x="212" y="50" font-size="12" letter-spacing="2" fill="#8b5cf6">· PANEL DE PROGRESO</text>
-  <text x="716" y="50" text-anchor="end" font-size="12" fill="#8b5cf6">v3.1</text>
+  <text x="716" y="50" text-anchor="end" font-size="12" fill="#8b5cf6">v3.2</text>
   <line x1="44" y1="62" x2="716" y2="62" stroke="#2e1065" stroke-width="1"/>
 
   <!-- MAIN protagonista -->
@@ -62,10 +62,10 @@
 
   <!-- GLOBAL secundario -->
   <text x="44" y="366" font-size="11" letter-spacing="2" fill="#8b5cf6">GLOBAL</text>
-  <text x="44" y="410" font-size="40" font-weight="bold" fill="#d8b4fe">16%</text>
+  <text x="44" y="410" font-size="40" font-weight="bold" fill="#d8b4fe">18%</text>
   <rect x="140" y="378" width="400" height="16" rx="5" fill="#150b28" stroke="#3b1d7a"/>
-  <rect x="140" y="378" width="64" height="16" rx="5" fill="url(#gradDim)"/>
-  <text x="552" y="391" font-size="12" fill="#8b5cf6">47/285 PTS</text>
+  <rect x="140" y="378" width="72" height="16" rx="5" fill="url(#gradDim)"/>
+  <text x="552" y="391" font-size="12" fill="#8b5cf6">52/285 PTS</text>
   <text x="140" y="414" font-size="10.5" fill="#8b5cf6">Progreso general de la hoja de ruta.</text>
   <line x1="44" y1="434" x2="716" y2="434" stroke="#2e1065" stroke-width="1"/>
 
@@ -81,9 +81,9 @@
   <g>
     <rect x="180" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
     <text x="190" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A2 INVESTIGACIÓN</text>
-    <text x="190" y="506" font-size="26" font-weight="bold" fill="#e9d5ff">28%</text>
+    <text x="190" y="506" font-size="26" font-weight="bold" fill="#e9d5ff">37%</text>
     <rect x="190" y="512" width="108" height="10" rx="3" fill="#241640"/>
-    <rect x="190" y="512" width="28" height="10" rx="3" fill="#7c3aed"/>
+    <rect x="190" y="512" width="37" height="10" rx="3" fill="#7c3aed"/>
     <text x="190" y="540" font-size="9" fill="#4ade80">EN CURSO</text>
   </g>
   <g>
@@ -114,11 +114,11 @@
   <text x="44" y="600" font-size="12" fill="#e9d5ff">Instalación + arranque + nivel</text>
   <text x="44" y="618" font-size="12" fill="#e9d5ff">Audio base · ficha glide2x</text>
   <text x="280" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#fbbf24">EN INVESTIGACIÓN</text>
-  <text x="280" y="600" font-size="12" fill="#e9d5ff">API gráfica / wrapper (FA-03)</text>
-  <text x="280" y="618" font-size="12" fill="#e9d5ff">I-21 · I-22 · origen glide2x</text>
+  <text x="280" y="600" font-size="12" fill="#e9d5ff">Wrapper SÍ · nGlide probable</text>
+  <text x="280" y="618" font-size="12" fill="#e9d5ff">I-21 · I-22 · API efectiva</text>
   <text x="520" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#c4b5fd">SIGUIENTE HITO</text>
-  <text x="520" y="600" font-size="12" fill="#e9d5ff">Identificar API efectiva,</text>
-  <text x="520" y="618" font-size="12" fill="#e9d5ff">confirmar/descartar wrapper</text>
+  <text x="520" y="600" font-size="12" fill="#e9d5ff">Causa de 25 FPS estables</text>
+  <text x="520" y="618" font-size="12" fill="#e9d5ff">(FA-05 · I-01/I-02)</text>
   <line x1="44" y1="640" x2="716" y2="640" stroke="#2e1065" stroke-width="1"/>
 
   <!-- pie -->

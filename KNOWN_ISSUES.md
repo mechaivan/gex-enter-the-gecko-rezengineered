@@ -26,6 +26,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   3DFX + Win 98–XP); F-04 sin pieza separada (probable duplicado de F-02);
   caps PCGW 30/24 re-verificados.
 - **Hipótesis (no confirmada):** lógica/timing ligada al número de frames.
+- **5ª sesión (2026-10-09):** ≈25 FPS estables (método pendiente); causa sin atribuir (ver experimento 5ª sesión).
 - **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
 
 ### I-02 — Límite de FPS distinto según versión/parche
@@ -34,6 +35,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   parche D3D no oficial.
 - **Fuente:** PCGamingWiki (tabla de vídeo).
 - **Lote 1 (2026-10-09):** re-verificado en la página (sin cambios).
+- **5ª sesión (2026-10-09):** ≈25 FPS estables (método pendiente); nuevo dato para la tabla de caps.
 - **Estado:** DESCONOCIDO.
 
 ## Render / vídeo
@@ -234,7 +236,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   originalidad/wrapper pendientes, sin causa definitiva atribuida.
 - **2ª sesión (2026-10-09):** repetido (4:3, bandas arriba/izquierda, HUD
   desalineado) con `glide2x.dll` cargada. Causa sigue UNKNOWN.
-- **Estado:** OBSERVADO 2 veces (causa UNKNOWN; modo/resolución sin medir).
+- **5ª sesión (2026-10-09):** `Aspect correction` de nGlide no mejora bandas/HUD (nulo, 1 prueba, config con nGlide).
+- **Estado:** OBSERVADO 3 veces (causa UNKNOWN; modo/resolución sin medir).
 
 ### I-22 — Pantalla completa desplaza iconos al segundo monitor (propia)
 
@@ -248,7 +251,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   al empezar las cinemáticas (Ubisoft + juego) y al pasar al menú
   principal (patrón de re-modos en cada transición de vídeo). Causa sigue
   UNKNOWN; layout/resoluciones/refrescos sin registrar.
-- **Estado:** OBSERVADO 2 veces (causa UNKNOWN).
+- **5ª sesión (2026-10-09):** un único parpadeo al iniciar (compatible con un cambio de modo); config distinta (nGlide) ⇒ comparabilidad limitada.
+- **Estado:** OBSERVADO 3 veces (causa UNKNOWN).
 
 ## Relación con objetivos (sin duplicar)
 

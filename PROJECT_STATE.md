@@ -6,7 +6,7 @@
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1)
 **Implementation:** Not started (blocked until research is sufficient)
-**Testing:** Hito 1 ejecutado (2026-10-09, PC mantenedor; resto pendiente)
+**Testing:** Hito 1 + 5ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS, wrapper=SÍ; resto pendiente)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-10-09
 

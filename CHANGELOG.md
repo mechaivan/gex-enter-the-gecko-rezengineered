@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — 5ª sesión: nGlide 2.10 + 25 FPS + wrapper=SÍ (A2.2)
+
+- TESTING 5ª sesión (equipo real): nGlide 2.10 instalado; `glide2x`
+  2.61.00.0658 (ficha nueva; hash/tamaño pendientes); ≈25 FPS estables
+  (método pendiente); Aspect/Refresh nulos; un parpadeo; RTSS/Steam
+  inservibles (limitación de tooling). Experimento A/B VSync definido,
+  pendiente de autorización.
+- Wrapper=SÍ (A2.2 L ✓): instalador nGlide→SysWOW64 + render en HW
+  moderno sin 3dfx. A2 28→37%, global 16→18% (52/285). MAIN intacto
+  (40%). API efectiva y procedencia siguen abiertas.
+- Panel v3.2 (solo datos): SVG + MD sincronizados; siguiente hito =
+  causa 25 FPS (FA-05, I-01/I-02). KNOWN (I-01/I-02/I-21/I-22),
+  COMPATIBILITY, PROJECT_STATE y RESEARCH (S-02) actualizados.
+
 ## 2026-10-09 — 0.0.0 — Regla permanente: dashboard solo con avance real
 
 - `docs/PROJECT_STATUS.md` §6: nueva regla permanente — el SVG es el

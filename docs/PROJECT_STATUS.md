@@ -2,9 +2,9 @@
 
 > Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
 > El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v3.1** · Fecha: **2026-10-09** ·
+> Versión del panel: **v3.2** · Fecha: **2026-10-09** ·
 > Ref: último commit con evidencia incorporada **`e9e846c`** (sin cambios;
-> v3.1 ajusta tamaños y abrevia la leyenda 100% como «VERSIÓN JUGABLE»: mismas cifras, metodología y evidencias).
+> v3.2 actualiza datos (A2.2 wrapper=SÍ; A2 37%, global 18%): mismo diseño y metodología).
 
 ## 1. Propósito
 
@@ -98,12 +98,14 @@ Prohibido derivar cifras de commits, ficheros, líneas o sesiones.
 | Obj. | Hitos (peso) ✓/✗ | Pts | Estado | Evidencia |
 |---|---|---|---|---|
 | A2.1 DLLs cargadas (FA-02) | Enumeración 32-bit (S) ✓ · Ficha glide2x (S) ✓ · Ficha 3dfxSpl2 (XS) ✓ · Fecha/firma (S) ✓ · Rol acompañantes (S) ✗ · Resto deps dinámicas (M) ✗ | 7/12 | EN CURSO | TESTING 2ª–4ª sesión |
-| A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✗ | 3/13 | EN INVESTIGACIÓN | TESTING 2ª sesión |
+| A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✓ SÍ | 8/13 | EN INVESTIGACIÓN | TESTING 2ª+5ª sesión; instalador nGlide→SysWOW64 |
 | A2.3 Procedencia (RESEARCH) | Atribución origen (L) ✗ · Cadena/mecanismo (M) ✗ | 0/8 | EN INVESTIGACIÓN | Ficha A2.1 como indicio; RESEARCH hipótesis |
 | A2.4 Base decisiones (FA-01, Etapa A) | Inventario EU (L) ✓ · Variantes US/demo (M) ✗ · Confirm. dinámicas mín. (L) ✗ · Etapa B Ghidra (XL) ✗ BLOQUEADO | 5/21 | EN CURSO +BLOQ | Inventario §4; RE plan (B+ bloqueadas) |
 
 Sin doble cuenta: A2.1 registra evidencias; A2.2/A2.3 registran
-conclusiones sobre esas evidencias. Artefactos distintos.
+conclusiones sobre esas evidencias. Artefactos distintos. «API efectiva»
+(A2.2) exige prueba a nivel de llamadas o efecto demostrable de un
+ajuste del wrapper (TESTING 5ª sesión).
 
 ### 4.5 Área A3 — Mejoras gráficas (0/69 → 0%)
 
@@ -148,15 +150,15 @@ verificaciones y revisiones siguen pendientes. Nada implementado.
 | Área | Puntos | % |
 |---|---|---|
 | A1 Compatibilidad y diagnóstico | 20/62 | 32% |
-| A2 Investigación técnica | 15/54 | 28% |
+| A2 Investigación técnica | 20/54 | 37% |
 | A3 Mejoras gráficas | 0/69 | 0% |
 | A4 Calidad de vida y UX | 0/64 | 0% |
 | A5 Preparación para publicación | 12/36 | 33% |
-| **GLOBAL** | **47/285** | **16%** |
+| **GLOBAL** | **52/285** | **18%** |
 | **MAIN (1ª jugable)** | **14/35 · 6/12 hitos** | **40%** |
 
-Comprobación: 20+15+0+0+12=47 ✓ · 62+54+69+64+36=285 ✓ ·
-47/285=16.49%→16% · 20/62=32.26%→32% · 15/54=27.78%→28% ·
+Comprobación: 20+20+0+0+12=52 ✓ · 62+54+69+64+36=285 ✓ ·
+52/285=18.25%→18% · 20/62=32.26%→32% · 20/54=37.04%→37% ·
 12/36=33.33%→33%.
 MAIN: 2+3+3+2+2+2=14 ✓ · total 35 ✓ · 14/35=40.0%→40% · hitos 6/12 ✓.
 
@@ -212,10 +214,10 @@ Actualizar estas líneas solo con hechos verificados (§6). Hipótesis, no.
 
 **CONSEGUIDO**: Instalación + arranque + nivel / Audio base ·
 ficha glide2x.
-**EN INVESTIGACIÓN**: API gráfica / wrapper (FA-03) / I-21 · I-22 ·
-origen glide2x.
-**SIGUIENTE HITO**: Identificar API efectiva, confirmar/descartar
-wrapper (FA-03, A2.2); método pendiente de definir.
+**EN INVESTIGACIÓN**: Wrapper SÍ · nGlide probable / I-21 · I-22 ·
+API efectiva.
+**SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05, I-01/I-02);
+experimento A/B VSync nGlide definido en TESTING 5ª sesión.
 
 ## 5. Registro de cambios del panel
 
@@ -224,7 +226,8 @@ wrapper (FA-03, A2.2); método pendiente de definir.
 | v1.0 | 2026-10-09 | cbd7fab | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
 | v2.0 | 2026-10-09 | 3e56f1c | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
 | v3.0 | 2026-10-09 | 6ae7059 | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
-| v3.1 | 2026-10-09 | (este commit) | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
+| v3.1 | 2026-10-09 | 87f33e3 | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
+| v3.2 | 2026-10-09 | (este commit) | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
 
 ## 6. Procedimiento de actualización (Arena)
 
@@ -256,18 +259,18 @@ commits vacíos. Conservar el diseño aprobado (solo datos, barras,
 estados y textos afectados); no rediseñar sin petición explícita.
 Cada sesión informa si el dashboard cambió o no, y por qué.
 
-### Geometría del SVG v3.1 (viewBox 0 0 760 700)
+### Geometría del SVG v3.2 (viewBox 0 0 760 700)
 
 - Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» 68px + stats
   (6/12 hitos, 14/35 puntos) + barra protagonista x=44 w=672 h=34 →
   relleno = % × 6.72 (40% → 268.8); ticks en x=212/380/548 (25/50/75%);
   etiqueta «VERSIÓN JUGABLE» bajo la barra (significado completo
   en §4.9, no en el SVG).
-- Global secundario: «16%» 40px + barra x=140 w=400 h=16 →
-  relleno = % × 4.0 (16% → 64) + «47/285 PTS».
+- Global secundario: «18%» 40px + barra x=140 w=400 h=16 →
+  relleno = % × 4.0 (18% → 72) + «52/285 PTS».
 - Mini-tarjetas de área: x=44/180/316/452/588, w=128 h=104;
   minibarra x+10 w=108 h=10 → relleno = % × 1.0
-  (A1 32 · A2 28 · A3 0 · A4 0 · A5 33).
+  (A1 32 · A2 37 · A3 0 · A4 0 · A5 33).
 - Jerarquía tipográfica: cabecera 15px · MAIN 68px · global 40px ·
   % áreas 26px · stats 15px · secundarias 12/11/10.5px · micro 9.5/9px.
 - Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha

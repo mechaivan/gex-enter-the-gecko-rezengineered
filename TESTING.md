@@ -89,8 +89,9 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 
 > Primer hito funcional confirmado del proyecto: instalación manual F-05
 > (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
-> ejecutable EU original inalterado (MD5 verificado). Renderer en uso:
-> DESCONOCIDO (ver punto 7). Sin FPS medidos, sin logs ni capturas
+> ejecutable EU original inalterado (MD5 verificado). Renderer:
+> wrapper=SÍ (nGlide probable, 5ª sesión); API efectiva pendiente.
+> FPS ≈25 estables (5ª sesión, método pendiente); sin logs ni capturas
 > archivadas todavía.
 
 1. **Entorno (CONFIRMADO, parcial):** Windows 11 de 64 bits. Build de
@@ -202,8 +203,44 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   pista relevante, no demuestra la API de renderizado ni descarta un
   wrapper. `3dfxSpl2.dll` = pantalla de inicio (S-21), no prueba de
   renderer. I-21/I-22 pendientes, sin causa definitiva.
-- **Siguiente diagnóstico:** pendiente de definir (Fase 1). No se solicitan
-  de nuevo metadatos ni hash ya facilitados.
+- **Siguiente diagnóstico (DEFINIDO, 5ª sesión):** experimento A/B VSync
+  nGlide (ver abajo). Metadatos/hash 3ª–4ª sesión archivan la ficha
+  anterior; la ficha nueva (2.61.00.0658) necesita tamaño+hash propios.
+
+### Nota post-Hito 1 (2026-10-09, 5ª sesión): nGlide + 25 FPS + DLL 2.61
+
+- **Entorno (CAMBIO VERIFICADO):** nGlide 2.10 instalado en Windows (en
+  Hito 1–4ª sesión no lo estaba *durante* las pruebas). Comparabilidad
+  con sesiones anteriores: LIMITADA (config distinta).
+- **`glide2x` cargada (OBSERVADO, ficha nueva):** versión mostrada
+  `2.61.00.0658`, metadatos 3Dfx Voodoo Banshee/Voodoo3 — cadena
+  DISTINTA a la ficha 3ª sesión (2.60.0.658, 1630208 B, SHA-256
+  `7cbd…9aab`). Tamaño/hash de ESTE fichero: PENDIENTES
+  (confirman sustitución o relectura; no es re-solicitud).
+- **Wrapper (CONCLUSIÓN SÍ → A2.2):** nGlide instalado + su instalador
+  coloca su `glide2x.dll` en SysWOW64 (S-02, triple fuente) + el juego
+  carga desde SysWOW64 + render funcional en HW moderno sin 3dfx (un
+  driver de época no podría operar aquí) ⇒ wrapper=SÍ. Vendedor
+  «nGlide» PROBABLE (hash pendiente); la atribución a fichero queda
+  en A2.3.
+- **FPS (OBSERVADO, método pendiente):** ≈25 estables. Método de medida
+  NO registrado ⇒ cifra provisional. Sin logs/vídeo.
+- **nGlide (OBSERVADO, nulos):** `Aspect correction` no mejora I-21;
+  `Refresh rate: By desktop` sin mejora perceptible. Nulo ≠ prueba de
+  ruta (un bypass daría el mismo nulo). 1 prueba cada uno.
+- **Modo vídeo (OBSERVADO):** un único parpadeo al iniciar, compatible
+  con un cambio de modo. Refresco de escritorio: pendiente.
+- **Herramientas (LIMITACIÓN CONFIRMADA):** MSI Afterburner/RTSS ⇒
+  negro + cierre (inyección incompatible con esta ruta); contador de
+  Steam inservible. NO proponer overlays con inyección. Checklist #7
+  pendiente de método válido (Game Bar o conteo slow-mo).
+- **Siguiente experimento (DEFINIDO, pendiente de autorización):** A/B
+  de `Vertical synchronization` en nGlide Configurator (On→Off→On):
+  si los FPS saltan ⇒ 25 impuesto por sincronización/presentación;
+  si persisten ⇒ límite propio del juego (y podría cerrar «API
+  efectiva» si el ajuste mueve el render). Prerrequisitos: ajustes
+  actuales anotados, refresco de escritorio, hash/tamaño DLL, método
+  FPS. Reversión: volver a On + verificar retorno a ≈25.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
@@ -310,7 +347,7 @@ contra época cuando exista.
   para referencia; contrastar 2 wrappers antes de concluir render/timing.
 - **Incógnitas:** specs del PC del Hito 1 (build/GPU AMD?/driver); TOC de
   la imagen montada; refrescos soportados; causa admin; origen de la
-  `glide2x` (fecha mostrada 2019-09-15, sin firma; diagnóstico pendiente);
+  `glide2x` (ficha nueva 2.61.00.0658 + nGlide; hash/tamaño pendientes; wrapper=SÍ);
   resto de valores `.reg` (1 vez OK).
 - **Decisiones del mantenedor:** completar specs + captura; VM sí/no;
   HW época sí/no (+modelos); herramientas de captura; momento de Fase 2.

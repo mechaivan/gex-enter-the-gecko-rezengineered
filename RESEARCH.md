@@ -48,6 +48,14 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   leído íntegro: Zeus pide un wrapper winmm; `_inmm.dll` daría música +
   loop (1 reporte 2024); bugs presentes también en Voodoo real.
 - Confianza: media-alta en lo observacional (autor del wrapper).
+- Instalador/configurador (fuentes públicas, 2026-10-09, base de A2.2):
+  el instalador coloca su `glide2x.dll` + `nglide_config.exe` en el dir.
+  de sistema (SysWOW64 en Win64); backend vídeo DirectX; configurator
+  2.10: backend, resolución, aspecto, refresco, VSync (On por defecto),
+  gamma, splash 3dfx; ajustes globales. Confianza media (guías
+  comunitarias consistentes). <https://steamcommunity.com/sharedfiles/filedetails/?id=127637434>
+  <https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X>
+  <https://steamcommunity.com/app/38450/discussions/0/595161733884157883/>
 
 ## S-03 — tgames.fr: hub de parches Gex 3D (Tgames) ⭐
 
