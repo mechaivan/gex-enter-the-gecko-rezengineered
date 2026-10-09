@@ -28,6 +28,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Hipótesis (no confirmada):** lógica/timing ligada al número de frames.
 - **5ª sesión (2026-10-09):** ≈25 FPS estables (método: Steam, 6ª); causa sin atribuir.
 - **6ª sesión (2026-10-09):** A/B VSync On/Off ⇒ ≈25 en ambos (nulo): VSync solo DESCARTADO; líder: límite propio del juego.
+- **Lote 2:** F-03 = limitador anti-too-fast de época (FPS objetivo sin
+  declarar), NO desbloqueador; nulo como fix de los 25 estables;
+  referencia RE para localizar timing/límite.
 - **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
 
 ### I-02 — Límite de FPS distinto según versión/parche
@@ -37,6 +40,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** PCGamingWiki (tabla de vídeo).
 - **Lote 1 (2026-10-09):** re-verificado en la página (sin cambios).
 - **5ª–6ª sesión (2026-10-09):** ≈25 FPS estables (método: Steam); nuevo dato para la tabla de caps; persiste con VSync off.
+- **Lote 2:** caps PCGW 30/24 re-verificados verbatim; 25 no coincide con
+  ningún cap documentado; PAL⇒25 no establecido (línea E).
 - **Estado:** DESCONOCIDO.
 
 ## Render / vídeo
@@ -215,6 +220,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** no hay información clara sobre DirectInput/XInput.
 - **Evidencia parcial Fase 1:** joystick vía WinMM (`joyGetPosEx`), sin
   imports a DirectInput en el binario EU. Comportamiento real pendiente.
+- **Lote 2 (F-10):** soporte Xbox 360 comunitario = EXPERIMENTAL, solo
+  movimiento con stick izquierdo, inestable, cadena D3D solamente;
+  cerrado/sin fuente (no reutilizable). Original WinMM sin caracterizar.
 - **Estado:** DESCONOCIDO.
 
 ## Memoria / estabilidad

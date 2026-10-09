@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Lote 2: parches oficiales/comunitarios, FPS, música, mandos
+
+- RESEARCH S-23 (nuevo): parche oficial 3dfx + Generic Update (3dfxzone
+  1.18 MB, readme v1.0 verbatim ©1999 Midway/US; añade `gex23Dfx.exe`
+  a base `gex23d`; genérico sin describir; `GX2PATCH.ZIP` no localizado;
+  sin changelog/FPS/EU). S-01/S-07/S-08 ampliados (PCGW re-verificado,
+  MAW extras 609/570 KB, AF liens: espejo F-01 356 Ko + packs).
+- PATCH_ANALYSIS: F-13 oficial (nuevo) + F-01 (espejo AF) + F-03 (FPS
+  objetivo sin declarar; limitador≠desbloqueador) + F-10 (verbatims
+  Xbox/música; cerrado, no reutilizable). Taxonomía F-xx ampliada.
+- KNOWN I-01/I-02/I-19 + PROJECT_STATE actualizados. 25 FPS: ningún cap
+  documentado coincide (30/24); PAL⇒25 no establecido; R-1 vigente.
+  Panel intacto (investigación, sin hitos).
+
 ## 2026-10-09 — 0.0.0 — 9ª sesión: atribución nGlide 2.10 CONFIRMADA + panel v3.3
 
 - TESTING 9ª (equipo real, solo lectura): imports PE x86 = 6 DLL sistema

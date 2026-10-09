@@ -31,7 +31,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   Limiter (enlaza F-03), enlace alternativo a F-01 + `gex3d_windows10.zip`,
   save location VACÍA (desconocida), sin ratón, Red Book puede fallar.
 - Confianza: media-alta como hub procedural (wiki curada; parte manual +
-  `.reg` + admin ejecutados en Hito 1, sin F-01).
+  `.reg` + admin ejecutados en Hito 1, sin F-01). Lote 2 (2026-10-09):
+  relectura íntegra sin cambios; citas verbatim confirmadas (FPS limiter,
+  caps 30/24, VSync vía nGlide, sin ratón, Red Book).
 
 ## S-02 — Foro Zeus Software (nGlide): hilos de compatibilidad Gex
 
@@ -107,6 +109,12 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Datos que aporta: problemas de detección del CD, `glide2x.dll` faltante,
   pantalla negra + crash, intro sin reproducir, volumen in-game sin efecto,
   anomalías de tamaño de ventana.
+- Lote 2 — extras (metadatos, sin descargar): «Official Patch» EN 609 KB
+  + «Patch to run the game in Glide-mode using the nGlide emulator -
+  unpack into the game folder, replacing .exe file and run the .bat
+  file» EN 570 KB (posible derivado F-02, sin identificar; ver F-02).
+  Testimonios débiles adyacentes (I-13/I-14/I-12): volumen sin efecto,
+  intro sin reproducir, detección CD.
 - Confianza: baja (reportes aislados).
 
 ## S-08 — Abandonware France: ficha + truco Vista/nGlide
@@ -121,6 +129,13 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   foro AF («[RELEASE] Patch Direct 3D… V1.0 by Tgames», 2018): URL muerta
   tras migración a vBulletin 6 — solo snippets de buscador (nombres de
   ficheros, NOPs, moonjump); NO verificados de primera mano.
+- Lote 2 — liens/telechargements (leído 2026-10-09, metadatos): espejo
+  «Patch de transformation 3DFX→Direct3D» (356 Ko, UK, «mis à jour par
+  Tgames»: «plus besoin de carte 3DFX ni de wrapper Glide») + «Version
+  automatique» (198775 Ko: «patché et configuré pour Windows modernes»)
+  + «Version CD-ROM» US (508542 Ko: «doublages refaits», compatible
+  Direct3D) + «Version CD-ROM» FR (409885 Ko: «doublages britanniques»,
+  3DFX/wrappers). Créditos: Tgames (D3D, Patch). Sin hashes; no descargar.
 - Confianza: media en lo leído (datado pero verbatim).
 
 ## S-09 — patches-scrolls.de: entradas "patch for 3dfx PC" / "fix PC"
@@ -412,6 +427,34 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   - `nglide_readme.txt` 24929 B — MD5 `101e59351307196e7ad44940460317ee` —
     SHA-256 `098acd1c5ed5f2fa4de519374df628a95b82fac1cfd1d991d4de19cce4769fb9`.
   (SHA1 de cada drop, en el informe Falcon.)
+
+## S-23 — Parche oficial 3dfx + «Generic Update» (1999, Midway/US) — REFERENCE
+
+- Fuentes (2026-10-09, Lote 2; leídas, nada descargado):
+  3dfxzone.it objid=1004 (ficha + readme verbatim) + Patches Scrolls
+  archivo-1998 + MyAbandonware extras + soggi.org («coming someday»).
+- Ficha 3dfxzone (verbatim): «3dfx Support Patch updates Gex… adding
+  3dfx support via Glide APIs. Copy manually gex23Dfx.exe from
+  “Gex-Enter-the-Gecko_3dfx_Patch” into …gex23d. If still problems,
+  try generic patch in “Gex-Enter-the-Gecko_Generic_Patch”.» 1.18 MB.
+- Readme v1.0 (verbatim, SOLO instalación): requiere tarjeta 3Dfx +
+  instalación TÍPICA (mínima no vale); dir. por defecto `…\gex23d`;
+  mover `gex23Dfx.exe`; atajos Start Menu; LEGAL ©1999 Crystal
+  Dynamics, distribuido por Midway (→ lado US, 1999, NO 1998).
+- Secundarios: «3D card update 607K, mostly Voodoo Rush fixes»
+  (Patches Scrolls); «Official Patch» EN 609 KB + parche nGlide
+  exe+.bat 570 KB (MAW extras). 607≈609 coherente (unidades/redondeo;
+  identidad sin probar); 1.18 MB ≈ suma de dos mitades (hipótesis).
+- NEGATIVOS documentados: nombre `GX2PATCH.ZIP` NO localizado en
+  ninguna fuente consultada; versiones origen/destino UNKNOWN; lista
+  de errores UNKNOWN (readme sin changelog); contenido del «Generic
+  Patch» UNKNOWN; hashes no publicados; limitador FPS: SIN EVIDENCIA.
+- Relación EU v1.00.000: SIN EVIDENCIA de compatibilidad (apunta a
+  base `gex23d`/D3D; la EU es Glide-nativa → mecánicamente N/A).
+  Utilidad: referencia de variantes US (exe-por-renderer: PATRÓN
+  reutilizable como idea) + comparador RE futuro.
+- Confianza: alta en existencia/contenido-descrito (readme primario);
+  media en alcance (blurb secundario); nula en detalles no declarados.
 
 ## Áreas de investigación futura (separación estricta)
 

@@ -59,7 +59,8 @@
   I-11 no reproducido, I-21/I-22 nuevos).
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
   F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
-  diffs binarios pendientes (Fase 2).
+  diffs binarios pendientes (Fase 2); Lote 2 (2026-10-09): F-13 oficial
+  + F-01/F-03/F-10 profundizados (S-23; binarios pendientes).
 - [~] Cubrir FA-01…FA-15 a nivel documental: matriz de cobertura
   (2026-10-09, MODERNIZATION_GOALS) con estados y lagunas; toda la
   dinámica pendiente (Fase 2+).

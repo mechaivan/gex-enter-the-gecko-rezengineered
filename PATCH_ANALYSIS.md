@@ -4,13 +4,15 @@
 > Lote 1 (2026-10-09): F-01…F-09 investigados documentalmente en sus fuentes
 > + F-10…F-12 catalogados. Ningún interno (funciones/offsets/instrucciones)
 > está confirmado: ese análisis es trabajo de las Fases 1–2.
+> Lote 2 (2026-10-09): F-13 oficial + profundización F-01/F-03/F-10
+> (S-23); binarios siguen sin inspeccionar.
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
 | Código | Categoría | Qué es | Ejemplos |
 |---|---|---|---|
 | — | **ORIGINAL** | El juego PC de 1998 y sus variantes retail/demo | US/EU/demo (ver COMPATIBILITY.md) |
-| F-xx | **FIX comunitario** | Parches, exes modificados, procedimientos y paquetes creados para Gex PC | F-01…F-12 |
+| F-xx | **FIX / parche** | Parches y procedimientos para Gex PC (F-01…F-12 comunitarios; F-13 oficial) | F-01…F-13 |
 | T-xx | **WRAPPER / HERRAMIENTA** | Wrappers y utilidades genéricas (no específicas de Gex) | T-01…T-06 |
 | R-xx | **REFERENCIA otra versión** | Proyectos/material de otras versiones de Gex | R-01, R-02 |
 
@@ -63,6 +65,10 @@ Reglas:
 - **Ambigüedad documentada (revisión 2026-10-09):** el hilo dice que el parche
   busca la carpeta `voice` mientras la copia EU válida usa `voiceuk` (F-03);
   significado y mecanismo UNKNOWN; no inferir equivalencia entre carpetas.
+- **Espejo AF (Lote 2, metadatos):** Abandonware France redistribuye el
+  parche 3DFX→D3D (356 Ko, bandera UK, «mis à jour par Tgames»): «plus
+  besoin de carte 3DFX ni de wrapper Glide». Sin hashes. No descargar;
+  solo referencia documental.
 - **Estado:** DESCRIPCIÓN VERIFICADA, binarios no inspeccionados.
 
 ## F-02 — nGlide + `gex2_patch.zip` — Zeus Software
@@ -85,6 +91,9 @@ Reglas:
   «pure virtual function call».
 - **Resultados publicados:** ninguno en la compatibility list.
 - **Relación EU v1.00.000:** pendiente (determinar contra qué edición valida).
+- **Candidato adyacente (Lote 2, MAW extras):** «Patch to run the game
+  in Glide-mode using the nGlide emulator» EN 570 KB (exe + .bat) —
+  posible derivado/reempaquetado de F-02, sin identificar; no fusionar.
 - **Preguntas RE:** diff del exe reemplazado; ¿qué renderer paths toca?
   ¿incluye ya un cap de FPS (ver F-04)?
 - **Estado:** DESCRIPCIÓN VERIFICADA, binario no inspeccionado.
@@ -105,10 +114,13 @@ Reglas:
   del juego; solo miembros; hashes no publicados. (El paso 2 del OP cita
   `…\gex23dfx\audio` como destino del exe — probable errata: el exe va en
   la raíz; la ruta audio es donde viven `voice`/`voiceuk`.)
-- **Modificación exacta:** UNKNOWN (mecanismo y FPS objetivo sin declarar).
-  Cita legacy «runs smooth and at normal speed» (procedencia pendiente de
-  re-verificación). PCGamingWiki tiene sección FPS Limiter que enlaza este
-  fix (verificado en Lote 1).
+- **Modificación exacta:** UNKNOWN (mecanismo sin declarar; FPS objetivo
+  SIN DECLARAR en OP ni en PCGW — negativo documentado Lote 2). Cita
+  PCGW verbatim: «limit FPS on a fast 3DFX system… runs smooth and at
+  normal speed». Es LIMITADOR anti-too-fast (época), NO desbloqueador.
+  Utilidad 25 FPS propios: nula como fix (dirección opuesta + entorno
+  no soportado + reemplaza exe); alta como referencia RE (el diff
+  localizaría el código de timing/límite).
 - **Resultados publicados:** ninguno con datos (solo «Merci!»).
 - **Relación EU v1.00.000:** incluye exe EU → candidato aplicable; pendiente
   de binario.
@@ -249,6 +261,15 @@ Reglas:
 - **Resultados publicados:** ninguno con datos.
 - **Relación EU v1.00.000:** F-01 V1.2.0 (voces UK) remite a esta herramienta
   para la música → cadena F-01+F-10 para EU en Win 10.
+- **Verbatim V1.1 (Lote 2):** «Added Experimental support for the Xbox360
+  controller, for now only Gex\'s movements are supported with the left
+  stick! … make sure not to plug in your Xbox 360 controller because the
+  controller part isn\'t stable.» (FR original equivalente). Sin botones/
+  salto/ataque/cámara documentados. «Xbox 360 and Xbox One Handlers V1.1
+  (Deprecated)»: solo-miembros, sin detalle público.
+- **Reutilización:** NO (© Tgames 2018, cerrado, solo-miembros, sin
+  fuente; mecanismo de intercepción UNKNOWN). Patrón «launcher externo»
+  como referencia de diseño, no código.
 - **Preguntas RE:** ¿intercepta MCI/winmm? ¿cómo detecta pistas y loops?
 - **Estado:** DESCRIPCIÓN VERIFICADA, binario no inspeccionado.
 
@@ -295,6 +316,32 @@ Reglas:
   evidencia PC, solo orientativo.
 - **Uso proyecto:** herramienta potencial de Fase 2 (nunca redistribuir).
 - **Estado:** DESCRIPCIÓN VERIFICADA, binario no inspeccionado.
+
+## F-13 — Parche oficial 3dfx + Generic Update (1999, US/Midway) [NUEVO Lote 2]
+
+- **Fuente verificada (leída 2026-10-09):** 3dfxzone.it objid=1004
+  (ficha + readme v1.0 verbatim) + Patches Scrolls archivo-1998 +
+  MyAbandonware extras + soggi.org. Ver S-23. Nada descargado.
+- **Qué es:** bundle 1.18 MB con `Gex-Enter-the-Gecko_3dfx_Patch`
+  (AÑADE `gex23Dfx.exe` Glide a instalaciones `…\gex23d`, sin
+  reemplazar `gex3d.exe`) + `Gex-Enter-the-Gecko_Generic_Patch`
+  (sin describir). Requiere tarjeta 3Dfx + instalación típica.
+  Legal: ©1999 Crystal Dynamics, Midway (lado US; fecha 1998 sin
+  confirmar; `GX2PATCH.ZIP` no localizado).
+- **Versión objetivo:** base D3D/`gex23d` (inferencia mecánica del
+  readme); versiones origen/destino sin declarar. EU: SIN EVIDENCIA
+  (Glide-nativa → N/A mecánico).
+- **Errores corregidos:** readme SIN changelog; secundario: «mostly
+  Voodoo Rush fixes» (Patches Scrolls). Limitador FPS: SIN EVIDENCIA.
+- **Archivos/hashes:** exe añadido `gex23Dfx.exe` + generic UNKNOWN;
+  hashes no publicados. 607K/609KB coherentes (identidad sin probar).
+- **Relación EU v1.00.000:** no aplicable (base distinta); valor como
+  referencia de variantes + patrón exe-por-renderer.
+- **Preguntas RE (Fase 2+):** diff `gex23Dfx.exe` vs exes retail;
+  contenido generic; ¿cap/timing tocados?
+- **Nota:** incorporación a revisión cruzada → próxima revisión.
+- **Estado:** DESCRIPCIÓN VERIFICADA (readme primario), binarios no
+  inspeccionados.
 
 ## Fuera de alcance (registrado para no redescubrir)
 
@@ -394,6 +441,7 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 | F-10 (music handler) | FA-08, FA-09, M-20 (CD-audio/WAV sin CD) |
 | F-11 (NO-CD D3D) | FA-12 (check de CD; posible US) |
 | F-12 (debug tool) | Herramienta potencial Fase 2 (menú debug PC) |
+| F-13 (parche oficial 3dfx+genérico) | FA-03 (añade Glide a base D3D; patrón exe-por-renderer), FA-01 (variantes US) |
 | T-01…T-06 (wrappers) | Comparativas de testing (Fase 5+) |
 
 ## Revisión cruzada F-01…F-12 + S-14 (2026-10-09, solo documental)
