@@ -2,6 +2,18 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Revisión cruzada F-01…F-12 + S-14 (solo documental)
+
+- PATCH_ANALYSIS: nueva sección de revisión cruzada (tabla de seguimiento
+  F-01…F-12, duplicidades, análisis S-14 en 5 puntos, prioridades
+  documentales). Sin fusiones, sin nuevos IDs, sin binarios.
+- Correcciones mínimas: RESEARCH S-02 («exe capeado» → cita motivadora,
+  veredicto F-04); PATCH F-01 (ambigüedad `voice`/`voiceuk` explicitada).
+  F-05/F-06/F-07/F-12 ya cumplían (sin cambios); historial intacto.
+- Sync: PROJECT_STATE/ROADMAP (revisión cruzada anotada en fixes [~]).
+- Fase 1 en curso, Fase 2 sin iniciar, M-25 PROPOSED. Duplicidad
+  confirmada: ninguna; probable: F-04↔F-02 (descriptiva, pendiente binario).
+
 ## 2026-10-09 — 0.0.0 — S-14: inventario nominal + README leído (carpeta extraída)
 
 - `S-14_extracted` (subida por el mantenedor): 22 entradas inventariadas

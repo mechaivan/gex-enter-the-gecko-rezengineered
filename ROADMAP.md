@@ -31,7 +31,8 @@ si la investigación demuestra que es necesario.
   (Glide/WinMM/DSound; sin D3D ni DirectInput en EU), claves de
   registro, CD-audio (TOC 1+16). Dinámico: pendiente.
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
-  F-01…F-12 verificadas en fuente; diffs binarios en Fase 2.
+  F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
+  diffs binarios en Fase 2.
 - [~] Lista de problemas conocidos con niveles de evidencia (evidencia
   estática propia añadida; ningún issue reproducido todavía).
 - [x] Registrar propuesta M-25 (voice pack UK/USA, PROPOSED, P3, sin fase)

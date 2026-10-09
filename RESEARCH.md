@@ -37,8 +37,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 
 - URL: <https://www.zeus-software.com/forum/> (hilo "Nglide with ATi legacy cards")
 - Datos que aporta: el juego pide 75 Hz; Voodoo2 real 512x384@60; "Gex2 works
-  too fast even at 60fps, needs a 30fps cap"; exe capeado en la compat list;
-  reportes de "wrong drawing" y "pure virtual function call".
+  too fast even at 60fps, needs a 30fps cap" (cita del problema que motiva el
+  parche; cap en binario sin confirmar — ver F-04); reportes de
+  "wrong drawing" y "pure virtual function call".
 - Lote 1 (2026-10-09): fila «Gex 2: Enter The Gecko» verificada verbatim
   («replace 'gex3d.exe' and install patch» → `gex2_patch.zip`, UN solo
   parche: base del veredicto F-04). nGlide vigente 2.10 (Win XP–11;

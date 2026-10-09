@@ -60,6 +60,9 @@ Reglas:
   D3D: F-01 añade una ruta inexistente de fábrica).
 - **Preguntas RE:** ¿exe reemplazado o patcher? ¿qué imports D3D añade? ¿cómo
   resuelve el CD-audio (I-11)? ¿mapeo de voces UK? ¿por qué cap 24 FPS?
+- **Ambigüedad documentada (revisión 2026-10-09):** el hilo dice que el parche
+  busca la carpeta `voice` mientras la copia EU válida usa `voiceuk` (F-03);
+  significado y mecanismo UNKNOWN; no inferir equivalencia entre carpetas.
 - **Estado:** DESCRIPCIÓN VERIFICADA, binarios no inspeccionados.
 
 ## F-02 — nGlide + `gex2_patch.zip` — Zeus Software
@@ -388,6 +391,84 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 | F-11 (NO-CD D3D) | FA-12 (check de CD; posible US) |
 | F-12 (debug tool) | Herramienta potencial Fase 2 (menú debug PC) |
 | T-01…T-06 (wrappers) | Comparativas de testing (Fase 5+) |
+
+## Revisión cruzada F-01…F-12 + S-14 (2026-10-09, solo documental)
+
+> Sin binarios: descripciones, inventario S-14 y README ya documentados. Sin
+> fusiones (F-04 conserva su ID), sin nuevos IDs, sin cambios de estado de
+> issues. Correcciones mínimas: S-02 («exe capeado» → cita motivadora según
+> veredicto F-04); F-01 (ambigüedad `voice`/`voiceuk` explicitada).
+> Historial intacto (la entrada Lote 1 del CHANGELOG conserva su redacción
+> original sobre F-12, matizada después). Fase 1 en curso; Fase 2 sin iniciar.
+
+### Tabla de seguimiento
+
+| ID | Tema | Evidencia actual | Relación | Relevancia EU | Estado | Próximo paso |
+|---|---|---|---|---|---|---|
+| F-01 | Parche D3D no oficial (PAL) | Hilo tgames íntegro (OP+6); serie V1.0→V1.2.0+fix 2025; binarios solo-miembros | F-10 (cadena música), F-11 (No-CD incl. vs standalone), F-03 (voice/voiceuk), I-03 | Alta (misma familia EU; añade ruta ausente de fábrica) | Declarado (descripción verificada) | Fase 2: patcher o exe; imports D3D; CD-audio; voces UK; cap 24 |
+| F-02 | Exe reemplazo nGlide (`gex2_patch.zip`) | Fila Zeus verbatim + payload GEX3D.exe (vía AF); zip público no descargado | F-04 (posible duplicado), F-07 (procedimiento), T-03, I-05 | Media-alta pendiente (versión objetivo sin indicar) | Declarado | Descargar + diff vs EU; ¿cap 30?; ¿qué edición valida? |
+| F-03 | FPS Limiter 3DFX (EU/US) | OP+«Merci!»; 2×GEX3D.EXE solo-miembros; solo 3DFX + Win98–XP; errata ruta paso 2 | F-01 (remite DX/Win10), F-02/F-04 (solape a comprobar, sin fusionar), I-01 | Alta (incluye exe EU) | Declarado (descripción mínima) | Fase 2: mecanismo + FPS objetivo; ¿EU/US solo difieren en voces? |
+| F-04 | Supuesto exe capeado 30 FPS | Sin pieza separada; la cita describe la motivación, no un 2º fichero | Probable duplicado descriptivo de F-02 | La de F-02 | Inferido (pendiente binario) | Confirmar contra binario F-02; fusionar solo con evidencia |
+| F-05 | Instalación manual + `.reg` + admin | PCGW releída íntegra; claves `Gex2\1.00` en strings EU | F-01 (paso del proc.), F-03 (sección FPS), F-10 (InstallDir), I-15/I-17 | Alta (aplicable a EU; valores sin probar) | Procedimiento verificado (no ejecutado) | Reproducir en Windows; uso real en dinámico |
+| F-06 | Fix Indeo intro | Hilo VOGONS íntegro: NO resuelto; contexto Wine/OSX; escepticismo Jorpho | I-14 (hipótesis débil) | Baja (intro EU puede usar otro códec) | Declarado, eficacia no validada | Fase 2: reproductor/códec real en EU |
+| F-07 | nGlide 0.99 Vista + `gex2_patch` | AF verbatim (Vista/época); ficha EU FR | F-02 (payload), T-03, I-11 (primer lector), I-12 (1×/nivel) | Media (contexto época) | Procedimiento verificado en su contexto | No extrapolar a Win10/11 ni nGlide 2.x |
+| F-08 | patches-scrolls «3dfx/fix PC» | Entradas 16.08.13 sin autor/descripción/descargas | Ninguna (sin datos) | Desconocida | Pendiente (contenido UNKNOWN) | Identificar si reaparece; no priorizar |
+| F-09 | Setup package NTSC (S-14) | Inventario 22 entradas + README íntegro; binarios no analizados | T-03, F-10 (15 pistas, método distinto), F-11 (análogo No-CD), I-11 | Baja directa (NTSC-D3D ≠ EU-Glide); alta como referencia | Inventario+README conf.; procedimiento declarado | Fase 2: diff exe 2013; resto lectura |
+| F-10 | Music handler D3D/3DFX | Hilo íntegro; launcher+WAVs; solo D3D o 3DFX→D3D | F-01 (cadena EU), F-11 (sin CD no hay música), F-09 (método distinto), I-11 | Media (vía F-01+F-10) | Declarado | Fase 2: intercepción; detección pistas/loops |
+| F-11 | NO-CD standalone D3D | OP sin respuestas; posible errata `gex23dfx`; indicio NOPs sin verificar | F-01 (No-CD PAL), F-09 (análogo 2013), I-16 | Baja probable (posible US) | Declarado (descripción mínima) | Fase 2: NOPs en CD-check; ¿mismo punto que F-01? |
+| F-12 | Debug tool D3D | OP sin respuestas; memory patch+F1 declarado; TCRF PS1 solo orientativo | Superficie RE potencial (Etapa C) | Indirecta (build D3D) | Declarado, sin verificar | Fase 2: localizar menú en build D3D; no redistribuir |
+
+### Duplicidades
+
+- **Confirmada: ninguna.** Ninguna fusión ejecutada; F-04 conserva su ID.
+- **Probable (descriptiva):** F-04 ↔ F-02 — la compatibility list ofrece un
+  único exe; la cita del cap describe la motivación. Fusión pendiente de
+  binario (Fase 2).
+- **Posibles a comprobar en Fase 2 (sin fusionar):** F-02 ↔ exe EU de F-03
+  (ambos reemplazan `GEX3D.EXE`; fuentes y declaraciones distintas);
+  componente No-CD de F-01 ↔ F-11 (misma autoría Tgames; indicio «même
+  endroit» sin verificar); F-11 ↔ exe 2013 de S-14 (análogos funcionales,
+  artefactos distintos por fecha/procedencia). F-08 sin datos: no evaluable.
+
+### S-14 frente a los hallazgos
+
+1. **Componentes relacionados:** nGlide 2.10 ↔ T-03/F-02/F-07; `_inmm` 2.3.8
+   ↔ reporte S-02 e I-11 (método distinto a F-10); 15 WAV ↔ 15 pistas de
+   F-10 V1.1 (coincidencia numérica, sin identificar); exe 2013 ↔ F-11
+   (análogo funcional); WinCDEmu ↔ I-16 (montar imagen para instalar).
+2. **Alternativas vs dependencias:** alternativas entre sí — F-10 (launcher
+   propio) vs `_inmm` (redirección winmm) para música sin CD; F-01/F-02/
+   F-11/exe-2013 para arranque sin disco según base. Dependencias
+   complementarias dentro de S-14: WinCDEmu (instalar) + nGlide (render) +
+   `_inmm` (música). Abierta: por qué un paquete D3D instala un wrapper
+   Glide (UNKNOWN; no inventar).
+3. **S-14 D3D vs EU Glide:** S-14 instala con SETUP.EXE real sobre imagen
+   D3D montada (rutas `gex23d`), exe No-CD 2013 y WAV vía `_inmm`; EU usa
+   instalador InstallShield roto en moderno (procedimiento manual F-05,
+   rutas `gex23dfx`), Glide exclusivo de fábrica y CD-audio Red Book por
+   MCI. La cadena documentada hacia un estado comparable en EU es F-01+F-10.
+4. **15 WAV vs 16 CD-DA:** deducible: nada concluyente. Hechos: 15 ficheros
+   `track01–15.wav`, mtime uniforme 1998-03-28, 431.4 MB; nuestro CD EU:
+   1 datos + 16 CD-DA. Desconocido: correspondencia de pistas, pista
+   ausente o desplazamiento de índice, fuente (rip PC u otra), contenido
+   real (extensión ≠ formato verificado), loops/volumen. Sin explicaciones
+   inventadas. Próximo paso (Fase 2+): comparar duraciones y huellas contra
+   rip propio + test funcional en Windows.
+5. **Preguntas previas al exe 2013:** ¿contra qué edición valida? ¿qué cambia
+   vs su original (diff)? ¿D3D exclusiva o conserva Glide (rol del nGlide
+   incluido)? ¿cómo resuelve CD-check (I-16) y CD-audio (I-11)? ¿voces
+   `voice`/`voiceuk`? ¿cap FPS? ¿procedencia/seguridad (no redistribuir)?
+   Sin respuestas, no valorar compatibilidad EU.
+
+### Prioridades documentales resultantes
+
+- **Desbloquea diffs:** vía de acceso a binarios F-01/F-03 (membresía
+  tgames) y descarga de F-02 (público); exe 2013 ya custodiado en Drive.
+- **Desbloquea dinámica:** máquina Windows + protocolo de captura (F-05,
+  I-11, I-15, verificación de procedimientos declarados).
+- **Cierra puertas documentales:** versión objetivo de F-02, contenido de
+  F-08 si reaparece, `gex3d_windows10.zip` citado (F-01/F-05), set `voice/`
+  USA de PC (base M-25). F-04/F-06/F-12: sin acción documental pendiente.
 
 ## Plantilla de análisis (usar en Fases 1–2)
 

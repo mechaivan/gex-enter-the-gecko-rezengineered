@@ -56,7 +56,8 @@
 - [~] Problemas conocidos con evidencia: estática propia añadida; ningún
   issue reproducido todavía.
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
-  F-01…F-12 verificadas en fuente; diffs binarios pendientes (Fase 2).
+  F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
+  diffs binarios pendientes (Fase 2).
 - [ ] Cubrir FA-01…FA-15 a nivel documental.
 - [x] Inventariar S-14 (setup package speedrun): metadatos + hashes +
   inventario nominal (22 entradas) + README leído (2026-10-09, carpeta
