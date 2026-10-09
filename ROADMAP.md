@@ -40,7 +40,8 @@ si la investigación demuestra que es necesario.
 - [~] Cubrir las áreas FA-01…FA-15 a nivel documental: matriz de
   cobertura (2026-10-09); dinámica y RE pendientes (Fase 2+).
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
-- [ ] Definir máquina Windows de testing + protocolo de captura.
+- [~] Definir máquina Windows de testing + protocolo de captura:
+  protocolo + matriz FA documentados (2026-10-09); máquina pendiente.
 - [x] Inventariar S-14 (setup package): metadatos + hashes + inventario
   (22 entradas) + README leído (2026-10-09). Binarios → Fase 2.
 

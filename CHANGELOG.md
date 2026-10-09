@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Protocolo de pruebas + matriz FA (Windows, sin ejecutar)
+
+- TESTING.md: protocolo reproducible (entorno, hashes, instalación,
+  pasos/veredicto, artefactos, fallos, custodia, limitaciones
+  moderno-vs-época) + matriz priorizada FA-04…FA-15 (14 pruebas, sin
+  nuevos IDs). Base EU-Glide; US/D3D/parches solo comparadores.
+- ROADMAP `M-01…M-24` revisado: correcto como está (describe la Fase 0
+  cerrada 2026-10-08; M-25 vive en Fase 1). Sin cambios; M-25 PROPOSED.
+- Sync: PROJECT_STATE/ROADMAP (testing [~], máquina pendiente).
+- Fase 1 en curso, Fase 2 sin iniciar. Nada ejecutado.
+
 ## 2026-10-09 — 0.0.0 — Matriz documental FA-01…FA-15 (sin RE)
 
 - MODERNIZATION_GOALS: nueva sección de cobertura documental (15 filas:

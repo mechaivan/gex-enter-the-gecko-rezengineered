@@ -81,7 +81,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/TOOLKIT.md](docs/TOOLKIT.md)                     | Entorno y herramientas disponibles           |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
-| [TESTING.md](TESTING.md)                               | Metodología de pruebas (pendiente de definir)|
+| [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA (sin ejecutar)|
 | [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)       | Objetivos futuros (todos PROPOSED)               |
 | [CREDITS.md](CREDITS.md)                               | Créditos y agradecimientos                   |
 | [LICENSE.md](LICENSE.md)                               | Licencia y política legal                    |
