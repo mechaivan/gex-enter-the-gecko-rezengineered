@@ -11,6 +11,8 @@
 > TESTING.md (pendiente de autorización).
 > Lote tools (2026-10-09): H-01/H-02 + R-03/R-04 (S-24); ejecución
 > pendiente, licencias comprobadas (MIT solo R-04).
+> P-F03/B (2026-10-09): binarios F-03 en Drive + rama B ejecutada
+> (42–44 FPS + speedup, observación); E-1/E-2 pendientes.
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -137,6 +139,17 @@ Reglas:
   no soportado + reemplaza exe); alta como referencia RE (el diff
   localizaría el código de timing/límite).
 - **Resultados publicados:** ninguno con datos (solo «Merci!»).
+- **Binarios custodiados en Drive (2026-10-09, S-25):**
+  | Fichero | Tamaño | MD5 | mtime | ID Drive |
+  |---|---|---|---|---|
+  | `EU/GEX3D.EXE` | 1559040 (+1536) | `3198350eb398db9a64771842d7781b4b` | 1998-07-08 | `1VtRO2i1…ZfmOe` |
+  | `US/GEX3D.EXE` | 1665536 | `5dde47d87e2797a14e4ed8253443f96c` | 1998-06-24 | `1x6J78EE…ZX1v` |
+  | `Gex3DFX_Update.txt` | 682 | — | 2025-08-20 | `14e2Wq55…0nzP` |
+  (SHA-256 completos en S-25.) EU/US = 1 fichero por carpeta.
+  TXT = README del OP salvo `https://tgames.fr` (OP: `…www.…`).
+  US: mismo tamaño que exe 2013 S-14, distinto hash (coincidencia).
+  Stamps de era (1998) en ambos exes: base retail de época o
+  metadatos preservados (sin bytes no se distingue; E-1).
 - **Relación EU v1.00.000 (actualizado 2026-10-09):** detector del autor
   (`voiceuk` = EU) CRUZADO con inventario propio: `AUDIO/VOICEUK/`
   (400 `.SAG`, §§6/8) → match NOMINAL de edición. Entorno: Win11 +
@@ -179,10 +192,13 @@ Reglas:
   VSync/límite del configurador nGlide (T-03), ni limitadores externos
   genéricos (RTSS prohibido: cuelga esta ruta). P-F03 congela nGlide y
   usa solo contador Steam (1 variable: el exe).
-- **Prueba P-F03:** protocolo A/B ABA preparado en TESTING.md,
-  PENDIENTE DE AUTORIZACIÓN (A1–A4). Caracterización, no fix.
-- **Estado:** DESCRIPCIÓN VERIFICADA + P-F03 preparado; binario no
-  inspeccionado, nada descargado/ejecutado.
+- **Prueba P-F03:** P-F03/B EJECUTADO parcial (2026-10-09,
+  observación mantenedor): B = 42–44 FPS (menú+juego), cinemáticas
+  ≈15, sim acelerada, audio normal. Rama «FPS↑» (inesperada) →
+  identidad por confirmar (E-1.1). E-1 (estático solo-lectura) +
+  E-2 (micro-test) pendientes de autorización. Ver TESTING.
+- **Estado:** BINARIOS CUSTODIADOS (hashes Drive) + P-F03/B PARCIAL;
+  estático profundo pendiente (E-1, lado mantenedor).
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)
 

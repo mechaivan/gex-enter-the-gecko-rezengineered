@@ -82,7 +82,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (registro gratuito tgames; P-F03 preparado, pendiente autorización) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (en Drive + hashes; P-F03/B parcial 42–44+speedup; E-1/E-2 pendientes) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
 ## Prueba preparada P-F03 — A/B exe EU F-03 vs original (PENDIENTE DE AUTORIZACIÓN)
@@ -138,6 +138,67 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Registro:** hoja P-F03 (fecha, hashes exe A/B, entorno completo,
   tablas A1/B/A2, observaciones SEPARADAS de hipótesis). Resultados →
   COMPATIBILITY.md + I-01/I-02 (solo con datos).
+
+## Ejecución P-F03/B (2026-10-09, PC mantenedor) — PARCIAL, rama B
+
+> Primer resultado real del exe EU F-03. NO es el ABA completo:
+> faltan A2 + hoja de métricas + snapshot E-1. Datos = observación
+> del mantenedor (Steam para FPS), sin instrumentar.
+
+- **A (baseline previo):** ≈25 FPS estables (Steam, 5ª–6ª).
+- **B (exe EU F-03):** 42–44 FPS en menú Y en juego; cinemáticas ≈15
+  (sin cambio vs ~15 percibidos); animaciones + velocidad general
+  ACELERADAS; música y SFX a velocidad aparentemente normal.
+- **Lectura:** rama «FPS↑ en B» de la tabla P-F03 (inesperada) →
+  re-verificar identidad (E-1.1: md5 `3198350e…`) antes de concluir.
+  Apoya I-01 (sim sigue a FPS); audio-rate independiente (observado,
+  triggers sin probar); nº 42–44 no redondo ⇒ techo del sistema, no
+  cap diseñado (inferencia).
+
+## E-1 — Captura estática F-03 (solo lectura, PENDIENTE AUTORIZACIÓN)
+
+> Sin ejecutar nada; sin tocar originales/registro/instalación.
+> Precede a cualquier conclusión sobre el mecanismo.
+
+- **E-1.1 identidad:** `Get-FileHash` (MD5+SHA256) del exe probado en
+  copia B → debe ser md5 `3198350eb398db9a64771842d7781b4b`,
+  sha256 `7a9b6851…a3e8254`. Si difiere: STOP (identidad rota).
+- **E-1.2 PE original-vs-EU:** script imports de 8ª (cambiar `$p` a
+  cada exe) + versión/arquitectura:
+```powershell
+foreach($p in 'C:\RUTA\GEX3D_orig_EU.exe','C:\RUTA\GEX3D_EU_F03.exe'){
+ $v=[System.Diagnostics.FileVersionInfo]::GetVersionInfo($p)
+ $p+' | FileVer='+$v.FileVersion+' ProdVer='+$v.ProductVersion
+ $x=[System.IO.File]::ReadAllBytes($p); $pe=[System.BitConverter]::ToInt32($x,0x3C)
+ 'Machine='+[System.BitConverter]::ToUInt16($x,$pe+4).ToString('X4')+' TimeDateStamp=0x'+[System.BitConverter]::ToUInt32($x,$pe+8).ToString('X8')}
+```
+- **E-1.3 resumen byte-diff** (solo números, sin subir bytes):
+```powershell
+$a=[System.IO.File]::ReadAllBytes('C:\RUTA\GEX3D_orig_EU.exe')
+$b=[System.IO.File]::ReadAllBytes('C:\RUTA\GEX3D_EU_F03.exe')
+'lenA='+$a.Length+' lenB='+$b.Length
+$n=[Math]::Min($a.Length,$b.Length); $d=0; $first=-1; $last=-1
+for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$i}}
+'difieren='+$d+' de '+$n+' primero=0x'+$first.ToString('X')+' ultimo=0x'+$last.ToString('X')}
+```
+- **Criterio:** E-1.1 OK + imports/versión/arch de ambos + conteo diff.
+
+## E-2 — Micro-test sim-vs-FPS (PENDIENTE AUTORIZACIÓN)
+
+> Diseñado para distinguir H2 (throttle eliminado → render-bound)
+> de H3 (timer reprogramado). 1 variable cada vez; copias A/B.
+
+- **Variables:** exe A/B; luego en B: escena simple↔compleja; luego
+  VSync on/off (nGlide). **Constantes:** resto cfg nGlide, InstallDir
+  conmutado+registrado, CD `D:`, nivel/punto, Steam.
+- **Métricas:** travesía fija cronometrada ×3 (A y B) + FPS
+  mín/med/máx + ciclos de anim periódica en 10 s (A y B) + FPS B
+  escena simple vs compleja.
+- **Decisión:** t_B/t_A ≈ 25/43 ⇒ sim frame-acoplada (H1/H2 ✓);
+  FPS B varía con escena ⇒ render-bound sin timer (H2 ✓) vs FPS B
+  fijo ⇒ timer (H3 ✓); VSync mueve B ⇒ acoplado a presentación.
+- **Reversión:** borrar copia B; registro a Hito 1; nGlide
+  restaurado + retorno verificado.
 
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 

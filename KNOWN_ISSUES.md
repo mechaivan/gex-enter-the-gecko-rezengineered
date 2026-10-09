@@ -34,7 +34,12 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **P-F03 (prep. 2026-10-09):** protocolo A/B (exe EU F-03 vs original)
   preparado en TESTING.md, pendiente de autorización (A1–A4);
   caracterización off-label, no intento de fix.
-- **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
+- **P-F03/B (2026-10-09, observación):** 25→42–44 FPS con sim
+  acelerada (acoplamiento sim↔frame OBSERVADO); audio-rate
+  independiente (observado, triggers sin probar); mecanismo
+  pendiente (E-1/E-2).
+- **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
+  sin localizar (E-1/E-2 pendientes de autorización).
 
 ### I-02 — Límite de FPS distinto según versión/parche
 
@@ -45,6 +50,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **5ª–6ª sesión (2026-10-09):** ≈25 FPS estables (método: Steam); nuevo dato para la tabla de caps; persiste con VSync off.
 - **Lote 2:** caps PCGW 30/24 re-verificados verbatim; 25 no coincide con
   ningún cap documentado; PAL⇒25 no establecido (línea E).
+- **P-F03/B (2026-10-09, observación):** exe EU F-03 → 42–44 FPS
+  (menú+juego), cinemáticas ≈15. Nuevo dato tabla caps (25/30/24/
+  42–44); 42–44 no redondo ⇒ techo del sistema (inferencia).
 - **Estado:** DESCONOCIDO.
 
 ## Render / vídeo

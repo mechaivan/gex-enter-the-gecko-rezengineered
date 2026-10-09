@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — P-F03/B: binarios F-03 + rama B (42–44 + speedup)
+
+- RESEARCH S-25 (nuevo): `F-03_FPS_Limiter/` en Drive (EU 1559040 B
+  md5 3198350e… mtime 1998-07-08; US 1665536 B md5 5dde47d8… mtime
+  1998-06-24; TXT 682 B = README OP salvo URL corta); original EU
+  re-confirmado; bytes inaccesibles desde aquí (egress bloqueado).
+- PATCH F-03: tabla de binarios + TXT + stamps de era; US ≠ exe 2013
+  S-14 (mismo tamaño, distinto hash). P-F03/B parcial: 42–44 FPS
+  menú+juego, cinemáticas ≈15, sim acelerada, audio normal (rama
+  «FPS↑» inesperada → E-1.1 identidad).
+- TESTING: sección P-F03/B + E-1 (captura estática solo-lectura con
+  scripts) + E-2 (micro-test sim-vs-FPS) pendientes de autorización;
+  matriz actualizada. KNOWN I-01 (OBSERVADO, mecanismo pendiente) +
+  I-02 (dato 42–44), STATE, COMPAT Notas. Panel intacto (sin hito).
+
 ## 2026-10-09 — 0.0.0 — Lote tools: H-01/H-02 + R-03/R-04 + upscale (S-24)
 
 - RESEARCH S-24 (nuevo, hub): gex2-tools (extractor .VFX→PNG PC, sin

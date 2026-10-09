@@ -550,6 +550,29 @@ fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
   transparencia/paleta/canales/formato, diseño pack HD opcional
   separado + reversible. Sin evidencia no hay compatibilidad.
 
+## S-25 — Binarios F-03 en Drive + ejecución P-F03/B (2026-10-09)
+
+- Carpeta `F-03_FPS_Limiter` (id `1hWPmFa9eDfQvMi7DXAupP0SJvW4BsdzW`,
+  subida 2026-10-09): `EU/GEX3D.EXE` (`1VtRO2i18KdXy_sYq8lKxsYCmWAgZfmOe`),
+  `US/GEX3D.EXE` (`1x6J78EE8C-bTM35zcnpeLs7AQTOjZX1v`),
+  `Gex3DFX_Update.txt` (682 B, mtime 2025-08-20 = fecha OP).
+- Hashes (Drive): EU 1559040 B md5 `3198350eb398db9a64771842d7781b4b`
+  sha256 `7a9b6851…a3e8254`, mtime 1998-07-08; US 1665536 B md5
+  `5dde47d87e2797a14e4ed8253443f96c` sha256 `22fdbe65…c0891d`, mtime
+  1998-06-24. Original EU re-confirmado (md5 `692b1282…`).
+- TXT verbatim = README del OP salvo `https://tgames.fr` (OP:
+  `https://www.tgames.fr`). EU +1536 B vs original; US mismo tamaño
+  que exe 2013 S-14 pero distinto hash (artefactos distintos).
+- P-F03/B (observación mantenedor): B = 42–44 FPS menú+juego,
+  cinemáticas ≈15, sim acelerada, audio normal. Rama «FPS↑»
+  (inesperada) → identidad por confirmar (E-1.1). Detalle: F-03,
+  TESTING P-F03/B; E-1/E-2 pendientes de autorización.
+- Límite técnico: bytes inaccesibles desde aquí (egress Google
+  bloqueado; download inline inviable ~2 MB base64) → estático
+  profundo vía scripts solo-lectura lado mantenedor (E-1).
+- Confianza: alta (metadatos+hashes Drive, TXT íntegro); resultado
+  funcional = observación sin instrumentar.
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)

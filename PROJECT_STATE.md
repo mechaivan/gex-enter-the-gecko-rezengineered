@@ -72,7 +72,8 @@
   evaluación de alternativas + requisitos/checklist (TESTING.md,
   2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
   build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado,
-  pendiente de autorización (A1–A4).
+  pendiente de autorización (A1–A4). P-F03/B ejecutado parcial
+  (42–44 FPS + speedup, observación 2026-10-09); E-1/E-2 preparados.
 
 ## Limitaciones actuales
 

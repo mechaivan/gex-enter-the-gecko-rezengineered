@@ -80,3 +80,4 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 - 7ª sesión (solo lectura): hash DLL idéntico (7cbd…, sin sustitución); versión 2.61.00.0658 confirmada; nglide_config.exe presente; uso por Gex sin demostrar. Ver TESTING/S-22.
 - 8ª sesión (registro+Drive, solo lectura): nGlide 2.10 sin fechas (temporal inconcluso); configurador 2.10; instalador fijado, payload sin inspeccionar; imports PE propuestos. Ver TESTING/S-22.
 - 9ª sesión: imports x86 solo-sistema (sin D3D estático); atribución nGlide 2.10 CONFIRMADA (drop-hash instalador oficial = 7cbd…); backend dinámico. Ver TESTING/S-22.
+- P-F03/B (2026-10-09, observación sin instrumentar): exe EU F-03 → 42–44 FPS (menú+juego), cinemáticas ≈15, sim acelerada, audio normal. Identidad por confirmar (E-1.1). Ver TESTING/F-03.
