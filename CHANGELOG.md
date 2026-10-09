@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — 9ª sesión: atribución nGlide 2.10 CONFIRMADA + panel v3.3
+
+- TESTING 9ª (equipo real, solo lectura): imports PE x86 = 6 DLL sistema
+  (KERNEL32/USER32/GDI32/ADVAPI32/WINMM/VERSION), sin D3D/DXGI/Vulkan
+  estáticos ⇒ por sí solos compatibles con época Y wrapper dinámico
+  (dicotomía 8ª corregida: era falsa).
+- Atribución CONFIRMADA por cadena de hashes (sin ejecutar nada):
+  instalador S-14 = oficial nGlide 2.10 (md5/SHA1 de Zeus, t=557) =
+  muestra Falcon 3cfcd03a…; su drop `glide2x.dll` = SHA-256 7cbd… =
+  DLL cargada ⇒ Gex usa nGlide 2.10 (backend dinámico). RESEARCH S-22:
+  autenticidad + tabla de drops + resolución escenarios.
+- Panel v3.3 (solo datos): A2.3 «Atribución origen (L)» ✓ → A2 37→46%
+  (25/54), global 18→20% (57/285); MAIN 40% intacto; corrige cabecera
+  §4.4 (stale 15/54). Fila v3.3→(este commit): registrar en siguiente.
+
 ## 2026-10-09 — 0.0.0 — 8ª sesión: registro sin fechas, payload pendiente, imports propuestos
 
 - TESTING 8ª (equipo real + Drive, solo lectura): nGlide 2.10 en

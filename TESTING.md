@@ -90,7 +90,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 > Primer hito funcional confirmado del proyecto: instalación manual F-05
 > (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
 > ejecutable EU original inalterado (MD5 verificado). Renderer:
-> wrapper=SÍ (vendedor nGlide sin demostrar, 5ª–8ª sesión); API efectiva pendiente.
+> wrapper = nGlide 2.10 CONFIRMADO (payload-hash, 9ª sesión); API efectiva pendiente.
 > FPS ≈25 estables (5ª–6ª sesión, método Steam); A/B VSync nulo (6ª);
 > sin logs ni capturas archivadas todavía.
 
@@ -122,7 +122,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
    por redirección WOW64; coherente con el observado de 1630208 B — el
    hash registrado en 3ª sesión). `3dfxSpl2.dll` también cargada (splash 3dfx, S-21).
    `glide.dll`/`glide3x.dll`: carga sin confirmar. Procedencia e identidad
-   de la `glide2x` (wrapper moderno vs época): pendientes (FA-02/FA-03).
+   de la `glide2x` (wrapper moderno vs época): pendientes entonces (FA-02/FA-03; resuelto 9ª: nGlide 2.10).
 8. **Pantalla 3DFX (2ª sesión: mecanismo identificado):** la muestra
    `3dfxSpl2.dll` (biblioteca splash de Glide 2.x, S-21), cargada en el
    proceso. Por sí sola sigue sin demostrar el renderer activo (eso lo
@@ -155,7 +155,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   `SysWOW64\glide2x.dll` por redirección WOW64; coherente con el fichero
   observado de 1630208 B — hash registrado en 3ª sesión). `3dfxSpl2.dll` también
   cargada (splash Glide 2.x, S-21). Ruta Glide = hipótesis muy sólida;
-  ficha registrada en 3ª sesión; originalidad/wrapper pendientes.
+  ficha registrada en 3ª sesión; originalidad/wrapper pendientes entonces (resuelto 9ª: nGlide 2.10).
 - **Acompañantes (OBSERVADO, rol UNKNOWN):** `ddraw.dll`, `d3d9.dll`,
   `dxgi.dll` y `atidx9loader32.dll` presentes en el proceso. Su presencia
   NO demuestra que sean el renderer activo (driver, appcompat, …).
@@ -190,7 +190,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 
 - **Producto exacto (CONFIRMADO):** `Glide® for Voodoo Banshee®` (nombre
   mostrado en Propiedades; corrige la transcripción aproximada de la 3ª
-  sesión). Resto de la ficha intacto (2.60.0.658, SHA-256 verificado).
+  sesión). Resto de la ficha intacto (2.61.00.0658 — corr. 7ª; SHA-256 verificado).
 - **Fecha mostrada en Propiedades (CONFIRMADO como dato mostrado):**
   domingo 2019-09-15 00:54:48. Campo específico (creación/modificación)
   NO identificado: no atribuir a ninguno.
@@ -220,8 +220,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   coloca su `glide2x.dll` en SysWOW64 (S-02, triple fuente) + el juego
   carga desde SysWOW64 + render funcional en HW moderno sin 3dfx (un
   driver de época no podría operar aquí) ⇒ wrapper=SÍ. Vendedor
-  «nGlide» PROBABLE entonces (7ª: sin demostrar tras hash idéntico; ver S-22); la atribución queda
-  en A2.3.
+  «nGlide» PROBABLE entonces (7ª–8ª: sin demostrar; 9ª: CONFIRMADO por payload-hash, A2.3 L ✓; ver S-22).
 - **FPS (OBSERVADO, método pendiente):** ≈25 estables. Método de medida
   NO registrado ⇒ cifra provisional. Sin logs/vídeo.
 - **nGlide (OBSERVADO, nulos):** `Aspect correction` no mejora I-21;
@@ -285,7 +284,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   (omisión) O 7cbd es su propio payload (sin referencia) ⇒ coexistencia
   sin resolver (S-22). Configurador instalado ≠ wrapper en uso por Gex.
 - **Interpretación (rigurosa):** wrapper=SÍ intacto; vendedor
-  INDETERMINADO (nGlide posible, no preferido). `d3d9.dll` en proceso
+  INDETERMINADO entonces (9ª: resuelto — nGlide 2.10; ver S-22). `d3d9.dll` en proceso
   sigue sin probar nada (compatible con backend D3D oficial de nGlide,
   nunca probatorio; criterio 2ª sesión intacto).
 - **Siguiente paso (PROPUESTO, solo lectura):** registro de
@@ -310,13 +309,14 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   SHA-256 `3cfcd03a923386c36685a772d24797fb78762cfbe63fe5676756091cf27da7a4`.
   Inspección del payload BLOQUEADA desde aquí (binario 3.3 MB no
   transitable; sandbox sin salida a Drive) ⇒ comparación de hash
-  pendiente; .exe ni ejecutado ni descargado. Corpus: sin referencia
+  pendiente entonces (9ª: hash obtenido vía informe Falcon, sin inspección
+  local); .exe ni ejecutado ni descargado. Corpus: sin referencia
   pública del payload nGlide 2.10 (negativo).
-- **Atribución:** SIN DEMOSTRAR (ni a favor ni en contra). Ni nombre,
-  ni configurador, ni d3d9 atribuyen.
+- **Atribución:** SIN DEMOSTRAR entonces (9ª: DEMOSTRADO nGlide 2.10 por
+  payload-hash). Ni nombre, ni configurador, ni d3d9 atribuían por sí solos.
 - **Siguiente paso ÚNICO (solo lectura, sin instalar nada):** lista de
   imports PE de la DLL cargada (pegar en PowerShell, juego cerrado;
-  algoritmo validado contra PE sintético):
+  algoritmo validado contra PE sintético; EJECUTADO 9ª):
 
 ```powershell
 $p='C:\Windows\SysWOW64\glide2x.dll'
@@ -342,15 +342,42 @@ while($true){$o=[System.BitConverter]::ToInt32($b,$d);$t=[System.BitConverter]::
 
   Solo sistema (+3dfxSpl2) y nada D3D/Vulkan ⇒ estilo época (muere
   payload-nGlide); d3d9/d3d11/dxgi/vulkan-1 ⇒ estilo wrapper (muere
-  driver clásico; nGlide exigiría referencia). Ajustes del
-  configurador: aún pendientes de transcribir.
+  driver clásico; nGlide exigiría referencia). CORRECCIÓN 9ª: dicotomía
+  SUPERADA — payload nGlide 2.10 confirmado CON imports solo-sistema ⇒
+  backend dinámico (la ausencia estática nunca descartó wrapper). Ajustes
+  del configurador: aún pendientes de transcribir.
+
+### Nota post-Hito 1 (2026-10-09, 9ª sesión): imports + atribución nGlide 2.10
+
+- **Imports PE (CONFIRMADO, solo lectura):** `SysWOW64\glide2x.dll` =
+  PE `014C` (x86); imports estáticos: `KERNEL32`, `USER32`, `GDI32`,
+  `ADVAPI32`, `WINMM`, `VERSION` (6 DLL de sistema). Sin imports
+  estáticos de Direct3D, DXGI ni Vulkan.
+- **Interpretación imports (rigurosa):** por SÍ SOLOS son compatibles
+  con driver de época Y con wrapper de backend dinámico (LoadLibrary):
+  no prueban originalidad 3dfx ni descartan wrapper. Solo muere la
+  sub-hipótesis «backend enlazado estáticamente». La dicotomía de 8ª
+  era falsa (corregida arriba): verificar > concluir.
+- **Atribución (CONFIRMADO 9ª — cadena de hashes):** instalador S-14 =
+  oficial nGlide 2.10 (md5/SHA1 publicados por Zeus, t=557) = muestra
+  Falcon 3cfcd03a…; su drop `glide2x.dll` = SHA-256 7cbd… = DLL cargada
+  (1630208 B, md5 f59d9780… idem) ⇒ la DLL cargada ES el payload de
+  nGlide 2.10 ⇒ Gex usa nGlide 2.10. Detalle + tabla de drops: S-22.
+  Abierta: cadena de adquisición pre-Hito 1 (A2.3 M).
+- **Corolarios:** metadatos 3dfx 2.61.00.0658 + ES/EN + circulación
+  dllme = marca de fábrica del payload nGlide (no de driver época);
+  backend D3D/Vulkan oficial ⇒ carga dinámica (imports mudos);
+  «instalación» 5ª = re-drop del mismo fichero (o idéntico omitido).
+- **Siguiente paso ÚNICO:** medida precisa FPS + pacing (slow-mo móvil
+  + refresco escritorio; diferido 6ª hasta aclarar la ruta — ACLARADA).
+  Opcionales (no el paso): hash `3dfxSpl2.dll`/configurador, ajustes.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
 > Hito 1 (2026-10-09): primera config observada funcionando (vía A:
 > Win11 64-bit + F-05 manual + imagen como D:, sin parches). Veredicto
 > general de compatibilidad: pendiente (una sola prueba; ficha + fecha y
-> firma registradas — 4ª sesión; originalidad/wrapper pendientes).
+> firma registradas — 4ª sesión; wrapper = nGlide 2.10, 9ª).
 > Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
 > WinMM; instalador 16-bit roto en moderno → F-05).
 
@@ -366,7 +393,7 @@ while($true){$o=[System.BitConverter]::ToInt32($b,$d);$t=[System.BitConverter]::
   TOC; herramientas de captura.
 - **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; Hito 1
   ejecutado una sola vez (ficha + fecha/firma — 4ª sesión;
-  originalidad/wrapper pendientes); «correcto» de época
+  wrapper = nGlide 2.10, 9ª); «correcto» de época
   inalcanzable aquí.
 - **Sirve para:** P0 (instalación, detección CD lógica, registro,
   guardado, admin) + P1 observación (FPS relativo, modos modernos,

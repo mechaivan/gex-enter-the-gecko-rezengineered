@@ -236,7 +236,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Hipótesis (no confirmadas):** modo de vídeo de época escalado por
   wrapper/GPU/monitor; viewport del juego no centrado en el modo
   elegido. Renderer: `glide2x` cargada, ficha + fecha/firma (4ª sesión);
-  originalidad/wrapper pendientes, sin causa definitiva atribuida.
+  wrapper = nGlide 2.10 (atribuido 9ª); causa definitiva sin atribuir.
 - **2ª sesión (2026-10-09):** repetido (4:3, bandas arriba/izquierda, HUD
   desalineado) con `glide2x.dll` cargada. Causa sigue UNKNOWN.
 - **5ª sesión (2026-10-09):** `Aspect correction` de nGlide no mejora bandas/HUD (nulo, 1 prueba, config con nGlide).

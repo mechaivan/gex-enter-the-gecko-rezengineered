@@ -219,6 +219,10 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - **BLOQUEO ANTERIOR SUPERADO (índice):** el listado se obtuvo vía la
   carpeta `S-14_extracted` subida por el mantenedor (2026-10-09); la
   limitación técnica del entorno (sin lectura parcial de zips) persiste.
+- **AUTENTICIDAD (9ª sesión, hashes públicos):** md5 `cd30d314…1a20` +
+  SHA1 `81762943…5097` (Drive/Falcon) = hashes publicados por Zeus para
+  `nGlide210_setup.exe` (foro t=557) ⇒ instalador OFICIAL nGlide 2.10
+  (confianza alta). Ver S-22 (payload).
 - Copia de trabajo: `Drive → REZengineered/research/` (2026-10-08; uso
   privado de investigación, no redistribuir).
 - Utilidad futura: procedimiento real de setup usado por speedrunners
@@ -311,8 +315,8 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   el renderer activo.
 - Confianza: media-alta como identidad del fichero; nula para versiones
   concretas de `glide2x` (ficha + fecha/firma en TESTING 4ª sesión:
-  Banshee 2.60.0.658, fecha mostrada 2019-09-15 sin campo identificado,
-  sin firma visible, SHA-256; originalidad/wrapper pendientes).
+  Banshee 2.61.00.0658 — corr. 7ª, fecha mostrada 2019-09-15 sin campo
+  identificado, sin firma visible, SHA-256; wrapper = nGlide 2.10, 9ª).
 - Corroboración propia (3ª sesión): la `3dfxSpl2.dll` cargada declara
   `3dfx Splash Screen` 1.0.0.4 — coherente con esta identidad (splash,
   no renderer).
@@ -366,8 +370,48 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   Instalador fijado (S-14_extracted: 3301587 B, md5 cd30d314…1a20,
   SHA-256 3cfcd03a…7a7a; tamaño coherente con 3.14–3.15 MB del corpus)
   pero payload sin inspeccionar (bloqueo técnico, no de permiso) ⇒
-  hipótesis (1)/(2) vivas. Sin referencia pública del payload (negativo
-  2026-10-09). Discriminador vigente: imports PE de la DLL cargada.
+  hipótesis (1)/(2) vivas entonces. Sin referencia pública del payload
+  (negativo 8ª; 9ª: informe Falcon la aporta — ver abajo). Discriminador
+  ejecutado: imports PE (9ª).
+- 9ª sesión — INSTALADOR OFICIAL (hashes vendor): Zeus (foro t=557,
+  post 2020-04-10) publica para `nGlide210_setup.exe` MD5
+  `cd30d314c3f1470cef1a35300fda1a20` + SHA1
+  `81762943ca942b25bea37645123a19a9a3545097` + CRC32 `703d395e` ⇒ S-14
+  (mismos md5/SHA-256…) = OFICIAL (confianza alta). Blog independiente
+  cita el mismo SHA-256 (corroboración débil).
+- 9ª sesión — PAYLOAD (Falcon Sandbox, muestra 3cfcd03a… = S-14 bit a
+  bit; detonada por terceros 2020-08-10, veredicto 0/100 limpio):
+  instalador NSIS (TrID 94.6%) que suelta en `%WINDIR%\System32`
+  (huésped Win7-32; en Win64 → SysWOW64, S-02): `glide.dll`
+  (1536000 B), **`glide2x.dll` (1630208 B, MD5 `f59d9780…`,
+  SHA-256 `7cbd…9aab` = NUESTRA DLL)**, `glide3x.dll` (1732608 B),
+  `3DfxSpl[2].dll` (1105408 B c/u), `nglide_config.exe` (348160 B),
+  `nglide_uninst.exe`, readme + accesos. Tabla de hashes abajo. ⇒
+  **ATRIBUCIÓN CONFIRMADA: la DLL cargada ES nGlide 2.10** (escenario
+  (2) GANA; (1)/(3) muertos para este fichero). A2.3 «Atribución
+  origen (L)» ✓. Abierta: adquisición pre-Hito 1 (instalación previa
+  vs copia circulante).
+- 9ª sesión — IMPORTS (PC): x86 + 6 DLL sistema, sin D3D/DXGI/Vulkan
+  estáticos ⇒ nGlide 2.10 enlaza backend dinámico (LoadLibrary).
+  Metadatos 3dfx/ES-EN/dllme = marca del payload, no de época.
+- Drops `nGlide210_setup.exe` (Falcon, 2020-08-10; huésped Win7-32):
+  - `glide2x.dll` 1630208 B — MD5 `f59d9780abe6bcb89433bdad4c8c5d59` —
+    SHA-256 `7cbd…9aab` (completo en TESTING 3ª).
+  - `glide.dll` 1536000 B — MD5 `d1ad25821fe5b92b66697569f09d0f4c` —
+    SHA-256 `3e1bcd94fc30311bebd21b916ed38d30e540a06dfd658cc8dfcdbe510a8587a4`.
+  - `glide3x.dll` 1732608 B — MD5 `c3680e912fc7e84f141cbb700425da68` —
+    SHA-256 `dd765740d52367e23965d718b5ebd3d56ec72e2985608b4c4c4e233a8d87fdc6`.
+  - `3DfxSpl.dll` 1105408 B — MD5 `eff462cab8dab3a45e88b2622bfa7496` —
+    SHA-256 `1ee8b2b4963b95f600ac683907778304f75c559aa6831a3f203efafc8d67d45a`.
+  - `3DfxSpl2.dll` 1105408 B — MD5 `08a1b06fe2fee5a1e3b33f1d71b84705` —
+    SHA-256 `262c70749ac24b4d3691e39767d3e01b5b4957b9b82768186e5faa58f395ceba`.
+  - `nglide_config.exe` 348160 B — MD5 `b3013435b3332e1b4ee23240551088e1` —
+    SHA-256 `c145622c72a262a80257ba00b9aa234e004ab0ab8fb0625bfff7454c42b7dc67`.
+  - `nglide_uninst.exe` 70537 B — MD5 `21121597d281b89fe24a00beabcc3d81` —
+    SHA-256 `fa5b760cfb4e3dafdebbbea36789dd22ae704cf44b1e39caa01432813c1ef6a9`.
+  - `nglide_readme.txt` 24929 B — MD5 `101e59351307196e7ad44940460317ee` —
+    SHA-256 `098acd1c5ed5f2fa4de519374df628a95b82fac1cfd1d991d4de19cce4769fb9`.
+  (SHA1 de cada drop, en el informe Falcon.)
 
 ## Áreas de investigación futura (separación estricta)
 
@@ -384,6 +428,9 @@ Evidencia estática propia sobre los originales EU (ver
 - Instalador InstallShield 5.x (stub NE 16-bit + CABs `ISc(` v4).
 - Patrón de nombre de guardado `GEX2%d%d%c.GEX` en strings del exe EU
   (ubicación/directorio UNKNOWN; PCGW «save location» vacía).
+- `glide2x.dll` cargada (7cbd…) = payload de nGlide 2.10 (drop-hash del
+  instalador oficial verificado; imports solo-sistema ⇒ backend
+  dinámico; S-22, 9ª sesión 2026-10-09).
 
 ### Reportado por fuentes secundarias (pendiente de verificación propia)
 
@@ -399,9 +446,6 @@ que habrá que verificar contra el juego real (Fase 1–2):
 
 ### Hipótesis abiertas (NO confirmadas)
 
-- Origen de la `glide2x.dll` cargada: original, redistribuida, modificada
-  o wrapper con metadatos 3dfx (fichas TESTING 3ª–5ª sesión; corpus
-  S-22; nGlide anterior a Hito 1 no excluido; UNKNOWN).
 - Lógica/timing acoplados al framerate (I-01).
 - Intro en códec Indeo (I-14) — hipótesis DÉBIL tras Lote 1 (hilo VOGONS no
   resuelto, fuente única sin validar); escritura HKLM causa de I-17.

@@ -58,10 +58,10 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
   verificado) arranca y es jugable en Win11 64-bit con instalación manual
   F-05 (sin F-01) + imagen montada como `D:`; música/SFX funcionan;
   observaciones I-21/I-22 (2ª sesión: parpadeos multimonitor). Renderer:
-  `glide2x` cargada, ficha registrada (Banshee 2.60.0.658, fecha mostrada
-  2019-09-15 sin campo identificado, sin firma visible, SHA-256 en
-  TESTING); originalidad/wrapper pendientes. GPU AMD probable, driver
-  pendiente; refresco pendiente.
+  `glide2x` cargada, ficha registrada (Banshee 2.61.00.0658 — corr. 7ª,
+  fecha mostrada 2019-09-15 sin campo identificado, sin firma visible,
+  SHA-256 en TESTING); wrapper = nGlide 2.10 (atribuido 9ª). GPU AMD
+  probable, driver pendiente; refresco pendiente.
 - Datos propios Fase 1 (binario EU v1.00.000): Glide exclusivo; joystick vía
   WinMM (`joyGetPosEx`, sin DirectInput); audio vía WinMM/DSound + CD-DA por
   MCI (`mciSendCommandA`); CD 1 datos + 16 pistas audio. Ver inventario.
@@ -79,3 +79,4 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 - 6ª sesión (A/B VSync On/Off, Steam): ≈25 en ambos, nulo (VSync solo descartado); intros percibidas ~15 (no medido); parpadeo = 1 cambio de modo. Ver TESTING.
 - 7ª sesión (solo lectura): hash DLL idéntico (7cbd…, sin sustitución); versión 2.61.00.0658 confirmada; nglide_config.exe presente; uso por Gex sin demostrar. Ver TESTING/S-22.
 - 8ª sesión (registro+Drive, solo lectura): nGlide 2.10 sin fechas (temporal inconcluso); configurador 2.10; instalador fijado, payload sin inspeccionar; imports PE propuestos. Ver TESTING/S-22.
+- 9ª sesión: imports x86 solo-sistema (sin D3D estático); atribución nGlide 2.10 CONFIRMADA (drop-hash instalador oficial = 7cbd…); backend dinámico. Ver TESTING/S-22.
