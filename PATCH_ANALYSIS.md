@@ -361,9 +361,9 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 
 | Fix | Informa a |
 |---|---|
-| F-01 (D3D PAL) | FA-03, M-04 (cómo se habilita D3D) |
+| F-01 (D3D PAL) | FA-03, M-04 (cómo se habilita D3D), M-25 (gestión de voces UK) |
 | F-02 (nGlide, exe reemplazo) | FA-03, FA-05, M-13 (renderer; cap 30 por confirmar) |
-| F-03 (FPS Limiter) | FA-05, M-13 (mecanismo de límite) |
+| F-03 (FPS Limiter) | FA-05, M-13 (mecanismo de límite), M-25 (detector `voiceuk`/`voice`) |
 | F-04 (supuesto exe capeado) | Pendiente fusión con F-02 (Fase 2) |
 | F-05 (instalación manual) | FA-11, M-01…M-03 |
 | F-06 (Indeo, no validado) | FA-10 (hipótesis débil) |

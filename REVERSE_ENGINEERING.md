@@ -51,7 +51,8 @@
 - [ ] Render (I-03–I-10): ruta Glide única en EU (sin selección D3D en el
       binario); modos de vídeo; petición de 75 Hz; paths de resolución.
       Selección Glide/D3D solo en US/F-01 (pendiente de binario).
-- [ ] Audio/CD (I-11–I-13): MCI/WinMM/CD-audio; qué ocurre al cambiar de nivel.
+- [ ] Audio/CD (I-11–I-13): MCI/WinMM/CD-audio; qué ocurre al cambiar de nivel;
+      voces `VOICEUK/` vs `voice/` + mecanismo de selección (base futura M-25).
 - [ ] FMV (I-14): reproductor de intro; dependencia Indeo (hipótesis débil
       tras Lote 1: sugerencia sin validar en hilo VOGONS no resuelto).
 - [ ] Instalación/CD-check (I-15–I-17): lecturas de registro; detección de CD.

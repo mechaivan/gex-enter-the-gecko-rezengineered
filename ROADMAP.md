@@ -7,7 +7,7 @@ ENTENDER → BASE → SENCILLO → DEPENDIENTE → COMPLEJO → EXPERIMENTAL
 ```
 
 Los objetivos de modernización viven en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)
-(M-01…M-24, todos PROPOSED; X-01/X-02 DEFERRED). Este roadmap puede cambiar
+(M-01…M-25, todos PROPOSED; X-01/X-02 DEFERRED). Este roadmap puede cambiar
 si la investigación demuestra que es necesario.
 
 ## Fase 0 — Planning / Documentation ✅ (cerrada 2026-10-08)
@@ -34,6 +34,8 @@ si la investigación demuestra que es necesario.
   F-01…F-12 verificadas en fuente; diffs binarios en Fase 2.
 - [~] Lista de problemas conocidos con niveles de evidencia (evidencia
   estática propia añadida; ningún issue reproducido todavía).
+- [x] Registrar propuesta M-25 (voice pack UK/USA, PROPOSED, P3, sin fase)
+  + fuente S-20 (reparto vocal) — solo documentación (2026-10-09).
 - [ ] Cubrir las áreas FA-01…FA-15 a nivel documental.
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [ ] Definir máquina Windows de testing + protocolo de captura.

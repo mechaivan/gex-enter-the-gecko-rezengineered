@@ -16,6 +16,8 @@
 - **Abandonware France** — documentación de compatibilidad.
 - Comunidades de **Reddit r/gex** y **MyAbandonware** — reportes de usuarios.
 - **Mysticore / speedrun.com** — «PC Version Setup Package» (S-14/F-09).
+- **Wikipedia / VGFacts / BTVA** — reparto vocal UK/USA como referencia
+  documental general (S-20; no PC-específica).
 - **MatBourgon / Tokatta007** — proyectos Gex64Decomp (referencia N64).
 - **Limited Run Games** — Gex Trilogy (contexto histórico; no es referencia
   del proyecto por decisión 2026-10-08).

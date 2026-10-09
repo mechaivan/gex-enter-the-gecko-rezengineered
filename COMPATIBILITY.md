@@ -64,3 +64,5 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 - Lote 1 (2026-10-09): Tgames distingue instalaciones `gex23dfx` (3DFX) y
   `gex23d` (D3D); F-10 solo funciona en D3D o 3DFX-parcheada-a-D3D; F-12
   confirma menú debug en la build D3D.
+- M-25 (PROPOSED): set de voces USA de PC (`voice/`) sin verificar; al
+  testear audio registrar siempre la variante regional (UK/USA).

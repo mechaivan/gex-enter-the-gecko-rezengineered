@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Nueva propuesta M-25: selección de voces UK/USA
+
+- MODERNIZATION_GOALS: +M-25 Voice Pack Selection (UK/USA), PROPOSED, P3
+  provisional, Nivel 10 (Audio/Voces), sin fase (post-11, TBD); refs
+  cruzadas M-20 (Audio) y M-24 (textos, no confundir); mapa actualizado.
+- RESEARCH: nueva S-20 (reparto Gould/Phillips: Wikipedia verificada +
+  VGFacts/BTVA; general, no PC-específica) + UNKNOWNs base de M-25.
+- Sync: ROADMAP (M-01…M-25, item Fase 1), PROJECT_STATE (ampliación +
+  Last updated), REVERSE_ENGINEERING (Etapa C audio/voces), COMPATIBILITY
+  (nota variante regional), PATCH_ANALYSIS (F-01/F-03 → M-25), CREDITS.
+- Sin implementación, sin binarios tocados, sin fase avanzada.
+- Historial preservado: entradas anteriores intactas.
+
 ## 2026-10-09 — 0.0.0 — Lote 1: investigación documental de fixes (F-01…F-12)
 
 - PATCH_ANALYSIS: F-01…F-09 re-investigados en sus fuentes (hilos leídos

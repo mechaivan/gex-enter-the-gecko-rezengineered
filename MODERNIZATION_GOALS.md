@@ -395,7 +395,7 @@ CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
   gran superficie de integración.
 - **Relación con comportamiento original:** añadido; el juego base intacto.
 - **Compatible con Original Mode:** Sí (menú disponible, valores época) · **Pertenece a Modern Mode:** Sí
-- **Notas:** es integración de muchos M-xx; va tarde a propósito.
+- **Notas:** es integración de muchos M-xx (incluye futuro selector de voces M-25 en Audio); va tarde a propósito.
 
 ---
 
@@ -481,6 +481,49 @@ CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
   fuente de verdad.** Otras versiones, solo referencias secundarias.
 - **Compatible con Original Mode:** Sí (English original) · **Pertenece a Modern Mode:** Sí
 - **Notas:** sin fase de roadmap asignada todavía (post-Fase 11, TBD).
+  No confundir con M-25 (selección de voces UK/USA, audio).
+
+# NIVEL 10 — AUDIO / VOCES
+
+## M-25 — Voice Pack Selection (UK / USA)
+
+- **Categoría:** Nivel 10 — Audio/Voces
+- **Descripción:** Permitir al jugador seleccionar desde el futuro menú de
+  opciones (M-20, categoría Audio) entre las voces originales UK (Leslie
+  Phillips, edición europea) y USA (Dana Gould, edición estadounidense),
+  utilizando audio original compatible aportado por el usuario cuando esté
+  disponible. La preferencia debe poder guardarse y persistir entre
+  sesiones si la arquitectura lo permite.
+- **Prioridad:** P3 (provisional) · **Complejidad estimada:** Desconocida
+  (TO INVESTIGATE; estimación provisional NO confirmada: S–M si basta con
+  redirigir la carpeta de voces, L+ si hay que re-mapear frases o FMV) ·
+  **Estado:** PROPOSED
+- **Dependencias:** FA-08 (audio/voces), FA-01 (variante US), M-20
+  (selector en menú), M-22 (Modern Mode)
+- **Investigar antes (detalle en S-20):** set EU: 400 `.SAG` en
+  `AUDIO/VOICEUK/` (CONFIRMED, inventario §8); set USA de PC (`voice/`):
+  estructura y cobertura UNKNOWN (solo el nombre de carpeta, vía Tgames
+  F-01/F-03); si ambos sets cubren las mismas frases o hay diferencias
+  regionales de diálogos/chistes (UNKNOWN; indicios de interpretaciones
+  distintas, no PC-específicos); si las voces FMV (`MOVIE/*.SAG`,
+  hipótesis audio-por-tamaños) van separadas de las in-game (UNKNOWN);
+  cómo selecciona el exe los ficheros de voz (UNKNOWN, Fase 2); formato
+  `.SAG` (UNKNOWN-PENDING).
+- **Riesgos / incógnitas:** sets no paralelos (nombres/cobertura distintos);
+  chistes reescritos por región (Gould escribió sus líneas; Phillips =
+  variación «muy distinta, más culta» según VGFacts — fuentes generales,
+  no PC-específicas); FMV con voces integradas (no conmutables por
+  fichero); comportamiento con ficheros ausentes (fallback UK por definir);
+  procedencia: el audio USA es comercial — modelo BYO (copia propia del
+  usuario), jamás redistribuir ni añadir voces al repo.
+- **Relación con comportamiento original:** UK = base EU por defecto
+  (Original Mode intacto); el pack USA sería opt-in en Modern Mode, solo
+  assets, sin tocar la lógica del juego. No prometer cobertura total hasta
+  verificar frase a frase.
+- **Compatible con Original Mode:** Sí (UK por defecto) · **Pertenece a Modern Mode:** Sí
+- **Notas:** no confundir con M-24 (localización de TEXTOS). Voz JP
+  (consola) fuera de alcance. Gex Trilogy no es fuente de audio. Sin fase
+  de roadmap asignada todavía (post-Fase 11, TBD).
 
 ---
 
@@ -542,6 +585,7 @@ CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
 | M-21, M-22 | 11 (Original Mode / Modern Mode) |
 | M-23 | 12 (Optional Enhanced Visuals) |
 | M-24 | Sin fase asignada (post-11, TBD) |
+| M-25 | Sin fase asignada (post-11, TBD) |
 | Matriz hardware | 13 (Extended Compatibility) |
 | X-01 | 14 (Experimental / Deferred) |
 | X-02 | 14 mención long-term (no es fase de implementación) |

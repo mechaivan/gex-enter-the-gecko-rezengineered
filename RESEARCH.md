@@ -228,6 +228,26 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Guías consultadas: Steam "DirectX Wrappers/Emulation" (dgVoodoo per-DX),
   insertmorecoins DxWrapper 2026 (config Dd7to9/Dinputto8/ventana).
 
+## S-20 — Reparto vocal UK/USA (Wikipedia, VGFacts, BTVA) — REFERENCE general
+
+- URLs: <https://en.wikipedia.org/wiki/Gex:_Enter_the_Gecko> (verificada
+  2026-10-09: infobox + Plot + Development) ·
+  <https://www.vgfacts.com/game/gexenterthegecko/trivia-846/> (snippet) ·
+  BTVA (snippet).
+- Hechos: Gex = Dana Gould (NA), Leslie Phillips (EU), Mitsuo Senda (JP).
+  Gould escribió citas/chistes y grabó «over 700 voice-overs»; Phillips =
+  variación «muy distinta, más culta y refinada» (VGFacts). N64: voces
+  reducidas (~100 samples) y cutscenes omitidas (solo consola, no aplica
+  a PC).
+- Alcance: fuentes GENERALES (artículo liderado por PS1), NO PC-específicas.
+  Confirmación PC: S-08 (AF: Gould US / Phillips EU en ficha PC) + S-03
+  (Tgames: carpetas `voice` US / `voiceuk` EU) + inventario §8 (400 `.SAG`
+  UK en `AUDIO/VOICEUK/`).
+- UNKNOWN (base de M-25): contenido/cobertura del set USA de PC;
+  paralelismo frase a frase; separación voces FMV vs in-game; mecanismo de
+  selección del exe; formato `.SAG`.
+- Confianza: media como referencia de reparto; nula para detalles PC-USA.
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)
@@ -251,6 +271,8 @@ que habrá que verificar contra el juego real (Fase 1–2):
 - D3D 5 nativo en versión US (en EU, ausente de fábrica — ver arriba).
 - Caps de FPS reportados: 30 (base) / 24 (con parche D3D).
 - Requisitos Win 95/98/ME, P166, 32 MB, DX5.
+- Reparto vocal: Dana Gould (NA) / Leslie Phillips (EU) — atestiguado a
+  nivel juego (S-20); set USA de PC sin verificar (base de M-25).
 
 ### Hipótesis abiertas (NO confirmadas)
 
