@@ -241,6 +241,21 @@ Actualizar solo ante cambios reales de estado; lo editorial no altera
 cifras. Prohibido tocar pesos/criterios/alcance para inflar el progreso;
 todo cambio metodológico se documenta con su impacto en cifras anteriores.
 
+### Regla permanente del dashboard (adoptada 2026-10-09)
+
+El SVG es el dashboard oficial y persistente. Actualizarlo SOLO ante
+cambio real y verificable: hito completado con evidencia; cambio
+justificado de % MAIN/global/área; cambio de estado documentado;
+nuevo siguiente hito o dato resumido; corrección de un dato erróneo.
+NO actualizar por revisar docs, analizar posibilidades, repetir
+diagnósticos sin evidencia nueva, reorganizar tareas o iniciar sesión.
+Investigar ≠ resolver; documentar ≠ solucionar. Al actualizar:
+evidencia → SVG (solo elementos afectados) → MD → CHANGELOG →
+revisión de coherencia. Sin cambios reales: SVG y MD intactos, sin
+commits vacíos. Conservar el diseño aprobado (solo datos, barras,
+estados y textos afectados); no rediseñar sin petición explícita.
+Cada sesión informa si el dashboard cambió o no, y por qué.
+
 ### Geometría del SVG v3.1 (viewBox 0 0 760 700)
 
 - Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» 68px + stats

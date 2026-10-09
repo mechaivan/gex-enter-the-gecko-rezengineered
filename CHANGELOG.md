@@ -2,6 +2,16 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Regla permanente: dashboard solo con avance real
+
+- `docs/PROJECT_STATUS.md` §6: nueva regla permanente — el SVG es el
+  dashboard oficial; solo se actualiza ante cambio real y verificable
+  (hito con evidencia, % justificado, cambio de estado, nuevo hito,
+  corrección); sin avance real, SVG y MD intactos, sin commits vacíos;
+  diseño aprobado conservado; informe por sesión.
+- `docs/REPO_SYNC_RULE.md`: referencia cruzada a la regla.
+- SVG intacto (sigue v3.1); sin cambios de cifras, metodología o diseño.
+
 ## 2026-10-09 — 0.0.0 — Panel de progreso v3.1: ajustes visuales
 
 - `docs/PROJECT_STATUS.svg` v3.1 (760×700, misma tarjeta): «40%» MAIN

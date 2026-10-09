@@ -48,6 +48,9 @@ correcto, no tocarlo** (coherencia global, no commits innecesarios).
   ambigua o contradictoria por este cambio?»*
 - **CHANGELOG.md:** todo cambio relevante queda registrado de forma
   humana y útil (qué cambió y por qué), no como copia del commit.
+- **Dashboard:** `docs/PROJECT_STATUS.svg` solo se actualiza ante
+  cambio real y verificable (regla permanente en
+  `docs/PROJECT_STATUS.md` §6); sin avance real, intacto.
 - **Historia:** no reescribirla; conservar changelog y commits;
   distinguir hechos nuevos de históricos.
 
