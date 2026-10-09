@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — S-14: inventario nominal + README leído (carpeta extraída)
+
+- `S-14_extracted` (subida por el mantenedor): 22 entradas inventariadas
+  solo por nombre+metadatos (README, Game Files con exe 2013 + 15 WAV, 3
+  instaladores); README.txt leído íntegro (montar Gex3DD3D.ccd, copiar
+  exe+music, nGlide, _inmm DirectShow, sin disco). Nada ejecutado.
+- Clasificación: inventario+README CONFIRMADOS a nivel documental;
+  procedimiento NTSC-D3D DECLARADO (no verificado); binarios/WAV/EU
+  aplicabilidad DESCONOCIDOS. Sin nuevos IDs.
+- Sync: RESEARCH (S-14), PATCH_ANALYSIS (F-09), PROJECT_STATE/ROADMAP
+  (S-14 [x], binarios→Fase 2), KNOWN_ISSUES (I-11 _inmm), COMPATIBILITY
+  (fila D3D), REVERSE_ENGINEERING (Etapa D: exe 2013 candidato).
+- Fase 1 en curso, Fase 2 sin iniciar, M-25 PROPOSED. Historial intacto.
+
 ## 2026-10-09 — 0.0.0 — S-14: inventario interno bloqueado (solo metadatos)
 
 - Acceso + hashes re-verificados (2ª comprobación, Drive solo lectura):

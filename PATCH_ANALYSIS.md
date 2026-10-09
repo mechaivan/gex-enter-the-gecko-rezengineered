@@ -197,17 +197,24 @@ Reglas:
   without needing the physical disc. Simply follow the instructions in the
   README.» Recurso tipo «Patch». Drive ID `1XvJa18j-82iBX1To4VUyuqsfp50xwVYf`
   (metadatos verificados, S-14).
-- **Inspección documental (2026-10-09, sin descarga/extracción/ejecución):**
-  411301184 bytes (411.3 MB = 392.2 MiB; discrepancia 411/~393 resuelta
-  como redondeo en unidades distintas); SHA-256 `60d9e430…` (completo en
-  S-14); copia `research/` bit-idéntica (re-verificado 2026-10-09, 2ª
-  comprobación); listado ZIP + README bloqueados en este entorno (sin
-  lectura parcial disponible; detalle en S-14). La página NO publica contenidos,
-  README ni hashes → payload DESCONOCIDO.
-- **Método futuro seguro (fuera del sandbox):** descargar → hash → `unzip -l`
-  → extraer solo README → inventario; jamás ejecutar. Copia de trabajo ya
-  custodiada en `Drive → REZengineered/research/` (S-14).
-- **Estado:** METADATOS E INTEGRIDAD VERIFICADOS (hashes), CONTENIDO NO INSPECCIONADO.
+- **Inventario (2026-10-09, `S-14_extracted`, solo lectura):** 22 entradas:
+  `README.txt` (leído íntegro) + `Game Files/` (`gex3d.exe` «parcheado»
+  2013 + 15 WAV `track01–15`, 431.4 MB) + instaladores nGlide 2.10,
+  WinCDEmu 4.1 e _inmm 2.3.8 (nombres+metadatos; NUNCA ejecutados).
+  Detalle y hashes en S-14.
+- **README (DECLARADO, no verificado):** montar `Gex3DD3D.ccd` (D3D) +
+  SETUP.EXE → copiar exe+`music/` → nGlide → música vía `_inmm`
+  (DirectShow + `_inmm.ini`) → jugar sin disco. Rutas `gex23d` (D3D).
+- **Relación NTSC↔EU:** paquete NTSC-D3D; nuestra base es EU-Glide
+  v1.00.000 (`Gex2-Europe`, voces UK). Sin evidencia de aplicabilidad a
+  EU; NO declarar compatible.
+- **Correlatos (solo evidencia, sin identificar):** nGlide 2.10 ↔ T-03;
+  `_inmm`+WAV ↔ reporte S-02 (música+loop) y método F-10 (15 pistas);
+  exe No-CD 2013 ↔ análogo funcional a F-11, artefacto distinto
+  (procedencia UNKNOWN); `Gex3DD3D.ccd`/`gex23d` ↔ fila D3D en
+  COMPATIBILITY (relación con retail US: UNKNOWN).
+- **Pendiente (Fase 2):** diff binario del exe 2013 vs original.
+- **Estado:** INVENTARIO NOMINAL COMPLETO + README LEÍDO; BINARIOS NO ANALIZADOS.
 
 ## F-10 — Music Handler D3D/3DFX (WAV + CD) — tgames.fr [NUEVO Lote 1]
 
@@ -376,7 +383,7 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 | F-06 (Indeo, no validado) | FA-10 (hipótesis débil) |
 | F-07 (nGlide 0.99 Vista) | Contexto wrapper/época; payload F-02 |
 | F-08 | Pendiente de identificar |
-| F-09 (setup package) | FA-01, procedimiento de referencia |
+| F-09 (setup package) | FA-01, FA-08/FA-09 (método _inmm+WAV), procedimiento de referencia |
 | F-10 (music handler) | FA-08, FA-09, M-20 (CD-audio/WAV sin CD) |
 | F-11 (NO-CD D3D) | FA-12 (check de CD; posible US) |
 | F-12 (debug tool) | Herramienta potencial Fase 2 (menú debug PC) |

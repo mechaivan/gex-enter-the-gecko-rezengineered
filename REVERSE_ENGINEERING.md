@@ -66,6 +66,9 @@
 
 - [ ] Por cada fix (F-01…F-12, según tipo; F-04 pendiente de fusión con
       F-02): qué bytes/funciones cambian y qué efecto tienen.
+- [ ] Exe parcheado S-14 (2013, NTSC-D3D, md5
+      `0a65f3ada9bef8c842e52cf0a7987f67`, solo metadatos): candidato a
+      diff vs original (Fase 2).
 - [ ] Tabla comparativa **Original → Fix → Hipótesis de causa → Propuesta**.
 
 ## 4. Herramientas

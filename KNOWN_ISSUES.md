@@ -107,7 +107,10 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Lote 1 (2026-10-09):** Zeus (autor nGlide, 2015): haría falta un wrapper
   winmm; algunos bugs audio existen también en Voodoo real. Un reporte 2024:
   `_inmm.dll` daría música + loop. AF: el disco debe estar en el PRIMER
-  lector óptico. F-10 es el handler comunitario (D3D/WAV).
+  lector óptico. F-10 es el handler comunitario (D3D/WAV). README S-14
+  corrobora `_inmm` (método DirectShow + `_inmm.ini` con los WAV) como
+  solución adoptada por speedrunners (DECLARADO POR LA FUENTE, no
+  verificado funcionalmente).
 - **Estado:** DESCONOCIDO.
 
 ### I-12 — La música se corta tras completar cada nivel

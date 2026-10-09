@@ -13,7 +13,7 @@
 | PC retail EU         | EU/PAL | Glide/3Dfx (solo)     | Inventario Fase 1 (CONFIRMED: 38 imports glide2x, 0 D3D) |
 | PC retail FR (Pointsoft) | FR | (por determinar)      | Archive.org    |
 | PC OEM Quantum3D Raven | US  | 3Dfx bundle           | Archive.org    |
-| PC versión D3D (carpeta `gex23d`) | ? | Direct3D         | tgames (instalación distinguida de `gex23dfx`; relación con retail US: UNKNOWN) |
+| PC versión D3D (carpeta `gex23d`) | ? | Direct3D | tgames + README S-14 (instalación D3D en `gex23d`, imagen `Gex3DD3D.ccd`); relación retail US: UNKNOWN |
 | Demo PC (Toon TV)    | ?      | 3Dfx-only             | PCGW Community |
 
 ## Sistemas operativos (objetivo de testing futuro)

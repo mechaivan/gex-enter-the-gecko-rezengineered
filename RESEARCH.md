@@ -173,25 +173,43 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - **Re-verificación 2026-10-09 (2ª comprobación, solo metadatos):** ambas
   copias accesibles, no trashed, sin modificar desde la 1ª comprobación;
   MD5/SHA-256 coinciden con lo documentado.
+- **INVENTARIO (2026-10-09, carpeta `S-14_extracted` subida por el
+  mantenedor; 22 entradas = 3 carpetas + 19 ficheros; nombres+metadatos,
+  binarios NO leídos):** raíz: `README.txt` (2131 B, md5
+  `14e8d1a7ea0afd778bc2d087a8450e50`) + `Game Files/` + 3 instaladores
+  (`nGlide210_setup.exe` 3301587 B, `WinCDEmu-4.1.exe` 1576544 B,
+  `_inmm238.exe` 311653 B, 2006); `Game Files/`: `gex3d.exe` «parcheado»
+  (1665536 B, 2013-10-04, md5 `0a65f3ada9bef8c842e52cf0a7987f67`) +
+  `music/` con `track01–15.wav` (15/15, 431409348 B total, mtime uniforme
+  1998-03-28). Total extraído ≈ 438 MB vs ZIP 411.3 MB (ratio 0.94,
+  coherente). Sin duplicados, sin rutas sospechosas, sin zips anidados.
+  4 .exe = CAUTELA (nunca ejecutados ni descargados). Resto de md5,
+  recuperables vía Drive API.
+- **README LEÍDO (`README.txt`, texto completo, 2026-10-09):** declara 3
+  fases: (1) instalar WinCDEmu + montar imagen `Gex3DD3D.ccd` (URL Drive
+  externa, NO inspeccionada) + SETUP.EXE; (2) copiar `Game Files/` (exe
+  parcheado + `music/`) sobre la instalación + instalar nGlide 2.10;
+  (3) música vía `_inmm` (player DirectShow + `_inmm.ini` con los WAV,
+  guardado en el juego). Rutas `…\Crystal Dynamics\gex23d` (= D3D).
+  Resultado declarado: jugar con `gex3d.exe` sin disco. Procedimiento NO
+  ejecutado ni verificado por el proyecto.
 - **DECLARADO POR LA FUENTE (página releída 2026-10-09, sin verificar):**
   «Includes everything you need to get the NTSC PC version to run on modern
   systems, without needing the physical disc. Simply follow the instructions
   in the README.» Recurso tipo «Patch», actualizado hace ~4 años por
   Mysticore (moderador de gex2, verificado en la página). La página NO
   publica contenidos, README, hashes ni tamaño.
-- **DESCONOCIDO:** contenido interno, composición exacta, integridad
-  funcional e instrucciones del README (no localizado publicado por
-  separado; búsqueda 2026-10-09 sin resultados). Sin descarga al sandbox,
-  sin extracción, sin ejecución.
-- **SIGUIENTE PASO (seguro, fuera del sandbox):** hash local → `unzip -l` →
-  extraer solo README → inventario; jamás ejecutar. Requiere máquina con
-  espacio + decisión del mantenedor.
-- **BLOQUEO en este entorno (2026-10-09, verificado):** sin capacidad de
-  listado ZIP ni lectura parcial sin descarga completa — `read_file_text`
-  falla (25 MB cap frente a 411301184 bytes); `download_file` solo ofrece
-  bytes completos o URL no consumible aquí; la copia completa al workspace
-  está prohibida por seguridad. Índice + README pendientes de máquina con
-  espacio.
+- **DESCONOCIDO:** contenido/comportamiento de los 4 .exe y audio real de
+  los WAV (inventariados por nombre+metadatos, contenido NO leído);
+  eficacia y seguridad del procedimiento (no ejecutado); procedencia del
+  exe 2013; correspondencia track01–15 ↔ pistas CD (15 WAV frente a 16
+  CD-DA en nuestro EU); aplicabilidad a EU.
+- **SIGUIENTE PASO (Fase 2, con autorización):** diff binario del
+  `gex3d.exe` 2013 vs original; resto, solo lectura. Nada más pendiente
+  en Fase 1 para S-14.
+- **BLOQUEO ANTERIOR SUPERADO (índice):** el listado se obtuvo vía la
+  carpeta `S-14_extracted` subida por el mantenedor (2026-10-09); la
+  limitación técnica del entorno (sin lectura parcial de zips) persiste.
 - Copia de trabajo: `Drive → REZengineered/research/` (2026-10-08; uso
   privado de investigación, no redistribuir).
 - Utilidad futura: procedimiento real de setup usado por speedrunners
@@ -331,6 +349,5 @@ que habrá que verificar contra el juego real (Fase 1–2):
   `originals/` (nunca en el repo); inventariados en Fase 1 (2026-10-08).
   El análisis binario profundo sigue bloqueado hasta que el mantenedor
   indique el cambio de fase.
-- [~] S-14: metadatos + hashes del zip verificados (2026-10-09, Drive solo
-  lectura); extraer README + lista de parches/herramientas + hashes de
-  ejecutables incluidos (cuando el mantenedor lo considere).
+- [x] S-14: metadatos + hashes + inventario nominal + README leído
+  (2026-10-09, `S-14_extracted`, solo lectura). Diff binario → Fase 2.
