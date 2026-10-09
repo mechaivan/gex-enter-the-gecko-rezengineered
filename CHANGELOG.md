@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — 8ª sesión: registro sin fechas, payload pendiente, imports propuestos
+
+- TESTING 8ª (equipo real + Drive, solo lectura): nGlide 2.10 en
+  registro pero InstallDate/InstallLocation vacíos ⇒ vía temporal
+  inconclusa (sin inferencias); configurador 2.10 triple-confirmado;
+  DLL 7cbd reconfirmada (continuidad ×3).
+- Instalador `nGlide210_setup.exe` fijado en `S-14_extracted` (3301587 B,
+  md5/SHA-256; coherente con corpus) pero payload sin inspeccionar:
+  bloqueo técnico (binario no transitable, sandbox sin salida a Drive),
+  no de permiso; .exe ni ejecutado ni descargado. Sin referencia
+  pública del payload (negativo documentado).
+- Siguiente paso único: lista de imports PE de la DLL (script PowerShell
+  incluido, algoritmo validado; sin instalar nada). Atribución a nGlide
+  2.10: SIN DEMOSTRAR. Panel intacto.
+
 ## 2026-10-09 — 0.0.0 — 7ª sesión: hash idéntico, sin sustitución, vendedor indeterminado
 
 - TESTING 7ª (equipo real, solo lectura): `SysWOW64\glide2x.dll` =

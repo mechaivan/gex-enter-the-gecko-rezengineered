@@ -361,6 +361,13 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   de nGlide 2.x (sin referencia; v1.x marcaba «nGlide»); (3) sustituyó
   y algo restauró (sin fuente). Fecha de instalación (registro,
   lectura) discrimina (1)/(2) de forma fuerte.
+- 8ª sesión (PC + Drive, solo lectura): registro nGlide 2.10 sin fechas
+  ⇒ temporal inconcluso; configurador triple-2.10; DLL reconfirmada.
+  Instalador fijado (S-14_extracted: 3301587 B, md5 cd30d314…1a20,
+  SHA-256 3cfcd03a…7a7a; tamaño coherente con 3.14–3.15 MB del corpus)
+  pero payload sin inspeccionar (bloqueo técnico, no de permiso) ⇒
+  hipótesis (1)/(2) vivas. Sin referencia pública del payload (negativo
+  2026-10-09). Discriminador vigente: imports PE de la DLL cargada.
 
 ## Áreas de investigación futura (separación estricta)
 

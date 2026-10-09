@@ -90,7 +90,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 > Primer hito funcional confirmado del proyecto: instalación manual F-05
 > (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
 > ejecutable EU original inalterado (MD5 verificado). Renderer:
-> wrapper=SÍ (vendedor nGlide sin demostrar, 5ª–7ª sesión); API efectiva pendiente.
+> wrapper=SÍ (vendedor nGlide sin demostrar, 5ª–8ª sesión); API efectiva pendiente.
 > FPS ≈25 estables (5ª–6ª sesión, método Steam); A/B VSync nulo (6ª);
 > sin logs ni capturas archivadas todavía.
 
@@ -294,6 +294,56 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   tras 4ª sesión ⇒ instalador no sustituyó ⇒ nGlide puenteado;
   instalado antes de Hito 1 ⇒ payload-propio posible. Slow-mo/FPS
   aplazados hasta aclarar la ruta.
+
+### Nota post-Hito 1 (2026-10-09, 8ª sesión): registro sin fechas + payload pendiente
+
+- **Registro nGlide (CONFIRMADO):** DisplayName `nGlide 2.10`,
+  DisplayVersion `2.10`; `InstallDate` e `InstallLocation` VACÍOS ⇒
+  vía temporal INCONCLUSA (sin inferir fechas). Configurador:
+  FileVersion/ProductVersion `2.10`, ProductName `nGlide Configurator`
+  (CONFIRMADO).
+- **DLL (RECONFIRMADO ×3):** mismo SHA-256 7cbd…, 1630208 B, metadatos
+  3Dfx `2.61.00.0658` ⇒ continuidad intacta.
+- **Instalador S-14 (metadatos Drive, solo lectura):**
+  `nGlide210_setup.exe` en `S-14_extracted`, 3301587 B (coherente con
+  3.14–3.15 MB del corpus), md5 `cd30d314c3f1470cef1a35300fda1a20`,
+  SHA-256 `3cfcd03a923386c36685a772d24797fb78762cfbe63fe5676756091cf27da7a4`.
+  Inspección del payload BLOQUEADA desde aquí (binario 3.3 MB no
+  transitable; sandbox sin salida a Drive) ⇒ comparación de hash
+  pendiente; .exe ni ejecutado ni descargado. Corpus: sin referencia
+  pública del payload nGlide 2.10 (negativo).
+- **Atribución:** SIN DEMOSTRAR (ni a favor ni en contra). Ni nombre,
+  ni configurador, ni d3d9 atribuyen.
+- **Siguiente paso ÚNICO (solo lectura, sin instalar nada):** lista de
+  imports PE de la DLL cargada (pegar en PowerShell, juego cerrado;
+  algoritmo validado contra PE sintético):
+
+```powershell
+$p='C:\Windows\SysWOW64\glide2x.dll'
+$b=[System.IO.File]::ReadAllBytes($p)
+$pe=[System.BitConverter]::ToInt32($b,0x3C)
+if([System.Text.Encoding]::ASCII.GetString($b,$pe,2)-ne'PE'){'NO-PE';exit}
+'Maquina: '+[System.BitConverter]::ToUInt16($b,$pe+4).ToString('X4')
+$magic=[System.BitConverter]::ToUInt16($b,$pe+24)
+$dd=$pe+24+$(if($magic-eq0x20b){112}else{96})+8
+$impRVA=[System.BitConverter]::ToInt32($b,$dd)
+$nSec=[System.BitConverter]::ToUInt16($b,$pe+6)
+$optSize=[System.BitConverter]::ToUInt16($b,$pe+20)
+$secOff=$pe+24+$optSize
+$secs=@()
+for($i=0;$i-lt$nSec;$i++){$secs+=[pscustomobject]@{VA=[System.BitConverter]::ToInt32($b,$secOff+$i*40+12);SZ=[System.BitConverter]::ToInt32($b,$secOff+$i*40+8);Raw=[System.BitConverter]::ToInt32($b,$secOff+$i*40+20)}}
+function r2f($r){foreach($s in $secs){if($r-ge$s.VA-and$r-lt($s.VA+$s.SZ)){return $s.Raw+($r-$s.VA)}}return -1}
+function cstr($f){$e=$f;while($e-lt$b.Length-and$b[$e]-ne0){$e++};[System.Text.Encoding]::ASCII.GetString($b,$f,($e-$f))}
+$d=r2f $impRVA
+if($d-lt0){'SIN-TABLA-IMPORTS';exit}
+$k=0
+while($true){$o=[System.BitConverter]::ToInt32($b,$d);$t=[System.BitConverter]::ToInt32($b,$d+16);$n=[System.BitConverter]::ToInt32($b,$d+12);if($o-eq0-and$t-eq0-and$n-eq0){break}$f=r2f $n;if($f-ge0){cstr $f}$d+=20;$k++;if($k-gt64){'TRUNCADO-64';break}}
+```
+
+  Solo sistema (+3dfxSpl2) y nada D3D/Vulkan ⇒ estilo época (muere
+  payload-nGlide); d3d9/d3d11/dxgi/vulkan-1 ⇒ estilo wrapper (muere
+  driver clásico; nGlide exigiría referencia). Ajustes del
+  configurador: aún pendientes de transcribir.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
