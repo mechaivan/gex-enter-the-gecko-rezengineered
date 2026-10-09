@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Panel de progreso v3.1: ajustes visuales
+
+- `docs/PROJECT_STATUS.svg` v3.1 (760×700, misma tarjeta): «40%» MAIN
+  reducido de 124 a 68px; secundarias ampliadas (resumen 12px, áreas
+  26/9.5/9px, stats 15px, pie 9.5px); banda ámbar 100% sustituida por
+  la etiqueta `VERSIÓN JUGABLE` bajo la barra; espacios redistribuidos.
+  Composición, colores y estructura intactos. Cifras idénticas.
+- `docs/PROJECT_STATUS.md` v3.1: geometría y registro actualizados; el
+  significado completo del 100% MAIN (leyenda + avisos) permanece en
+  §4.9. Metodología, evidencias y alcance sin cambios (ref `e9e846c`).
+- README sin cambios. Sin preview raster (entorno sin renderizador;
+  auditoría estática).
+
 ## 2026-10-09 — 0.0.0 — Panel de progreso v3.0: rediseño visual tarjeta
 
 - `docs/PROJECT_STATUS.svg` v3.0 (760×700): tarjeta negra/morada estilo

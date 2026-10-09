@@ -2,9 +2,9 @@
 
 > Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
 > El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v3.0** · Fecha: **2026-10-09** ·
+> Versión del panel: **v3.1** · Fecha: **2026-10-09** ·
 > Ref: último commit con evidencia incorporada **`e9e846c`** (sin cambios;
-> v3.0 es solo rediseño visual: mismas cifras, metodología y evidencias).
+> v3.1 ajusta tamaños y abrevia la leyenda 100% como «VERSIÓN JUGABLE»: mismas cifras, metodología y evidencias).
 
 ## 1. Propósito
 
@@ -202,7 +202,9 @@ decidirá en Fase 3+; MAIN no presupone ninguna implementación concreta.
 proyecto terminado ni pulido máximo. Tres niveles distintos: (1) *jugable
 para pruebas* (MAIN 100%); (2) *autorizada para distribución pública*
 (requiere revisión legal, licencias y empaquetado: LICENSE §5–§6, fase
-independiente); (3) *modernización completa* (toda la hoja de ruta).
+independiente); (3) *modernización completa* (toda la hoja de ruta). En el SVG (v3.1+)
+esta leyenda se abrevia como etiqueta «VERSIÓN JUGABLE» bajo la barra
+MAIN; el significado completo vive en este documento, no en el panel.
 
 ## 4.10 Zona de resumen del panel (contenido literal del SVG)
 
@@ -221,7 +223,8 @@ wrapper (FA-03, A2.2); método pendiente de definir.
 |---|---|---|---|
 | v1.0 | 2026-10-09 | cbd7fab | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
 | v2.0 | 2026-10-09 | 3e56f1c | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
-| v3.0 | 2026-10-09 | (este commit) | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
+| v3.0 | 2026-10-09 | 6ae7059 | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
+| v3.1 | 2026-10-09 | (este commit) | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
 
 ## 6. Procedimiento de actualización (Arena)
 
@@ -238,17 +241,20 @@ Actualizar solo ante cambios reales de estado; lo editorial no altera
 cifras. Prohibido tocar pesos/criterios/alcance para inflar el progreso;
 todo cambio metodológico se documenta con su impacto en cifras anteriores.
 
-### Geometría del SVG v3.0 (viewBox 0 0 760 700)
+### Geometría del SVG v3.1 (viewBox 0 0 760 700)
 
-- Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» gigante + stats
+- Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» 68px + stats
   (6/12 hitos, 14/35 puntos) + barra protagonista x=44 w=672 h=34 →
   relleno = % × 6.72 (40% → 268.8); ticks en x=212/380/548 (25/50/75%);
-  leyenda ámbar 100% MAIN + aviso en una línea.
-- Global secundario: «16%» mediano + barra x=140 w=400 h=16 →
+  etiqueta «VERSIÓN JUGABLE» bajo la barra (significado completo
+  en §4.9, no en el SVG).
+- Global secundario: «16%» 40px + barra x=140 w=400 h=16 →
   relleno = % × 4.0 (16% → 64) + «47/285 PTS».
-- Mini-tarjetas de área: x=44/180/316/452/588, w=124 h=84;
-  minibarra x+12 w=100 h=8 → relleno = % × 1.0
+- Mini-tarjetas de área: x=44/180/316/452/588, w=128 h=104;
+  minibarra x+10 w=108 h=10 → relleno = % × 1.0
   (A1 32 · A2 28 · A3 0 · A4 0 · A5 33).
+- Jerarquía tipográfica: cabecera 15px · MAIN 68px · global 40px ·
+  % áreas 26px · stats 15px · secundarias 12/11/10.5px · micro 9.5/9px.
 - Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha
   (UPD), referencia (REF), versión del panel, líneas del resumen.
 - Con 0% no hay rect de relleno (añadirlo al superar 0, misma x/y/h).
