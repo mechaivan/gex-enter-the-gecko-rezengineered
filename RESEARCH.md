@@ -69,6 +69,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   - F-11 NO-CD D3D: `…/no-cd-no-cd-gex-3d-enter-the-gecko-version-direct-3d-t12117.html` (solo OP).
   - F-12 debug tool: `…/trainer-gex-3d-enter-the-gecko-direct-3d-cheats-debug-t12121.html` (solo OP).
   - Base URL nuevo foro: `https://www.tgames.fr/pc/progs-pc/`.
+- Re-verificación t12190 (2026-10-09, prep. P-F03): 2 posts, sin cambios
+  de contenido; adjunto solo-miembros (sin URL directa pública; registro
+  gratuito requerido); sin nº versión/hashes; README verbatim en F-03.
 - Citados pero no inspeccionados: `gex3d_windows10.zip` (configs Win10/11),
   `GEX3DFX_PatchD3D_V1.2.zip`, `gex3d_d3d_debugtool.zip` (nombres vistos en
   hilos/snippets; no descargados).

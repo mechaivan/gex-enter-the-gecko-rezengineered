@@ -82,8 +82,62 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (acceso tgames, Fase 2+) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (registro gratuito tgames; P-F03 preparado, pendiente autorización) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
+
+## Prueba preparada P-F03 — A/B exe EU F-03 vs original (PENDIENTE DE AUTORIZACIÓN)
+
+> Plan redactado 2026-10-09. NO ejecutado. Ningún paso corre sin
+> autorización explícita del mantenedor (A1–A4). Caracterización
+> off-label, NO intento de fix: un limitador no puede subir los 25 FPS.
+
+- **Pregunta (1):** ¿el `GEX3D.EXE` EU de F-03 cambia FPS, velocidad de
+  simulación, estabilidad, controles o niveles frente al original EU
+  v1.00.000 + nGlide 2.10 en Win11? Fuera de alcance: mecanismo interno
+  (Fase 2), otras ediciones/wrappers, cualquier toque al original.
+- **Base:** FA-05 + I-01/I-02. Comparador A (original) vs B (F-03 EU),
+  orden ABA (A1→B→A2). Sin referencia «correcto» (sin época).
+- **Pre-condiciones (solo lectura):** Hito 1 reproducible; config nGlide
+  transcrita Y CONGELADA (sin tocar VSync ni refresco); refresco de
+  escritorio anotado; contador Steam operativo; imagen CD como `D:`
+  (TOC anotada); copia fresca con MD5 verificado
+  (`692b12825003417cc4a5a9d4db13eebe`).
+- **Autorizaciones necesarias:** A1 test off-label (aceptar R1–R6 del
+  informe 2026-10-09) · A2 registro gratuito tgames + descarga SOLO del
+  exe EU (+ notas visibles del adjunto) · A3 snapshot estático pre-run
+  (tamaño, MD5/SHA-256, recurso de versión, lista de imports; sin
+  desensamblar, sin ejecutar) + scan AV · A4 ejecución en copia B.
+- **Copias:** A = control (exe original intacto); B = clon de A con SOLO
+  el exe sustituido por el EU de F-03 (backup del original con hash
+  antes). Instalación original: NUNCA tocada. Registro: `InstallDir`
+  conmuta A↔B entre series (HKLM global): registrar cada cambio y
+  restaurar valores Hito 1 al cerrar.
+- **Series (misma escena/punto de nivel, mismo método Steam):**
+  1. Snapshot pre: hashes A/B, cfg nGlide, refresco, `InstallDir`.
+  2. A1: 3 arranques (¿arranca? ¿intro? ¿menú?) + 60 s escena fija
+     (FPS mín/med/máx) + travesía fija cronometrada + entrar a 2
+     niveles + spot-check teclado.
+  3. B: idéntico a A1 (conmutar `InstallDir`, anotar).
+  4. A2: idéntico (control de deriva; conmutar de vuelta).
+  5. Cierre: re-verificar hashes, restaurar registro, decidir
+     conservar (Drive, etiquetado) o borrar B.
+- **Métricas por serie:** FPS Steam (mín/med/máx, escena fija 60 s) ·
+  velocidad sim (cronómetro travesía fija + percepción) · estabilidad
+  (arranques OK/3, transiciones OK, cuelgues) · controles (teclado:
+  mover/saltar/atacar/cámara/pausa) · niveles (¿entran? ¿música? ¿HUD?).
+- **Criterio de éxito (pre-declarado):** procedimiento completo con datos
+  utilizables en las 3 series. Interpretación:
+  | B observado | Lectura |
+  |---|---|
+  | FPS↓ y/o sim más lenta | Limitador activo aquí → señal RE (timing), NO fix |
+  | B ≈ A (≈25) | No concluyente (entorno off-label o suelo independiente) |
+  | B no arranca / cuelga | Incompatible Win11+nGlide (coherente con alcance); revertir; negativo valioso |
+  | FPS↑ en B | Inesperado: re-verificar identidad del exe antes de concluir |
+- **Reversión:** borrar B (o restaurar exe original + re-hash MD5) +
+  registro a valores Hito 1 + verificación final de que A arranca.
+- **Registro:** hoja P-F03 (fecha, hashes exe A/B, entorno completo,
+  tablas A1/B/A2, observaciones SEPARADAS de hipótesis). Resultados →
+  COMPATIBILITY.md + I-01/I-02 (solo con datos).
 
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 

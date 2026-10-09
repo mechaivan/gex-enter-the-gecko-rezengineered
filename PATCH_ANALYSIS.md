@@ -6,6 +6,9 @@
 > está confirmado: ese análisis es trabajo de las Fases 1–2.
 > Lote 2 (2026-10-09): F-13 oficial + profundización F-01/F-03/F-10
 > (S-23); binarios siguen sin inspeccionar.
+> Prep. P-F03 (2026-10-09): enlace exacto + gating miembros + README
+> verbatim + detector cruzado con inventario; protocolo A/B en
+> TESTING.md (pendiente de autorización).
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -100,9 +103,16 @@ Reglas:
 
 ## F-03 — 3DFX FPS Limiter (EU/US) — tgames.fr
 
-- **Fuente verificada (leída íntegra 2026-10-09):**
-  <https://www.tgames.fr/pc/progs-pc/patch-patch-3dfx-fps-limiter-gex-3d-enter-the-gecko-t12190.html>
-  (OP Tgames 2025-08-20 18:54 + 1 respuesta «Merci!» de AMJ, 2026-10-05).
+- **Fuente verificada (leída íntegra Lote 1; re-verificada 2026-10-09):**
+  canónica <https://www.tgames.fr/pc/progs-pc/patch-patch-3dfx-fps-limiter-gex-3d-enter-the-gecko-t12190.html>
+  (nótese `patch-patch` duplicado, verificado vivo); PCGW enlaza la
+  forma legacy <http://tgames.fr/progs-pc/patch-3dfx-fps-limiter-gex-3d-enter-the-gecko-t12190.html>.
+  (OP Tgames 2025-08-20 18:54 + 1 respuesta «Merci!» de AMJ, 2026-10-05;
+  2 posts, página única, sin cambios de contenido.)
+- **Acceso al adjunto (NUEVO 2026-10-09):** «This content is for members
+  only. Log in or register for free to see it.» → NO existe URL directa
+  de descarga pública; el enlace exacto del fichero solo se revela tras
+  registro gratuito (paso A2, lado mantenedor).
 - **Versión objetivo:** EU y US (3DFX). Detector documentado verbatim: en
   `…\gex23dfx\audio`, carpeta `voiceuk` = EU, `voice` = US. «Exclu Tgames.fr
   pour la version EU (UK)!».
@@ -111,7 +121,9 @@ Reglas:
 - **Alcance declarado:** «It's only for 3DFX Cards systems» y «only applies
   to older Windows (98/ME/2000/XP)»; para DirectX/Win 10-11 remite a F-01.
 - **Archivos/hashes:** 2× `GEX3D.EXE` (EU, US) para reemplazar en la carpeta
-  del juego; solo miembros; hashes no publicados. (El paso 2 del OP cita
+  del juego; solo miembros; hashes no publicados. Negativos 2026-10-09:
+  SIN nº de versión publicado (solo «(C) Tgames 2025» + fecha OP),
+  SIN nombre/tamaño del archivo público. (El paso 2 del OP cita
   `…\gex23dfx\audio` como destino del exe — probable errata: el exe va en
   la raíz; la ruta audio es donde viven `voice`/`voiceuk`.)
 - **Modificación exacta:** UNKNOWN (mecanismo sin declarar; FPS objetivo
@@ -122,11 +134,52 @@ Reglas:
   no soportado + reemplaza exe); alta como referencia RE (el diff
   localizaría el código de timing/límite).
 - **Resultados publicados:** ninguno con datos (solo «Merci!»).
-- **Relación EU v1.00.000:** incluye exe EU → candidato aplicable; pendiente
-  de binario.
+- **Relación EU v1.00.000 (actualizado 2026-10-09):** detector del autor
+  (`voiceuk` = EU) CRUZADO con inventario propio: `AUDIO/VOICEUK/`
+  (400 `.SAG`, §§6/8) → match NOMINAL de edición. Entorno: Win11 +
+  nGlide (sin 3Dfx HW) está FUERA del alcance declarado (solo sistemas
+  3DFX + Win98–XP; el autor remite Win10/11 a F-01). Evidencia
+  funcional publicada: NULA (solo «Merci!», sin datos). Conclusión:
+  candidato aplicable por edición, off-label por entorno; P-F03 =
+  caracterización controlada, no fix.
 - **Preguntas RE:** ¿mecanismo (sleep/hook/bucle)?, ¿a qué FPS limita?, ¿los
   exes EU/US difieren solo en voces?
-- **Estado:** DESCRIPCIÓN MÍNIMA VERIFICADA (OP + respuesta vacía).
+- **README del autor (verbatim, bloque EN; el FR es equivalente):**
+  ```text
+  Gex 3D : Enter The Gecko 3DFX FPS LIMITER FIX
+  ---------------------------------------------
+
+  This patch add a FPS lock on the game for the EU and US versions of the game.
+  It's only for 3DFX Cards systems.
+
+  Setup
+  -----
+
+  1) Choose the GEX3D.EXE corresponding to your version :
+  You can be sure of the version by looking in the game folder (C:\Program Files (x86)\Crystal Dynamics\gex23dfx\audio)
+  -> If you have the folder "voiceuk" it's the EU version
+  -> If you have the folder "voice" it's the US version
+
+  2) Replace the GEX3D.EXE in your game folder (by default: C:\Program Files (x86)\Crystal Dynamics\gex23dfx\audio)
+
+  3) Play !
+
+  (C) Tgames 2025
+  https://www.tgames.fr
+  ```
+  Alcance (verbatim): «Patch for EU and US versions to limit FPS on the
+  3DFX version… This update only applies to older Windows (98/ME/2000/XP)…
+  For a DirectX version (Windows 10 & 11) see this topic [t12116]…
+  Exclu Tgames.fr pour la version EU (UK)!»
+- **No confundir con:** F-02/F-04 (exe Zeus/nGlide, posible cap 30 —
+  otro artefacto), F-13 (`gex23Dfx.exe` oficial, sin limitador),
+  VSync/límite del configurador nGlide (T-03), ni limitadores externos
+  genéricos (RTSS prohibido: cuelga esta ruta). P-F03 congela nGlide y
+  usa solo contador Steam (1 variable: el exe).
+- **Prueba P-F03:** protocolo A/B ABA preparado en TESTING.md,
+  PENDIENTE DE AUTORIZACIÓN (A1–A4). Caracterización, no fix.
+- **Estado:** DESCRIPCIÓN VERIFICADA + P-F03 preparado; binario no
+  inspeccionado, nada descargado/ejecutado.
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)
 

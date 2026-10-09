@@ -31,6 +31,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Lote 2:** F-03 = limitador anti-too-fast de época (FPS objetivo sin
   declarar), NO desbloqueador; nulo como fix de los 25 estables;
   referencia RE para localizar timing/límite.
+- **P-F03 (prep. 2026-10-09):** protocolo A/B (exe EU F-03 vs original)
+  preparado en TESTING.md, pendiente de autorización (A1–A4);
+  caracterización off-label, no intento de fix.
 - **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
 
 ### I-02 — Límite de FPS distinto según versión/parche

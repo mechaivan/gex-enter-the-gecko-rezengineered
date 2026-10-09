@@ -71,7 +71,8 @@
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +
   evaluación de alternativas + requisitos/checklist (TESTING.md,
   2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
-  build/GPU/driver pendientes).
+  build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado,
+  pendiente de autorización (A1–A4).
 
 ## Limitaciones actuales
 

@@ -2,6 +2,22 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — P-F03: prueba A/B del limitador F-03 preparada
+
+- Enlace exacto verificado: PCGW «3DFX FPS Limiter EU/US patch» →
+  tgames t12190 (URL legacy + canónica www, `patch-patch` vivo);
+  adjunto SOLO-miembros (sin URL directa pública; registro gratuito
+  requerido para revelarlo).
+- F-03: README del autor archivado verbatim; negativos: sin nº de
+  versión, sin nombre/tamaño de archivo, sin hashes, sin FPS objetivo.
+  Detector `voiceuk`=EU cruzado con inventario §§6/8 (match nominal);
+  entorno Win11+nGlide fuera del alcance declarado (solo 3Dfx HW +
+  Win98–XP); evidencia funcional publicada: nula.
+- TESTING.md: protocolo P-F03 (A/B ABA en copias aisladas, métricas,
+  criterios pre-declarados, reversión) PENDIENTE DE AUTORIZACIÓN
+  (A1–A4). Sin descargas, sin ejecución, sin modificaciones.
+  Panel intacto (plan, sin hitos).
+
 ## 2026-10-09 — 0.0.0 — Lote 2: parches oficiales/comunitarios, FPS, música, mandos
 
 - RESEARCH S-23 (nuevo): parche oficial 3dfx + Generic Update (3dfxzone
