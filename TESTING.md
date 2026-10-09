@@ -1,7 +1,7 @@
 # TESTING — Metodología de pruebas
 
-> Estado: **metodología + protocolo + matriz FA definidos, sin ejecutar**
-> (2026-10-09; máquina Windows de pruebas pendiente; Fase 2 sin iniciar).
+> Estado: **Hito 1 ejecutado (2026-10-09, PC del mantenedor) + resto de
+> la matriz pendiente** (Fase 2 sin iniciar). Detalle en «Hito 1» más abajo.
 
 ## Principio
 
@@ -27,7 +27,7 @@ OS/GPU/driver, wrapper y versión, fix aplicado, pasos, FPS medidos,
 resultado observado y artefactos (logs/vídeo). Matriz de resultados en
 [COMPATIBILITY.md](COMPATIBILITY.md).
 
-## Protocolo de prueba reproducible (2026-10-09, sin ejecutar)
+## Protocolo de prueba reproducible (2026-10-09; base del Hito 1)
 
 Base obligatoria: copia de trabajo de la **EU v1.00.000 con Glide**
 (inventario [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md));
@@ -60,16 +60,17 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   entorno es moderna (emulación MCI/DSound, wrappers, GPU, SO) y qué
   exigiría HW/SW de época; sin época, «correcto» queda provisional.
 
-## Matriz de pruebas futuras (priorizada, FA-04…FA-15)
+## Matriz de pruebas (priorizada, FA-04…FA-15)
 
-> Sin ejecutar; sin nuevos IDs (trazabilidad por área FA + nombre).
+> Fila FA-11/FA-12 ejecutada (Hito 1, 2026-10-09); resto sin ejecutar.
+> Sin nuevos IDs (trazabilidad por área FA + nombre).
 > FA-01…FA-03 fuera de la matriz runtime (inventario estático + diffs
 > Etapa D). Prioridad: P0 = puerta de entrada · P1 = sistemas · P2 =
 > complementarias. Resultados futuros → [COMPATIBILITY.md](COMPATIBILITY.md).
 
 | Área FA | Prueba | Requisitos | Dependencias | Datos a capturar | Moderno / época | Riesgos | Prioridad |
 |---|---|---|---|---|---|---|---|
-| FA-11/FA-12 | Instalación + primer arranque EU (F-05) | Windows + contenido CD EU + unidad/imagen | Ninguna (puerta de entrada) | Claves creadas, mensajes CD, ¿arranca? | Moderno: instalador roto → F-05 manual; época: instalador real | I-15/I-16/I-17; valores `.reg` sin probar | P0 |
+| FA-11/FA-12 | Instalación + primer arranque EU (F-05) ✅ Hito 1 | Windows + contenido CD EU + unidad/imagen | Ninguna (puerta de entrada) | Claves creadas, mensajes CD, ¿arranca? | Moderno: instalador roto → F-05 manual; época: instalador real | I-15/I-16/I-17; Hito 1: arranca (ver abajo) | P0 |
 | FA-12 | Detección CD: físico vs imagen vs ausente | Unidad óptica y/o imagen con TOC preservada | Instalación (fila anterior) | Mensaje exacto, letra/unidad aceptada, primer lector | Moderno: MCI degradado; época: lector real | Imágenes sin TOC/subcanales falsean | P0 |
 | FA-11 | Registro: lecturas, guardado, admin | Monitor de registro/sistema (a elegir, p. ej. Sysinternals) | Instalación | Claves tocadas, imprescindible vs config, ubicación `GEX2*.GEX`, causa admin | Moderno sí | HKLM vs portable; I-17 | P1 |
 | FA-09 | CD-audio por nivel + cambios de nivel | Audio funcional + CD/imagen con 16 pistas | Instalación + detección CD | Mapeo pista↔nivel, cortes (I-12), loops, volumen | Moderno: MCI/DSound emulados; época: referencia | I-11/I-12; 15-vs-16 abierto | P1 |
@@ -84,9 +85,53 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (acceso tgames, Fase 2+) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
-## Evaluación de alternativas de entorno (2026-10-09, sin probar)
+## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 
-> Ninguna configuración declarada compatible: sin pruebas, sin veredicto.
+> Primer hito funcional confirmado del proyecto: instalación manual F-05
+> (sin paso F-01) + arranque + nivel jugable en Windows 11 64-bit, con
+> ejecutable EU original inalterado (MD5 verificado). Renderer en uso:
+> DESCONOCIDO (ver punto 7). Sin FPS medidos, sin logs ni capturas
+> archivadas todavía.
+
+1. **Entorno (CONFIRMADO, parcial):** Windows 11 de 64 bits. Build de
+   Windows, CPU/RAM, GPU + driver, refresco y layout de monitores:
+   PENDIENTES de registrar (parte del siguiente paso recomendado).
+2. **Instalación (CONFIRMADO):** copia manual de `GEX2/` EU a
+   `C:\GEX_REZ\GEX2` (532 ficheros); `GEX3D.EXE` 1557504 B, MD5
+   `692b12825003417cc4a5a9d4db13eebe` (coincide con inventario §4).
+   Exe inalterado (sin parches); nGlide no instalado *durante* esta
+   prueba (instalaciones anteriores: UNKNOWN).
+3. **Registro (CONFIRMADO en esta config):** `...\Gex2\1.00` con
+   `Version`=DWORD 2, `InstallDir`=`C:\GEX_REZ\GEX2`,
+   `CDDriveName`=`D`. Imprescindible-vs-config y causa admin:
+   pendientes (FA-11).
+4. **CD (CONFIRMADO en esta config):** imagen CloneCD original montada
+   como `D:`; el juego arranca sin error de CD (FA-12). TOC de la
+   imagen montada: no re-verificada en esta prueba.
+5. **Resultado (CONFIRMADO):** `GEX3D.EXE` arranca, entra en un nivel y
+   permite mover al personaje; música y efectos funcionan en esta
+   config (I-11 NO reproducido aquí; I-12 pendiente de más niveles).
+6. **Problemas observados (CONFIRMADO como observación, causa UNKNOWN):**
+   resolución baja 4:3 (esperable de la época, modo exacto sin medir);
+   bandas negras arriba/izquierda con centrado sin confirmar; HUD
+   ligeramente descolocado; iconos del escritorio desplazados al
+   segundo monitor durante el juego (reversible al cerrar) → I-21, I-22.
+7. **Hallazgo Glide (OBSERVADO, relación UNKNOWN):** existen `glide.dll`
+   (1536000 B), `glide2x.dll` (1630208 B) y `glide3x.dll` (1732608 B)
+   en `C:\Windows\SysWOW64` con metadatos «3Dfx Interactive, Inc.»;
+   procedencia desconocida (posible prueba anterior del usuario).
+   **No está confirmado que Gex cargue ninguna de ellas** (FA-02/FA-03).
+8. **Pantalla 3DFX al arrancar (OBSERVADO):** referencia visual a 3DFX;
+   NO demuestra qué biblioteca renderiza (podría ser splash del juego).
+9. **Custodia (CONFIRMADO):** originales de Drive intactos; prueba sobre
+   copia aislada; ningún byte del juego en el repo; ningún dato personal
+   del PC registrado salvo lo listado aquí.
+
+## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
+
+> Hito 1 (2026-10-09): primera config observada funcionando (vía A:
+> Win11 64-bit + F-05 manual + imagen como D:, sin parches). Veredicto
+> general de compatibilidad: pendiente (una sola prueba, renderer UNKNOWN).
 > Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
 > WinMM; instalador 16-bit roto en moderno → F-05).
 
@@ -100,8 +145,9 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Requisitos:** Win 10/11 64-bit exacto (versión+build); GPU+driver
   exactos; wrapper (nombre+versión+config); unidad óptica o imagen con
   TOC; herramientas de captura.
-- **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; F-05 sin
-  probar; «correcto» de época inalcanzable aquí.
+- **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; Hito 1
+  ejecutado una sola vez (renderer UNKNOWN); «correcto» de época
+  inalcanzable aquí.
 - **Sirve para:** P0 (instalación, detección CD lógica, registro,
   guardado, admin) + P1 observación (FPS relativo, modos modernos,
   input moderno, intro/SFX audibilidad). **No sirve para:** referencia
@@ -178,13 +224,15 @@ contra época cuando exista.
   decidir por el mantenedor.
 - **Hechos confirmados:** base EU-Glide estática (inventario); instalador
   roto en moderno (F-05); rutas MCI/DSound estáticas; wrappers catalogados
-  (T-01…T-06) sin probar.
+  (T-01…T-06) sin probar; Hito 1: F-05 manual + arranque + nivel jugable
+  en Win11 64-bit (renderer UNKNOWN).
 - **Recomendaciones:** empezar por A; usar B para repetición P0; reservar C
   para referencia; contrastar 2 wrappers antes de concluir render/timing.
-- **Incógnitas:** máquina real (datos del checklist pendientes); TOC de la
-  imagen disponible; refrescos soportados; causa admin; valores `.reg`.
-- **Decisiones del mantenedor:** PC Windows concreto; VM sí/no; HW época
-  sí/no (+modelos); herramientas de captura; momento de Fase 2.
+- **Incógnitas:** specs del PC del Hito 1 (build/GPU/driver); TOC de la
+  imagen montada; refrescos soportados; causa admin; renderer en uso
+  (siguiente paso); resto de valores `.reg` (los usados, 1 vez OK).
+- **Decisiones del mantenedor:** completar specs + captura; VM sí/no;
+  HW época sí/no (+modelos); herramientas de captura; momento de Fase 2.
 
 ## Categorías futuras de prueba
 

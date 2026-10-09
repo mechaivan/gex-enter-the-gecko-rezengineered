@@ -145,7 +145,11 @@ Reglas:
   no inventar ruta).
 - **Correlato Fase 1:** claves `...\Gex2\1.00` confirmadas en strings del
   exe EU; valores y uso real requieren dinámico.
-- **Estado:** PROCEDIMIENTO VERIFICADO (no ejecutado por nosotros).
+- **Hito 1 (2026-10-09):** parte manual + `.reg` + admin EJECUTADOS y
+  funcionando 1 vez (Win11 64-bit; `Version`=2, `InstallDir`,
+  `CDDriveName`=`D`), SIN el paso F-01 del procedimiento. Ver TESTING.md.
+- **Estado:** MANUAL+REG+ADMIN CONFIRMADOS 1 VEZ (paso F-01 no aplicado
+  ni necesario aquí).
 
 ## F-06 — Fix del códec Indeo (intro) — VOGONS
 
@@ -409,7 +413,7 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 | F-02 | Exe reemplazo nGlide (`gex2_patch.zip`) | Fila Zeus verbatim + payload GEX3D.exe (vía AF); zip público no descargado | F-04 (posible duplicado), F-07 (procedimiento), T-03, I-05 | Media-alta pendiente (versión objetivo sin indicar) | Declarado | Descargar + diff vs EU; ¿cap 30?; ¿qué edición valida? |
 | F-03 | FPS Limiter 3DFX (EU/US) | OP+«Merci!»; 2×GEX3D.EXE solo-miembros; solo 3DFX + Win98–XP; errata ruta paso 2 | F-01 (remite DX/Win10), F-02/F-04 (solape a comprobar, sin fusionar), I-01 | Alta (incluye exe EU) | Declarado (descripción mínima) | Fase 2: mecanismo + FPS objetivo; ¿EU/US solo difieren en voces? |
 | F-04 | Supuesto exe capeado 30 FPS | Sin pieza separada; la cita describe la motivación, no un 2º fichero | Probable duplicado descriptivo de F-02 | La de F-02 | Inferido (pendiente binario) | Confirmar contra binario F-02; fusionar solo con evidencia |
-| F-05 | Instalación manual + `.reg` + admin | PCGW releída íntegra; claves `Gex2\1.00` en strings EU | F-01 (paso del proc.), F-03 (sección FPS), F-10 (InstallDir), I-15/I-17 | Alta (aplicable a EU; valores sin probar) | Procedimiento verificado (no ejecutado) | Reproducir en Windows; uso real en dinámico |
+| F-05 | Instalación manual + `.reg` + admin | PCGW releída íntegra; claves `Gex2\1.00` en strings EU | F-01 (paso del proc.), F-03 (sección FPS), F-10 (InstallDir), I-15/I-17 | Alta (aplicable a EU; Hito 1 OK sin F-01) | Manual+reg+admin ejecutados (Hito 1) | Repetir; uso real en dinámico; F-01 innecesario aquí |
 | F-06 | Fix Indeo intro | Hilo VOGONS íntegro: NO resuelto; contexto Wine/OSX; escepticismo Jorpho | I-14 (hipótesis débil) | Baja (intro EU puede usar otro códec) | Declarado, eficacia no validada | Fase 2: reproductor/códec real en EU |
 | F-07 | nGlide 0.99 Vista + `gex2_patch` | AF verbatim (Vista/época); ficha EU FR | F-02 (payload), T-03, I-11 (primer lector), I-12 (1×/nivel) | Media (contexto época) | Procedimiento verificado en su contexto | No extrapolar a Win10/11 ni nGlide 2.x |
 | F-08 | patches-scrolls «3dfx/fix PC» | Entradas 16.08.13 sin autor/descripción/descargas | Ninguna (sin datos) | Desconocida | Pendiente (contenido UNKNOWN) | Identificar si reaparece; no priorizar |
@@ -464,8 +468,9 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 
 - **Desbloquea diffs:** vía de acceso a binarios F-01/F-03 (membresía
   tgames) y descarga de F-02 (público); exe 2013 ya custodiado en Drive.
-- **Desbloquea dinámica:** máquina Windows + protocolo de captura (F-05,
-  I-11, I-15, verificación de procedimientos declarados).
+- **Desbloquea dinámica:** Hito 1 ejecutado en PC del mantenedor (F-05
+  manual, I-11 audible, I-15 manual OK); pendiente: specs + captura
+  (renderer, FPS, modos) e I-12/I-17.
 - **Cierra puertas documentales:** versión objetivo de F-02, contenido de
   F-08 si reaparece, `gex3d_windows10.zip` citado (F-01/F-05), set `voice/`
   USA de PC (base M-25). F-04/F-06/F-12: sin acción documental pendiente.

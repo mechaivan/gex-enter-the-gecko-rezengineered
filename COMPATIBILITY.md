@@ -1,8 +1,8 @@
 # COMPATIBILITY — Matriz de compatibilidad
 
-> **Nivel de evidencia global: PRIMEROS DATOS PROPIOS (Fase 1, solo
-> estáticos).** Sin testing todavía: las notas no marcadas proceden de
-> fuentes secundarias (2026-10-08) y están sin verificar. Esta matriz se
+> **Nivel de evidencia global: PRIMER TEST PROPIO (Hito 1, 2026-10-09) +
+> estáticos Fase 1.** Las notas no marcadas proceden de fuentes
+> secundarias (2026-10-08) y están sin verificar. Esta matriz se
 > rellenará con resultados de testing propio desde Fase 4/5.
 
 ## Versiones del juego
@@ -23,7 +23,7 @@
 | Windows 95/98 | ?        | ?                    | N/A (objetivo: preservar comportamiento) |
 | Windows XP    | ?        | Parche D3D era "for XP" | ?          |
 | Windows 7/8   | ?        | ?                    | ?             |
-| Windows 10/11 | No arranca sin fixes (?) | Manual install + F-01/F-02 | Objetivo principal |
+| Windows 10/11 | Hito 1: EU arranca en Win11 64-bit con F-05 manual + imagen D: (sin parches; renderer ?) | Manual install + F-01/F-02 (no probados aquí) | Objetivo principal |
 | Linux + Wine  | Parcial (VOGONS) | Fix Indeo documentado | DEFERRED — X-01, secundario, no objetivo |
 
 ## Renderers / wrappers
@@ -54,6 +54,10 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 
 ## Notas
 
+- Hito 1 (2026-10-09, ver TESTING.md): EU v1.00.000 inalterada (MD5
+  verificado) arranca y es jugable en Win11 64-bit con instalación manual
+  F-05 (sin F-01) + imagen montada como `D:`; música/SFX funcionan;
+  observaciones I-21/I-22. Renderer, GPU/driver y refresco: pendientes.
 - Datos propios Fase 1 (binario EU v1.00.000): Glide exclusivo; joystick vía
   WinMM (`joyGetPosEx`, sin DirectInput); audio vía WinMM/DSound + CD-DA por
   MCI (`mciSendCommandA`); CD 1 datos + 16 pistas audio. Ver inventario.

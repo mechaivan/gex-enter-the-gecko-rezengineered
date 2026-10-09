@@ -30,8 +30,8 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Lote 1 (2026-10-09): página releída íntegra. Datos nuevos: sección FPS
   Limiter (enlaza F-03), enlace alternativo a F-01 + `gex3d_windows10.zip`,
   save location VACÍA (desconocida), sin ratón, Red Book puede fallar.
-- Confianza: media-alta como hub procedural (wiki curada; no ejecutado por
-  nosotros).
+- Confianza: media-alta como hub procedural (wiki curada; parte manual +
+  `.reg` + admin ejecutados en Hito 1, sin F-01).
 
 ## S-02 — Foro Zeus Software (nGlide): hilos de compatibilidad Gex
 

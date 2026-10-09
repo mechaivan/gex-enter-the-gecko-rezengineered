@@ -2,6 +2,25 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Hito 1: primera prueba funcional EU en Win11 (F-05 sin F-01)
+
+- TESTING.md: Hito 1 ejecutado en PC del mantenedor (Win11 64-bit):
+  instalación manual `C:\GEX_REZ\GEX2` (532 ficheros, MD5 del exe
+  verificado), `.reg` (`Version`=2, `InstallDir`, `CDDriveName`=`D`),
+  imagen CloneCD montada como `D:`; arranca, entra en nivel, movimiento +
+  música/SFX OK. Exe inalterado (sin parches); nGlide no instalado
+  durante la prueba. Renderer UNKNOWN (splash 3DFX no probatorio;
+  `glide*.dll` en SysWOW64 de procedencia desconocida, carga sin confirmar).
+- KNOWN_ISSUES: I-15/I-16 parcialmente confirmados (1 config); I-11 no
+  reproducido aquí; I-06 intacto + nuevos I-21 (bandas/HUD) e I-22
+  (iconos multimonitor) como observaciones propias; cabecera actualizada.
+- COMPATIBILITY (fila Win10/11 + nota Hito 1), PATCH_ANALYSIS (F-05
+  ejecutado sin F-01), RESEARCH (S-01), MODERNIZATION_GOALS (nota runtime
+  FA, estados sin cambiar), TOOLKIT (Windows parcial), README /
+  PROJECT_STATE / ROADMAP (testing: Hito 1) sincronizados.
+- Fase 1 en curso, Fase 2 sin iniciar, M-25 PROPOSED. Siguiente paso:
+  identificar la DLL gráfica cargada con PowerShell (solo lectura).
+
 ## 2026-10-09 — 0.0.0 — Evaluación de entornos Windows (sin probar)
 
 - TESTING.md: alternativas A (Win moderno+wrapper), B (VM parcial), C

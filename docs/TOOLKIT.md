@@ -15,7 +15,7 @@ probado en este entorno; no es una suposición.
 | Java / JDK | ❌ imposible aquí | Sin apt; los assets de release de GitHub redirigen a hosts bloqueados |
 | Ghidra 12.1.4 | ❌ imposible aquí | Misma causa (zip de 543 MB en release-assets bloqueado) |
 | Rizin / radare2 desde fuente | ❌ imposible aquí | Requieren descargas meson/wrap y headers `-dev` inexistentes |
-| Windows de testing | ❌ no disponible | Reproducción y dinámico requieren PC Windows del mantenedor |
+| Windows de testing | ⚠️ parcial (PC mantenedor) | Hito 1 ejecutado en Win11 64-bit; specs y captura pendientes |
 
 Activar: `source /opt/rea-toolkit/env.sh` (añade el venv al PATH).
 Todo vive **fuera** del repo (`/opt/rea-toolkit`, ~251 MB): re-ejecutar el
@@ -60,7 +60,8 @@ de fase (Etapas B+ bloqueadas).
 1. [ ] Probar `tools/setup-re-env.sh` en máquina con internet completo.
 2. [~] Definir máquina Windows de testing + protocolo de captura:
    protocolo + matriz FA + evaluación/requisitos en TESTING.md
-   (2026-10-09); máquina pendiente.
+   (2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
+   specs pendientes).
 3. [x] Carpetas en Drive: `REZengineered/{originals,backups,analysis,builds,research}`.
 
 ## 6. Convenciones de almacenamiento

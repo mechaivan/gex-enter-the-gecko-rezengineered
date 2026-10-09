@@ -34,7 +34,8 @@ si la investigación demuestra que es necesario.
   F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
   diffs binarios en Fase 2.
 - [~] Lista de problemas conocidos con niveles de evidencia (evidencia
-  estática propia añadida; ningún issue reproducido todavía).
+  estática propia añadida; Hito 1: I-15/I-16 parciales, I-11 no
+  reproducido, I-21/I-22 nuevos).
 - [x] Registrar propuesta M-25 (voice pack UK/USA, PROPOSED, P3, sin fase)
   + fuente S-20 (reparto vocal) — solo documentación (2026-10-09).
 - [~] Cubrir las áreas FA-01…FA-15 a nivel documental: matriz de
@@ -42,7 +43,7 @@ si la investigación demuestra que es necesario.
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [~] Definir máquina Windows de testing + protocolo de captura:
   protocolo + matriz FA + evaluación/requisitos (2026-10-09);
-  máquina pendiente (faltan datos HW).
+  Hito 1 ejecutado en PC del mantenedor (Win11 64-bit; specs pendientes).
 - [x] Inventariar S-14 (setup package): metadatos + hashes + inventario
   (22 entradas) + README leído (2026-10-09). Binarios → Fase 2.
 

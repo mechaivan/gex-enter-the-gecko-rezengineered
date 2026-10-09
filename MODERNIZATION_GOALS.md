@@ -67,6 +67,10 @@ para FA-01 (exe EU inventariado), FA-02 (dependencias: Glide/WinMM/DSound;
 sin D3D/DirectInput), FA-03 (ruta Glide única en EU), FA-09 (TOC 1+16,
 MCI), FA-11 (claves `Gex2\1.00` en strings) y FA-12 (mensajes de
 CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
+Hito 1 (2026-10-09, ver TESTING.md): primera evidencia runtime para FA-11
+(valores `.reg` funcionan 1 vez), FA-12 (imagen `D:` aceptada), FA-09
+(música/SFX audibles) y FA-14 (observación multimonitor); FA-02/FA-03
+(DLL cargada, renderer en uso) siguen UNKNOWN. Estados FA sin cambiar.
 
 ### Cobertura documental FA-01…FA-15 (2026-10-09, Fase 1)
 

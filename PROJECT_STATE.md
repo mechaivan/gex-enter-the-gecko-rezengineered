@@ -6,7 +6,7 @@
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1)
 **Implementation:** Not started (blocked until research is sufficient)
-**Testing:** Not started
+**Testing:** Hito 1 ejecutado (2026-10-09, PC mantenedor; resto pendiente)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-10-09
 
@@ -53,8 +53,9 @@
   Variantes US/demo/parcheadas: pendientes.
 - [~] Documentar la versión PC (ejecutables, dependencias, registro,
   CD-audio): estático hecho; dinámico pendiente.
-- [~] Problemas conocidos con evidencia: estática propia añadida; ningún
-  issue reproducido todavía.
+- [~] Problemas conocidos con evidencia: estática propia añadida;
+  primeras observaciones propias (Hito 1: I-15/I-16 parciales,
+  I-11 no reproducido, I-21/I-22 nuevos).
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
   F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
   diffs binarios pendientes (Fase 2).
@@ -67,7 +68,8 @@
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +
   evaluación de alternativas + requisitos/checklist (TESTING.md,
-  2026-10-09); máquina pendiente (faltan datos HW).
+  2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
+  build/GPU/driver pendientes).
 
 ## Limitaciones actuales
 
@@ -77,8 +79,9 @@
   solo lectura; no queda ninguna copia en el sandbox ni en el repo.
   El análisis binario profundo sigue bloqueado hasta que el mantenedor
   indique el cambio de fase.
-- **Sin entorno Windows de pruebas:** este entorno (Linux) solo permite análisis
-  estático; la reproducción de problemas requiere un PC con Windows.
+- **Windows de pruebas parcial:** este entorno (Linux) solo permite análisis
+  estático; el PC del mantenedor (Win11 64-bit) ejecutó el Hito 1; build,
+  GPU/driver y herramientas de captura siguen pendientes de registrar.
 - **Sin Ghidra/JDK/Rizin en el sandbox:** imposible descargarlos aquí
   (egress restringido: sin apt, sin release-assets de GitHub, sin headers
   `-dev`). Documentado y verificado en `docs/TOOLKIT.md`. Ghidra se usará en

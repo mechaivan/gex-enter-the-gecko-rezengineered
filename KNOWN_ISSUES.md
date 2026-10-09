@@ -1,10 +1,13 @@
 # KNOWN_ISSUES — Mapa inicial de problemas conocidos
 
-> **Nivel de evidencia global: SIN REPRODUCIR.**
-> Todos los problemas de este documento provienen de fuentes secundarias
-> (PCGamingWiki, foros, reportes de usuarios) recensadas el 2026-10-08.
-> Ninguno ha sido reproducido por este proyecto todavía; varios tienen
-> evidencia estática propia (Fase 1) anotada en cada issue.
+> **Nivel de evidencia global: PRIMERAS OBSERVACIONES PROPIAS (Hito 1,
+> 2026-10-09).**
+> La mayoría de problemas provienen de fuentes secundarias (PCGamingWiki,
+> foros, reportes de usuarios) recensadas el 2026-10-08. El Hito 1
+> ([TESTING.md](TESTING.md)) aporta la primera ejecución propia: confirma
+> parcialmente I-15/I-16, no reproduce I-11 en esa config y añade
+> observaciones propias (I-21, I-22). Varios issues tienen evidencia
+> estática propia (Fase 1) anotada en cada issue.
 > Ver [RESEARCH.md](RESEARCH.md) para las fuentes y
 > [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)
 > para la evidencia propia.
@@ -65,6 +68,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** un usuario reporta ventana más pequeña que varía según la
   escena, en modo borderless.
 - **Fuente:** MyAbandonware (comentarios).
+- **Hito 1 (2026-10-09):** caso distinto (pantalla completa propia con
+  bandas/HUD, ver I-21); este reporte borderless sigue sin reproducir.
 - **Estado:** DESCONOCIDO (podría ser artefacto de wrapper/config).
 
 ### I-07 — Petición de refresco a 75 Hz
@@ -111,7 +116,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   corrobora `_inmm` (método DirectShow + `_inmm.ini` con los WAV) como
   solución adoptada por speedrunners (DECLARADO POR LA FUENTE, no
   verificado funcionalmente).
-- **Estado:** DESCONOCIDO.
+- **Hito 1 (2026-10-09):** NO reproducido en esa config: música y SFX
+  funcionan (imagen montada como `D:`). Pendiente: cambios de nivel,
+  loops, volumen, otros hardwares.
+- **Estado:** DESCONOCIDO (no reproducido en Hito 1; reportes externos
+  intactos).
 
 ### I-12 — La música se corta tras completar cada nivel
 
@@ -157,7 +166,12 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Evidencia Fase 1:** instalador identificado (InstallShield 5.x, stub NE
   16-bit) — coherente con la rotura en Windows moderno (HYPOTHESIS, sin
   probar). Claves `...\Gex2\1.00` confirmadas en strings del exe.
-- **Estado:** DESCONOCIDO.
+- **Hito 1 (2026-10-09):** instalación manual CONFIRMADA funcionando en
+  Win11 64-bit con `Version`=2, `InstallDir`=`C:\GEX_REZ\GEX2`,
+  `CDDriveName`=`D` (sin paso F-01). Instalador original en moderno:
+  sigue sin probar (HYPOTHESIS intacta).
+- **Estado:** PARCIALMENTE CONFIRMADO (manual funciona 1 vez; instalador
+  roto sin probar; causa admin pendiente).
 
 ### I-16 — Comprobación de CD ("valid gex 2 disk")
 
@@ -170,7 +184,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   con F-10.
 - **Evidencia Fase 1:** mensajes de CD-check presentes en strings del exe
   («A valid Gex: Enter The Gecko CD was not found.»).
-- **Estado:** DESCONOCIDO.
+- **Hito 1 (2026-10-09):** detección CONFIRMADA funcionando 1 vez con
+  imagen CloneCD montada como `D:` (arranque sin error de CD).
+  Mecanismo del check: sigue UNKNOWN.
+- **Estado:** PARCIALMENTE CONFIRMADO (detección con imagen funciona 1
+  vez; mecanismo UNKNOWN; otras letras/unidades sin probar).
 
 ### I-17 — Requiere ejecución como administrador
 
@@ -202,6 +220,30 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** PCGamingWiki.
 - **Estado:** DESCONOCIDO (nota genérica, no específica de Gex).
 
+## Primeras observaciones propias (Hito 1, 2026-10-09)
+
+### I-21 — Bandas negras descentradas + HUD descolocado (observación propia)
+
+- **Descripción:** en la única prueba propia (Win11, pantalla completa):
+  resolución baja 4:3 con bandas negras arriba y a la izquierda (centrado
+  sin confirmar) y elementos del HUD ligeramente descolocados.
+- **Fuente:** Hito 1 ([TESTING.md](TESTING.md)), observación directa.
+- **Hipótesis (no confirmadas):** modo de vídeo de época escalado por
+  wrapper/GPU/monitor; viewport del juego no centrado en el modo
+  elegido. Renderer en uso: UNKNOWN (sin confirmar).
+- **Estado:** OBSERVADO 1 vez (causa UNKNOWN; modo/resolución sin medir).
+
+### I-22 — Pantalla completa desplaza iconos al segundo monitor (propia)
+
+- **Descripción:** durante el juego, los iconos del escritorio del monitor
+  principal se desplazaron temporalmente al segundo monitor; al cerrar el
+  juego, el comportamiento se revirtió.
+- **Fuente:** Hito 1 ([TESTING.md](TESTING.md)), observación directa.
+- **Hipótesis (no confirmada):** cambio a modo exclusivo de baja
+  resolución en multimonitor (clásico de fullscreen exclusivo).
+- **Estado:** OBSERVADO 1 vez (causa UNKNOWN; layout de monitores,
+  resoluciones y refrescos sin registrar).
+
 ## Relación con objetivos (sin duplicar)
 
 Las features futuras viven en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md),
@@ -217,3 +259,5 @@ no aquí. Mapeo orientativo issue → objetivo de investigación:
 | I-15…I-17 (instalación/CD/admin) | FA-11, FA-12 → M-01…M-03 |
 | I-18, I-19 (input) | FA-06 → M-06…M-11 |
 | I-20 (LAA) | FA-01 |
+| I-21 (viewport/HUD, propio) | FA-13 |
+| I-22 (multimonitor, propio) | FA-14 → M-19 |
