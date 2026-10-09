@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Hito 1: enumeración 64-bit vacía = artefacto WOW64 (nota + paso)
+
+- TESTING.md: nota post-Hito 1 — `(Get-Process GEX3D).Modules` desde
+  PowerShell 64-bit solo muestra la capa WOW64 (7 módulos: exe + `ntdll`
+  + `wow64*`); el filtro gráfico vacío es un artefacto de medida y no
+  dice nada sobre el renderer (ni a favor ni en contra de Glide).
+- Siguiente paso único: repetir la consulta desde PowerShell de 32-bit
+  (`SysWOW64...powershell.exe`), solo lectura, sin instalar nada.
+- Sin cambios de fase ni de estados FA: FA-02/FA-03 siguen UNKNOWN.
+  Fase 1 en curso, Fase 2 sin iniciar, M-25 PROPOSED.
+
 ## 2026-10-09 — 0.0.0 — Hito 1: primera prueba funcional EU en Win11 (F-05 sin F-01)
 
 - TESTING.md: Hito 1 ejecutado en PC del mantenedor (Win11 64-bit):

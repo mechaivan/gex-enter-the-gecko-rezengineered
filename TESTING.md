@@ -127,6 +127,24 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
    copia aislada; ningún byte del juego en el repo; ningún dato personal
    del PC registrado salvo lo listado aquí.
 
+### Nota post-Hito 1 (2026-10-09): enumeración 64-bit vacía = artefacto WOW64
+
+- **Evidencia (CONFIRMADO):** con el juego en marcha, `(Get-Process GEX3D)`
+  desde PowerShell de 64-bit devuelve 7 módulos (`GEX3D.EXE`, `ntdll.dll`,
+  `wow64.dll`, `wow64base.dll`, `wow64win.dll`, `wow64con.dll`,
+  `wow64cpu.dll`); el filtro gráfico
+  (`glide|3dfx|d3d|ddraw|dxgi|opengl|vulkan|…`) no devuelve nada.
+- **Explicación (comportamiento documentado de WOW64, no del juego):** un
+  observador de 64-bit solo ve el lado de 64-bit del proceso emulado (la
+  capa WOW64); las DLL reales de 32-bit (`glide2x`, `winmm`, `dsound`…)
+  son invisibles por esta vía. Es un artefacto de medida: **no dice nada
+  sobre el renderer**, ni a favor ni en contra de Glide. La composición
+  exacta del set (`wow64base`/`wow64con` incluidos) depende de la build de
+  Windows y no es diagnóstica.
+- **Siguiente paso único (solo lectura, integrado):** repetir la consulta
+  desde PowerShell de 32-bit (C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe), que sí ve los módulos de
+  32-bit del proceso. Sin instalar nada, sin tocar registro ni DLLs.
+
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
 > Hito 1 (2026-10-09): primera config observada funcionando (vía A:
