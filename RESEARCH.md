@@ -293,6 +293,17 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   selección del exe; formato `.SAG`.
 - Confianza: media como referencia de reparto; nula para detalles PC-USA.
 
+## S-21 — Identidad de `3dfxSpl2.dll` (splash Glide 2.x) — REFERENCE
+
+- Fuentes (2026-10-09): r/3dfx («3dfxSpl2.DLL - Splash screen for Glide 2.x
+  games») + VOGONS («3dfxspl2 is for Glide 2x games»; quitarlas elimina el
+  splash). Dos fuentes comunitarias independientes coinciden.
+- Uso en el proyecto: explica el splash 3dfx del arranque (Hito 1, punto 8)
+  y la `3dfxSpl2.dll` cargada (2ª sesión). Por sí sola no dice nada sobre
+  el renderer activo.
+- Confianza: media-alta como identidad del fichero; nula para versiones
+  concretas (la DLL cargada sigue sin identificar: hash/versión pendientes).
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)

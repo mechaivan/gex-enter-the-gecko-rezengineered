@@ -116,13 +116,16 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
    bandas negras arriba/izquierda con centrado sin confirmar; HUD
    ligeramente descolocado; iconos del escritorio desplazados al
    segundo monitor durante el juego (reversible al cerrar) → I-21, I-22.
-7. **Hallazgo Glide (OBSERVADO, relación UNKNOWN):** existen `glide.dll`
-   (1536000 B), `glide2x.dll` (1630208 B) y `glide3x.dll` (1732608 B)
-   en `C:\Windows\SysWOW64` con metadatos «3Dfx Interactive, Inc.»;
-   procedencia desconocida (posible prueba anterior del usuario).
-   **No está confirmado que Gex cargue ninguna de ellas** (FA-02/FA-03).
-8. **Pantalla 3DFX al arrancar (OBSERVADO):** referencia visual a 3DFX;
-   NO demuestra qué biblioteca renderiza (podría ser splash del juego).
+7. **Hallazgo Glide (2ª sesión: `glide2x` CARGADA):** `glide2x.dll` cargada
+   desde `C:\WINDOWS\SYSTEM32\` (= fichero físico `SysWOW64\glide2x.dll`
+   por redirección WOW64; coherente con el observado de 1630208 B — el
+   hash lo confirmará). `3dfxSpl2.dll` también cargada (splash 3dfx, S-21).
+   `glide.dll`/`glide3x.dll`: carga sin confirmar. Procedencia e identidad
+   de la `glide2x` (wrapper moderno vs época): pendientes (FA-02/FA-03).
+8. **Pantalla 3DFX (2ª sesión: mecanismo identificado):** la muestra
+   `3dfxSpl2.dll` (biblioteca splash de Glide 2.x, S-21), cargada en el
+   proceso. Por sí sola sigue sin demostrar el renderer activo (eso lo
+   indica `glide2x`, ver nota 2ª sesión).
 9. **Custodia (CONFIRMADO):** originales de Drive intactos; prueba sobre
    copia aislada; ningún byte del juego en el repo; ningún dato personal
    del PC registrado salvo lo listado aquí.
@@ -141,15 +144,36 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   sobre el renderer**, ni a favor ni en contra de Glide. La composición
   exacta del set (`wow64base`/`wow64con` incluidos) depende de la build de
   Windows y no es diagnóstica.
-- **Siguiente paso único (solo lectura, integrado):** repetir la consulta
-  desde PowerShell de 32-bit (C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe), que sí ve los módulos de
-  32-bit del proceso. Sin instalar nada, sin tocar registro ni DLLs.
+- **Siguiente paso (EJECUTADO 2026-10-09):** consulta repetida desde
+  PowerShell de 32-bit → ver nota «2ª sesión» (`glide2x` cargada).
+
+### Nota post-Hito 1 (2026-10-09, 2ª sesión): `glide2x` cargada + parpadeos
+
+- **Renderer (CONFIRMADO carga; hipótesis sólida):** con el juego en marcha,
+  `glide2x.dll` CARGADA desde `C:\WINDOWS\SYSTEM32\glide2x.dll` (= físico
+  `SysWOW64\glide2x.dll` por redirección WOW64; coherente con el fichero
+  observado de 1630208 B — el hash lo confirmará). `3dfxSpl2.dll` también
+  cargada (splash Glide 2.x, S-21). Ruta Glide = hipótesis muy sólida;
+  identidad de la `glide2x` (wrapper moderno vs época): pendiente.
+- **Acompañantes (OBSERVADO, rol UNKNOWN):** `ddraw.dll`, `d3d9.dll`,
+  `dxgi.dll` y `atidx9loader32.dll` presentes en el proceso. Su presencia
+  NO demuestra que sean el renderer activo (driver, appcompat, …).
+  `atidx9loader32` sugiere GPU AMD (HYPOTHESIS por prefijo; modelo/driver
+  pendientes). Exe intacto (MD5 re-confirmado).
+- **Pantalla (OBSERVADO):** el 2º monitor parpadea tras el splash 3dfx, al
+  empezar las cinemáticas (Ubisoft + juego) y al pasar al menú principal;
+  4:3 + bandas arriba/izquierda + HUD desalineado de nuevo → I-21/I-22.
+- **Siguiente paso único (solo lectura, integrado):** ficha del fichero
+  físico — pestaña Detalles de `SysWOW64\glide2x.dll` (+ `3dfxSpl2.dll`)
+  y `certutil -hashfile … SHA256`. Sin instalar nada. Su identidad decide
+  la hipótesis de I-21/I-22 y FA-03.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
 > Hito 1 (2026-10-09): primera config observada funcionando (vía A:
 > Win11 64-bit + F-05 manual + imagen como D:, sin parches). Veredicto
-> general de compatibilidad: pendiente (una sola prueba, renderer UNKNOWN).
+> general de compatibilidad: pendiente (una sola prueba; glide2x cargada,
+> identidad pendiente).
 > Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
 > WinMM; instalador 16-bit roto en moderno → F-05).
 
@@ -164,7 +188,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   exactos; wrapper (nombre+versión+config); unidad óptica o imagen con
   TOC; herramientas de captura.
 - **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; Hito 1
-  ejecutado una sola vez (renderer UNKNOWN); «correcto» de época
+  ejecutado una sola vez (glide2x cargada, identidad pendiente);
+  «correcto» de época
   inalcanzable aquí.
 - **Sirve para:** P0 (instalación, detección CD lógica, registro,
   guardado, admin) + P1 observación (FPS relativo, modos modernos,
@@ -243,12 +268,12 @@ contra época cuando exista.
 - **Hechos confirmados:** base EU-Glide estática (inventario); instalador
   roto en moderno (F-05); rutas MCI/DSound estáticas; wrappers catalogados
   (T-01…T-06) sin probar; Hito 1: F-05 manual + arranque + nivel jugable
-  en Win11 64-bit (renderer UNKNOWN).
+  en Win11 64-bit (2ª sesión: `glide2x` cargada, identidad pendiente).
 - **Recomendaciones:** empezar por A; usar B para repetición P0; reservar C
   para referencia; contrastar 2 wrappers antes de concluir render/timing.
-- **Incógnitas:** specs del PC del Hito 1 (build/GPU/driver); TOC de la
-  imagen montada; refrescos soportados; causa admin; renderer en uso
-  (siguiente paso); resto de valores `.reg` (los usados, 1 vez OK).
+- **Incógnitas:** specs del PC del Hito 1 (build/GPU AMD?/driver); TOC de
+  la imagen montada; refrescos soportados; causa admin; identidad de la
+  `glide2x` cargada (siguiente paso); resto de valores `.reg` (1 vez OK).
 - **Decisiones del mantenedor:** completar specs + captura; VM sí/no;
   HW época sí/no (+modelos); herramientas de captura; momento de Fase 2.
 

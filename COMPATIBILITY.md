@@ -57,7 +57,9 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
 - Hito 1 (2026-10-09, ver TESTING.md): EU v1.00.000 inalterada (MD5
   verificado) arranca y es jugable en Win11 64-bit con instalación manual
   F-05 (sin F-01) + imagen montada como `D:`; música/SFX funcionan;
-  observaciones I-21/I-22. Renderer, GPU/driver y refresco: pendientes.
+  observaciones I-21/I-22 (2ª sesión: parpadeos multimonitor). Renderer:
+  `glide2x` cargada, identidad pendiente; GPU AMD probable, driver
+  pendiente; refresco pendiente.
 - Datos propios Fase 1 (binario EU v1.00.000): Glide exclusivo; joystick vía
   WinMM (`joyGetPosEx`, sin DirectInput); audio vía WinMM/DSound + CD-DA por
   MCI (`mciSendCommandA`); CD 1 datos + 16 pistas audio. Ver inventario.

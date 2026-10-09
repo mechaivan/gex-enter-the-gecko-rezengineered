@@ -2,6 +2,22 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Hito 1 (2ª sesión): glide2x cargada + M-26 intro omisible
+
+- TESTING.md: nota 2ª sesión — `glide2x.dll` CARGADA (SYSTEM32 = físico
+  SysWOW64 por redirección WOW64) + `3dfxSpl2.dll` (splash Glide 2.x,
+  S-21); ruta Glide = hipótesis muy sólida, identidad pendiente.
+  `ddraw/d3d9/dxgi/atidx9loader32` presentes, rol UNKNOWN (no implican
+  renderer); GPU AMD probable. Puntos 7–8 actualizados; parpadeos
+  multimonitor en transiciones de vídeo registrados.
+- KNOWN_ISSUES: I-21/I-22 observados 2 veces (sin nuevos IDs); mapeo
+  ampliado (I-21→M-04, I-22→M-05/M-19).
+- M-26 Skippable Intro (PROPOSED, P3, sin fase): GOALS (Nivel 11) +
+  mapa, ROADMAP (M-01…M-26 + bullet Fase 1), PROJECT_STATE, RE (FMV),
+  RESEARCH (S-21 splash), CREDITS (r/3dfx).
+- Siguiente paso único: ficha del fichero Glide físico (Detalles +
+  `certutil` SHA256, solo lectura). Fase 1 en curso, Fase 2 sin iniciar.
+
 ## 2026-10-09 — 0.0.0 — Hito 1: enumeración 64-bit vacía = artefacto WOW64 (nota + paso)
 
 - TESTING.md: nota post-Hito 1 — `(Get-Process GEX3D).Modules` desde

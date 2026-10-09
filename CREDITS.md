@@ -12,6 +12,7 @@
 - **Zeus Software (nGlide)** — wrapper Glide y parches/ejecutables Gex2.
 - **tgames.fr** — parche Direct3D (PAL), FPS Limiter, configs Windows 10.
 - **VOGONS** — troubleshooting (códec Indeo, Wine).
+- **Reddit r/3dfx** — identidad de `3dfxSpl2.dll` (splash Glide 2.x, S-21).
 - **patches-scrolls.de** — archivo de parches.
 - **Abandonware France** — documentación de compatibilidad.
 - Comunidades de **Reddit r/gex** y **MyAbandonware** — reportes de usuarios.

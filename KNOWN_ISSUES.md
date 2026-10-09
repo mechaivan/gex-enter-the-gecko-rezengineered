@@ -230,8 +230,10 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** Hito 1 ([TESTING.md](TESTING.md)), observación directa.
 - **Hipótesis (no confirmadas):** modo de vídeo de época escalado por
   wrapper/GPU/monitor; viewport del juego no centrado en el modo
-  elegido. Renderer en uso: UNKNOWN (sin confirmar).
-- **Estado:** OBSERVADO 1 vez (causa UNKNOWN; modo/resolución sin medir).
+  elegido. Renderer: `glide2x` cargada (identidad pendiente, 2ª sesión).
+- **2ª sesión (2026-10-09):** repetido (4:3, bandas arriba/izquierda, HUD
+  desalineado) con `glide2x.dll` cargada. Causa sigue UNKNOWN.
+- **Estado:** OBSERVADO 2 veces (causa UNKNOWN; modo/resolución sin medir).
 
 ### I-22 — Pantalla completa desplaza iconos al segundo monitor (propia)
 
@@ -241,8 +243,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** Hito 1 ([TESTING.md](TESTING.md)), observación directa.
 - **Hipótesis (no confirmada):** cambio a modo exclusivo de baja
   resolución en multimonitor (clásico de fullscreen exclusivo).
-- **Estado:** OBSERVADO 1 vez (causa UNKNOWN; layout de monitores,
-  resoluciones y refrescos sin registrar).
+- **2ª sesión (2026-10-09):** el 2º monitor parpadea tras el splash 3dfx,
+  al empezar las cinemáticas (Ubisoft + juego) y al pasar al menú
+  principal (patrón de re-modos en cada transición de vídeo). Causa sigue
+  UNKNOWN; layout/resoluciones/refrescos sin registrar.
+- **Estado:** OBSERVADO 2 veces (causa UNKNOWN).
 
 ## Relación con objetivos (sin duplicar)
 
@@ -259,5 +264,5 @@ no aquí. Mapeo orientativo issue → objetivo de investigación:
 | I-15…I-17 (instalación/CD/admin) | FA-11, FA-12 → M-01…M-03 |
 | I-18, I-19 (input) | FA-06 → M-06…M-11 |
 | I-20 (LAA) | FA-01 |
-| I-21 (viewport/HUD, propio) | FA-13 |
-| I-22 (multimonitor, propio) | FA-14 → M-19 |
+| I-21 (viewport/HUD, propio) | FA-13 → M-04 |
+| I-22 (multimonitor, propio) | FA-14 → M-05, M-19 |

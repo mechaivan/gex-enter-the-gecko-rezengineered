@@ -13,7 +13,7 @@
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
 - Se ha ampliado el conjunto de objetivos futuros: FA-01…FA-15 (fundamentos),
-  M-01…M-25 (modernización), X-01 (deferred) y X-02 (long-term research).
+  M-01…M-26 (modernización), X-01 (deferred) y X-02 (long-term research).
   Ver MODERNIZATION_GOALS.md.
 - **Ninguna feature está implementada.** Todas están PROPOSED / TO INVESTIGATE
   (X-01/X-02 DEFERRED).
@@ -24,6 +24,7 @@
 - 2026-10-08: +M-24 localización (PROPOSED, P3, sin fase) y +X-02 posible
   rewrite Rust/Bevy (DEFERRED, long-term research, fuera de implementación).
 - 2026-10-09: +M-25 voice pack selection UK/USA (PROPOSED, P3, sin fase).
+- 2026-10-09: +M-26 skippable intro cinematic (PROPOSED, P3, sin fase).
 
 ## Current objective
 

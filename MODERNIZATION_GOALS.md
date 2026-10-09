@@ -565,6 +565,34 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
 
 ---
 
+# NIVEL 11 — CINEMÁTICAS / CALIDAD DE VIDA
+
+## M-26 — Skippable Intro Cinematic
+
+- **Categoría:** Nivel 11 — Cinemáticas/Calidad de vida
+- **Descripción:** Permitir omitir (tecla/mando) la cinemática de
+  introducción que muestra a Rez siguiendo a Gex y termina con el nombre
+  del juego justo antes del menú principal. Actualmente no se puede
+  omitir (CONFIRMADO por observación, Hito 1 / 2ª sesión).
+- **Prioridad:** P3 (baja; no distrae del diagnóstico gráfico ni de la
+  presentación correcta) · **Complejidad estimada:** Desconocida
+  (TO INVESTIGATE) · **Estado:** PROPOSED
+- **Dependencias:** FA-10 (reproductor FMV/códec), M-20 (opción en menú,
+  si procede), M-22 (Modern Mode)
+- **Investigar antes:** qué reproductor/códec usa la intro (FA-10);
+  punto de entrada/salida de la cinemática; implementación compatible con
+  el ejecutable original (NO asumir modificación del exe: valorar
+  interceptar input, loader externo u otras vías en Fase 3+).
+- **Riesgos / incógnitas:** mecanismo de reproducción UNKNOWN; no romper
+  Original Mode (la cinemática debe seguir intacta por defecto).
+- **Relación con comportamiento original:** añadido opt-in; Original Mode
+  la reproduce siempre como el original.
+- **Compatible con Original Mode:** Sí (siempre visible) · **Pertenece a Modern Mode:** Sí
+- **Notas:** sin fase de roadmap asignada todavía (post-Fase 11, TBD).
+  No confundir con bugs de intro (I-14): la intro FUNCIONA; esto es QoL.
+
+---
+
 # DEFERRED / LONG-TERM RESEARCH (fuera del roadmap normal)
 
 ## X-01 — Linux / Proton / Steam Deck — DEFERRED
@@ -624,6 +652,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
 | M-23 | 12 (Optional Enhanced Visuals) |
 | M-24 | Sin fase asignada (post-11, TBD) |
 | M-25 | Sin fase asignada (post-11, TBD) |
+| M-26 | Sin fase asignada (post-11, TBD) |
 | Matriz hardware | 13 (Extended Compatibility) |
 | X-01 | 14 (Experimental / Deferred) |
 | X-02 | 14 mención long-term (no es fase de implementación) |

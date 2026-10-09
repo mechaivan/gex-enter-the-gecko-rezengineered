@@ -55,6 +55,7 @@
       voces `VOICEUK/` vs `voice/` + mecanismo de selección (base futura M-25).
 - [ ] FMV (I-14): reproductor de intro; dependencia Indeo (hipótesis débil
       tras Lote 1: sugerencia sin validar en hilo VOGONS no resuelto).
+      Base futura de M-26 (intro omisible, QoL, P3).
 - [ ] Instalación/CD-check (I-15–I-17): lecturas de registro; detección de CD.
 - [ ] Input (I-18–I-19): teclado + joystick WinMM (sin imports DirectInput
       en EU); confirmar ausencia de ratón.
