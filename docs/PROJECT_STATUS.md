@@ -2,9 +2,9 @@
 
 > Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
 > El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v2.0** · Fecha: **2026-10-09** ·
+> Versión del panel: **v3.0** · Fecha: **2026-10-09** ·
 > Ref: último commit con evidencia incorporada **`e9e846c`** (sin cambios;
-> v2.0 no añade evidencia nueva, solo la métrica MAIN y el resumen).
+> v3.0 es solo rediseño visual: mismas cifras, metodología y evidencias).
 
 ## 1. Propósito
 
@@ -16,8 +16,10 @@ Dos métricas independientes: **MAIN** = avance hacia la primera versión
 jugable preparada para pruebas (§4.9); **progreso general** = avance del
 conjunto de la hoja de ruta (§4.8). MAIN al 100% no implica proyecto
 terminado, pulido al máximo ni distribución pública autorizada.
+El panel prioriza la comprensión inmediata: MAIN protagonista y
+progreso general en segundo plano.
 
-## 2. Alcance del panel v1 (5 áreas)
+## 2. Alcance del panel (5 áreas)
 
 | Código | Área | Cubre (IDs reales) |
 |---|---|---|
@@ -32,7 +34,7 @@ terminado, pulido al máximo ni distribución pública autorizada.
 FA-10 «identificar reproductor» en A4.1. Sin solapes: cada hito vive en un
 solo objetivo (§4.4).
 
-### Exclusiones N/A del panel v1 (documentadas, no ocultas)
+### Exclusiones N/A del panel (documentadas, no ocultas)
 
 Fuera del denominador hasta que el panel crezca (área 6 u ampliación):
 
@@ -141,7 +143,7 @@ verificaciones y revisiones siguen pendientes. Nada implementado.
 | A5.4 Legal/avisos (LICENSE) | Licencias doc. (S) ✓ · Aviso no-afiliación (XS) ✓ · Evaluación método (M) ✗ · Confirmación idoneidad (S) ✗ | 3/8 | EN CURSO | LICENSE §1–§6; README |
 | A5.5 Repo/historial | Checklist (S) ✓ · Auditoría ejecutada (M) ✗ · Limpieza si procede (S) ✗ | 2/7 | EN CURSO | LICENSE §6 |
 
-### 4.8 Cifras v1.0 (2026-10-09, ref `e9e846c`)
+### 4.8 Cifras vigentes (2026-10-09, ref `e9e846c`)
 
 | Área | Puntos | % |
 |---|---|---|
@@ -204,21 +206,22 @@ independiente); (3) *modernización completa* (toda la hoja de ruta).
 
 ## 4.10 Zona de resumen del panel (contenido literal del SVG)
 
-Actualizar estas viñetas solo con hechos verificados (§6). Hipótesis, no.
+Actualizar estas líneas solo con hechos verificados (§6). Hipótesis, no.
 
-**CONSEGUIDO** (verificado): instalación manual + arranque · nivel jugable
-+ audio base · ficha glide2x + fecha/firma · plan publicación documentado.
-**EN INVESTIGACIÓN**: API gráfica efectiva / wrapper (FA-03) · origen de
-glide2x · causa bandas/HUD (I-21) · causa parpadeos multi (I-22).
-**SIGUIENTE HITO**: identificar la API de renderizado efectiva y
-confirmar/descartar wrapper (FA-03, A2.2); método pendiente de definir.
+**CONSEGUIDO**: Instalación + arranque + nivel / Audio base ·
+ficha glide2x.
+**EN INVESTIGACIÓN**: API gráfica / wrapper (FA-03) / I-21 · I-22 ·
+origen glide2x.
+**SIGUIENTE HITO**: Identificar API efectiva, confirmar/descartar
+wrapper (FA-03, A2.2); método pendiente de definir.
 
 ## 5. Registro de cambios del panel
 
 | Versión | Fecha | Commit | Cambio |
 |---|---|---|---|
 | v1.0 | 2026-10-09 | cbd7fab | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
-| v2.0 | 2026-10-09 | (este commit) | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
+| v2.0 | 2026-10-09 | 3e56f1c | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
+| v3.0 | 2026-10-09 | (este commit) | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
 
 ## 6. Procedimiento de actualización (Arena)
 
@@ -235,14 +238,19 @@ Actualizar solo ante cambios reales de estado; lo editorial no altera
 cifras. Prohibido tocar pesos/criterios/alcance para inflar el progreso;
 todo cambio metodológico se documenta con su impacto en cifras anteriores.
 
-### Geometría del SVG v2.0 (viewBox 0 0 760 960)
+### Geometría del SVG v3.0 (viewBox 0 0 760 700)
 
-- Barra MAIN: pista x=44 w=480 → relleno = % × 4.8 (40% → 192.0).
-- Barra global: pista x=28 w=560 → relleno = % × 5.6 (16% → 89.6).
-- Barras de área: pista x=88 w=472 → relleno = % × 4.72
-  (A1 151.0 · A2 132.2 · A3 0 · A4 0 · A5 155.8).
+- Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» gigante + stats
+  (6/12 hitos, 14/35 puntos) + barra protagonista x=44 w=672 h=34 →
+  relleno = % × 6.72 (40% → 268.8); ticks en x=212/380/548 (25/50/75%);
+  leyenda ámbar 100% MAIN + aviso en una línea.
+- Global secundario: «16%» mediano + barra x=140 w=400 h=16 →
+  relleno = % × 4.0 (16% → 64) + «47/285 PTS».
+- Mini-tarjetas de área: x=44/180/316/452/588, w=124 h=84;
+  minibarra x+12 w=100 h=8 → relleno = % × 1.0
+  (A1 32 · A2 28 · A3 0 · A4 0 · A5 33).
 - Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha
-  (UPD), referencia (REF), versión del panel, viñetas del resumen.
+  (UPD), referencia (REF), versión del panel, líneas del resumen.
 - Con 0% no hay rect de relleno (añadirlo al superar 0, misma x/y/h).
 - Colores: marco #7c3aed · texto #e9d5ff · dim #8b5cf6 ·
-  verde #4ade80 · ámbar #fbbf24 · gris #6b7280 · fondo #07030d.
+  verde #4ade80 · ámbar #fbbf24 · gris #6b7280 · fondos #050309/#0c0616.

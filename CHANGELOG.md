@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Panel de progreso v3.0: rediseño visual tarjeta
+
+- `docs/PROJECT_STATUS.svg` v3.0 (760×700): tarjeta negra/morada estilo
+  HUD retro — «40%» gigante + barra MAIN ancha con ticks 25/50/75,
+  6/12 hitos y 14/35 puntos; leyenda ámbar `100% MAIN = PRIMERA
+  VERSIÓN JUGABLE PREPARADA PARA PRUEBAS` + aviso de no distribución;
+  global 16% secundario; 5 mini-tarjetas de área; resumen compacto.
+  Sin scripts ni remotos; decoración mínima.
+- `docs/PROJECT_STATUS.md` v3.0: misma metodología, cifras, evidencias
+  y alcance MAIN (ref `e9e846c`); solo cambian resumen literal,
+  geometría documentada y registro. Cifras idénticas a v2.0.
+- README sin cambios (enlace y descripción siguen vigentes).
+  Sin preview raster (entorno sin renderizador; auditoría estática).
+
 ## 2026-10-09 — 0.0.0 — Panel de progreso v2.0: héroe MAIN + jerarquía mejorada
 
 - `docs/PROJECT_STATUS.svg` v2.0 (760×960): héroe MAIN (40%, 14/35 PTS,

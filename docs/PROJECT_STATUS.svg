@@ -1,207 +1,126 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="960" viewBox="0 0 760 960" role="img" aria-label="REZengineered: panel de estado. MAIN primera version jugable 40 por ciento. Progreso general 16 por ciento.">
-<title>REZengineered — Panel de estado del proyecto</title>
-<desc>Panel v2.0 (2026-10-09, ref e9e846c). MAIN primera version jugable 40 por ciento (14 de 35 puntos). Global 16 por ciento. A1 Compatibilidad 32. A2 Investigacion 28. A3 Graficos 0. A4 Calidad de vida 0. A5 Publicacion 33. Estimaciones documentadas.</desc>
-<defs>
-<pattern id="grid" width="38" height="38" patternUnits="userSpaceOnUse">
-<path d="M38 0H0V38" fill="none" stroke="#1e1040" stroke-width="1"/>
-</pattern>
-<pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse">
-<rect width="4" height="1" y="0" fill="#000000" opacity="0.16"/>
-</pattern>
-<linearGradient id="gradViolet" x1="0" y1="0" x2="1" y2="0">
-<stop offset="0" stop-color="#7c3aed"/>
-<stop offset="1" stop-color="#a855f7"/>
-</linearGradient>
-</defs>
-<g font-family="monospace">
-<rect x="0" y="0" width="760" height="960" fill="#07030d"/>
-<rect x="0" y="0" width="760" height="960" fill="url(#grid)"/>
-<rect x="8" y="8" width="744" height="944" fill="none" stroke="#7c3aed" stroke-width="2"/>
-<rect x="14" y="14" width="732" height="932" fill="none" stroke="#4c1d95" stroke-width="1"/>
-<path d="M8 26V8h18M734 8h18v18M752 934v18h-18M26 952H8v-18" fill="none" stroke="#a855f7" stroke-width="3"/>
-<text x="28" y="40" font-size="26" font-weight="bold" fill="#c4b5fd" letter-spacing="3">REZENGINEERED</text>
-<text x="28" y="56" font-size="10" fill="#8b5cf6" letter-spacing="2">PROJECT STATUS // SYS.DIAG-98</text>
-<text x="28" y="70" font-size="10" fill="#a78bfa">Preservación + ingeniería inversa + modernización del Gex de PC (1998).</text>
-<text x="732" y="32" font-size="10" fill="#8b5cf6" text-anchor="end">UPD · 2026-10-09</text>
-<text x="732" y="48" font-size="10" fill="#8b5cf6" text-anchor="end">REF · e9e846c</text>
-<text x="732" y="64" font-size="10" fill="#8b5cf6" text-anchor="end">PANEL · v2.0</text>
-<line x1="28" y1="84" x2="360" y2="84" stroke="#4c1d95" stroke-width="1"/>
-<line x1="400" y1="84" x2="732" y2="84" stroke="#4c1d95" stroke-width="1"/>
-<path d="M380 79L385 84L380 89L375 84Z" fill="#7c3aed"/>
-<rect x="28" y="94" width="704" height="188" fill="#0d0718" stroke="#7c3aed" stroke-width="2"/>
-<rect x="28" y="94" width="6" height="188" fill="#a855f7"/>
-<text x="46" y="122" font-size="16" font-weight="bold" fill="#e9d5ff" letter-spacing="1">MAIN — PRIMERA VERSIÓN JUGABLE</text>
-<text x="46" y="138" font-size="10" fill="#8b5cf6">Progreso hacia la primera versión jugable preparada para pruebas</text>
-<rect x="598" y="102" width="118" height="22" fill="#150a28" stroke="#fbbf24" stroke-width="1"/>
-<text x="657" y="117" font-size="10" fill="#fbbf24" text-anchor="middle">EN CURSO</text>
-<rect x="44" y="150" width="480" height="30" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<rect x="44" y="150" width="192" height="30" fill="url(#gradViolet)"/>
-<rect x="44" y="150" width="192" height="7" fill="#ffffff" opacity="0.12"/>
-<line x1="92" y1="150" x2="92" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="140" y1="150" x2="140" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="188" y1="150" x2="188" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="236" y1="150" x2="236" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="284" y1="150" x2="284" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="332" y1="150" x2="332" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="380" y1="150" x2="380" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="428" y1="150" x2="428" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="476" y1="150" x2="476" y2="180" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<text x="542" y="192" font-size="56" font-weight="bold" fill="#e9d5ff">40%</text>
-<text x="542" y="212" font-size="10" fill="#8b5cf6">14/35 PTS · 6/12 HITOS</text>
-<text x="44" y="238" font-size="10" font-weight="bold" fill="#c4b5fd">100% MAIN = PRIMERA VERSIÓN JUGABLE PREPARADA PARA PRUEBAS</text>
-<text x="44" y="254" font-size="9" fill="#6b7280">Este hito marca la primera versión jugable, no la finalización de todo el proyecto.</text>
-<text x="44" y="268" font-size="9" fill="#6b7280">Distribución pública y revisión legal: fase independiente (LICENSE §5–§6).</text>
-<line x1="28" y1="296" x2="360" y2="296" stroke="#4c1d95" stroke-width="1"/>
-<line x1="400" y1="296" x2="732" y2="296" stroke="#4c1d95" stroke-width="1"/>
-<path d="M380 291L385 296L380 301L375 296Z" fill="#7c3aed"/>
-<text x="28" y="318" font-size="11" font-weight="bold" fill="#c4b5fd" letter-spacing="1">PROGRESO GENERAL · toda la hoja de ruta</text>
-<rect x="28" y="328" width="560" height="18" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<rect x="28" y="328" width="89.6" height="18" fill="url(#gradViolet)"/>
-<rect x="28" y="328" width="89.6" height="5" fill="#ffffff" opacity="0.12"/>
-<line x1="84" y1="328" x2="84" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="140" y1="328" x2="140" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="196" y1="328" x2="196" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="252" y1="328" x2="252" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="308" y1="328" x2="308" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="364" y1="328" x2="364" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="420" y1="328" x2="420" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="476" y1="328" x2="476" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<line x1="532" y1="328" x2="532" y2="346" stroke="#07030d" stroke-width="1" opacity="0.55"/>
-<text x="610" y="356" font-size="30" font-weight="bold" fill="#e9d5ff">16%</text>
-<text x="610" y="372" font-size="9" fill="#8b5cf6">47/285 PTS</text>
-<text x="28" y="368" font-size="9" fill="#6b7280">Mide el conjunto de la modernización, no solo MAIN.</text>
-<line x1="28" y1="388" x2="360" y2="388" stroke="#4c1d95" stroke-width="1"/>
-<line x1="400" y1="388" x2="732" y2="388" stroke="#4c1d95" stroke-width="1"/>
-<path d="M380 383L385 388L380 393L375 388Z" fill="#7c3aed"/>
-<rect x="28" y="406" width="52" height="18" fill="#1c0f38" stroke="#7c3aed" stroke-width="1"/>
-<text x="54" y="420" font-size="10" font-weight="bold" fill="#d8b4fe" text-anchor="middle">A1</text>
-<text x="88" y="422" font-size="13" font-weight="bold" fill="#e9d5ff">Compatibilidad y diagnóstico</text>
-<text x="732" y="428" font-size="24" font-weight="bold" fill="#e9d5ff" text-anchor="end">32%</text>
-<rect x="88" y="432" width="472" height="14" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<rect x="88" y="432" width="151" height="14" fill="url(#gradViolet)"/>
-<rect x="88" y="432" width="151" height="4" fill="#ffffff" opacity="0.10"/>
-<line x1="135.2" y1="432" x2="135.2" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="182.4" y1="432" x2="182.4" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="229.6" y1="432" x2="229.6" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="276.8" y1="432" x2="276.8" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="324" y1="432" x2="324" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="371.2" y1="432" x2="371.2" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="418.4" y1="432" x2="418.4" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="465.6" y1="432" x2="465.6" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="512.8" y1="432" x2="512.8" y2="446" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<circle cx="94" cy="456" r="4.5" fill="#fbbf24"/>
-<text x="106" y="460" font-size="9" fill="#fbbf24">En curso</text>
-<text x="560" y="460" font-size="9" fill="#6b7280" text-anchor="end">20/62 PTS</text>
-<line x1="28" y1="466" x2="732" y2="466" stroke="#2a1650" stroke-width="1" opacity="0.55"/>
-<rect x="28" y="474" width="52" height="18" fill="#1c0f38" stroke="#7c3aed" stroke-width="1"/>
-<text x="54" y="488" font-size="10" font-weight="bold" fill="#d8b4fe" text-anchor="middle">A2</text>
-<text x="88" y="490" font-size="13" font-weight="bold" fill="#e9d5ff">Investigación técnica</text>
-<text x="732" y="496" font-size="24" font-weight="bold" fill="#e9d5ff" text-anchor="end">28%</text>
-<rect x="88" y="500" width="472" height="14" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<rect x="88" y="500" width="132.2" height="14" fill="url(#gradViolet)"/>
-<rect x="88" y="500" width="132.2" height="4" fill="#ffffff" opacity="0.10"/>
-<line x1="135.2" y1="500" x2="135.2" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="182.4" y1="500" x2="182.4" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="229.6" y1="500" x2="229.6" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="276.8" y1="500" x2="276.8" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="324" y1="500" x2="324" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="371.2" y1="500" x2="371.2" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="418.4" y1="500" x2="418.4" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="465.6" y1="500" x2="465.6" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="512.8" y1="500" x2="512.8" y2="514" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<circle cx="94" cy="524" r="4.5" fill="#fbbf24"/>
-<text x="106" y="528" font-size="9" fill="#fbbf24">En curso · 1 bloqueo</text>
-<text x="560" y="528" font-size="9" fill="#6b7280" text-anchor="end">15/54 PTS</text>
-<line x1="28" y1="534" x2="732" y2="534" stroke="#2a1650" stroke-width="1" opacity="0.55"/>
-<rect x="28" y="542" width="52" height="18" fill="#1c0f38" stroke="#7c3aed" stroke-width="1"/>
-<text x="54" y="556" font-size="10" font-weight="bold" fill="#d8b4fe" text-anchor="middle">A3</text>
-<text x="88" y="558" font-size="13" font-weight="bold" fill="#e9d5ff">Modernización gráfica</text>
-<text x="732" y="564" font-size="24" font-weight="bold" fill="#6b7280" text-anchor="end">0%</text>
-<rect x="88" y="568" width="472" height="14" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<line x1="135.2" y1="568" x2="135.2" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="182.4" y1="568" x2="182.4" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="229.6" y1="568" x2="229.6" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="276.8" y1="568" x2="276.8" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="324" y1="568" x2="324" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="371.2" y1="568" x2="371.2" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="418.4" y1="568" x2="418.4" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="465.6" y1="568" x2="465.6" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="512.8" y1="568" x2="512.8" y2="582" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<circle cx="94" cy="592" r="4.5" fill="none" stroke="#6b7280" stroke-width="1.5"/>
-<text x="106" y="596" font-size="9" fill="#6b7280">Pendiente</text>
-<text x="560" y="596" font-size="9" fill="#6b7280" text-anchor="end">0/69 PTS</text>
-<line x1="28" y1="602" x2="732" y2="602" stroke="#2a1650" stroke-width="1" opacity="0.55"/>
-<rect x="28" y="610" width="52" height="18" fill="#1c0f38" stroke="#7c3aed" stroke-width="1"/>
-<text x="54" y="624" font-size="10" font-weight="bold" fill="#d8b4fe" text-anchor="middle">A4</text>
-<text x="88" y="626" font-size="13" font-weight="bold" fill="#e9d5ff">Calidad de vida y UX</text>
-<text x="732" y="632" font-size="24" font-weight="bold" fill="#6b7280" text-anchor="end">0%</text>
-<rect x="88" y="636" width="472" height="14" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<line x1="135.2" y1="636" x2="135.2" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="182.4" y1="636" x2="182.4" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="229.6" y1="636" x2="229.6" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="276.8" y1="636" x2="276.8" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="324" y1="636" x2="324" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="371.2" y1="636" x2="371.2" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="418.4" y1="636" x2="418.4" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="465.6" y1="636" x2="465.6" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="512.8" y1="636" x2="512.8" y2="650" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<circle cx="94" cy="660" r="4.5" fill="none" stroke="#6b7280" stroke-width="1.5"/>
-<text x="106" y="664" font-size="9" fill="#6b7280">Pendiente</text>
-<text x="560" y="664" font-size="9" fill="#6b7280" text-anchor="end">0/64 PTS</text>
-<line x1="28" y1="670" x2="732" y2="670" stroke="#2a1650" stroke-width="1" opacity="0.55"/>
-<rect x="28" y="678" width="52" height="18" fill="#1c0f38" stroke="#7c3aed" stroke-width="1"/>
-<text x="54" y="692" font-size="10" font-weight="bold" fill="#d8b4fe" text-anchor="middle">A5</text>
-<text x="88" y="694" font-size="13" font-weight="bold" fill="#e9d5ff">Preparación para la publicación</text>
-<text x="732" y="700" font-size="24" font-weight="bold" fill="#e9d5ff" text-anchor="end">33%</text>
-<rect x="88" y="704" width="472" height="14" fill="#150a28" stroke="#4c1d95" stroke-width="1"/>
-<rect x="88" y="704" width="155.8" height="14" fill="url(#gradViolet)"/>
-<rect x="88" y="704" width="155.8" height="4" fill="#ffffff" opacity="0.10"/>
-<line x1="135.2" y1="704" x2="135.2" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="182.4" y1="704" x2="182.4" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="229.6" y1="704" x2="229.6" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="276.8" y1="704" x2="276.8" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="324" y1="704" x2="324" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="371.2" y1="704" x2="371.2" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="418.4" y1="704" x2="418.4" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="465.6" y1="704" x2="465.6" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<line x1="512.8" y1="704" x2="512.8" y2="718" stroke="#07030d" stroke-width="1" opacity="0.5"/>
-<circle cx="94" cy="728" r="4.5" fill="#fbbf24"/>
-<text x="106" y="732" font-size="9" fill="#fbbf24">En curso</text>
-<text x="560" y="732" font-size="9" fill="#6b7280" text-anchor="end">12/36 PTS</text>
-<line x1="28" y1="754" x2="360" y2="754" stroke="#4c1d95" stroke-width="1"/>
-<line x1="400" y1="754" x2="732" y2="754" stroke="#4c1d95" stroke-width="1"/>
-<path d="M380 749L385 754L380 759L375 754Z" fill="#7c3aed"/>
-<rect x="28" y="766" width="228" height="120" fill="#0d0718" stroke="#4c1d95" stroke-width="1"/>
-<text x="42" y="790" font-size="10" font-weight="bold" fill="#4ade80" letter-spacing="1">CONSEGUIDO</text>
-<text x="42" y="808" font-size="9" fill="#c4b5fd">› Instalación manual + arranque</text>
-<text x="42" y="823" font-size="9" fill="#c4b5fd">› Nivel jugable + audio base</text>
-<text x="42" y="838" font-size="9" fill="#c4b5fd">› Ficha glide2x + fecha/firma</text>
-<text x="42" y="853" font-size="9" fill="#c4b5fd">› Plan publicación documentado</text>
-<rect x="266" y="766" width="228" height="120" fill="#0d0718" stroke="#4c1d95" stroke-width="1"/>
-<text x="280" y="790" font-size="10" font-weight="bold" fill="#fbbf24" letter-spacing="1">EN INVESTIGACIÓN</text>
-<text x="280" y="808" font-size="9" fill="#c4b5fd">› API gráfica efectiva / wrapper</text>
-<text x="280" y="823" font-size="9" fill="#c4b5fd">› Origen de glide2x</text>
-<text x="280" y="838" font-size="9" fill="#c4b5fd">› Causa bandas/HUD (I-21)</text>
-<text x="280" y="853" font-size="9" fill="#c4b5fd">› Causa parpadeos multi (I-22)</text>
-<rect x="504" y="766" width="228" height="120" fill="#0d0718" stroke="#4c1d95" stroke-width="1"/>
-<text x="518" y="790" font-size="10" font-weight="bold" fill="#c4b5fd" letter-spacing="1">SIGUIENTE HITO</text>
-<text x="518" y="808" font-size="9" fill="#c4b5fd">› Identificar API de renderizado</text>
-<text x="518" y="823" font-size="9" fill="#c4b5fd">› efectiva; confirmar/descartar</text>
-<text x="518" y="838" font-size="9" fill="#c4b5fd">› wrapper (FA-03, A2.2).</text>
-<text x="518" y="853" font-size="9" fill="#6b7280">› (Método pendiente de definir)</text>
-<circle cx="34" cy="898" r="4.5" fill="#4ade80"/>
-<text x="44" y="902" font-size="9" fill="#4ade80">COMPLETADO</text>
-<circle cx="190" cy="898" r="4.5" fill="#fbbf24"/>
-<text x="200" y="902" font-size="9" fill="#fbbf24">EN CURSO / INVESTIG / BLOQ</text>
-<circle cx="440" cy="898" r="4.5" fill="none" stroke="#6b7280" stroke-width="1.5"/>
-<text x="450" y="902" font-size="9" fill="#6b7280">PENDIENTE</text>
-<text x="28" y="918" font-size="8.5" fill="#6b7280">MAIN = primera jugable para pruebas · General = hoja de ruta completa · Cifras documentadas, no predicciones.</text>
-<text x="28" y="930" font-size="8.5" fill="#6b7280">Método: hitos XS1-S2-M3-L5-XL8 · docs/PROJECT_STATUS.md · Fase 1 en curso · RE no iniciada.</text>
-<text x="28" y="944" font-size="8" fill="#6d28d9" letter-spacing="1">GEX: ENTER THE GECKO — REZENGINEERED · FASE 1</text>
-<text x="732" y="944" font-size="8" fill="#6d28d9" text-anchor="end" letter-spacing="1">DIAG-98 · STATIC · NO REMOTE</text>
-<text x="708" y="344" font-size="12" fill="#2e1065">+</text>
-<text x="48" y="716" font-size="12" fill="#2e1065">+</text>
-<text x="712" y="900" font-size="12" fill="#2e1065">+</text>
-</g>
-<rect x="0" y="0" width="760" height="960" fill="url(#scan)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" font-family="monospace">
+  <title>REZengineered — panel de progreso</title>
+  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 16% (47/285). A1 32, A2 28, A3 0, A4 0, A5 33.</desc>
+  <defs>
+    <linearGradient id="gradMain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="gradDim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4c1d95"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fondo + tarjeta -->
+  <rect width="760" height="700" fill="#050309"/>
+  <rect x="10" y="10" width="740" height="680" rx="18" fill="none" stroke="#7c3aed" stroke-width="2" opacity="0.25"/>
+  <rect x="16" y="16" width="728" height="668" rx="14" fill="#0c0616" stroke="#7c3aed" stroke-width="1.5"/>
+  <rect x="22" y="22" width="716" height="656" rx="10" fill="none" stroke="#2e1065" stroke-width="1"/>
+  <g fill="none" stroke="#a855f7" stroke-width="2">
+    <path d="M26 46 V32 Q26 26 32 26 H46"/>
+    <path d="M734 46 V32 Q734 26 728 26 H714"/>
+    <path d="M26 652 V666 Q26 674 34 674 H48"/>
+    <path d="M734 652 V666 Q734 674 726 674 H712"/>
+  </g>
+
+  <!-- cabecera -->
+  <text x="44" y="50" font-size="15" font-weight="bold" letter-spacing="3" fill="#e9d5ff">REZENGINEERED</text>
+  <text x="212" y="50" font-size="11" letter-spacing="2" fill="#8b5cf6">· PANEL DE PROGRESO</text>
+  <text x="716" y="50" text-anchor="end" font-size="11" fill="#8b5cf6">v3.0</text>
+  <line x1="44" y1="62" x2="716" y2="62" stroke="#2e1065" stroke-width="1"/>
+
+  <!-- MAIN protagonista -->
+  <text x="44" y="94" font-size="13" font-weight="bold" letter-spacing="2" fill="#c4b5fd">MAIN — PRIMERA VERSIÓN JUGABLE</text>
+  <rect x="592" y="74" width="124" height="26" rx="13" fill="#14532d" stroke="#4ade80"/>
+  <text x="654" y="91" text-anchor="middle" font-size="10" font-weight="bold" letter-spacing="1" fill="#4ade80">● EN CURSO</text>
+  <text x="40" y="222" font-size="124" font-weight="bold" fill="#f5f0ff">40%</text>
+  <text x="300" y="142" font-size="14" font-weight="bold" fill="#e9d5ff">6/12 HITOS COMPLETADOS</text>
+  <text x="300" y="170" font-size="14" font-weight="bold" fill="#a78bfa">14/35 PUNTOS</text>
+  <text x="300" y="200" font-size="10.5" fill="#8b5cf6">Avance hacia la primera versión jugable para pruebas.</text>
+
+  <!-- barra MAIN -->
+  <rect x="40" y="244" width="276.8" height="30" rx="10" fill="#7c3aed" opacity="0.25"/>
+  <rect x="44" y="240" width="672" height="34" rx="8" fill="#170b2e" stroke="#4c1d95"/>
+  <rect x="44" y="240" width="268.8" height="34" rx="8" fill="url(#gradMain)"/>
+  <rect x="50" y="245" width="256" height="3" rx="1.5" fill="#e9d5ff" opacity="0.5"/>
+  <g stroke="#0c0616" stroke-width="2" opacity="0.7">
+    <line x1="212" y1="240" x2="212" y2="274"/>
+    <line x1="380" y1="240" x2="380" y2="274"/>
+    <line x1="548" y1="240" x2="548" y2="274"/>
+  </g>
+  <line x1="312.8" y1="240" x2="312.8" y2="274" stroke="#f5f0ff" stroke-width="2"/>
+  <text x="44" y="292" font-size="8" fill="#8b5cf6">0</text>
+  <text x="716" y="292" text-anchor="end" font-size="8" fill="#8b5cf6">100</text>
+
+  <!-- leyenda 100% + aviso -->
+  <rect x="44" y="302" width="672" height="34" rx="8" fill="#171006" stroke="#fbbf24"/>
+  <text x="380" y="324" text-anchor="middle" font-size="12" font-weight="bold" letter-spacing="1" fill="#fbbf24">100% MAIN = PRIMERA VERSIÓN JUGABLE PREPARADA PARA PRUEBAS</text>
+  <text x="380" y="354" text-anchor="middle" font-size="9.5" fill="#8b5cf6">No implica proyecto terminado, distribución autorizada ni modernización completa.</text>
+  <line x1="44" y1="372" x2="716" y2="372" stroke="#2e1065" stroke-width="1"/>
+  <text x="380" y="376" text-anchor="middle" font-size="9" fill="#7c3aed">◆</text>
+
+  <!-- GLOBAL secundario -->
+  <text x="44" y="402" font-size="10" letter-spacing="2" fill="#8b5cf6">GLOBAL</text>
+  <text x="44" y="446" font-size="40" font-weight="bold" fill="#d8b4fe">16%</text>
+  <rect x="140" y="414" width="400" height="16" rx="5" fill="#150b28" stroke="#3b1d7a"/>
+  <rect x="140" y="414" width="64" height="16" rx="5" fill="url(#gradDim)"/>
+  <text x="552" y="427" font-size="11" fill="#8b5cf6">47/285 PTS</text>
+  <text x="140" y="450" font-size="9" fill="#8b5cf6">Progreso general de la hoja de ruta.</text>
+  <line x1="44" y1="468" x2="716" y2="468" stroke="#2e1065" stroke-width="1"/>
+
+  <!-- áreas: mini-tarjetas -->
+  <g>
+    <rect x="44" y="484" width="124" height="84" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="56" y="505" font-size="8.5" font-weight="bold" fill="#c4b5fd">A1 COMPATIBILIDAD</text>
+    <text x="56" y="534" font-size="22" font-weight="bold" fill="#e9d5ff">32%</text>
+    <rect x="56" y="540" width="100" height="8" rx="3" fill="#241640"/>
+    <rect x="56" y="540" width="32" height="8" rx="3" fill="#7c3aed"/>
+    <text x="56" y="562" font-size="7.5" fill="#4ade80">EN CURSO</text>
+  </g>
+  <g>
+    <rect x="180" y="484" width="124" height="84" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="192" y="505" font-size="8.5" font-weight="bold" fill="#c4b5fd">A2 INVESTIGACIÓN</text>
+    <text x="192" y="534" font-size="22" font-weight="bold" fill="#e9d5ff">28%</text>
+    <rect x="192" y="540" width="100" height="8" rx="3" fill="#241640"/>
+    <rect x="192" y="540" width="28" height="8" rx="3" fill="#7c3aed"/>
+    <text x="192" y="562" font-size="7.5" fill="#4ade80">EN CURSO</text>
+  </g>
+  <g>
+    <rect x="316" y="484" width="124" height="84" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="328" y="505" font-size="8.5" font-weight="bold" fill="#c4b5fd">A3 GRÁFICOS</text>
+    <text x="328" y="534" font-size="22" font-weight="bold" fill="#6b7280">0%</text>
+    <rect x="328" y="540" width="100" height="8" rx="3" fill="#241640"/>
+    <text x="328" y="562" font-size="7.5" fill="#6b7280">PENDIENTE</text>
+  </g>
+  <g>
+    <rect x="452" y="484" width="124" height="84" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="464" y="505" font-size="8.5" font-weight="bold" fill="#c4b5fd">A4 CALIDAD DE VIDA</text>
+    <text x="464" y="534" font-size="22" font-weight="bold" fill="#6b7280">0%</text>
+    <rect x="464" y="540" width="100" height="8" rx="3" fill="#241640"/>
+    <text x="464" y="562" font-size="7.5" fill="#6b7280">PENDIENTE</text>
+  </g>
+  <g>
+    <rect x="588" y="484" width="124" height="84" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="600" y="505" font-size="8.5" font-weight="bold" fill="#c4b5fd">A5 PUBLICACIÓN</text>
+    <text x="600" y="534" font-size="22" font-weight="bold" fill="#e9d5ff">33%</text>
+    <rect x="600" y="540" width="100" height="8" rx="3" fill="#241640"/>
+    <rect x="600" y="540" width="33" height="8" rx="3" fill="#7c3aed"/>
+    <text x="600" y="562" font-size="7.5" fill="#4ade80">EN CURSO</text>
+  </g>
+
+  <!-- resumen -->
+  <text x="44" y="592" font-size="9.5" font-weight="bold" letter-spacing="1" fill="#4ade80">CONSEGUIDO</text>
+  <text x="44" y="610" font-size="10" fill="#e9d5ff">Instalación + arranque + nivel</text>
+  <text x="44" y="626" font-size="10" fill="#e9d5ff">Audio base · ficha glide2x</text>
+  <text x="296" y="592" font-size="9.5" font-weight="bold" letter-spacing="1" fill="#fbbf24">EN INVESTIGACIÓN</text>
+  <text x="296" y="610" font-size="10" fill="#e9d5ff">API gráfica / wrapper (FA-03)</text>
+  <text x="296" y="626" font-size="10" fill="#e9d5ff">I-21 · I-22 · origen glide2x</text>
+  <text x="548" y="592" font-size="9.5" font-weight="bold" letter-spacing="1" fill="#c4b5fd">SIGUIENTE HITO</text>
+  <text x="548" y="610" font-size="10" fill="#e9d5ff">Identificar API efectiva,</text>
+  <text x="548" y="626" font-size="10" fill="#e9d5ff">confirmar/descartar wrapper</text>
+
+  <!-- pie -->
+  <text x="44" y="664" font-size="8.5" fill="#8b5cf6">UPD 2026-10-09 · REF e9e846c</text>
+  <text x="716" y="664" text-anchor="end" font-size="8.5" fill="#8b5cf6">METODOLOGÍA → PROJECT_STATUS.md</text>
 </svg>
