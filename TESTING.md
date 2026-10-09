@@ -207,6 +207,12 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   fijo ⇒ timer (H3 ✓); VSync mueve B ⇒ acoplado a presentación.
 - **Reversión:** borrar copia B; registro a Hito 1; nGlide
   restaurado + retorno verificado.
+- **Pre-requisito E-2.0 (2026-10-10, OK):** backup original
+  (`...\exe original\GEX3D.EXE`) md5 = pin repo/Drive
+  `692b1282…` (match exacto; aviso de discrepancia = solo
+  mayúsculas de PowerShell, sin error de transcripción).
+  Fuente de copia A verificada; E-2 sigue bloqueado hasta
+  preparar A/B aisladas sin registro.
 
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 

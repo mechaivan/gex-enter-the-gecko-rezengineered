@@ -2,6 +2,13 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — E-2.0: backup original verificado (falsa discrepancia MD5)
+
+- Paste mantenedor = pin repo = metadato Drive
+  (`692b1282…`, match exacto case-insensitive): la diferencia era
+  solo mayúsculas de PowerShell; docs correctos, sin corrección.
+  Fuente de copia A verificada. TESTING E-2.0. Panel intacto.
+
 ## 2026-10-09 — 0.0.0 — E-1.1: identidad exe probado CONFIRMADA (sha256 match)
 
 - Paste mantenedor (`C:\GEX_REZ\GEX2\GEX3D.EXE`) =
