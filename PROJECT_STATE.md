@@ -74,7 +74,7 @@
   build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado,
   pendiente de autorización (A1–A4). P-F03/B ejecutado parcial
   (42–44 FPS + speedup, observación 2026-10-09); E-1 ejecutado
-  (E-1.1 hash probado pendiente mantenedor); E-2 pendiente.
+  (E-1.1 identidad confirmada sha256); E-2 pendiente.
 
 ## Limitaciones actuales
 

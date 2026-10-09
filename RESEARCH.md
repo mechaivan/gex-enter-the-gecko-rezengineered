@@ -565,8 +565,8 @@ fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
   que exe 2013 S-14 pero distinto hash (artefactos distintos).
 - P-F03/B (observación mantenedor): B = 42–44 FPS menú+juego,
   cinemáticas ≈15, sim acelerada, audio normal. Rama «FPS↑»
-  (inesperada) → identidad por confirmar (E-1.1). Detalle: F-03,
-  TESTING P-F03/B; E-1/E-2 pendientes de autorización.
+  (inesperada) → identidad CONFIRMADA (E-1.1). Detalle: F-03,
+  TESTING P-F03/B; E-1 completo; E-2 pendiente de autorización.
 - Límite técnico: bytes inaccesibles desde aquí (egress Google
   bloqueado; download inline inviable ~2 MB base64) → estático
   profundo vía scripts solo-lectura lado mantenedor (E-1).
@@ -597,8 +597,8 @@ copias eliminadas tras el análisis. TXT md5 `2fff411e…3cd4d5`.
 - **Hipótesis líder (no probada):** exes F-03 de línea demo/build
   junio-1998; el «límite» es conductual-emergente, no parche
   quirúrgico. Localización a nivel código → Fase 2.
-- **E-1.1 pendiente:** hash del exe *probado* en copia B (lado
-  mantenedor) vs pin `3198350e…`. E-2 pendiente de autorización.
+- **E-1.1 OK (2026-10-09):** sha256 paste = bytes Drive EU
+  (match exacto triple). E-2 pendiente de autorización.
 - Confianza: alta (bytes verificados, herramientas estándar).
 
 ## Áreas de investigación futura (separación estricta)

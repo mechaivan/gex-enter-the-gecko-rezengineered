@@ -82,7 +82,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 ejecutado: build distinta, sin nueva API timing; E-1.1+E-2 pendientes) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 completo (E-1.1 identidad OK); E-2 pendiente) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
 ## Prueba preparada P-F03 — A/B exe EU F-03 vs original (PENDIENTE DE AUTORIZACIÓN)
@@ -150,7 +150,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   (sin cambio vs ~15 percibidos); animaciones + velocidad general
   ACELERADAS; música y SFX a velocidad aparentemente normal.
 - **Lectura:** rama «FPS↑ en B» de la tabla P-F03 (inesperada) →
-  re-verificar identidad (E-1.1: md5 `3198350e…`) antes de concluir.
+  identidad CONFIRMADA (E-1.1: sha256 match 2026-10-09).
   Apoya I-01 (sim sigue a FPS); audio-rate independiente (observado,
   triggers sin probar); nº 42–44 no redondo ⇒ techo del sistema, no
   cap diseñado (inferencia).
@@ -163,7 +163,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 
 - **E-1.1 identidad:** `Get-FileHash` (MD5+SHA256) del exe probado en
   copia B → debe ser md5 `3198350eb398db9a64771842d7781b4b`,
-  sha256 `7a9b6851…a3e8254`. Si difiere: STOP (identidad rota).
+  sha256 `7a9b68516867db5460b6ec0d152841742192b1bb47198d2c7b0357d7aa3e8254`.
+  Si difiere: STOP (identidad rota). **OK 2026-10-09** (match exacto).
 - **E-1.2 PE original-vs-EU:** script imports de 8ª (cambiar `$p` a
   cada exe) + versión/arquitectura:
 ```powershell
@@ -187,8 +188,8 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   GUI ×3, links 05-18/06-29/06-24; EU = build distinta (82.9% ≠);
   imports sin nueva API timing (+`mciGetErrorStringA` solo); timing
   = `Sleep`+`GetTickCount`; path `_demo` en EU/US; EU≠US (67.3% ≠).
-  Detalle: S-26 + F-03. **E-1.1 pendiente:** paste `Get-FileHash`
-  del exe probado en copia B (2 líneas) para cerrar identidad.
+  Detalle: S-26 + F-03. **E-1.1 OK (2026-10-09):** paste sha256 =
+  bytes Drive EU (triple: paste + metadato + hash local re-descarga).
 
 ## E-2 — Micro-test sim-vs-FPS (PENDIENTE AUTORIZACIÓN)
 

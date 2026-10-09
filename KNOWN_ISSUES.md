@@ -43,7 +43,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   path `_demo` (hipótesis línea demo). FPS altos sin speedup
   exigiría desacoplar sim↔render (inferencia; ingeniería nueva).
 - **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
-  a nivel código sin localizar (Fase 2); E-1.1+E-2 pendientes.
+  a nivel código sin localizar (Fase 2); E-1.1 OK; E-2 pendiente.
 
 ### I-02 — Límite de FPS distinto según versión/parche
 

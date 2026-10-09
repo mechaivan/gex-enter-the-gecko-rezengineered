@@ -14,7 +14,7 @@
 > P-F03/B (2026-10-09): binarios F-03 en Drive + rama B ejecutada
 > (42–44 FPS + speedup, observación); E-1/E-2 pendientes.
 > E-1 (2026-10-09, ejecutado): F03-EU = build 1998-06-29 (no parche);
-> sin nueva API timing; path `_demo`; E-1.1+E-2 pendientes.
+> sin nueva API timing; path `_demo`; E-1.1 OK; E-2 pendiente.
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -197,7 +197,8 @@ Reglas:
 - **Prueba P-F03:** P-F03/B EJECUTADO parcial (2026-10-09,
   observación mantenedor): B = 42–44 FPS (menú+juego), cinemáticas
   ≈15, sim acelerada, audio normal. Rama «FPS↑» (inesperada) →
-  identidad por confirmar (E-1.1). E-2 pendiente de autorización.
+  identidad CONFIRMADA (E-1.1 sha256 match, 2026-10-09).
+  E-2 pendiente de autorización.
 - **E-1 EJECUTADO (2026-10-09, Arena, solo lectura; ver S-26):**
   descargas verificadas por hash; F03-EU = build distinta ligada
   1998-06-29 (82.9% bytes ≠, 55016 runs, 1/381 bloques 4KB =);
@@ -206,8 +207,13 @@ Reglas:
   `…\\Gex23dfx_demo` (ORIG: sin `_demo`); EUvsUS = builds
   separadas (67.3% ≠). Hipótesis líder: línea demo junio-1998
   con conducta emergente, no parche quirúrgico. Localización
-  código → Fase 2. E-1.1 (hash exe probado) pendiente mantenedor.
-- **Estado:** E-1 EJECUTADO (estático completo salvo E-1.1);
+  código → Fase 2.
+- **E-1.1 CONFIRMADO (2026-10-09):** sha256 del exe probado
+  (`C:\GEX_REZ\GEX2\GEX3D.EXE`, paste mantenedor) =
+  `7a9b6851…a3e8254`, match exacto vs bytes Drive EU (re-descarga
+  + hash local + metadato Drive md5 `3198350e…`). P-F03/B atribuido
+  al exe analizado (build 1998-06-29); rama «FPS↑» firme.
+- **Estado:** E-1 COMPLETO (identidad confirmada E-1.1);
   mecanismo a nivel código pendiente (Fase 2); E-2 pendiente.
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)

@@ -2,6 +2,15 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — E-1.1: identidad exe probado CONFIRMADA (sha256 match)
+
+- Paste mantenedor (`C:\GEX_REZ\GEX2\GEX3D.EXE`) =
+  `7a9b6851…a3e8254`, match exacto vs bytes Drive EU (re-descarga
+  + hash local + metadato; md5 `3198350e…` coherente). P-F03/B
+  atribuido al exe analizado (build 1998-06-29); E-1 completo.
+  Pin sha256 completo registrado en TESTING E-1.1. Staging
+  eliminado; repo sin binarios. E-2 pendiente. Panel intacto.
+
 ## 2026-10-09 — 0.0.0 — E-1: F03-EU es build junio-1998, sin nueva API timing
 
 - Descargas Drive→Arena verificadas (md5+sha256 3/3); análisis
