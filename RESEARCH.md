@@ -459,6 +459,97 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Confianza: alta en existencia/contenido-descrito (readme primario);
   media en alcance (blurb secundario); nula en detalles no declarados.
 
+## S-24 — Lote herramientas GitHub + upscale Mega (2026-10-09) — HUB
+
+Método: API GitHub (metadatos + README + árbol + commits + releases;
+sin clonar/compilar/ejecutar/descargar binarios). Fuentes pequeñas
+leídas para evaluar formatos (vfx.rs, main.rs, file.h,
+glideconstants.h). Wiki unLoKable leída (Home + SND-and-SMP). Mega:
+fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
+
+### H-01 — gex2-tools (SK83RJOSH): extractor `.VFX`→PNG, PC
+
+- URL: <https://github.com/SK83RJOSH/gex2-tools> — «Tools for working
+  with Gex: Enter The Gecko (PC)». Rust 2021 v0.1.0 (anyhow, binrw
+  0.11.2, bitflags, image 0.24.6). 2023-06-17→23, 2 commits, muerto
+  desde entonces. 0 releases, 1 estrella. SIN README, SIN LICENCIA.
+- Hace (fuente leída, ~7.5 KB): CLI que filtra `.vfx`, parsea
+  `File{texture_count, textures[]}`, descomprime cada textura y vuelca
+  `{i}_{formato}.png` (RGBA8) en `<nivel>/`. Formatos: RGB8A1=1
+  (1 B/px; brightness+rgb_0/rgb_1; workaround bug encoder), R7G6B5A1=11
+  y ARGB4=12 (2 B/px); dims desde tamaño+aspecto.
+- Cruce PC: `.VFX` = `LEVEL/*.VFX` del inventario §5 (36 pares).
+  Match de formato CONFIRMADO; ejecución pendiente (Fase 2+). Código
+  NO reutilizable sin licencia (pedir al autor).
+- Confianza: alta (diseño PC + formato coincidente); media en
+  corrección del decode (sin ejecutar).
+
+### H-02 — Gex3DViewer (MatBourgon): visor/exportador niveles PC (WIP)
+
+- URL: <https://github.com/MatBourgon/Gex3DViewer> — «Gex 3D Level
+  Viewer». C++20/CMake; 2024-09-14→2025-04-07; 527 ficheros (mayoría
+  vendored: GLFW/glad/glm/imgui); 5 releases 0.1→0.5 (sep 2024–ene
+  2025, 1 asset c/u); 3 estrellas. SIN LICENCIA.
+- README verbatim: «The engine is currently set up to work with the
+  PC build and its files» — abre `.dfx` + `.vfx` parejo; WASD+ratón,
+  wireframe. Build Windows (`lib/glfw/*.lib` + `runcmake.bat`).
+- Capacidades (estructura+commits): mapreader (36 KB), script (17 KB),
+  componentes (Path/ProxSig/QMark/Script/Timer/FlyBox/TV), visor 3D
+  OpenGL+imgui, **exportación de modelos + texture sheets + nivel +
+  skybox**, lector paths/rotaciones, `glideconstants.h` (enums
+  GrAspectRatio/GrLOD/GrTextureFormat Glide reales).
+- Cruce PC: .DFX/.VFX §5 + consts Glide coherentes con EU-Glide.
+  Match CONFIRMADO; ejecución pendiente. Código NO reutilizable.
+- Confianza: alta como utilidad PC candidata; media-baja en cobertura
+  (WIP: «Unsure where this lands, but it runs»).
+
+### R-03 — GexPSXLZSS (MatBourgon): LZSS del BIGFILE, PS1
+
+- URL: <https://github.com/MatBourgon/GexPSXLZSS> — compresor/
+  descompresor LZSS de ficheros de `BIGFILE.dat` de Gex 2 (el
+  contenedor NO incluido: hay que parsear la cabecera aparte). C++,
+  README completo, `test.cpp`, 3 releases (1.0, 1.0-dll Win x64,
+  1.1; ene 2024), retoque README may 2026. SIN LICENCIA.
+- Plataforma: PS1 (nombre PSX + `BIGFILE.dat`; PC EU: 0 `bigfile`).
+  Utilidad: algoritmo de referencia si un contenedor PC resultara
+  LZSS (sin evidencia hoy). NO es código PC.
+- Confianza: alta (PS1); nula aplicabilidad PC directa.
+
+### R-04 — unLoKable (SalsaGal): suite audio Crystal Dynamics (MIT)
+
+- URL: <https://github.com/SalsaGal/unLoKable> — «A suite for Crystal
+  Dynamics audio formats». Rust workspace: 15 tools (adsheader,
+  adsloopfind, adsunloop, cds2seq, demul, demus, desnd, msqsplit,
+  seqrepeat, sf2panlaw, vabfine, vabsmp, vagheader, vagsanitizer,
+  vagunloop) + `core`; tests; releases 0.2.0→1.0.0 (jul 2024–ene
+  2025); 25 estrellas. **Licencia MIT** (única reutilizable).
+- Formatos (README+wiki íntegros): .SND/.SMP (juegos CD 1994–2000,
+  «mostly PlayStation»; revisiones soul-reaver/prototype/**gex** =
+  «early games such as Gex», magia `DNSa`; secuencias `QSMa`/`QESa`),
+  .MUS/.SAM (2000–2007; PS2/Xbox/PC), .MUL (2003–2007, multiplexado);
+  salidas: SEQ→MIDI, ADS/VAG, VAB→SF2/DLS, WAV/FLAC/…. demus `--pc`
+  (PCM16, defecto) vs `--console` (VAG); desnd `-f gex`.
+- Cruce PC EU: **0 correspondencias** (ninguna extensión en PC; audio
+  PC = 37 .TAD + 400 .SAG + 9 pares .SAG/.JAM + CD-DA vía MCI).
+  demus-PC cubre juegos 2000–2007, NO Gex 2 PC (1998, LTI Gray
+  Matter). NO asumir compatibilidad.
+- Valor: referencia metodológica (bancos/secuencias/loops) + magias
+  para test barato Fase 2+ sobre .TAD/.SAG + cadena de preservación
+  reutilizable si un stream PC resultara compatible.
+- Confianza: alta (alcance documentado); hipótesis .TAD↔SMP sin base.
+
+### Mega — upscale «Screen Titles» (sin verificar)
+
+- URL: `https://mega.nz/file/3FdVyIRY#…` (id opaco, sin nombre de
+  fichero). Fetch desde aquí: HTTP 500 (host no permitido).
+- Verificable hoy: NADA (contenido/formato/dims/nº imágenes/licencia/
+  permiso/autor: UNKNOWN). NO descargado, NO incorporado.
+- Pendiente (lado mantenedor, M-23): nombre+tamaño del fichero,
+  licencia/permiso del autor, correspondencia vs texturas .VFX
+  extraídas (requiere H-01/H-02 validados), dimensiones/UV/
+  transparencia/paleta/canales/formato, diseño pack HD opcional
+  separado + reversible. Sin evidencia no hay compatibilidad.
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)

@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Lote tools: H-01/H-02 + R-03/R-04 + upscale (S-24)
+
+- RESEARCH S-24 (nuevo, hub): gex2-tools (extractor .VFX→PNG PC, sin
+  licencia), Gex3DViewer (visor/exportador PC WIP, sin licencia),
+  GexPSXLZSS (LZSS BIGFILE PS1, sin licencia), unLoKable (suite
+  audio CD, MIT; 0 correspondencias PC EU) + upscale Mega «Screen
+  Titles» (nada verificable: HTTP 500). API GitHub, sin clonar/
+  compilar/ejecutar/descargar.
+- PATCH_ANALYSIS: nueva categoría H-xx (herramienta específica Gex
+  PC) con H-01/H-02 + R-03/R-04 (referencias secundarias) + filas
+  de relación + taxonomía. M-23: candidatos externos anotados.
+- CREDITS: SK83RJOSH + SalsaGal; MatBourgon ampliado. Panel intacto
+  (investigación, sin hitos).
+
 ## 2026-10-09 — 0.0.0 — P-F03: prueba A/B del limitador F-03 preparada
 
 - Enlace exacto verificado: PCGW «3DFX FPS Limiter EU/US patch» →

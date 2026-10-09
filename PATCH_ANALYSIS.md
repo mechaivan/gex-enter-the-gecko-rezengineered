@@ -9,6 +9,8 @@
 > Prep. P-F03 (2026-10-09): enlace exacto + gating miembros + README
 > verbatim + detector cruzado con inventario; protocolo A/B en
 > TESTING.md (pendiente de autorización).
+> Lote tools (2026-10-09): H-01/H-02 + R-03/R-04 (S-24); ejecución
+> pendiente, licencias comprobadas (MIT solo R-04).
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -17,7 +19,8 @@
 | — | **ORIGINAL** | El juego PC de 1998 y sus variantes retail/demo | US/EU/demo (ver COMPATIBILITY.md) |
 | F-xx | **FIX / parche** | Parches y procedimientos para Gex PC (F-01…F-12 comunitarios; F-13 oficial) | F-01…F-13 |
 | T-xx | **WRAPPER / HERRAMIENTA** | Wrappers y utilidades genéricas (no específicas de Gex) | T-01…T-06 |
-| R-xx | **REFERENCIA otra versión** | Proyectos/material de otras versiones de Gex | R-01, R-02 |
+| H-xx | **HERRAMIENTA específica Gex PC** | Utilidades de terceros sobre ficheros de Gex 2 PC (no son fixes) | H-01, H-02 |
+| R-xx | **REFERENCIA otra versión** | Proyectos/material de otras versiones de Gex | R-01…R-04 |
 
 Reglas:
 
@@ -459,6 +462,54 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 - **Fuente:** S-19 (mención en guía Steam; pendiente de verificación directa).
 - **Estado:** catalogado, sin probar.
 
+## Herramientas específicas Gex PC (H-xx)
+
+Utilidades de terceros que operan sobre ficheros de Gex 2 PC. NO son
+fixes del juego, NO son referencias de otras versiones y NO están
+verificadas en ejecución. Ojo licencias: ninguna tiene (ver cada una).
+
+## H-01 — gex2-tools (SK83RJOSH) — extractor `.VFX`→PNG [NUEVO 2026-10-09]
+
+- **Fuente verificada (2026-10-09, vía API, sin clonar):**
+  <https://github.com/SK83RJOSH/gex2-tools> — «Tools for working with
+  Gex: Enter The Gecko (PC)». Ver S-24.
+- **Qué es:** CLI Rust 0.1.0 (binrw + image): filtra `.vfx`, parsea
+  `File{texture_count, textures[]}` y vuelca cada textura a PNG RGBA8
+  (`{i}_{formato}.png` en `<nivel>/`). Formatos: RGB8A1=1 (1 B/px;
+  brightness + rgb_0/rgb_1 + workaround de bug encoder), R7G6B5A1=11
+  y ARGB4=12 (2 B/px); dimensiones desde tamaño + aspecto.
+- **Autor/estado:** SK83RJOSH; ~7.5 KB de fuente, 2 commits (jun 2023,
+  muerto desde entonces); sin README, sin releases, **sin licencia**.
+- **Relación EU v1.00.000:** DIRECTA por formato (opera sobre
+  `LEVEL/*.VFX`, inventario §5). Ejecución pendiente (Fase 2+).
+- **Reutilización:** código NO reutilizable sin licencia (pedir al
+  autor). El formato descrito es conocimiento reutilizable.
+- **Estado:** DESCRIPCIÓN+FORMATO VERIFICADOS (fuente leída); sin
+  ejecutar; licencia pendiente.
+
+## H-02 — Gex3DViewer (MatBourgon) — visor/exportador niveles PC [NUEVO 2026-10-09]
+
+- **Fuente verificada (2026-10-09, vía API, sin clonar):**
+  <https://github.com/MatBourgon/Gex3DViewer> — «Gex 3D Level Viewer».
+  Ver S-24.
+- **Qué es:** visor de niveles (aspiración: editor) C++20/CMake,
+  OpenGL+imgui, build Windows (`.lib` GLFW + `runcmake.bat`).
+  README verbatim: «The engine is currently set up to work with the
+  PC build and its files» (abre `.dfx` + `.vfx` parejo; WASD+ratón).
+- **Capacidades (estructura + commits, sin ejecutar):** mapreader,
+  scripts, componentes (Path/ProxSig/QMark/Script/Timer/FlyBox/TV),
+  `glideconstants.h` (enums Glide reales), **exportación de modelos +
+  texture sheets + nivel+skybox**, lector de paths/rotaciones.
+- **Autor/estado:** MatBourgon; 2024-09→2025-04 (WIP: «Unsure where
+  this lands, but it runs»); 5 releases (0.1→0.5, 1 asset c/u);
+  **sin licencia**.
+- **Relación EU v1.00.000:** DIRECTA por formato (.DFX/.VFX §5 +
+  consts Glide coherentes con EU-Glide). Ejecución pendiente.
+- **Reutilización:** código NO reutilizable sin licencia. Prebuilts
+  existen (0.5) para futura prueba autorizada (Fase 2+).
+- **Estado:** DESCRIPCIÓN+FORMATO VERIFICADOS; sin ejecutar; licencia
+  pendiente.
+
 ## Proyectos relacionados (no son fixes de la versión PC)
 
 ## R-01 — Gex64Decomp (MatBourgon / Tokatta007) — REFERENCIA SECUNDARIA
@@ -471,6 +522,35 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 - **Advertencia:** NO asumir identidad con la versión PC (distinto port:
   LTI Gray Matter; distinta plataforma y CPU).
 - **Estado:** catalogado como referencia secundaria (fuente S-11).
+
+## R-03 — GexPSXLZSS (MatBourgon) — REFERENCIA SECUNDARIA (PS1) [NUEVO 2026-10-09]
+
+- **Qué es:** compresor/descompresor LZSS de los ficheros de
+  `BIGFILE.dat` de Gex 2 (C++; README + `test.cpp`; 3 releases incl.
+  DLL Win x64). Ver S-24. **Sin licencia.**
+- **Plataforma:** PlayStation (nombre PSX + `BIGFILE.dat`; PC EU sin
+  `bigfile`: 0 menciones; `.DAT` solo InstallShield). NO confundir
+  con PC.
+- **Utilidad:** algoritmo de referencia si un contenedor PC resultara
+  LZSS (sin evidencia hoy). NO es código PC.
+- **Estado:** catalogado como referencia secundaria.
+
+## R-04 — unLoKable (SalsaGal) — REFERENCIA SECUNDARIA (audio CD) [NUEVO 2026-10-09]
+
+- **Qué es:** suite Rust (15 tools + `core`, tests, releases
+  0.2.0→1.0.0) para formatos propietarios de audio de Crystal
+  Dynamics: .SND/.SMP (1994–2000, «mostly PlayStation»; revisión
+  `gex` = «early games such as Gex», magia `DNSa`), .MUS/.SAM
+  (2000–2007; PS2/Xbox/PC), .MUL (streams), CDS→SEQ→MIDI, ADS/VAG,
+  VAB→SF2/DLS. Ver S-24. **Licencia MIT** (reutilizable).
+- **Cruce PC EU:** 0 correspondencias (ninguna de esas extensiones en
+  PC; audio PC = 37 .TAD + 400 .SAG + 9 pares .SAG/.JAM + CD-DA).
+  demus `--pc` cubre MUS/SAM de juegos 2000–2007, NO Gex 2 PC (1998,
+  pipeline MCI/DSound de LTI Gray Matter). NO asumir compatibilidad.
+- **Utilidad:** referencia metodológica (bancos/secuencias/loops) +
+  magias para test barato Fase 2+ sobre .TAD/.SAG + cadena de
+  preservación reutilizable si un stream PC resultara compatible.
+- **Estado:** catalogado como referencia secundaria.
 
 ## R-02 — Gex Trilogy (2025) — NO ES REFERENCIA (contexto)
 
@@ -496,6 +576,10 @@ qué papel juega cada una; la prioridad son soluciones nativas y fundamentadas.
 | F-12 (debug tool) | Herramienta potencial Fase 2 (menú debug PC) |
 | F-13 (parche oficial 3dfx+genérico) | FA-03 (añade Glide a base D3D; patrón exe-por-renderer), FA-01 (variantes US) |
 | T-01…T-06 (wrappers) | Comparativas de testing (Fase 5+) |
+| H-01 (extractor VFX) | M-23 (extracción texturas), FA-03 (formato .VFX PC) |
+| H-02 (visor niveles) | M-23 (extracción/modelos), FA-03 (geometría/texturas PC) |
+| R-03 (LZSS PS1) | Referencia compresión (Etapa D); sin FA directa |
+| R-04 (audio CD) | FA-08/FA-09, M-20 (metodología+magias; 0 correspondencias PC hoy) |
 
 ## Revisión cruzada F-01…F-12 + S-14 (2026-10-09, solo documental)
 

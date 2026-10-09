@@ -19,7 +19,10 @@
 - **Mysticore / speedrun.com** — «PC Version Setup Package» (S-14/F-09).
 - **Wikipedia / VGFacts / BTVA** — reparto vocal UK/USA como referencia
   documental general (S-20; no PC-específica).
-- **MatBourgon / Tokatta007** — proyectos Gex64Decomp (referencia N64).
+- **MatBourgon / Tokatta007** — Gex64Decomp (referencia N64) + GexPSXLZSS
+  y Gex3DViewer (S-24; R-03/H-02).
+- **SK83RJOSH** — gex2-tools (extractor .VFX PC, S-24/H-01).
+- **SalsaGal** — unLoKable (suite audio Crystal Dynamics, MIT; S-24/R-04).
 - **Limited Run Games** — Gex Trilogy (contexto histórico; no es referencia
   del proyecto por decisión 2026-10-08).
 

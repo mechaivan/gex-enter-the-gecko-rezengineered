@@ -491,6 +491,10 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
 - **Relación con comportamiento original:** intacta (solo assets).
 - **Compatible con Original Mode:** Sí (desactivado) · **Pertenece a Modern Mode:** Sí
 - **Notas:** no implementar nada ahora; el pack en sí es proyecto aparte.
+- **Candidatos externos (2026-10-09, S-24, solo documentados):** upscale
+  «Screen Titles» (Mega; contenido/licencia/autor sin verificar) +
+  extracción PC vía H-01/H-02 (formato .VFX descrito; código sin
+  licencia, ejecución sin verificar). Nada validado; nada incorporado.
 
 ---
 
