@@ -119,7 +119,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 7. **Hallazgo Glide (2ª sesión: `glide2x` CARGADA):** `glide2x.dll` cargada
    desde `C:\WINDOWS\SYSTEM32\` (= fichero físico `SysWOW64\glide2x.dll`
    por redirección WOW64; coherente con el observado de 1630208 B — el
-   hash lo confirmará). `3dfxSpl2.dll` también cargada (splash 3dfx, S-21).
+   hash registrado en 3ª sesión). `3dfxSpl2.dll` también cargada (splash 3dfx, S-21).
    `glide.dll`/`glide3x.dll`: carga sin confirmar. Procedencia e identidad
    de la `glide2x` (wrapper moderno vs época): pendientes (FA-02/FA-03).
 8. **Pantalla 3DFX (2ª sesión: mecanismo identificado):** la muestra
@@ -152,9 +152,9 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Renderer (CONFIRMADO carga; hipótesis sólida):** con el juego en marcha,
   `glide2x.dll` CARGADA desde `C:\WINDOWS\SYSTEM32\glide2x.dll` (= físico
   `SysWOW64\glide2x.dll` por redirección WOW64; coherente con el fichero
-  observado de 1630208 B — el hash lo confirmará). `3dfxSpl2.dll` también
+  observado de 1630208 B — hash registrado en 3ª sesión). `3dfxSpl2.dll` también
   cargada (splash Glide 2.x, S-21). Ruta Glide = hipótesis muy sólida;
-  identidad de la `glide2x` (wrapper moderno vs época): pendiente.
+  ficha registrada en 3ª sesión; originalidad/wrapper pendientes.
 - **Acompañantes (OBSERVADO, rol UNKNOWN):** `ddraw.dll`, `d3d9.dll`,
   `dxgi.dll` y `atidx9loader32.dll` presentes en el proceso. Su presencia
   NO demuestra que sean el renderer activo (driver, appcompat, …).
@@ -163,17 +163,40 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Pantalla (OBSERVADO):** el 2º monitor parpadea tras el splash 3dfx, al
   empezar las cinemáticas (Ubisoft + juego) y al pasar al menú principal;
   4:3 + bandas arriba/izquierda + HUD desalineado de nuevo → I-21/I-22.
-- **Siguiente paso único (solo lectura, integrado):** ficha del fichero
-  físico — pestaña Detalles de `SysWOW64\glide2x.dll` (+ `3dfxSpl2.dll`)
-  y `certutil -hashfile … SHA256`. Sin instalar nada. Su identidad decide
-  la hipótesis de I-21/I-22 y FA-03.
+- **Siguiente paso (EJECUTADO 2026-10-09):** ficha del fichero registrada
+  → ver nota «3ª sesión».
+
+### Nota post-Hito 1 (2026-10-09, 3ª sesión): ficha Glide registrada
+
+- **Ficha `glide2x.dll` (CONFIRMADO, solo lectura):**
+  `SysWOW64\glide2x.dll` (1630208 B) — Descripción `3Dfx Interactive, Inc.
+  Glide DLL`; Producto `Glide para Voodoo Banshee` (con ®; transcrito del
+  reporte); Versión de producto `2.60.0.658`; SHA-256
+  `7cbd095872e821b54cd6fa03f76aa22073271567175069c53ebb2e73b0299aab`.
+  Presente en los módulos de `GEX3D.EXE` en ejecución.
+- **Ficha `3dfxSpl2.dll` (CONFIRMADO):** Descripción y Producto `3dfx
+  Splash Screen`, versión `1.0.0.4`; también cargada en el proceso.
+  Biblioteca de pantalla de inicio (S-21); NO es prueba del renderer.
+- **Interpretación (rigurosa):** la ficha es COMPATIBLE con una
+  implementación Glide de 3dfx, pero metadatos + hash por sí solos NO
+  demuestran si el fichero es original, redistribuido o modificado, ni
+  si interviene un wrapper. Ruta Glide = hipótesis muy sólida (no hecho
+  cerrado). I-21/I-22 siguen pendientes, sin causa atribuida.
+- **Siguiente paso único (solo lectura, integrado):** arqueología del
+  fichero — Propiedades de `SysWOW64\glide2x.dll`: fechas de creación /
+  modificación (pestaña General) + pestaña Firmas digitales (¿existe?
+  ¿firmante? ¿fecha?). Aporta: época de colocación (vintage 1998-2000 vs
+  instalación reciente) e indicios de integridad. Límites: las fechas se
+  pueden preservar/falsificar; la mayoría de DLL de 1998 van sin firmar
+  (ausencia = poco informativa); no revela comportamiento en ejecución.
+  Sin instalar nada, sin tocar registro ni ficheros.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
 > Hito 1 (2026-10-09): primera config observada funcionando (vía A:
 > Win11 64-bit + F-05 manual + imagen como D:, sin parches). Veredicto
-> general de compatibilidad: pendiente (una sola prueba; glide2x cargada,
-> identidad pendiente).
+> general de compatibilidad: pendiente (una sola prueba; ficha Glide
+> registrada, originalidad/wrapper pendientes).
 > Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
 > WinMM; instalador 16-bit roto en moderno → F-05).
 
@@ -188,8 +211,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   exactos; wrapper (nombre+versión+config); unidad óptica o imagen con
   TOC; herramientas de captura.
 - **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; Hito 1
-  ejecutado una sola vez (glide2x cargada, identidad pendiente);
-  «correcto» de época
+  ejecutado una sola vez (ficha Glide registrada; originalidad/wrapper
+  pendientes); «correcto» de época
   inalcanzable aquí.
 - **Sirve para:** P0 (instalación, detección CD lógica, registro,
   guardado, admin) + P1 observación (FPS relativo, modos modernos,
@@ -268,12 +291,12 @@ contra época cuando exista.
 - **Hechos confirmados:** base EU-Glide estática (inventario); instalador
   roto en moderno (F-05); rutas MCI/DSound estáticas; wrappers catalogados
   (T-01…T-06) sin probar; Hito 1: F-05 manual + arranque + nivel jugable
-  en Win11 64-bit (2ª sesión: `glide2x` cargada, identidad pendiente).
+  en Win11 64-bit (3ª sesión: ficha Glide registrada; wrapper pendiente).
 - **Recomendaciones:** empezar por A; usar B para repetición P0; reservar C
   para referencia; contrastar 2 wrappers antes de concluir render/timing.
 - **Incógnitas:** specs del PC del Hito 1 (build/GPU AMD?/driver); TOC de
-  la imagen montada; refrescos soportados; causa admin; identidad de la
-  `glide2x` cargada (siguiente paso); resto de valores `.reg` (1 vez OK).
+  la imagen montada; refrescos soportados; causa admin; origen de la
+  `glide2x` (fechas/firma: siguiente paso); resto de valores `.reg` (1 vez OK).
 - **Decisiones del mantenedor:** completar specs + captura; VM sí/no;
   HW época sí/no (+modelos); herramientas de captura; momento de Fase 2.
 

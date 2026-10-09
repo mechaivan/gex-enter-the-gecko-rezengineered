@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Hito 1 (3ª sesión): ficha Glide Banshee 2.60 + SHA-256
+
+- TESTING.md: nota 3ª sesión — `SysWOW64\glide2x.dll` (1630208 B):
+  `3Dfx Interactive, Inc. Glide DLL`, producto `Glide para Voodoo
+  Banshee` (®), versión 2.60.0.658, SHA-256 registrado; `3dfxSpl2.dll`
+  (`3dfx Splash Screen` 1.0.0.4). Ambas cargadas en `GEX3D.EXE`.
+  Interpretación: compatible con Glide 3dfx, pero NO prueba
+  originalidad ni descarta wrapper. I-21/I-22 sin causa atribuida.
+- RESEARCH (S-21 corroborado + hipótesis de origen), COMPATIBILITY
+  (ficha en nota Hito 1), KNOWN_ISSUES (I-21: ficha registrada),
+  GOALS (FA-02/FA-03: ficha sí, origen/wrapper UNKNOWN).
+- Siguiente paso único: fechas + firmas digitales del fichero (solo
+  lectura). Fase 1 en curso, Fase 2 sin iniciar, RE no iniciado.
+
 ## 2026-10-09 — 0.0.0 — Hito 1 (2ª sesión): glide2x cargada + M-26 intro omisible
 
 - TESTING.md: nota 2ª sesión — `glide2x.dll` CARGADA (SYSTEM32 = físico

@@ -58,7 +58,8 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
   verificado) arranca y es jugable en Win11 64-bit con instalación manual
   F-05 (sin F-01) + imagen montada como `D:`; música/SFX funcionan;
   observaciones I-21/I-22 (2ª sesión: parpadeos multimonitor). Renderer:
-  `glide2x` cargada, identidad pendiente; GPU AMD probable, driver
+  `glide2x` cargada, ficha registrada (Banshee 2.60.0.658, SHA-256 en
+  TESTING); originalidad/wrapper pendientes. GPU AMD probable, driver
   pendiente; refresco pendiente.
 - Datos propios Fase 1 (binario EU v1.00.000): Glide exclusivo; joystick vía
   WinMM (`joyGetPosEx`, sin DirectInput); audio vía WinMM/DSound + CD-DA por
