@@ -170,8 +170,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 
 - **Ficha `glide2x.dll` (CONFIRMADO, solo lectura):**
   `SysWOW64\glide2x.dll` (1630208 B) — Descripción `3Dfx Interactive, Inc.
-  Glide DLL`; Producto `Glide para Voodoo Banshee` (con ®; transcrito del
-  reporte); Versión de producto `2.60.0.658`; SHA-256
+  Glide DLL`; Producto `Glide para Voodoo Banshee` (transcripción aproximada;
+  nombre exacto en 4ª sesión); Versión de producto `2.60.0.658`; SHA-256
   `7cbd095872e821b54cd6fa03f76aa22073271567175069c53ebb2e73b0299aab`.
   Presente en los módulos de `GEX3D.EXE` en ejecución.
 - **Ficha `3dfxSpl2.dll` (CONFIRMADO):** Descripción y Producto `3dfx
@@ -182,21 +182,35 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   demuestran si el fichero es original, redistribuido o modificado, ni
   si interviene un wrapper. Ruta Glide = hipótesis muy sólida (no hecho
   cerrado). I-21/I-22 siguen pendientes, sin causa atribuida.
-- **Siguiente paso único (solo lectura, integrado):** arqueología del
-  fichero — Propiedades de `SysWOW64\glide2x.dll`: fechas de creación /
-  modificación (pestaña General) + pestaña Firmas digitales (¿existe?
-  ¿firmante? ¿fecha?). Aporta: época de colocación (vintage 1998-2000 vs
-  instalación reciente) e indicios de integridad. Límites: las fechas se
-  pueden preservar/falsificar; la mayoría de DLL de 1998 van sin firmar
-  (ausencia = poco informativa); no revela comportamiento en ejecución.
-  Sin instalar nada, sin tocar registro ni ficheros.
+- **Siguiente paso (EJECUTADO 2026-10-09):** fechas/firma consultadas
+  → ver nota «4ª sesión».
+
+### Nota post-Hito 1 (2026-10-09, 4ª sesión): fecha mostrada + sin firma
+
+- **Producto exacto (CONFIRMADO):** `Glide® for Voodoo Banshee®` (nombre
+  mostrado en Propiedades; corrige la transcripción aproximada de la 3ª
+  sesión). Resto de la ficha intacto (2.60.0.658, SHA-256 verificado).
+- **Fecha mostrada en Propiedades (CONFIRMADO como dato mostrado):**
+  domingo 2019-09-15 00:54:48. Campo específico (creación/modificación)
+  NO identificado: no atribuir a ninguno.
+- **Firma digital (CONFIRMADO ausencia observada):** ninguna pestaña de
+  firmas digitales ni firma visible en las propiedades consultadas.
+- **Interpretación (documentada):** metadatos compatibles con Glide de 3dfx
+  / Voodoo Banshee; fecha + ausencia de firma NO determinan si la DLL es
+  original, redistribuida, modificada o de un paquete posterior; el hash
+  identifica el contenido, no su procedencia o autenticidad; la carga es
+  pista relevante, no demuestra la API de renderizado ni descarta un
+  wrapper. `3dfxSpl2.dll` = pantalla de inicio (S-21), no prueba de
+  renderer. I-21/I-22 pendientes, sin causa definitiva.
+- **Siguiente diagnóstico:** pendiente de definir (Fase 1). No se solicitan
+  de nuevo metadatos ni hash ya facilitados.
 
 ## Evaluación de alternativas de entorno (2026-10-09; Hito 1 = vía A)
 
 > Hito 1 (2026-10-09): primera config observada funcionando (vía A:
 > Win11 64-bit + F-05 manual + imagen como D:, sin parches). Veredicto
-> general de compatibilidad: pendiente (una sola prueba; ficha Glide
-> registrada, originalidad/wrapper pendientes).
+> general de compatibilidad: pendiente (una sola prueba; ficha + fecha y
+> firma registradas — 4ª sesión; originalidad/wrapper pendientes).
 > Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
 > WinMM; instalador 16-bit roto en moderno → F-05).
 
@@ -211,8 +225,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   exactos; wrapper (nombre+versión+config); unidad óptica o imagen con
   TOC; herramientas de captura.
 - **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; Hito 1
-  ejecutado una sola vez (ficha Glide registrada; originalidad/wrapper
-  pendientes); «correcto» de época
+  ejecutado una sola vez (ficha + fecha/firma — 4ª sesión;
+  originalidad/wrapper pendientes); «correcto» de época
   inalcanzable aquí.
 - **Sirve para:** P0 (instalación, detección CD lógica, registro,
   guardado, admin) + P1 observación (FPS relativo, modos modernos,
@@ -291,12 +305,13 @@ contra época cuando exista.
 - **Hechos confirmados:** base EU-Glide estática (inventario); instalador
   roto en moderno (F-05); rutas MCI/DSound estáticas; wrappers catalogados
   (T-01…T-06) sin probar; Hito 1: F-05 manual + arranque + nivel jugable
-  en Win11 64-bit (3ª sesión: ficha Glide registrada; wrapper pendiente).
+  en Win11 64-bit (4ª sesión: ficha + fecha/firma; wrapper pendiente).
 - **Recomendaciones:** empezar por A; usar B para repetición P0; reservar C
   para referencia; contrastar 2 wrappers antes de concluir render/timing.
 - **Incógnitas:** specs del PC del Hito 1 (build/GPU AMD?/driver); TOC de
   la imagen montada; refrescos soportados; causa admin; origen de la
-  `glide2x` (fechas/firma: siguiente paso); resto de valores `.reg` (1 vez OK).
+  `glide2x` (fecha mostrada 2019-09-15, sin firma; diagnóstico pendiente);
+  resto de valores `.reg` (1 vez OK).
 - **Decisiones del mantenedor:** completar specs + captura; VM sí/no;
   HW época sí/no (+modelos); herramientas de captura; momento de Fase 2.
 

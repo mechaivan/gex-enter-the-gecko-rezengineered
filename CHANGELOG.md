@@ -2,6 +2,23 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Hito 1 (4ª sesión): fecha/firma Glide + plan de publicación
+
+- TESTING.md: nota 4ª sesión — producto exacto `Glide® for Voodoo Banshee®`
+  (precisión de transcripción); fecha mostrada en Propiedades 2019-09-15
+  00:54:48 (campo sin identificar, no atribuir); sin pestaña/firma digital
+  visible. Fecha + ausencia de firma NO determinan procedencia; hash
+  identifica contenido, no autenticidad; carga = pista, no prueba de API
+  ni descarte de wrapper. I-21/I-22 sin causa definitiva.
+- Publicación futura (planificación, nada implementado): BUILD.md (requisitos
+  de distribución BYO + validación local), LICENSE.md §5 (evaluación
+  jurídica por método, 6 métodos, pendiente) y §6 (lista de revisión:
+  licencias, avisos, dependencias, historial, privacidad, docs), ROADMAP
+  (6 hitos transversales, todos pendientes).
+- README: resumen inglés corregido (`*Gex: Enter the Gecko* — REZengineered`).
+- RESEARCH/COMPAT/KNOWN/GOALS sincronizados (4ª sesión). Fase 1 en curso;
+  RE no iniciada; exe intacto. Sin autorización legal declarada.
+
 ## 2026-10-09 — 0.0.0 — Hito 1 (3ª sesión): ficha Glide Banshee 2.60 + SHA-256
 
 - TESTING.md: nota 3ª sesión — `SysWOW64\glide2x.dll` (1630208 B):

@@ -137,6 +137,23 @@ si la investigación demuestra que es necesario.
   no es una fase de implementación (ver MODERNIZATION_GOALS.md).
 - Nada de esta fase compite con Windows ni con el objetivo principal.
 
+## Publicación pública (hitos transversales ⬜ — no iniciados)
+
+> Secuencia de publicación futura, en orden de prioridad actual. Nada
+> completado; no publicar hasta cerrar la revisión de distribución.
+
+- [ ] Documentación y diagnóstico: registro de compatibilidad + pruebas.
+- [ ] Diseño técnico: método de modernización documentado (Fase 3+), sin
+  distribuir materiales protegidos.
+- [ ] Prototipo interno: comprobar con copia legítima, originales intactos
+  cuando el diseño lo permita.
+- [ ] Pruebas y recuperación: instalación, funcionamiento, copias,
+  restauración, desinstalación.
+- [ ] Revisión de distribución: repo, historial, dependencias, licencias y
+  método de modificación (ver LICENSE.md §5–§6).
+- [ ] Preparación pública: avisos, instrucciones y docs antes de anunciar
+  en GitHub, foros o Discord.
+
 ---
 
 Leyenda: ✅ completada · 🟡 en curso · ⬜ pendiente

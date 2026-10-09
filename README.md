@@ -2,8 +2,9 @@
 
 # Gex: Enter the Gecko — REZengineered
 
-> **English summary:** REZengineered is a reverse-engineering, preservation and
-> modernization project for the original 1998 PC port of *Gex: Enter the Gecko*.
+> **English summary:** *Gex: Enter the Gecko* — REZengineered is a
+> reverse-engineering, preservation and modernization project for the
+> original 1998 PC port.
 > Goal: understand how the PC version really works, document every known issue
 > and existing community fix with evidence, and only then implement native,
 > well-understood fixes — without redistributing proprietary game files.

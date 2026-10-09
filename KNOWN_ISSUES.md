@@ -230,8 +230,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** Hito 1 ([TESTING.md](TESTING.md)), observación directa.
 - **Hipótesis (no confirmadas):** modo de vídeo de época escalado por
   wrapper/GPU/monitor; viewport del juego no centrado en el modo
-  elegido. Renderer: `glide2x` cargada, ficha registrada (3ª sesión);
-  originalidad/wrapper pendientes, sin causa atribuida.
+  elegido. Renderer: `glide2x` cargada, ficha + fecha/firma (4ª sesión);
+  originalidad/wrapper pendientes, sin causa definitiva atribuida.
 - **2ª sesión (2026-10-09):** repetido (4:3, bandas arriba/izquierda, HUD
   desalineado) con `glide2x.dll` cargada. Causa sigue UNKNOWN.
 - **Estado:** OBSERVADO 2 veces (causa UNKNOWN; modo/resolución sin medir).

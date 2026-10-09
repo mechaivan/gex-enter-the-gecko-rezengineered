@@ -302,8 +302,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   y la `3dfxSpl2.dll` cargada (2ª sesión). Por sí sola no dice nada sobre
   el renderer activo.
 - Confianza: media-alta como identidad del fichero; nula para versiones
-  concretas de `glide2x` (ficha registrada en TESTING 3ª sesión:
-  Banshee 2.60.0.658 + SHA-256; originalidad/wrapper pendientes).
+  concretas de `glide2x` (ficha + fecha/firma en TESTING 4ª sesión:
+  Banshee 2.60.0.658, fecha mostrada 2019-09-15 sin campo identificado,
+  sin firma visible, SHA-256; originalidad/wrapper pendientes).
 - Corroboración propia (3ª sesión): la `3dfxSpl2.dll` cargada declara
   `3dfx Splash Screen` 1.0.0.4 — coherente con esta identidad (splash,
   no renderer).
@@ -339,7 +340,8 @@ que habrá que verificar contra el juego real (Fase 1–2):
 ### Hipótesis abiertas (NO confirmadas)
 
 - Origen de la `glide2x.dll` cargada: original, redistribuida, modificada
-  o wrapper con metadatos 3dfx (ficha en TESTING.md 3ª sesión; UNKNOWN).
+  o wrapper con metadatos 3dfx (ficha + fecha/firma en TESTING.md 4ª
+  sesión; UNKNOWN).
 - Lógica/timing acoplados al framerate (I-01).
 - Intro en códec Indeo (I-14) — hipótesis DÉBIL tras Lote 1 (hilo VOGONS no
   resuelto, fuente única sin validar); escritura HKLM causa de I-17.

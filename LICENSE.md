@@ -49,3 +49,41 @@ duda legal sobre un material, se documenta la duda y no se publica.
 Gex y marcas relacionadas pertenecen a sus respectivos propietarios. Este es
 un proyecto de preservación sin afiliación con Crystal Dynamics, Eidos,
 Square Enix, Midway, Ubisoft ni Limited Run Games.
+
+## 5. Método de modificación: evaluación jurídica pendiente (planificación)
+
+Pedir al usuario una copia legítima NO autoriza automáticamente cualquier
+modificación o distribución. Cuando el diseño técnico esté definido
+(Fase 3+), evaluar por separado cada método según su implementación
+concreta, los materiales distribuidos y la legislación aplicable; incluir
+una revisión jurídica específica antes de publicar. Sin declarar ningún
+método legal o ilegal sin base suficiente. Métodos a distinguir:
+
+1. Herramientas externas que no modifican archivos del juego.
+2. Parches que el usuario aplica localmente.
+3. Parches binarios distribuibles con datos derivados del ejecutable.
+4. DLL o componentes propios que interactúan con el juego.
+5. Ejecutables modificados o distribuidos directamente.
+6. Herramientas que sustituyen/transforman archivos durante la instalación.
+
+Estado: PENDIENTE (sin diseño técnico todavía; sin asesoramiento jurídico).
+
+## 6. Publicación pública: lista de revisión (todo pendiente)
+
+- Licencias: el código propio ya es MIT y la doc CC BY 4.0 (§1–§2, solo
+  materiales originales, nunca derechos de Gex); confirmar idoneidad antes
+  de publicar y documentar cualquier cambio.
+- Avisos: mantener visible que REZengineered es un proyecto de aficionados
+  independiente y no oficial, sin afiliación ni respaldo de los titulares;
+  identificar marcas/derechos de terceros con prudencia; el aviso NO
+  sustituye autorizaciones que puedan ser necesarias.
+- Dependencias: revisar licencias/condiciones de toda dependencia,
+  biblioteca o herramienta de terceros incluida o recomendada.
+- Historial: auditar repo + historial Git antes de hacerlo público (exes
+  originales, recursos protegidos, imágenes de disco, credenciales, datos
+  personales); recordar que borrar del último commit no borra el historial:
+  si hay protegidos, planificar limpieza apropiada antes de publicar.
+- Privacidad: no incluir rutas personales, datos privados ni detalles de
+  configuración local innecesarios.
+- Docs de usuario: instalación, actualización, solución de problemas,
+  restauración y desinstalación comprensibles (ver BUILD.md).

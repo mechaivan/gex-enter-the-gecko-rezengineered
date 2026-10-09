@@ -70,7 +70,7 @@ CD-check). Las preguntas profundas de cada FA siguen TO INVESTIGATE.
 Hito 1 (2026-10-09, ver TESTING.md): primera evidencia runtime para FA-11
 (valores `.reg` funcionan 1 vez), FA-12 (imagen `D:` aceptada), FA-09
 (música/SFX audibles) y FA-14 (observación multimonitor); FA-02/FA-03:
-`glide2x` cargada + ficha registrada (3ª sesión), origen/wrapper UNKNOWN.
+`glide2x` cargada + ficha + fecha/firma (4ª sesión), origen/wrapper UNKNOWN.
 Estados FA sin cambiar.
 
 ### Cobertura documental FA-01…FA-15 (2026-10-09, Fase 1)
