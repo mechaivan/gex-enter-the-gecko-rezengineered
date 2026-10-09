@@ -573,6 +573,34 @@ fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
 - Confianza: alta (metadatos+hashes Drive, TXT íntegro); resultado
   funcional = observación sin instrumentar.
 
+## S-26 — E-1: estático comparativo F-03 (ejecutado 2026-10-09)
+
+Método: descargas Drive→Arena verificadas por hash (md5+sha256 OK
+las 3); análisis solo-lectura local (pefile 2024.8.26, binutils);
+copias eliminadas tras el análisis. TXT md5 `2fff411e…3cd4d5`.
+
+- **Huellas PE (los 3: x86 GUI, 5 secciones, sin versión, sin Rich,
+  sin delay/bound, mismo CRT):** link ORIG 1998-05-18, F03-EU
+  1998-06-29, F03-US 1998-06-24; entries distintos; stacks iguales.
+- **F03-EU = BUILD DISTINTA, no parche:** 82.9% bytes difieren
+  (55016 runs), 1/381 bloques 4KB idénticos, 5/5 secciones md5≠
+  (.text +1024, .data +512). EUvsUS: 67.3% difieren, 0 bloques
+  iguales → dos builds de época separadas, una por región.
+- **Imports: SIN nueva API de timing.** Sets ORIG↔EU idénticos salvo
+  +`mciGetErrorStringA` (WINMM, diagnóstico MCI, no timing). Timing
+  en los 3 = `Sleep`+`GetTickCount` y nada más (sin QPC ni mm-timers).
+  Glide 38/38/38 idénticos; US también Glide-only (sin D3D); US sin
+  `GetDiskFreeSpaceA` (trivia). Total ORIG: 132 funcs.
+- **Strings:** `_demo` solo EU/US (path defecto `…\\Gex23dfx_demo`;
+  ORIG: `…\\Gex23dfx`); `%s\\GEX2…` añadido en EU/US; «DEMO MODE»×2
+  en los 3; 0 strings FPS; kfusam ORIG==EU, US extendido (01–14).
+- **Hipótesis líder (no probada):** exes F-03 de línea demo/build
+  junio-1998; el «límite» es conductual-emergente, no parche
+  quirúrgico. Localización a nivel código → Fase 2.
+- **E-1.1 pendiente:** hash del exe *probado* en copia B (lado
+  mantenedor) vs pin `3198350e…`. E-2 pendiente de autorización.
+- Confianza: alta (bytes verificados, herramientas estándar).
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)

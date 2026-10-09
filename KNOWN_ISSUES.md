@@ -38,8 +38,12 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   acelerada (acoplamiento sim↔frame OBSERVADO); audio-rate
   independiente (observado, triggers sin probar); mecanismo
   pendiente (E-1/E-2).
+- **E-1 (2026-10-09, hechos):** F03-EU = build 1998-06-29 (no parche
+  quirúrgico); SIN nueva API timing (mecanismo interno o de build);
+  path `_demo` (hipótesis línea demo). FPS altos sin speedup
+  exigiría desacoplar sim↔render (inferencia; ingeniería nueva).
 - **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
-  sin localizar (E-1/E-2 pendientes de autorización).
+  a nivel código sin localizar (Fase 2); E-1.1+E-2 pendientes.
 
 ### I-02 — Límite de FPS distinto según versión/parche
 

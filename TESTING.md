@@ -82,7 +82,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (en Drive + hashes; P-F03/B parcial 42–44+speedup; E-1/E-2 pendientes) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 ejecutado: build distinta, sin nueva API timing; E-1.1+E-2 pendientes) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
 ## Prueba preparada P-F03 — A/B exe EU F-03 vs original (PENDIENTE DE AUTORIZACIÓN)
@@ -155,10 +155,11 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   triggers sin probar); nº 42–44 no redondo ⇒ techo del sistema, no
   cap diseñado (inferencia).
 
-## E-1 — Captura estática F-03 (solo lectura, PENDIENTE AUTORIZACIÓN)
+## E-1 — Captura estática F-03 (EJECUTADO 2026-10-09, solo lectura)
 
-> Sin ejecutar nada; sin tocar originales/registro/instalación.
-> Precede a cualquier conclusión sobre el mecanismo.
+> Ejecutado en Arena con descargas verificadas (supera a los scripts
+> de abajo, que se conservan como referencia reproducible). Sin
+> ejecutar nada; originales/registro/instalación intactos.
 
 - **E-1.1 identidad:** `Get-FileHash` (MD5+SHA256) del exe probado en
   copia B → debe ser md5 `3198350eb398db9a64771842d7781b4b`,
@@ -182,6 +183,12 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
 'difieren='+$d+' de '+$n+' primero=0x'+$first.ToString('X')+' ultimo=0x'+$last.ToString('X')}
 ```
 - **Criterio:** E-1.1 OK + imports/versión/arch de ambos + conteo diff.
+- **Resultado (2026-10-09):** descargas md5+sha256 OK (3/3); PE x86
+  GUI ×3, links 05-18/06-29/06-24; EU = build distinta (82.9% ≠);
+  imports sin nueva API timing (+`mciGetErrorStringA` solo); timing
+  = `Sleep`+`GetTickCount`; path `_demo` en EU/US; EU≠US (67.3% ≠).
+  Detalle: S-26 + F-03. **E-1.1 pendiente:** paste `Get-FileHash`
+  del exe probado en copia B (2 líneas) para cerrar identidad.
 
 ## E-2 — Micro-test sim-vs-FPS (PENDIENTE AUTORIZACIÓN)
 

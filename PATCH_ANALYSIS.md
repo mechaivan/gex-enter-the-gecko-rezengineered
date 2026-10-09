@@ -13,6 +13,8 @@
 > pendiente, licencias comprobadas (MIT solo R-04).
 > P-F03/B (2026-10-09): binarios F-03 en Drive + rama B ejecutada
 > (42–44 FPS + speedup, observación); E-1/E-2 pendientes.
+> E-1 (2026-10-09, ejecutado): F03-EU = build 1998-06-29 (no parche);
+> sin nueva API timing; path `_demo`; E-1.1+E-2 pendientes.
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -195,10 +197,18 @@ Reglas:
 - **Prueba P-F03:** P-F03/B EJECUTADO parcial (2026-10-09,
   observación mantenedor): B = 42–44 FPS (menú+juego), cinemáticas
   ≈15, sim acelerada, audio normal. Rama «FPS↑» (inesperada) →
-  identidad por confirmar (E-1.1). E-1 (estático solo-lectura) +
-  E-2 (micro-test) pendientes de autorización. Ver TESTING.
-- **Estado:** BINARIOS CUSTODIADOS (hashes Drive) + P-F03/B PARCIAL;
-  estático profundo pendiente (E-1, lado mantenedor).
+  identidad por confirmar (E-1.1). E-2 pendiente de autorización.
+- **E-1 EJECUTADO (2026-10-09, Arena, solo lectura; ver S-26):**
+  descargas verificadas por hash; F03-EU = build distinta ligada
+  1998-06-29 (82.9% bytes ≠, 55016 runs, 1/381 bloques 4KB =);
+  imports SIN nueva API timing (solo +`mciGetErrorStringA`;
+  timing = `Sleep`+`GetTickCount` en los 3); path defecto
+  `…\\Gex23dfx_demo` (ORIG: sin `_demo`); EUvsUS = builds
+  separadas (67.3% ≠). Hipótesis líder: línea demo junio-1998
+  con conducta emergente, no parche quirúrgico. Localización
+  código → Fase 2. E-1.1 (hash exe probado) pendiente mantenedor.
+- **Estado:** E-1 EJECUTADO (estático completo salvo E-1.1);
+  mecanismo a nivel código pendiente (Fase 2); E-2 pendiente.
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)
 

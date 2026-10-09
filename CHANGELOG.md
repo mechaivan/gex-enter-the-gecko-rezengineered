@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — E-1: F03-EU es build junio-1998, sin nueva API timing
+
+- Descargas Drive→Arena verificadas (md5+sha256 3/3); análisis
+  solo-lectura local (pefile+binutils); copias eliminadas después.
+- RESEARCH S-26 (nuevo): huellas PE (links 05-18/06-29/06-24, x86
+  GUI, mismo CRT); EU = build distinta (82.9% bytes ≠, 1/381
+  bloques =); imports sin nueva API timing (+mciGetErrorStringA;
+  Sleep+GetTickCount únicos); path `_demo` EU/US; EU≠US (67.3% ≠).
+- PATCH F-03 + TESTING E-1 (ejecutado; scripts superados pero
+  conservados) + KNOWN I-01 (mecanismo interno/de build) + STATE.
+  E-1.1 (hash exe probado) pendiente mantenedor; E-2 pendiente.
+  Panel intacto (sin hito).
+
 ## 2026-10-09 — 0.0.0 — P-F03/B: binarios F-03 + rama B (42–44 + speedup)
 
 - RESEARCH S-25 (nuevo): `F-03_FPS_Limiter/` en Drive (EU 1559040 B
