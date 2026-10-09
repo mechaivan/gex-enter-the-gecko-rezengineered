@@ -58,7 +58,9 @@
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
   F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
   diffs binarios pendientes (Fase 2).
-- [ ] Cubrir FA-01…FA-15 a nivel documental.
+- [~] Cubrir FA-01…FA-15 a nivel documental: matriz de cobertura
+  (2026-10-09, MODERNIZATION_GOALS) con estados y lagunas; toda la
+  dinámica pendiente (Fase 2+).
 - [x] Inventariar S-14 (setup package speedrun): metadatos + hashes +
   inventario nominal (22 entradas) + README leído (2026-10-09, carpeta
   `S-14_extracted`, solo lectura). Análisis binario → Fase 2.

@@ -306,6 +306,8 @@ Evidencia estática propia sobre los originales EU (ver
 - Música en pistas CD: TOC 1 datos + 16 CD-DA, `mciSendCommandA` importado.
 - Joystick vía WinMM (`joyGetPosEx`); sin imports a DirectInput en EU.
 - Instalador InstallShield 5.x (stub NE 16-bit + CABs `ISc(` v4).
+- Patrón de nombre de guardado `GEX2%d%d%c.GEX` en strings del exe EU
+  (ubicación/directorio UNKNOWN; PCGW «save location» vacía).
 
 ### Reportado por fuentes secundarias (pendiente de verificación propia)
 

@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Matriz documental FA-01…FA-15 (sin RE)
+
+- MODERNIZATION_GOALS: nueva sección de cobertura documental (15 filas:
+  conocido, evidencia+fuente, tipo, relevancia EU, falta, siguiente
+  acción, estado). 4 BASE DOCUMENTADA (FA-01/02/03/09), 8 PARCIAL, 3
+  PENDIENTE (FA-04/07/15). Tabla FA intacta (todo TO INVESTIGATE).
+- RESEARCH: patrón de guardado `GEX2%d%d%c.GEX` (estático) aflorado a la
+  lista verificada (ubicación UNKNOWN). Sin nuevos IDs, sin binarios.
+- Sync: PROJECT_STATE/ROADMAP (FA documental [~], dinámica → Fase 2+).
+- Fase 1 en curso (no cerrada), Fase 2 sin iniciar, M-25 PROPOSED.
+
 ## 2026-10-09 — 0.0.0 — Revisión cruzada F-01…F-12 + S-14 (solo documental)
 
 - PATCH_ANALYSIS: nueva sección de revisión cruzada (tabla de seguimiento

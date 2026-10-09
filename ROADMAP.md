@@ -37,7 +37,8 @@ si la investigación demuestra que es necesario.
   estática propia añadida; ningún issue reproducido todavía).
 - [x] Registrar propuesta M-25 (voice pack UK/USA, PROPOSED, P3, sin fase)
   + fuente S-20 (reparto vocal) — solo documentación (2026-10-09).
-- [ ] Cubrir las áreas FA-01…FA-15 a nivel documental.
+- [~] Cubrir las áreas FA-01…FA-15 a nivel documental: matriz de
+  cobertura (2026-10-09); dinámica y RE pendientes (Fase 2+).
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [ ] Definir máquina Windows de testing + protocolo de captura.
 - [x] Inventariar S-14 (setup package): metadatos + hashes + inventario
