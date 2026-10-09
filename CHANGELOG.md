@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Panel de progreso v2.0: héroe MAIN + jerarquía mejorada
+
+- `docs/PROJECT_STATUS.svg` v2.0 (760×960): héroe MAIN (40%, 14/35 PTS,
+  6/12 hitos, EN CURSO) con leyenda `100% MAIN = PRIMERA VERSIÓN JUGABLE
+  PREPARADA PARA PRUEBAS` y aviso de no distribución; global 16% (47/285)
+  independiente; 5 áreas con nombres claros y estados texto+color; resumen
+  CONSEGUIDO/EN INVESTIGACIÓN/SIGUIENTE HITO. Estilo HUD negro/morado.
+- `docs/PROJECT_STATUS.md` v2.0: alcance MAIN verificable en 12 hitos
+  (6 completados con evidencia: inventario/tests/Hito 1/Fase 1; 6
+  pendientes incl. API gráfica y wrapper); distingue jugable vs
+  distribuible vs completo; procedimiento conjunto SVG+MD.
+- README: aclaración MAIN vs global. Cifras de áreas sin cambios.
+  Sin preview raster (entorno sin renderizador; auditoría estática).
+
 ## 2026-10-09 — 0.0.0 — Panel SVG de progreso + metodología (PROJECT_STATUS v1.0)
 
 - Nuevo `docs/PROJECT_STATUS.svg`: panel de diagnóstico retrofuturista

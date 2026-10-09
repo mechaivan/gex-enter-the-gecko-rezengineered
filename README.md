@@ -43,6 +43,8 @@ Ver [PROJECT_STATE.md](PROJECT_STATE.md) para el estado detallado.
 
 Metodología, evidencias y cifras: [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
+El panel destaca MAIN (primera versión jugable) como hito de investigación y muestra por separado el progreso global de la modernización.
+
 ## Principio fundamental
 
 > **Primero entendemos Gex. Después lo reingenierizamos.**

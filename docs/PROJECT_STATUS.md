@@ -2,14 +2,20 @@
 
 > Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
 > El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v1.0** · Fecha: **2026-10-09** ·
-> Ref: último commit con evidencia incorporada **`e9e846c`**.
+> Versión del panel: **v2.0** · Fecha: **2026-10-09** ·
+> Ref: último commit con evidencia incorporada **`e9e846c`** (sin cambios;
+> v2.0 no añade evidencia nueva, solo la métrica MAIN y el resumen).
 
 ## 1. Propósito
 
 Medir el avance real de REZengineered con cifras trazables a objetivos,
 hitos y evidencias documentadas. Los porcentajes son **estimaciones de
 avance documentadas**: no miden la calidad del juego ni predicen fechas.
+
+Dos métricas independientes: **MAIN** = avance hacia la primera versión
+jugable preparada para pruebas (§4.9); **progreso general** = avance del
+conjunto de la hoja de ruta (§4.8). MAIN al 100% no implica proyecto
+terminado, pulido al máximo ni distribución pública autorizada.
 
 ## 2. Alcance del panel v1 (5 áreas)
 
@@ -145,22 +151,80 @@ verificaciones y revisiones siguen pendientes. Nada implementado.
 | A4 Calidad de vida y UX | 0/64 | 0% |
 | A5 Preparación para publicación | 12/36 | 33% |
 | **GLOBAL** | **47/285** | **16%** |
+| **MAIN (1ª jugable)** | **14/35 · 6/12 hitos** | **40%** |
 
 Comprobación: 20+15+0+0+12=47 ✓ · 62+54+69+64+36=285 ✓ ·
 47/285=16.49%→16% · 20/62=32.26%→32% · 15/54=27.78%→28% ·
 12/36=33.33%→33%.
+MAIN: 2+3+3+2+2+2=14 ✓ · total 35 ✓ · 14/35=40.0%→40% · hitos 6/12 ✓.
+
+## 4.9 MAIN — primera versión jugable preparada para pruebas (14/35 → 40%)
+
+**Definición.** MAIN mide el avance hacia una versión mínima que permite
+probar el juego y las mejoras implementadas: arranque reproducible desde
+una copia legítima, sesión básica de pruebas posible (controles, gráficos
+y audio suficientes), incidencias críticas resueltas o aceptadas por
+escrito, y documentación de instalación/validación/limitaciones. Es una
+métrica independiente del progreso general, con su propio denominador.
+
+**Fórmula.** La misma escala de §3 (XS1/S2/M3/L5/XL8) y reglas de §4.1:
+`% MAIN = 100 × puntos completados / 35`, redondeo al entero. Se publica
+además el conteo de hitos (6/12). MAIN reutiliza *evidencias* de las áreas
+(referencias en la tabla) pero nunca sus puntos: sin doble cuenta dentro
+de cada métrica. Investigar, planificar o documentar una solución no
+completa un hito MAIN.
+
+| ID | Hito (condición de aceptación) | Peso | Estado | Evidencia |
+|---|---|---|---|---|
+| MAIN-1 | Original intacto (MD5 del exe verificado, sin sustitución silenciosa) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (MD5 re-confirmado) |
+| MAIN-2 | Método de ejecución reproducible documentado (F-05 + imagen, entorno Win definido) | M=3 | ✓ COMPLETADO | TESTING Hito 1 (ejecutado 1 vez) |
+| MAIN-3 | Arranque hasta sección jugable | M=3 | ✓ COMPLETADO | TESTING Hito 1 (nivel + movimiento) |
+| MAIN-4a | Audio suficiente (música + SFX en config base) | S=2 | ✓ COMPLETADO | TESTING Hito 1 |
+| MAIN-4b | Controles básicos (movimiento del personaje demostrado) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (mapeo → limitación) |
+| MAIN-4c | Gráficos suficientes (I-21 resuelto o aceptabilidad evaluada) | M=3 | ✗ PENDIENTE | I-21 sin causa ni evaluación |
+| MAIN-5 | Críticos resueltos o aceptados por escrito (I-21/I-22) | L=5 | ✗ PENDIENTE | KNOWN I-21/22 sin causa |
+| MAIN-6 | Guías de usuario (instalación, requisitos, validación, copias, restauración, desinstalación) | L=5 | ✗ PENDIENTE | Solo requisitos (BUILD) |
+| MAIN-7 | Lista BYO explicada (qué aporta cada usuario) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (copia + imagen) |
+| MAIN-8 | Procedimiento de validación repetible + lista de limitaciones | M=3 | ✗ PENDIENTE | Checklist MAIN inexistente |
+| MAIN-9 | Sin materiales protegidos en el entregable | S=2 | ✗ PENDIENTE | Verificable al empaquetar |
+| MAIN-10 | Checklist de aceptación MAIN superado | M=3 | ✗ PENDIENTE | Checklist sin definir |
+
+**Fuera del alcance de MAIN** (siguen en el progreso general): M-01…M-03
+(config), M-04/M-05 (gráficos), M-06…M-11 (input moderno), M-12…M-17
+(gráficos), M-18/M-19/M-20, M-21/M-22, M-23, M-24, M-25, M-26,
+FA-04/05/07/08/15 en profundidad y RE Etapa B+
+(más allá de lo que exija MAIN-5). El método de corrección de I-21/I-22 se
+decidirá en Fase 3+; MAIN no presupone ninguna implementación concreta.
+
+**100% MAIN = PRIMERA VERSIÓN JUGABLE PREPARADA PARA PRUEBAS.** No significa
+proyecto terminado ni pulido máximo. Tres niveles distintos: (1) *jugable
+para pruebas* (MAIN 100%); (2) *autorizada para distribución pública*
+(requiere revisión legal, licencias y empaquetado: LICENSE §5–§6, fase
+independiente); (3) *modernización completa* (toda la hoja de ruta).
+
+## 4.10 Zona de resumen del panel (contenido literal del SVG)
+
+Actualizar estas viñetas solo con hechos verificados (§6). Hipótesis, no.
+
+**CONSEGUIDO** (verificado): instalación manual + arranque · nivel jugable
++ audio base · ficha glide2x + fecha/firma · plan publicación documentado.
+**EN INVESTIGACIÓN**: API gráfica efectiva / wrapper (FA-03) · origen de
+glide2x · causa bandas/HUD (I-21) · causa parpadeos multi (I-22).
+**SIGUIENTE HITO**: identificar la API de renderizado efectiva y
+confirmar/descartar wrapper (FA-03, A2.2); método pendiente de definir.
 
 ## 5. Registro de cambios del panel
 
 | Versión | Fecha | Commit | Cambio |
 |---|---|---|---|
-| v1.0 | 2026-10-09 | (este commit) | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
+| v1.0 | 2026-10-09 | cbd7fab | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
+| v2.0 | 2026-10-09 | (este commit) | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
 
 ## 6. Procedimiento de actualización (Arena)
 
 1. Leer este documento + los objetivos afectados por el último trabajo.
 2. Identificar qué criterios de aceptación cambiaron REALMENTE (evidencia).
-3. Actualizar estados y evidencias en las tablas (§4.3–§4.7).
+3. Actualizar estados y evidencias en las tablas (§4.3–§4.7, §4.9–§4.10).
 4. Recalcular con §4.2 (verificar sumas como en §4.8).
 5. Actualizar el SVG con los mismos datos (geometría abajo) + fecha/ref.
 6. Comprobar coherencia SVG ↔ este doc ↔ MODERNIZATION_GOALS ↔ ROADMAP.
@@ -171,13 +235,14 @@ Actualizar solo ante cambios reales de estado; lo editorial no altera
 cifras. Prohibido tocar pesos/criterios/alcance para inflar el progreso;
 todo cambio metodológico se documenta con su impacto en cifras anteriores.
 
-### Geometría del SVG (viewBox 0 0 760 600)
+### Geometría del SVG v2.0 (viewBox 0 0 760 960)
 
-- Barras de área: pista x=230 w=330 → relleno = % × 3.3
-  (A1 105.6 · A2 92.4 · A3 0 · A4 0 · A5 108.9).
-- Barra global: pista x=28 w=532 → relleno = % × 5.32 (16% → 85.1).
-- Textos a actualizar: 6 porcentajes, 6 fracciones de puntos, fecha (UPD),
-  referencia (REF), versión del panel si cambia la metodología.
+- Barra MAIN: pista x=44 w=480 → relleno = % × 4.8 (40% → 192.0).
+- Barra global: pista x=28 w=560 → relleno = % × 5.6 (16% → 89.6).
+- Barras de área: pista x=88 w=472 → relleno = % × 4.72
+  (A1 151.0 · A2 132.2 · A3 0 · A4 0 · A5 155.8).
+- Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha
+  (UPD), referencia (REF), versión del panel, viñetas del resumen.
 - Con 0% no hay rect de relleno (añadirlo al superar 0, misma x/y/h).
 - Colores: marco #7c3aed · texto #e9d5ff · dim #8b5cf6 ·
   verde #4ade80 · ámbar #fbbf24 · gris #6b7280 · fondo #07030d.
