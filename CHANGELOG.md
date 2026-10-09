@@ -2,6 +2,12 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — E-2.1: copias A/B verificadas (hashes match)
+
+- `E2_A_ORIGINAL` = original (md5), `E2_B_F03EU` = F-03 EU (sha256);
+  principal conservada. Lanzamiento sin registro (carpeta propia).
+  Mediciones pendientes de orden de inicio. Panel intacto.
+
 ## 2026-10-10 — 0.0.0 — E-2.0: backup original verificado (falsa discrepancia MD5)
 
 - Paste mantenedor = pin repo = metadato Drive

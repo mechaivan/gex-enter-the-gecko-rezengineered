@@ -213,6 +213,10 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   mayúsculas de PowerShell, sin error de transcripción).
   Fuente de copia A verificada; E-2 sigue bloqueado hasta
   preparar A/B aisladas sin registro.
+- **E-2.1 copias A/B (2026-10-10, OK):** `E2_A_ORIGINAL` md5 match
+  (original), `E2_B_F03EU` sha256 match (F-03 EU); principal
+  conservada; lanzamiento sin registro (desde carpeta propia,
+  InstallDir Hito 1 intacto). Mediciones aún no iniciadas.
 
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 
