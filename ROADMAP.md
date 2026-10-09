@@ -30,7 +30,8 @@ si la investigación demuestra que es necesario.
   Glide exclusivo, rama `3dfx\release_europe`), dependencias
   (Glide/WinMM/DSound; sin D3D ni DirectInput en EU), claves de
   registro, CD-audio (TOC 1+16). Dinámico: pendiente.
-- [ ] Analizar fixes existentes (qué cambian técnicamente).
+- [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
+  F-01…F-12 verificadas en fuente; diffs binarios en Fase 2.
 - [~] Lista de problemas conocidos con niveles de evidencia (evidencia
   estática propia añadida; ningún issue reproducido todavía).
 - [ ] Cubrir las áreas FA-01…FA-15 a nivel documental.

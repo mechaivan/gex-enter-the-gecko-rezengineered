@@ -54,7 +54,8 @@
   CD-audio): estático hecho; dinámico pendiente.
 - [~] Problemas conocidos con evidencia: estática propia añadida; ningún
   issue reproducido todavía.
-- [ ] Analizar fixes existentes (qué cambian técnicamente).
+- [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
+  F-01…F-12 verificadas en fuente; diffs binarios pendientes (Fase 2).
 - [ ] Cubrir FA-01…FA-15 a nivel documental.
 - [ ] Inventariar S-14 (setup package speedrun): README + parches + hashes
   (cuando se indique; no mover datos al sandbox).

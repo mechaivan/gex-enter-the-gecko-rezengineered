@@ -19,6 +19,9 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   considera necesario un límite de 30 FPS para que sea jugable. Incluso a
   60 FPS iría demasiado rápido (afirmación del autor de nGlide).
 - **Fuentes:** foro Zeus Software (nGlide); parche "3DFX FPS Limiter".
+- **Lote 1 (2026-10-09):** F-03 verificado (2×GEX3D.EXE EU/US, solo sistemas
+  3DFX + Win 98–XP); F-04 sin pieza separada (probable duplicado de F-02);
+  caps PCGW 30/24 re-verificados.
 - **Hipótesis (no confirmada):** lógica/timing ligada al número de frames.
 - **Estado:** DESCONOCIDO (pendiente de reproducción y localización en el exe).
 
@@ -27,6 +30,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** PCGamingWiki indica cap de 30 FPS normal y 24 FPS con el
   parche D3D no oficial.
 - **Fuente:** PCGamingWiki (tabla de vídeo).
+- **Lote 1 (2026-10-09):** re-verificado en la página (sin cambios).
 - **Estado:** DESCONOCIDO.
 
 ## Render / vídeo
@@ -95,10 +99,15 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 
 - **Descripción:** la música Red Book CD no suena correctamente en Windows
   moderno; varios usuarios reportan ausencia total de audio o de música.
-- **Fuentes:** PCGamingWiki, Reddit r/gex, MyAbandonware.
+- **Fuentes:** PCGamingWiki, Reddit r/gex, MyAbandonware, foro Zeus (t=743),
+  Abandonware France, Tgames (F-10).
 - **Evidencia Fase 1:** base confirmada (16 pistas CD-DA en la TOC +
   `mciSendCommandA` importado). El fallo en Windows moderno sigue sin
   reproducir.
+- **Lote 1 (2026-10-09):** Zeus (autor nGlide, 2015): haría falta un wrapper
+  winmm; algunos bugs audio existen también en Voodoo real. Un reporte 2024:
+  `_inmm.dll` daría música + loop. AF: el disco debe estar en el PRIMER
+  lector óptico. F-10 es el handler comunitario (D3D/WAV).
 - **Estado:** DESCONOCIDO.
 
 ### I-12 — La música se corta tras completar cada nivel
@@ -106,7 +115,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** un usuario reporta que debe reiniciar el juego tras cada
   nivel para recuperar la música.
 - **Fuente:** Reddit r/gex.
-- **Estado:** DESCONOCIDO (un solo reporte).
+- **Reporte adyacente (Lote 1):** Abandonware France documenta que la música
+  suena una sola vez por nivel y no se repite salvo abrir el menú de pausa
+  (matiz distinto: sin reinicio). Zeus t=743: la pausa reinicia la música
+  pero no restaura el SFX «1UP».
+- **Estado:** DESCONOCIDO (reportes adyacentes, sin reproducir).
 
 ### I-13 — Controles de volumen del juego sin efecto
 
@@ -122,6 +135,11 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuentes:** MyAbandonware, VOGONS.
 - **Hipótesis (no confirmada):** falta el códec Indeo (ir32_32.dll) o su
   registro en `drivers.desc`.
+- **Lote 1 (2026-10-09):** hilo VOGONS leído íntegro → NO resuelto; la
+  sugerencia Indeo queda como evidencia débil de fuente única (contexto
+  Wine/OSX, sin validar). Reporte adyacente distinto (Zeus t=743, Win7):
+  la intro SÍ se reproduce pero el audio se desincroniza (logo Midway y
+  escena de Gex) + música ausente.
 - **Estado:** DESCONOCIDO.
 
 ## Instalación / arranque
@@ -143,6 +161,10 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Descripción:** el juego exige el CD; problemas de detección con ISOs
   montadas.
 - **Fuente:** MyAbandonware (comentarios).
+- **Lote 1 (2026-10-09):** F-01 incluye No-CD (PAL); F-11 es el No-CD
+  standalone (versión D3D, posible US). Mecanismo exacto UNKNOWN (indicio
+  «NOPs» del autor, sin verificar). Sin CD no hay música (F-11) → cadena
+  con F-10.
 - **Evidencia Fase 1:** mensajes de CD-check presentes en strings del exe
   («A valid Gex: Enter The Gecko CD was not found.»).
 - **Estado:** DESCONOCIDO.

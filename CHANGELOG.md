@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Lote 1: investigación documental de fixes (F-01…F-12)
+
+- PATCH_ANALYSIS: F-01…F-09 re-investigados en sus fuentes (hilos leídos
+  íntegros, citas verbatim) + F-10 (music handler), F-11 (NO-CD D3D) y F-12
+  (debug tool, confirma menú debug en build D3D) catalogados. F-04 queda
+  como probable duplicado de F-02 (sin pieza separada); F-06 no validado
+  (hilo VOGONS no resuelto); t12123 (repack full-game) fuera de alcance.
+- RESEARCH: S-01/S-02/S-03/S-04/S-05/S-08/S-09/S-14 re-verificadas (S-02
+  absorbe el hilo Zeus «No music in Gex 2»: winmm/MCI + `_inmm.dll`).
+- KNOWN_ISSUES: notas Lote 1 en I-01/I-11/I-12/I-14/I-16 (I-14 debilitada a
+  hipótesis débil; I-11/I-12 con nuevos reportes adyacentes).
+- COMPATIBILITY (fila «versión D3D»), REVERSE_ENGINEERING (Etapa D:
+  F-01…F-12), PROJECT_STATE/ROADMAP (Fase 1 [~] en fixes) sincronizados.
+- Historial preservado: entradas anteriores intactas.
+
 ## 2026-10-08 — 0.0.0 — Regla permanente de sincronización + revisión global
 
 - Nueva regla permanente `docs/REPO_SYNC_RULE.md`: cada cambio relevante

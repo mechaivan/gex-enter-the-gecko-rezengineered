@@ -27,7 +27,11 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   versión US, instalación manual con `.reg`, parches F-01–F-04, caps de FPS
   (30 / 24 con parche D3D), CD-audio problemático, sin ratón, crash
   dgVoodoo2+vorpX, nota LAA, requisitos (Win 95/98/ME, P166, 32 MB, DX5).
-- Confianza: media (wiki curada, pero sin verificar por nosotros).
+- Lote 1 (2026-10-09): página releída íntegra. Datos nuevos: sección FPS
+  Limiter (enlaza F-03), enlace alternativo a F-01 + `gex3d_windows10.zip`,
+  save location VACÍA (desconocida), sin ratón, Red Book puede fallar.
+- Confianza: media-alta como hub procedural (wiki curada; no ejecutado por
+  nosotros).
 
 ## S-02 — Foro Zeus Software (nGlide): hilos de compatibilidad Gex
 
@@ -35,29 +39,50 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Datos que aporta: el juego pide 75 Hz; Voodoo2 real 512x384@60; "Gex2 works
   too fast even at 60fps, needs a 30fps cap"; exe capeado en la compat list;
   reportes de "wrong drawing" y "pure virtual function call".
+- Lote 1 (2026-10-09): fila «Gex 2: Enter The Gecko» verificada verbatim
+  («replace 'gex3d.exe' and install patch» → `gex2_patch.zip`, UN solo
+  parche: base del veredicto F-04). nGlide vigente 2.10 (Win XP–11;
+  Glide 2.11/2.60/3.10; 0.99 y 1.03 aún hospedadas); FAQ: «too fast» →
+  activar V-Sync. Hilo «No music in Gex 2» (t=743, 13 posts, 2014→2024)
+  leído íntegro: Zeus pide un wrapper winmm; `_inmm.dll` daría música +
+  loop (1 reporte 2024); bugs presentes también en Voodoo real.
 - Confianza: media-alta en lo observacional (autor del wrapper).
 
-## S-03 — tgames.fr: parche D3D (PAL) + FPS Limiter + configs Win10
+## S-03 — tgames.fr: hub de parches Gex 3D (Tgames) ⭐
 
-- URLs citadas por PCGamingWiki:
-  - Parche D3D: tgames.fr `patch-direct-3d-gex-3d-enter-the-gecko…`
-  - FPS Limiter: tgames.fr `patch-3dfx-fps-limiter…`
-  - Configs Win10: tgames.fr `gex3d_windows10.zip`
-- Estado: localizados, **pendiente de descarga y análisis**.
-- Confianza: desconocida (origen comunitario sin autoría clara).
+- Hilos leídos íntegros en Lote 1 (2026-10-09), autor Tgames (admin, activo
+  desde 2008); descargas solo para miembros (contenido no inspeccionado):
+  - F-01 D3D (PAL): `…/patch-patch-direct-3d-gex-3d-enter-the-gecko-windows-7-8-10-t12116.html` (OP + 6 respuestas).
+  - F-03 FPS Limiter: `…/patch-patch-3dfx-fps-limiter-gex-3d-enter-the-gecko-t12190.html` (OP + «Merci!»).
+  - F-10 music handler: `…/patch-gex-3d-pc-support-des-musiques-sous-windows-7-8-10-t12122.html` (3 posts).
+  - F-11 NO-CD D3D: `…/no-cd-no-cd-gex-3d-enter-the-gecko-version-direct-3d-t12117.html` (solo OP).
+  - F-12 debug tool: `…/trainer-gex-3d-enter-the-gecko-direct-3d-cheats-debug-t12121.html` (solo OP).
+  - Base URL nuevo foro: `https://www.tgames.fr/pc/progs-pc/`.
+- Citados pero no inspeccionados: `gex3d_windows10.zip` (configs Win10/11),
+  `GEX3DFX_PatchD3D_V1.2.zip`, `gex3d_d3d_debugtool.zip` (nombres vistos en
+  hilos/snippets; no descargados).
+- t12123 («Full Game…», repack de juego completo): FUERA DE ALCANCE, no
+  consultado.
+- Confianza: media-alta en lo descriptivo (autor identificado y prolífico;
+  binarios sin verificar por nosotros).
 
 ## S-04 — Zeus Software: `gex2_patch.zip` (exe de reemplazo)
 
 - URL: <https://www.zeus-software.com/files/nglide/gex2_patch.zip>
-- Estado: localizado, **pendiente de descarga y diff binario**.
+- Lote 1 (2026-10-09): fila de compatibilidad + procedimiento AF verificados
+  (payload = `GEX3D.exe` de reemplazo). **Pendiente de descarga y diff
+  binario** (incluye verificar si ya capa a 30 FPS: veredicto F-04).
 - Nota (Abandonware France): contiene `GEX3D.exe` que sobrescribe al original.
 
-## S-05 — VOGONS: "Windows Game - Gex Enter The Gecko"
+## S-05 — VOGONS: "Windows Game - Gex Enter The Gecko" (hilo NO resuelto)
 
 - URL: <https://www.vogons.org/viewtopic.php?t=40033>
 - Datos que aporta: fix del códec Indeo para la intro (`ir32_32.dll` +
   registro `drivers.desc`); pantalla en negro con música de fondo.
-- Confianza: media (contexto Wine, trasladable con cautela a Windows).
+- Lote 1 (2026-10-09): 24 respuestas (2014-07-15→18) leídas íntegras.
+  Resultado: NO RESUELTO (reportero atascado en `wine: command not found`;
+  Jorpho escéptico desde el inicio + aviso sobre binarios; Dominus → WineHQ).
+- Confianza: baja (evidencia débil, fuente única, contexto Wine/OSX).
 
 ## S-06 — Reddit r/gex (reportes de usuarios)
 
@@ -80,12 +105,21 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - URL: <https://www.abandonware-france.org/ltf_abandon/ltf_jeu.php?id=1876>
 - Datos que aporta: nGlide 0.99 (no 1.03) en Vista; procedimiento con
   `gex2_patch.zip`.
-- Confianza: baja-media (datado, probablemente obsoleto).
+- Lote 1 (2026-10-09): ficha (id=1876) + truco «Fonctionnement sous Vista»
+  leídos verbatim. Edición EU FR (Ubi Soft + Pointsoft + Proein ES);
+  Technique: 3DFX obligatoria, música CD exige PRIMER lector, bug de
+  repetición por nivel; voces Gould (US) / Phillips (EU). Hilo antiguo del
+  foro AF («[RELEASE] Patch Direct 3D… V1.0 by Tgames», 2018): URL muerta
+  tras migración a vBulletin 6 — solo snippets de buscador (nombres de
+  ficheros, NOPs, moonjump); NO verificados de primera mano.
+- Confianza: media en lo leído (datado pero verbatim).
 
 ## S-09 — patches-scrolls.de: entradas "patch for 3dfx PC" / "fix PC"
 
 - URL: <https://www.patches-scrolls.de/patch/1826/7>
-- Estado: **pendiente de identificar contenido y autoría**.
+- Lote 1 (2026-10-09): página releída (2 chunks): «Gex II», 16.08.13,
+  «Editiert von: nobody», sin descripciones ni descargas visibles.
+- Estado: **contenido y autoría UNKNOWN**.
 
 ## S-10 — PCGW Community: demo oficial (Toon TV, 6.4 MB)
 
@@ -131,8 +165,11 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   ejecutable, fixes, configuración). Análisis pendiente.
 - Copia de trabajo: `Drive → REZengineered/research/` (copiado 2026-10-08
   desde el enlace público; uso privado de investigación, no redistribuir).
+- Lote 1 (2026-10-09): página releída — NO publica contenidos, README ni
+  hashes; Drive ID coincide con metadatos previos; tamaño sin conciliar
+  (411 MB catalogados vs ~393 MB citados en tarea).
 - Pendiente: extraer README + inventario de parches/herramientas incluidas
-  (requiere descarga en máquina con espacio; 411 MB superan este sandbox).
+  (método seguro: hash → `unzip -l` → solo README; fuera del sandbox).
 - Confianza: media-alta (mismo autor modera el leaderboard PC).
 
 ## S-15 — speedrun.com: PS1 Any% Guide + diferencias de versión (secundaria)
@@ -218,7 +255,8 @@ que habrá que verificar contra el juego real (Fase 1–2):
 ### Hipótesis abiertas (NO confirmadas)
 
 - Lógica/timing acoplados al framerate (I-01).
-- Intro en códec Indeo (I-14); escritura HKLM causa de I-17.
+- Intro en códec Indeo (I-14) — hipótesis DÉBIL tras Lote 1 (hilo VOGONS no
+  resuelto, fuente única sin validar); escritura HKLM causa de I-17.
 - Cámara PC similar a PS1 (L1/R1): **sin evidencia en PC**.
 - Formatos de assets: `FONT.3DF` identificado (textura 3dfx `.3df`);
   `.DFX/.VFX/.SAG/.JAM/.TAD` pendientes (UNKNOWN-PENDING).

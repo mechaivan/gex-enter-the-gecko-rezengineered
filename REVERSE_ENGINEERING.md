@@ -52,14 +52,18 @@
       binario); modos de vídeo; petición de 75 Hz; paths de resolución.
       Selección Glide/D3D solo en US/F-01 (pendiente de binario).
 - [ ] Audio/CD (I-11–I-13): MCI/WinMM/CD-audio; qué ocurre al cambiar de nivel.
-- [ ] FMV (I-14): reproductor de intro; dependencia Indeo.
+- [ ] FMV (I-14): reproductor de intro; dependencia Indeo (hipótesis débil
+      tras Lote 1: sugerencia sin validar en hilo VOGONS no resuelto).
 - [ ] Instalación/CD-check (I-15–I-17): lecturas de registro; detección de CD.
 - [ ] Input (I-18–I-19): teclado + joystick WinMM (sin imports DirectInput
       en EU); confirmar ausencia de ratón.
+- [ ] Menú debug (F-12, Lote 1): localizar el debug menu de desarrolladores
+      en la build D3D (accesible con F1 vía memory patch) — superficie RE.
 
 ### Etapa D — Diffs de parches comunitarios
 
-- [ ] Por cada fix (F-01…F-08): qué bytes/funciones cambian y qué efecto tienen.
+- [ ] Por cada fix (F-01…F-12, según tipo; F-04 pendiente de fusión con
+      F-02): qué bytes/funciones cambian y qué efecto tienen.
 - [ ] Tabla comparativa **Original → Fix → Hipótesis de causa → Propuesta**.
 
 ## 4. Herramientas

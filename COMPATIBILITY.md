@@ -13,6 +13,7 @@
 | PC retail EU         | EU/PAL | Glide/3Dfx (solo)     | Inventario Fase 1 (CONFIRMED: 38 imports glide2x, 0 D3D) |
 | PC retail FR (Pointsoft) | FR | (por determinar)      | Archive.org    |
 | PC OEM Quantum3D Raven | US  | 3Dfx bundle           | Archive.org    |
+| PC versión D3D (carpeta `gex23d`) | ? | Direct3D         | tgames (instalación distinguida de `gex23dfx`; relación con retail US: UNKNOWN) |
 | Demo PC (Toon TV)    | ?      | 3Dfx-only             | PCGW Community |
 
 ## Sistemas operativos (objetivo de testing futuro)
@@ -60,3 +61,6 @@ APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
   física, timing, velocidad de juego y render en hardware de época.
 - Todo resultado futuro debe registrar: versión del juego, OS, GPU, wrapper,
   fix aplicado, FPS medidos y comportamiento observado.
+- Lote 1 (2026-10-09): Tgames distingue instalaciones `gex23dfx` (3DFX) y
+  `gex23d` (D3D); F-10 solo funciona en D3D o 3DFX-parcheada-a-D3D; F-12
+  confirma menú debug en la build D3D.
