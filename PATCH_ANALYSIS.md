@@ -192,18 +192,20 @@ Reglas:
 
 - **Fuente verificada (releída 2026-10-09):**
   <https://www.speedrun.com/gex2/resources/e3dsk> — «PC Version Setup
-  Package» por Mysticore (mod), actualizado hace ~4 años: «everything you
-  need to get the NTSC PC version to run on modern systems, without
-  needing the physical disc… follow the README». Drive ID `1XvJa18j…`
-  coincide con metadatos previos (S-14).
-- **Regla de tarea:** NO descargar/extraer/ejecutar el paquete (~411 MB
-  catalogados; la tarea cita ~393 MB — discrepancia registrada, ambas sin
-  verificar contra bytes). La página NO publica contenidos, README ni
-  hashes → payload DESCONOCIDO.
+  Package» por Mysticore (mod), actualizado hace ~4 años: «Includes
+  everything you need to get the NTSC PC version to run on modern systems,
+  without needing the physical disc. Simply follow the instructions in the
+  README.» Recurso tipo «Patch». Drive ID `1XvJa18j-82iBX1To4VUyuqsfp50xwVYf`
+  (metadatos verificados, S-14).
+- **Inspección documental (2026-10-09, sin descarga/extracción/ejecución):**
+  411301184 bytes (411.3 MB = 392.2 MiB; discrepancia 411/~393 resuelta
+  como redondeo en unidades distintas); SHA-256 `60d9e430…` (completo en
+  S-14); copia `research/` bit-idéntica. La página NO publica contenidos,
+  README ni hashes → payload DESCONOCIDO.
 - **Método futuro seguro (fuera del sandbox):** descargar → hash → `unzip -l`
   → extraer solo README → inventario; jamás ejecutar. Copia de trabajo ya
   custodiada en `Drive → REZengineered/research/` (S-14).
-- **Estado:** METADATOS VERIFICADOS, CONTENIDO NO INSPECCIONADO.
+- **Estado:** METADATOS E INTEGRIDAD VERIFICADOS (hashes), CONTENIDO NO INSPECCIONADO.
 
 ## F-10 — Music Handler D3D/3DFX (WAV + CD) — tgames.fr [NUEVO Lote 1]
 
@@ -260,12 +262,15 @@ Reglas:
 - **Fuente verificada (leída íntegra 2026-10-09):**
   <https://www.tgames.fr/pc/progs-pc/trainer-gex-3d-enter-the-gecko-direct-3d-cheats-debug-t12121.html>
   (OP Tgames 2018-04-09 10:28; 0 respuestas).
-- **Qué es:** «GEX 3D D3D Debug Tool v0.1»: `gex3d_d3d_debugtool.exe` aplica
-  memory patch (antes o después del juego); F1 → debug menu in-game;
-  posibles falsos positivos de antivirus. Solo miembros.
-- **HALLAZGO:** confirma que la build D3D de PC contiene un DEBUG MENU de
-  desarrolladores accesible — superficie RE valiosa (los menús debug suelen
-  exponer funciones/estados internos).
+- **Qué es (DECLARADO POR LA FUENTE):** «GEX 3D D3D Debug Tool v0.1»:
+  `gex3d_d3d_debugtool.exe` aplicaría un memory patch (antes o después del
+  juego) y F1 abriría el debug menu in-game; posibles falsos positivos de
+  antivirus. Solo miembros.
+- **Valoración:** la fuente documenta una herramienta que, según esa fuente,
+  activa el menú de depuración de la build D3D de PC. El proyecto NO ha
+  verificado ni la herramienta ni el menú (binario no inspeccionado, sin
+  ejecución, 0 respuestas en el hilo). Si se confirmara, sería superficie RE
+  valiosa (los menús debug suelen exponer funciones/estados internos).
 - **Contexto adicional (snippet, URL AF muerta):** update 2018-04-11 con
   moonjump + passe-muraille (grilles) «pour tester tout le jeu en 5min»;
   el autor distingue la tool externa del DEBUG MENU reactivado («topic

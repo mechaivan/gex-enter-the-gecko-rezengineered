@@ -158,18 +158,35 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 ## S-14 — speedrun.com: "PC Version Setup Package" (Mysticore) ⭐
 
 - URL: <https://www.speedrun.com/gex2/resources/e3dsk>
-- Qué es: paquete (Drive, 25-01-2022, ~411 MB: `Gex 2 PC (Patches & Tools).zip`)
-  que "incluye todo lo necesario para que la versión PC NTSC funcione en
-  sistemas modernos sin el disco físico", con README de instrucciones.
-- Utilidad: procedimiento real de setup usado por speedrunners (versión,
-  ejecutable, fixes, configuración). Análisis pendiente.
-- Copia de trabajo: `Drive → REZengineered/research/` (copiado 2026-10-08
-  desde el enlace público; uso privado de investigación, no redistribuir).
-- Lote 1 (2026-10-09): página releída — NO publica contenidos, README ni
-  hashes; Drive ID coincide con metadatos previos; tamaño sin conciliar
-  (411 MB catalogados vs ~393 MB citados en tarea).
-- Pendiente: extraer README + inventario de parches/herramientas incluidas
-  (método seguro: hash → `unzip -l` → solo README; fuera del sandbox).
+- **CONFIRMADO (metadatos Drive autorizados, solo lectura, 2026-10-09):**
+  fichero público `Gex 2 PC (Patches & Tools).zip`
+  (ID `1XvJa18j-82iBX1To4VUyuqsfp50xwVYf`, enlazado desde la página),
+  `application/x-zip-compressed`, **411301184 bytes** (= 411.3 MB decimales
+  = 392.2 MiB), creado 2022-01-25T09:51:02Z. MD5
+  `4a3aed9dde7152de6597b2e8b53cf467`, SHA-256
+  `60d9e430394ab026e4642d29769d8a4fbf1e8690d3d0bb3c932be5b1b7e1a36b`.
+  Copia de trabajo `…[ORIGINAL DESCARGADO 2026-10-08].zip` en carpeta
+  `research`: mismo tamaño y mismos hashes → **bit-idéntica al original
+  público**. Discrepancia 411 vs ~393 resuelta con evidencia: redondeo en
+  unidades distintas del mismo fichero. (Identidad del propietario visible
+  en metadatos; no registrada por privacidad.)
+- **DECLARADO POR LA FUENTE (página releída 2026-10-09, sin verificar):**
+  «Includes everything you need to get the NTSC PC version to run on modern
+  systems, without needing the physical disc. Simply follow the instructions
+  in the README.» Recurso tipo «Patch», actualizado hace ~4 años por
+  Mysticore (moderador de gex2, verificado en la página). La página NO
+  publica contenidos, README, hashes ni tamaño.
+- **DESCONOCIDO:** contenido interno, composición exacta, integridad
+  funcional e instrucciones del README (no localizado publicado por
+  separado; búsqueda 2026-10-09 sin resultados). Sin descarga al sandbox,
+  sin extracción, sin ejecución.
+- **SIGUIENTE PASO (seguro, fuera del sandbox):** hash local → `unzip -l` →
+  extraer solo README → inventario; jamás ejecutar. Requiere máquina con
+  espacio + decisión del mantenedor.
+- Copia de trabajo: `Drive → REZengineered/research/` (2026-10-08; uso
+  privado de investigación, no redistribuir).
+- Utilidad futura: procedimiento real de setup usado por speedrunners
+  (versión, ejecutable, fixes, configuración).
 - Confianza: media-alta (mismo autor modera el leaderboard PC).
 
 ## S-15 — speedrun.com: PS1 Any% Guide + diferencias de versión (secundaria)
@@ -305,5 +322,6 @@ que habrá que verificar contra el juego real (Fase 1–2):
   `originals/` (nunca en el repo); inventariados en Fase 1 (2026-10-08).
   El análisis binario profundo sigue bloqueado hasta que el mantenedor
   indique el cambio de fase.
-- [ ] Extraer de S-14 (setup package): README + lista de parches/herramientas
-  + hashes de ejecutables incluidos (cuando el mantenedor lo considere).
+- [~] S-14: metadatos + hashes del zip verificados (2026-10-09, Drive solo
+  lectura); extraer README + lista de parches/herramientas + hashes de
+  ejecutables incluidos (cuando el mantenedor lo considere).

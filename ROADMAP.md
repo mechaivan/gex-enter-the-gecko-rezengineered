@@ -39,7 +39,8 @@ si la investigación demuestra que es necesario.
 - [ ] Cubrir las áreas FA-01…FA-15 a nivel documental.
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [ ] Definir máquina Windows de testing + protocolo de captura.
-- [ ] Inventariar S-14 (setup package): README + parches + hashes.
+- [~] Inventariar S-14 (setup package): metadatos + hashes verificados
+  2026-10-09 (Drive, solo lectura); README + contenido pendientes.
 
 ## Fase 2 — Reverse Engineering ⬜ (no iniciada)
 

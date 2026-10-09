@@ -58,8 +58,9 @@
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
   F-01…F-12 verificadas en fuente; diffs binarios pendientes (Fase 2).
 - [ ] Cubrir FA-01…FA-15 a nivel documental.
-- [ ] Inventariar S-14 (setup package speedrun): README + parches + hashes
-  (cuando se indique; no mover datos al sandbox).
+- [~] Inventariar S-14 (setup package speedrun): metadatos + hashes
+  verificados 2026-10-09 (Drive, solo lectura; copia bit-idéntica);
+  README + contenido pendientes (cuando se indique; no mover datos al sandbox).
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
 - [ ] Definir entorno de testing en Windows.
 

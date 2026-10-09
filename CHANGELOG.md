@@ -2,6 +2,23 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Precisión F-12 + inspección documental S-14
+
+- Bloque A: F-12 ya no presenta el menú debug como confirmado
+  (PATCH_ANALYSIS: «Qué es (DECLARADO POR LA FUENTE)» + «Valoración» con
+  atribución explícita; COMPATIBILITY y REVERSE_ENGINEERING suavizados
+  igual). A2 verificado sin cambios: Last updated 2026-10-09, M-25
+  PROPOSED, Fase 1 en curso, Fase 2 sin iniciar.
+- Bloque B: S-14 con metadatos Drive autorizados (solo lectura): 411301184
+  bytes, MD5/SHA-256 registrados, copia `research/` bit-idéntica;
+  discrepancia 411/~393 resuelta con evidencia (unidades). Página releída:
+  cita corregida («Includes…»), README no publicado por separado.
+  Contenido sigue DESCONOCIDO; S-14 sigue investigación pendiente.
+- Sync: RESEARCH (S-14 reestructurado + pendiente), PATCH_ANALYSIS (F-12,
+  F-09), PROJECT_STATE/ROADMAP (S-14 [~]). Sin binarios, sin descargas al
+  sandbox, sin ejecución, sin fase avanzada.
+- Historial preservado: entradas anteriores intactas.
+
 ## 2026-10-09 — 0.0.0 — Nueva propuesta M-25: selección de voces UK/USA
 
 - MODERNIZATION_GOALS: +M-25 Voice Pack Selection (UK/USA), PROPOSED, P3

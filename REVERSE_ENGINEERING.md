@@ -58,8 +58,9 @@
 - [ ] Instalación/CD-check (I-15–I-17): lecturas de registro; detección de CD.
 - [ ] Input (I-18–I-19): teclado + joystick WinMM (sin imports DirectInput
       en EU); confirmar ausencia de ratón.
-- [ ] Menú debug (F-12, Lote 1): localizar el debug menu de desarrolladores
-      en la build D3D (accesible con F1 vía memory patch) — superficie RE.
+- [ ] Menú debug (F-12, Lote 1): localizar el presunto debug menu de
+      desarrolladores en la build D3D (la fuente afirma acceso con F1 vía
+      memory patch; sin verificar por el proyecto) — superficie RE potencial.
 
 ### Etapa D — Diffs de parches comunitarios
 
