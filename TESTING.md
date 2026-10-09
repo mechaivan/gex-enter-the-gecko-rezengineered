@@ -84,6 +84,108 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (acceso tgames, Fase 2+) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
+## Evaluación de alternativas de entorno (2026-10-09, sin probar)
+
+> Ninguna configuración declarada compatible: sin pruebas, sin veredicto.
+> Base: EU v1.00.000 Glide (inventario §4.1: 38 `glide2x`, MCI, DSound,
+> WinMM; instalador 16-bit roto en moderno → F-05).
+
+### A. Windows moderno + wrapper Glide (PC físico)
+
+- **Ventajas:** HW real y disponible; drivers actuales; captura (FPS,
+  vídeo, logs) con herramientas modernas; instalable vía F-05 + wrapper.
+- **Limitaciones:** MCI/CD-audio degradado (I-11); DSound emulado; modos
+  y refrescos limitados por GPU/monitor modernos (75 Hz incierto);
+  instalador 16-bit inútil; UAC/admin (I-17); DWM/Alt+Tab ≠ época.
+- **Requisitos:** Win 10/11 64-bit exacto (versión+build); GPU+driver
+  exactos; wrapper (nombre+versión+config); unidad óptica o imagen con
+  TOC; herramientas de captura.
+- **Riesgos:** atribuir al juego artefactos del wrapper/SO/GPU; F-05 sin
+  probar; «correcto» de época inalcanzable aquí.
+- **Sirve para:** P0 (instalación, detección CD lógica, registro,
+  guardado, admin) + P1 observación (FPS relativo, modos modernos,
+  input moderno, intro/SFX audibilidad). **No sirve para:** referencia
+  «correcto» (FA-15), timing/FPS absolutos, CD-audio MCI original.
+
+### B. Máquina virtual Windows (viabilidad parcial)
+
+- **Ventajas:** snapshots y estado limpio reproducible; aislamiento;
+  varios SO huésped (XP/7/10) en un host; instalación/registro
+  repetibles.
+- **Limitaciones:** GPU virtual o passthrough (doble emulación Glide→
+  wrapper→GPU virtual); reloj virtualizado (timing/FPS no fiables);
+  CD-audio/MCI en huésped degradado; refrescos virtuales; input con
+  latencia.
+- **Requisitos:** hipervisor+versión, huésped exacto, guest additions,
+  GPU virtual vs passthrough documentado, política de snapshots.
+- **Riesgos:** artefactos de virtualización confundidos con juego.
+- **Veredicto:** viable para P0 (instalación/registro/detección lógica)
+  y observación gruesa; **no válida** para FA-04/FA-05 absolutos,
+  FA-13 referencia ni FA-15. No equivalente a A ni a C.
+
+### C. Hardware histórico 3dfx (referencia de época)
+
+- **Ventajas:** única referencia válida de «correcto»: Voodoo real,
+  MCI/CD-audio original, refrescos de época, DSound HW, joystick WinMM
+  época, instalador 16-bit funcional (Win95/98).
+- **Limitaciones:** disponibilidad (no consta HW en proyecto; decisión
+  del mantenedor); fragilidad; captura externa obligatoria (VGA);
+  medición FPS por vídeo/conteo (sin overlays modernos); drivers época.
+- **Requisitos (abiertos):** PC época o compatible, Voodoo (modelo a
+  decidir), Win95/98 + DX época, unidad CD, joystick, capturadora.
+  Sin modelo concreto: no consta en documentación.
+- **Riesgos:** HW único/frágil, coste, tiempo.
+- **Sirve para:** FA-15 (definir «correcto»), timing/FPS referencia,
+  CD-audio referencia, render referencia, instalador original.
+
+### Separar SO / wrapper / hardware
+
+Variar un factor cada vez (mismo juego+wrapper en 2 SO; mismo SO+juego
+con 2 wrappers; mismo todo en 2 GPUs); matriz de combinaciones
+registrada; cada resultado con tupla completa (protocolo); contraste
+contra época cuando exista.
+
+## Requisitos mínimos: checklist previo (2026-10-09)
+
+> Clasificación: IMP = imprescindible (toda prueba) · REC = recomendable ·
+> ESP = específico de pruebas. Sin especs mínimas inventadas del juego.
+
+| # | Requisito | Clase | Pruebas |
+|---|---|---|---|
+| 1 | Windows versión + arquitectura + build | IMP | Todas |
+| 2 | CPU + RAM | IMP | Todas |
+| 3 | GPU + driver exacto | IMP | Todas |
+| 4 | Wrapper Glide + versión + config, o 3dfx modelo+driver | IMP | Todas |
+| 5 | Método instalación + hashes verificados | IMP | Todas |
+| 6 | Unidad CD física (modelo) o imagen + herramienta montaje + TOC verificada | IMP | FA-09/FA-12; resto REC |
+| 7 | Contador FPS + método | IMP | FA-04/FA-05; resto REC |
+| 8 | Captura pantalla/vídeo + logs + monitor registro | IMP | Todas (monitor: FA-11 IMP) |
+| 9 | Copias aisladas + verificación de hash | IMP | Todas |
+| 10 | Refrescos disponibles (lista EDID) | REC | FA-04/FA-05/FA-13 |
+| 11 | Mando (modelo/conexión) | REC (ESP época: FA-06) | FA-06 |
+| 12 | Capturadora externa | ESP época (C) | FA-15 + referencia |
+| 13 | Snapshots / estado limpio repetible | REC (IMP si VM) | Todas en B |
+| 14 | HW época (PC+Voodoo+Win95/98+CD+joystick) | ESP (C) | FA-15 + referencias |
+
+## Propuesta: MVP y referencia ideal (2026-10-09)
+
+- **MVP para empezar (A):** PC físico Windows 10/11 64-bit + wrapper Glide
+  documentado (nGlide 2.10, estándar de facto; dgVoodoo2 para contraste) +
+  imagen CD con TOC verificada + captura FPS/vídeo/logs + copias aisladas.
+  Permite P0 + P1 observación. Sin HW concreto (no consta).
+- **Referencia ideal (C):** HW época 3dfx + Win95/98 + CD físico + joystick
+  + capturadora externa. Permite FA-15 y validación «correcto». Modelos a
+  decidir por el mantenedor.
+- **Hechos confirmados:** base EU-Glide estática (inventario); instalador
+  roto en moderno (F-05); rutas MCI/DSound estáticas; wrappers catalogados
+  (T-01…T-06) sin probar.
+- **Recomendaciones:** empezar por A; usar B para repetición P0; reservar C
+  para referencia; contrastar 2 wrappers antes de concluir render/timing.
+- **Incógnitas:** máquina real (datos del checklist pendientes); TOC de la
+  imagen disponible; refrescos soportados; causa admin; valores `.reg`.
+- **Decisiones del mantenedor:** PC Windows concreto; VM sí/no; HW época
+  sí/no (+modelos); herramientas de captura; momento de Fase 2.
+
 ## Categorías futuras de prueba
 
 Cuando haya implementación, cubrir por cambio:

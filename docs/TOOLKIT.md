@@ -58,7 +58,9 @@ de fase (Etapas B+ bloqueadas).
 ## 5. Plan pendiente
 
 1. [ ] Probar `tools/setup-re-env.sh` en máquina con internet completo.
-2. [ ] Definir máquina Windows de testing + protocolo de captura.
+2. [~] Definir máquina Windows de testing + protocolo de captura:
+   protocolo + matriz FA + evaluación/requisitos en TESTING.md
+   (2026-10-09); máquina pendiente.
 3. [x] Carpetas en Drive: `REZengineered/{originals,backups,analysis,builds,research}`.
 
 ## 6. Convenciones de almacenamiento

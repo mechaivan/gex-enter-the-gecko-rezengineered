@@ -65,8 +65,9 @@
   inventario nominal (22 entradas) + README leído (2026-10-09, carpeta
   `S-14_extracted`, solo lectura). Análisis binario → Fase 2.
 - [ ] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
-- [~] Definir entorno de testing en Windows: protocolo + matriz FA
-  documentados (2026-10-09, TESTING.md); máquina pendiente.
+- [~] Definir entorno de testing en Windows: protocolo + matriz FA +
+  evaluación de alternativas + requisitos/checklist (TESTING.md,
+  2026-10-09); máquina pendiente (faltan datos HW).
 
 ## Limitaciones actuales
 

@@ -2,6 +2,14 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Evaluación de entornos Windows (sin probar)
+
+- TESTING.md: alternativas A (Win moderno+wrapper), B (VM parcial), C
+  (HW época referencia) + checklist 14 requisitos (IMP/REC/ESP) + MVP
+  (A) y referencia ideal (C). Ninguna config declarada compatible.
+- Sync: TOOLKIT §5.2 [~], PROJECT_STATE/ROADMAP (máquina pendiente,
+  faltan datos HW). Fase 1 en curso, Fase 2 sin iniciar, M-25 PROPOSED.
+
 ## 2026-10-09 — 0.0.0 — Protocolo de pruebas + matriz FA (Windows, sin ejecutar)
 
 - TESTING.md: protocolo reproducible (entorno, hashes, instalación,

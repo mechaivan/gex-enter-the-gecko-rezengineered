@@ -41,7 +41,8 @@ si la investigación demuestra que es necesario.
   cobertura (2026-10-09); dinámica y RE pendientes (Fase 2+).
 - [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
 - [~] Definir máquina Windows de testing + protocolo de captura:
-  protocolo + matriz FA documentados (2026-10-09); máquina pendiente.
+  protocolo + matriz FA + evaluación/requisitos (2026-10-09);
+  máquina pendiente (faltan datos HW).
 - [x] Inventariar S-14 (setup package): metadatos + hashes + inventario
   (22 entradas) + README leído (2026-10-09). Binarios → Fase 2.
 
