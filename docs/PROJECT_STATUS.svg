@@ -114,7 +114,7 @@
   <text x="44" y="600" font-size="12" fill="#e9d5ff">Instalación + arranque + nivel</text>
   <text x="44" y="618" font-size="12" fill="#e9d5ff">Audio base · ficha glide2x</text>
   <text x="280" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#fbbf24">EN INVESTIGACIÓN</text>
-  <text x="280" y="600" font-size="12" fill="#e9d5ff">Wrapper SÍ · nGlide probable</text>
+  <text x="280" y="600" font-size="12" fill="#e9d5ff">Wrapper: SÍ (¿nGlide?)</text>
   <text x="280" y="618" font-size="12" fill="#e9d5ff">I-21 · I-22 · API efectiva</text>
   <text x="520" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#c4b5fd">SIGUIENTE HITO</text>
   <text x="520" y="600" font-size="12" fill="#e9d5ff">Causa de 25 FPS estables</text>

@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-09 — 0.0.0 — Atribución Glide: nGlide sin demostrar + corpus S-22
+
+- Análisis de atribución (sin nuevos datos del PC): demostrado = carga
+  de `SysWOW64\glide2x.dll` + wrapper=SÍ; que la implementación sea
+  nGlide 2.10 NO demostrado (metadatos 3dfx vs marca nGlide; 3 nulos;
+  sustitución sin confirmar). Panel: «nGlide probable» → «¿nGlide?»
+  (solo redacción, sin cifras; wrapper=SÍ intacto).
+- RESEARCH S-22 (corpus público): hash antiguo 7cbd… circula (dllme,
+  1.6 MB, MD5 f59d9780…); dllme lo etiqueta 2.61.00.0658 ⇒ cadena
+  2.60.0.658 de 3ª sesión EN DISPUTA; nGlide v1.x declara ProductName
+  propio. TESTING 3ª/5ª anotados.
+- Siguiente paso mínimo (solo lectura, PC): hash+metadatos completos
+  de la DLL + presencia/lectura del configurador. Sin slow-mo/FPS aún.
+
 ## 2026-10-09 — 0.0.0 — 6ª sesión: A/B VSync nulo + intros ≈15 (estimado)
 
 - TESTING 6ª sesión (equipo real): A/B VSync On/Off ⇒ ≈25 FPS en ambos

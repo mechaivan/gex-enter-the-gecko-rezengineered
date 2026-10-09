@@ -99,7 +99,7 @@ Prohibido derivar cifras de commits, ficheros, líneas o sesiones.
 |---|---|---|---|---|
 | A2.1 DLLs cargadas (FA-02) | Enumeración 32-bit (S) ✓ · Ficha glide2x (S) ✓ · Ficha 3dfxSpl2 (XS) ✓ · Fecha/firma (S) ✓ · Rol acompañantes (S) ✗ · Resto deps dinámicas (M) ✗ | 7/12 | EN CURSO | TESTING 2ª–4ª sesión |
 | A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✓ SÍ | 8/13 | EN INVESTIGACIÓN | TESTING 2ª+5ª+6ª sesión; instalador nGlide→SysWOW64 |
-| A2.3 Procedencia (RESEARCH) | Atribución origen (L) ✗ · Cadena/mecanismo (M) ✗ | 0/8 | EN INVESTIGACIÓN | Ficha A2.1 como indicio; RESEARCH hipótesis |
+| A2.3 Procedencia (RESEARCH) | Atribución origen (L) ✗ · Cadena/mecanismo (M) ✗ | 0/8 | EN INVESTIGACIÓN | Ficha A2.1 como indicio; corpus S-22; hipótesis |
 | A2.4 Base decisiones (FA-01, Etapa A) | Inventario EU (L) ✓ · Variantes US/demo (M) ✗ · Confirm. dinámicas mín. (L) ✗ · Etapa B Ghidra (XL) ✗ BLOQUEADO | 5/21 | EN CURSO +BLOQ | Inventario §4; RE plan (B+ bloqueadas) |
 
 Sin doble cuenta: A2.1 registra evidencias; A2.2/A2.3 registran
@@ -214,7 +214,7 @@ Actualizar estas líneas solo con hechos verificados (§6). Hipótesis, no.
 
 **CONSEGUIDO**: Instalación + arranque + nivel / Audio base ·
 ficha glide2x.
-**EN INVESTIGACIÓN**: Wrapper SÍ · nGlide probable / I-21 · I-22 ·
+**EN INVESTIGACIÓN**: Wrapper: SÍ (¿nGlide?) / I-21 · I-22 ·
 API efectiva.
 **SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05 · I-01/I-02);
 A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª).

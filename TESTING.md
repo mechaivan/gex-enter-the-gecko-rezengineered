@@ -172,7 +172,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 - **Ficha `glide2x.dll` (CONFIRMADO, solo lectura):**
   `SysWOW64\glide2x.dll` (1630208 B) — Descripción `3Dfx Interactive, Inc.
   Glide DLL`; Producto `Glide para Voodoo Banshee` (transcripción aproximada;
-  nombre exacto en 4ª sesión); Versión de producto `2.60.0.658`; SHA-256
+  nombre exacto en 4ª sesión); Versión de producto `2.60.0.658` (EN DISPUTA: dllme extrae `2.61.00.0658` del mismo SHA-256, S-22); SHA-256
   `7cbd095872e821b54cd6fa03f76aa22073271567175069c53ebb2e73b0299aab`.
   Presente en los módulos de `GEX3D.EXE` en ejecución.
 - **Ficha `3dfxSpl2.dll` (CONFIRMADO):** Descripción y Producto `3dfx
@@ -214,7 +214,8 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
   con sesiones anteriores: LIMITADA (config distinta).
 - **`glide2x` cargada (OBSERVADO, ficha nueva):** versión mostrada
   `2.61.00.0658`, metadatos 3Dfx Voodoo Banshee/Voodoo3 — cadena
-  DISTINTA a la ficha 3ª sesión (2.60.0.658, 1630208 B, SHA-256
+  DISTINTA A CONFIRMAR frente a la ficha 3ª sesión (2.60.0.658 en
+  disputa, S-22; 1630208 B, SHA-256
   `7cbd…9aab`). Tamaño/hash de ESTE fichero: PENDIENTES
   (confirman sustitución o relectura; no es re-solicitud).
 - **Wrapper (CONCLUSIÓN SÍ → A2.2):** nGlide instalado + su instalador

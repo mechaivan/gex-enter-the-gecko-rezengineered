@@ -317,6 +317,36 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   `3dfx Splash Screen` 1.0.0.4 — coherente con esta identidad (splash,
   no renderer).
 
+## S-22 — Corpus público de `glide2x.dll` (fichas y hashes) — REFERENCE
+
+- Fuentes (2026-10-09, fichas leídas, nada descargado):
+  <https://www.dllme.com/dll/files/glide2x> (15 ficheros) +
+  <https://www.pconlife.com/viewfileinfo/glide2x-dll/>.
+- Dato objetivo: dllme hospeda NUESTRO hash antiguo
+  (`7cbd095872e821b54cd6fa03f76aa22073271567175069c53ebb2e73b0299aab`,
+  1.6 MB, MD5 `f59d9780abe6bcb89433bdad4c8c5d59`, subido mar-2024)
+  etiquetado «3Dfx, Glide for Voodoo Banshee/Voodoo3/Velocity,
+  2.61.00.0658» ⇒ (a) la DLL pre-nGlide es copia de circulación
+  pública; (b) la cadena «2.60.0.658» de TESTING 3ª sesión queda EN
+  DISPUTA (extracción automática vs transcripción humana) ⇒ el
+  «cambio de versión» 3ª→5ª sesión NO está confirmado (relectura
+  posible; hash nuevo pendiente).
+- `2.61.00.0658` indexada (1.2–1.3 MB, MD5 distintos): la cadena de
+  la ficha 5ª existe en familia 3dfx pública. Sin hash propio: no
+  discrimina vendedor.
+- Hábito de marca: las `glide2x.dll` de nGlide v1.02/v1.05 declaran
+  ProductName «nGlide vX.XX» (pconlife). nGlide 2.10: metadatos
+  propios SIN referencia ⇒ un fichero con metadatos puramente 3dfx
+  NO es atribuible a nGlide por defecto.
+- dgVoodoo declara versiones propias (2.60.0.0 / producto 2.8.3.2):
+  distinguible por metadatos cuando se tengan.
+- nGlide anterior a Hito 1 NO excluido (instalaciones previas
+  UNKNOWN): el fichero antiguo ya renderizaba ⇒ el traductor ya
+  estaba en la ruta; la 5ª «instalación» pudo ser reinstalación.
+- Uso: corpus de comparación para el futuro hash de
+  `SysWOW64\glide2x.dll` (A2.3). Etiquetas de estos sitios: confianza
+  baja; hashes: objetivos.
+
 ## Áreas de investigación futura (separación estricta)
 
 ### Verificado por el proyecto (Fase 1, 2026-10-08)
@@ -348,8 +378,8 @@ que habrá que verificar contra el juego real (Fase 1–2):
 ### Hipótesis abiertas (NO confirmadas)
 
 - Origen de la `glide2x.dll` cargada: original, redistribuida, modificada
-  o wrapper con metadatos 3dfx (ficha + fecha/firma en TESTING.md 4ª
-  sesión; UNKNOWN).
+  o wrapper con metadatos 3dfx (fichas TESTING 3ª–5ª sesión; corpus
+  S-22; nGlide anterior a Hito 1 no excluido; UNKNOWN).
 - Lógica/timing acoplados al framerate (I-01).
 - Intro en códec Indeo (I-14) — hipótesis DÉBIL tras Lote 1 (hilo VOGONS no
   resuelto, fuente única sin validar); escritura HKLM causa de I-17.
