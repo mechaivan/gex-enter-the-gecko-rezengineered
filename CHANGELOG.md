@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Atribución estática `0x418FF8`: fn2 «tvend», ajena a M-13
+
+- Puntero-dato único en `.data` `0x553378` (slot fn2 del registro
+  «tvend» `@0x55336C`, tabla 60 registros `@0x5531C8`–`@0x553678`
+  {idA, idB, fn1, fn2, fn3}: pantallas/entidades × mundos).
+  Barrido byte-exacto: 0 refs estáticas a la tabla; 0 llamadores
+  directos (108/110 fns; 2 markey solo intra-familia lvltv→markey,
+  raíz huérfana). `0x418FF8` escribe `[obj+0x10C]=0x10`
+  (`0x4190D5`): campos propios, NO el cociente/contador timing.
+  Impacto M-13: ninguno. Falta cobertura dinámica (E-2/I-23).
+  REVERSE_ENGINEERING fila + FA-04 actualizados. Nada ejecutado/
+  modificado; copia eliminada. Panel intacto (sin hito).
+
 ## 2026-10-10 — 0.0.0 — E-3 documentado + M-13 estático: flujo temporal gameplay
 
 - TESTING E-3 (nuevo, ejecutado solo-lectura 2026-10-10): superficie

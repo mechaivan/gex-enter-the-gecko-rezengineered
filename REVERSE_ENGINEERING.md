@@ -87,7 +87,7 @@
 > | `0x53FCB7` (post-frame) | Housekeeping: puerta `0x54038E`, pump `0x5380B3`/`0x5380A6`, cuenta atrás 375 frames `ds:0x5AF3E0`→`0x53FD31` | Disasm | — | — |
 > | `0x4622D7` (en `0x461FBD` ← init `0x43B1FE`) | Present durante init: `grBufferSwap(2)` + `+0x104` de OTRO objeto (`ds:0x551644`) | Disasm | — | Rol exacto (inferencia: pantalla carga) |
 > | `0x424C7F` / `0x537E6E` | `grBufferSwap(1)` (ruta `0x424C0F`; wrapper cine `0x537E69`) | Disasm | — | Roles exactos |
-> | `0x418FF8` (0 llamadores directos) | Lee `+0x104`/`+0x108`/`+0x10C` de SU objeto | Disasm | ??? | NO atribuible estáticamente (llamada indirecta) |
+> | `0x418FF8` (fn2 registro «tvend» `@0x55336C`; tabla 60 regs `@0x5531C8`–`@0x553678`) | Handler pantalla TV (IDs «remred__»/«etvbutn_»); escribe `[obj+0x10C]=0x10` (`0x4190D5`); sib `0x418C52` escribe `+0x104` | Disasm + barrido byte-exacto: 0 llamadores directos; 0 refs estáticas a la tabla (108/110 fns huérfanas; 2 markey solo intra-familia) | Tabla pantallas (ajena a gameplay) | Cobertura dinámica (¿runtime la alcanza?) — requiere E-2 |
 > | `0x412F8B` (← `0x43E516`) | Cuenta atrás por frame (`+0x4BC−−`) + print = lógica frame-acoplada | Disasm resync | — | — |
 >
 > Flujo temporal (gameplay, estado 2; SERIE, sin hilos observados):
@@ -123,15 +123,16 @@
 >
 > **NO podemos demostrar estáticamente:** qué subsistema mueve cada
 > cosa (mov/anim/cám/fís/input/cine); si el cociente `+0x10C` se lee
-> fuera del ámbito (dataflow global pendiente); atribución `0x418FF8`
-> (indirectas); tasa real de refresco en runtime; mecanismo F-03
-> (build distinta, no tocada); acoplamiento cuantitativo (E-2).
+> fuera del ámbito (dataflow global pendiente; `0x418FF8` DESCARTADO:
+> campos propios, ver fila); tasa real de refresco en runtime;
+> mecanismo F-03 (build distinta, no tocada); acoplamiento
+> cuantitativo (E-2); cobertura runtime de la tabla de pantallas.
 >
 > **Próximo paso mínimo y seguro (sin intervención binaria):**
-> atribución acotada de `0x418FF8` (buscar su dirección como
-> puntero-dato) + E-2 dinámico cuando I-23 lo permita; el campo
-> `+0x10C` (frames fraccionales desde t0) ya computado es la entrada
-> natural de un futuro paso-fijo (diseño Fase 3, no ahora).
+> E-2 dinámico cuando I-23 lo permita (confirmar sim-por-swap +
+> cobertura tabla pantallas); el campo `+0x10C` (frames fraccionales
+> desde t0) ya computado es la entrada natural de un futuro
+> paso-fijo (diseño Fase 3, no ahora).
 
 ### Etapa D — Diffs de parches comunitarios
 
