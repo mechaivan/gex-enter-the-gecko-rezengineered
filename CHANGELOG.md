@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — F-2 evaluado: benigno y justificado (sin cambios de código)
+
+- Dictamen `-Wcast-function-type` (`gshim.c:312`, cast
+  `GetProcAddress` → `void (__stdcall *)(int32_t)` para
+  `_grBufferSwap@4`): lint determinista sobre patrón API;
+  firma corroborada (SDK `1 4`, `.def`, V-1b 38/38 real).
+  Primarias: fuentes repo + V-1b; secundaria: `FARPROC` web.
+- Decisión: cast SIN cambios; supresión local solo si `-Werror`
+  futuro lo exige. Límite: estático; dinámica en V-2/P-W5.
+  F-2 evaluado, NO corregido (sin defecto).
+- Sync: TESTING (V-1 + nota Diagnóstico incl. V-1b superada),
+  shim-README, PROJECT_STATE. Panel intacto.
+
 ## 2026-10-10 — 0.0.0 — V-1b superado en PC (cruce vs DLL real 38/38)
 
 - V-1b EJECUTADO en PC mantenedor (MSYS2 MINGW32, copia temporal

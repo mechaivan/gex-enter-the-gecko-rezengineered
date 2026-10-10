@@ -113,8 +113,13 @@ Resultado 2026-10-10 (PC mantenedor, MSYS2 MINGW32, copia
 temporal aislada): PASS, exit 0 — GCC 16.1.0, `V-1 BUILD: PASS`,
 DLL PE32/i386 temporal (SHA-256 `c6286811…7dea6df4`, NO en el
 repo); 38/38 exactas, 3 código = interceptadas, 35 forwarders
-mismo nombre. Hallazgo F-2 (PENDIENTE de evaluación, sin
-corregir): warning conversión tipos de función en `gshim.c:312`.
+mismo nombre. Hallazgo F-2 — EVALUADO 2026-10-10: benigno y
+justificado (`-Wcast-function-type`, cast `GetProcAddress` →
+`void (__stdcall *)(int32_t)`; firma/SDK/`@4`/V-1b coinciden).
+Fuentes primarias: `gshim.c:311-317`, firmas SDK, `.def`,
+V-1b; secundaria: typedef `FARPROC` (corroboración web). Cast
+SIN cambios (supresión local solo ante `-Werror` real).
+Límite: estático; dinámica en V-2/P-W5.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en

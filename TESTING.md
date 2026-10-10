@@ -712,9 +712,16 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   NO incorporada al repo); veredicto `check_exports.py` modo
   shim-only (lógica auto-probada `test_exports` 17/17): 38/38
   exactas (0 adicionales), 3 de código = interceptadas,
-  35 forwarders a `glide2x_gex_real` mismo nombre. Hallazgo F-2
-  (PENDIENTE de evaluación, sin corregir): warning de conversión
-  entre tipos de función en `gshim.c:312`; código intacto.
+  35 forwarders a `glide2x_gex_real` mismo nombre. Hallazgo F-2 —
+  EVALUADO 2026-10-10: benigno y justificado (warning
+  `-Wcast-function-type` en `gshim.c:312`, cast de `GetProcAddress`
+  a `void (__stdcall *)(int32_t)` para `_grBufferSwap@4`): lint
+  determinista sobre el patrón prescrito por la API; firma
+  corroborada (SDK `1 4`, `.def`, V-1b 38/38 en DLL real); sin
+  defecto. Cast SIN cambios; supresión local solo si llega
+  `-Werror` con necesidad real. Límite: estático; invocación
+  dinámica pendiente (V-2/P-W5). Estado: evaluado, no corregido;
+  código intacto.
 - **V-1b (EJECUTADO en PC mantenedor 2026-10-10, MSYS2 MINGW32,
   copia temporal aislada): PASS, exit 0.** `build-win32.sh` con
   copia real verificada como argumento (copia temporal, sin
@@ -745,9 +752,9 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `build-win32.sh` revisado sin defectos. Producción intacta
   (`gshim.c`/`.def` sin tocar). Nota posterior al diagnóstico:
   V-1 superada en PC 2026-10-10 (MSYS2 MINGW32, copia temporal
-  aislada; GCC 16.1.0, PE32/i386, 38/38); V-1b PENDING (falta
-  cruce vs copia real verificada); F-2 (warning `gshim.c:312`)
-  pendiente de evaluación, código sin modificar.
+  aislada; GCC 16.1.0, PE32/i386, 38/38); V-1b superada PC
+  (cruce vs DLL real 38/38); F-2 EVALUADO (benigno y
+  justificado; ver V-1), código sin modificar.
 - **Codificación (mismo PC):** `test_docs.py` reventaba con
   `UnicodeDecodeError` (byte 0x81): leía con la codificación del
   locale (cp1252) dos ficheros UTF-8. Ajuste: `encoding='utf-8'`
