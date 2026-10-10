@@ -696,7 +696,7 @@ Cuando haya implementación, cubrir por cambio:
 
 Principio aplicable: **Original → Fix existente → REZengineered**.
 
-## V-0 superado + V-1/V-1b preparados (2026-10-10)
+## V-0 superado + V-1 superado + V-1b pendiente (2026-10-10)
 
 - **V-0 (EJECUTADO en PC mantenedor, salida real): PASS.**
   `SysWOW64\glide2x.dll`: 1630208 B, SHA-256 `7cbd…9aab`, MD5
@@ -704,15 +704,23 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   Velocity` 2.61.00.0658; copia `gex-v0-work` idéntica (ambos
   hashes). Metadatos 3dfx = lo esperado (marca del payload nGlide
   2.10, 9ª/S-22), no discrepancia.
-- **V-1/V-1b (PREPARADOS, sin ejecutar):** `build-win32.sh` (build
-  reproducible + evidencia) y `tests/check_exports.py` (veredicto:
-  38 exactos, 3 código, 35 forwarders a `glide2x_gex_real.*`,
-  cruce vs DLL real —las 38 incl. interceptores—, PE32/i386;
-  modo shim-only para V-1 sin la real). Lógica auto-probada
-  (`test_exports` 17/17 vs fixtures PE; parser validado contra
-  `objdump -p` real). Bloqueo: este entorno es Linux sin MinGW
-  (`ld` sin emulación PE) — build y veredicto reales exigen el PC
-  mantenedor (MSYS2 MINGW32). Gex no ejecutado; V-2 no iniciado.
+- **V-1 (EJECUTADO en PC mantenedor 2026-10-10, MSYS2 MINGW32,
+  copia temporal aislada): PASS, exit 0.** GCC 16.1.0, target
+  `i686-w64-mingw32`; `V-1 BUILD: PASS`; DLL PE32/i386 temporal
+  (SHA-256
+  `c62868115001ebfb0d303ad5df6bc49a557e8adf342f0b19df89080c7dea6df4`,
+  NO incorporada al repo); veredicto `check_exports.py` modo
+  shim-only (lógica auto-probada `test_exports` 17/17): 38/38
+  exactas (0 adicionales), 3 de código = interceptadas,
+  35 forwarders a `glide2x_gex_real` mismo nombre. Hallazgo F-2
+  (PENDIENTE de evaluación, sin corregir): warning de conversión
+  entre tipos de función en `gshim.c:312`; código intacto.
+- **V-1b (PENDIENTE, no ejecutado):** falta el cruce vs copia
+  real verificada (argumento a `build-win32.sh`: `objdump -p` +
+  veredicto 38 incl. interceptores + resolución de forwarders;
+  la validación con DLL real NO ha pasado). Procedimiento seguro
+  pendiente de ejecutar: copia temporal aislada en PC, sin
+  instalar, sin Gex. Gex no ejecutado; V-2 no iniciado.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

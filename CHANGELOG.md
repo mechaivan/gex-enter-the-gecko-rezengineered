@@ -2,6 +2,24 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — V-1 superado en PC (build Win32 + 38/38); V-1b pendiente; hallazgo F-2
+
+- V-1 EJECUTADO en PC mantenedor (MSYS2 MINGW32, copia temporal
+  aislada): PASS, exit 0. GCC 16.1.0, target `i686-w64-mingw32`;
+  `V-1 BUILD: PASS`; DLL PE32/i386 temporal (SHA-256
+  `c62868115001ebfb0d303ad5df6bc49a557e8adf342f0b19df89080c7dea6df4`,
+  NO incorporada al repo); exports 38/38 exactas (0 adicionales),
+  3 de código = interceptadas, 35 forwarders a `glide2x_gex_real`
+  mismo nombre (`check_exports.py` modo shim-only).
+- V-1b PENDIENTE (no ejecutado): falta cruce vs copia real
+  verificada (argumento a `build-win32.sh`; 38 incl. interceptores;
+  procedimiento seguro: copia temporal, sin instalar, sin Gex).
+- Hallazgo F-2 (PENDIENTE de evaluación, sin corregir): warning
+  de conversión entre tipos de función en `gshim.c:312` (cast de
+  `GetProcAddress` a puntero-función `__stdcall`); código intacto.
+- Sync: TESTING (V-1 PASS/V-1b PENDING), PROJECT_STATE, shim-README,
+  tools-README, M-13, REVERSE. Panel intacto (sin ítems ligados a V-1).
+
 ## 2026-10-10 — 0.0.0 — Nota: rutas locales redactadas pre-publicación
 
 - Las rutas absolutas del PC del mantenedor citadas en entradas

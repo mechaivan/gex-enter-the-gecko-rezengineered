@@ -83,10 +83,10 @@
   REVERSE_ENGINEERING) + I-23 causa identificada + R-audio
   confirmado + `tools/m13-core` verificado (120 checks) +
   `tools/glide-shim` v6 setvbuf-comprobado (suites verdes 2026-10-10:
-  14+3+74+3+3+17+11 + 71 conductual; V-0 superado PC; suite portable; V-1/V-1b
-  preparados —scripts + verificador auto-probado—, build MinGW-32
-  pendiente PC Windows; arnés nativo W00–W11 preparado (pendiente
-  PC); V-2 pendiente).
+  14+3+74+3+3+17+11 + 71 conductual; V-0 superado PC; suite portable;
+  V-1 superado PC 2026-10-10 (GCC 16.1.0, 38/38, F-2 pendiente);
+  V-1b pendiente (falta cruce vs DLL real); arnés nativo W00–W11
+  preparado (pendiente PC); V-2 pendiente).
 
 ## Limitaciones actuales
 

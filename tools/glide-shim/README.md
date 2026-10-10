@@ -89,7 +89,8 @@ Banshee…`, 2.61.00.0658); es lo esperado — la atribución a nGlide
 (RESEARCH S-22), no de los metadatos.
 
 V-1. Build Win32 + exports del shim (exactamente los 38 = 35
-reenvíos + 3 código). Reproducible vía `build-win32.sh` (shell
+reenvíos + 3 código) — SUPERADO 2026-10-10 (salida real PC, ver
+TESTING). Reproducible vía `build-win32.sh` (shell
 MSYS2 MINGW32, toolchain `i686-w64-mingw32`):
 
 ```bash
@@ -107,6 +108,13 @@ Deben aparecer las 38 decoradas (`_grBufferSwap@4`,
 las 35 restantes como forwarders a `glide2x_gex_real.*`), sin más
 ni menos. Si la cuenta no es 38 exacta o falta alguna: NO
 instalar (reportar + `exports_shim.txt`).
+
+Resultado 2026-10-10 (PC mantenedor, MSYS2 MINGW32, copia
+temporal aislada): PASS, exit 0 — GCC 16.1.0, `V-1 BUILD: PASS`,
+DLL PE32/i386 temporal (SHA-256 `c6286811…7dea6df4`, NO en el
+repo); 38/38 exactas, 3 código = interceptadas, 35 forwarders
+mismo nombre. Hallazgo F-2 (PENDIENTE de evaluación, sin
+corregir): warning conversión tipos de función en `gshim.c:312`.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
@@ -133,6 +141,11 @@ artefactos Windows). Hipótesis de trabajo (SIN
 verificar hasta este paso): la DLL nGlide 2.10 exporta los 38
 nombres que el exe importa — el Hito 1 solo prueba que esa
 combinación cargó entonces.
+
+**Estado V-1b: PENDIENTE (no ejecutado 2026-10-10).** Falta la
+copia real verificada como argumento (copia temporal aislada en
+PC, sin instalar, sin Gex). La validación con DLL real NO ha
+pasado; V-1 solo verificó el shim.
 
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
 
@@ -281,8 +294,8 @@ instalar); sin ellos, SKIP ruidoso.
 
 Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0 superado 2026-10-10 (identidad + copia, PC mantenedor);
-V-1/V-1b preparados (scripts + verificador auto-probado) pero sin
-ejecutar: falta el build MinGW-32 en el PC; V-2 pendiente.
+V-1 superado 2026-10-10 (build + 38/38, PC mantenedor; F-2
+pendiente); V-1b pendiente (falta cruce vs DLL real); V-2 pendiente.
 
 ## Estado, riesgos abiertos y evidencia que FALTA
 
@@ -300,6 +313,6 @@ esperada por contrato C89, pendiente de confirmación empírica
 en V-2 (B13 solo observa glibc; no se afirma como promesa
 portable). Los exports de la DLL concreta se verifican
 en V-1b (evidencia directa); la carga real, en V-2. Pendiente
-explícito de Windows: build MinGW-32 + V-1/V-1b + arnés W00–W11
-(evidencia PC pendiente) + V-2 (V-0 OK).
+explícito de Windows: V-1b + arnés W00–W11 (evidencia PC
+pendiente) + V-2 (V-0/V-1 OK).
 **Compatibilidad plena y validación dinámica NO declaradas.**
