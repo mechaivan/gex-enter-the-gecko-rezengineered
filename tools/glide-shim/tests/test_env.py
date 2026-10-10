@@ -7,7 +7,9 @@ launcher support, empty result when nothing runs, Linux/native-gcc
 gating for host-run stages, and c-syntax failure classification
 (32-bit guard trip = environment SKIP, anything else = FAIL), plus the
 win32-harness gates (i686 toolchain builds anywhere, behaviour runs on
-Windows only — compile-only elsewhere, never a false PASS).
+Windows only — compile-only elsewhere, never a false PASS), plus
+objdump pairing (triplet preferred, plain beside CC accepted, broken
+candidates skipped — F-3 hardening).
 Exit 0 = all pass."""
 import os
 import shutil
@@ -103,6 +105,40 @@ def main():
         rc, out, _ = sh('win32_build_ok && win32_run_ok', [d])
         check(rc == 0 and out == '',
               'mingw32 + i686 runs the full w32 harness')
+    with tempfile.TemporaryDirectory() as d:
+        bindir = os.path.join(d, 'bin')
+        os.mkdir(bindir)
+        stub(os.path.join(bindir, 'i686-w64-mingw32-gcc'), 'exit 0')
+        stub(os.path.join(bindir, 'objdump'),
+             'if [ "$1" = "--version" ]; then echo GNU objdump; fi; exit 0')
+        rc, out, _ = sh('find_objdump i686-w64-mingw32-gcc', [bindir])
+        check(rc == 0 and out == os.path.join(bindir, 'objdump'),
+              'plain objdump beside CC is used when triplet is absent (MSYS2 shape)')
+    with tempfile.TemporaryDirectory() as d:
+        bindir = os.path.join(d, 'bin')
+        os.mkdir(bindir)
+        stub(os.path.join(bindir, 'i686-w64-mingw32-gcc'), 'exit 0')
+        stub(os.path.join(bindir, 'i686-w64-mingw32-objdump'),
+             'if [ "$1" = "--version" ]; then echo GNU objdump; fi; exit 0')
+        stub(os.path.join(bindir, 'objdump'),
+             'if [ "$1" = "--version" ]; then echo GNU objdump; fi; exit 0')
+        rc, out, _ = sh('find_objdump i686-w64-mingw32-gcc', [bindir])
+        check(rc == 0 and out.endswith('i686-w64-mingw32-objdump'),
+              'triplet objdump is preferred when present and running')
+    with tempfile.TemporaryDirectory() as d:
+        bindir = os.path.join(d, 'bin')
+        os.mkdir(bindir)
+        stub(os.path.join(bindir, 'i686-w64-mingw32-gcc'), 'exit 0')
+        stub(os.path.join(bindir, 'i686-w64-mingw32-objdump'),
+             'echo broken >&2; exit 1')
+        stub(os.path.join(bindir, 'objdump'),
+             'if [ "$1" = "--version" ]; then echo GNU objdump; fi; exit 0')
+        rc, out, _ = sh('find_objdump i686-w64-mingw32-gcc', [bindir])
+        check(rc == 0 and out == os.path.join(bindir, 'objdump'),
+              'non-running triplet falls back to plain objdump')
+    with tempfile.TemporaryDirectory() as d:
+        rc, out, _ = sh('find_objdump i686-w64-mingw32-gcc', [d])
+        check(rc != 0 and out == '', 'no objdump yields empty')
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
 

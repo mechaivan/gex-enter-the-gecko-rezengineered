@@ -9,9 +9,13 @@
 #    there instead of this dir; the win32 harness sets it to its temp
 #    build dir so the repo tree is never written. Default "." keeps the
 #    documented V-1 layout.)
+# objdump is auto-detected beside CC (triplet preferred, plain accepted;
+# never presumed) via tests/env.sh find_objdump, and the chosen path is
+# echoed for the evidence record.
 # Exit: 0 = built + shim exports byte-verified (+ V-1b verdict if real given),
 #       1 = FAIL, 2 = BLOCKED (wrong environment / missing tool).
 cd "$(dirname "$0")" || exit 2
+. tests/env.sh
 CC="${CC:-i686-w64-mingw32-gcc}"
 OUTDIR="${OUTDIR:-.}"
 if ! command -v "$CC" >/dev/null; then
@@ -39,7 +43,12 @@ if ! sha256sum "$DLL"; then
   echo "(sha256sum unavailable or failed — record the DLL hash manually)"
 fi
 "$CC" -m32 -shared -O2 -Wall -Wextra -fsyntax-only gshim.c 2>&1 | head -20
-OBJDUMP="$(dirname "$(command -v "$CC")")/i686-w64-mingw32-objdump"
+OBJDUMP=$(find_objdump "$CC") || OBJDUMP=""
+if [ -z "$OBJDUMP" ]; then
+  echo "V-1 BLOCKED: no working objdump for $CC (tried <cc-dir>/{i686-w64-mingw32-objdump,objdump} + PATH objdump; MSYS2 MINGW32: pacman -S mingw-w64-i686-binutils)"
+  exit 2
+fi
+echo "objdump: $OBJDUMP"
 if ! "$OBJDUMP" -p "$DLL" > "$OUTDIR/exports_shim.txt"; then
   echo "V-1 BLOCKED: objdump failed ($OBJDUMP)"
   exit 2

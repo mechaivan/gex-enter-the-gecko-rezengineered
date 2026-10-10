@@ -121,6 +121,11 @@ V-1b; secundaria: typedef `FARPROC` (corroboración web). Cast
 SIN cambios (supresión local solo ante `-Werror` real).
 Límite: estático; dinámica en V-2/P-W5.
 
+F-3 (2026-10-11): reintento V-1 con alias `.def`
+`"dec"=interna-sin-_` — `V-1 BUILD: PASS` + verificación FAIL
+(38+3 twins `gr...@N`); fix exact-match `"dec"="dec"` propuesto,
+pendiente PC. V-1 reintento NO superado; V-2 no iniciado.
+
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
 dirs temporales contra una fake staged al lado (14 escenarios:

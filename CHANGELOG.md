@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — F-3: V-1 reintento BUILD PASS + verificación FAIL (38+3 twins); fix propuesto
+
+- PC 2026-10-11 (MSYS2 MINGW32): alias `"dec"=interna-sin-_`
+  enlaza pero MinGW-32 exporta TAMBIÉN los internos
+  (`grBufferSwap@4` + 2 twins): `check_exports.py` rc=1. V-1
+  2026-10-10 PASS intacto (hecho histórico, otro .def).
+- Fix PROPUESTO (pendiente PC): alias exact-match `"dec"="dec"`
+  en `gshim.def` + `fakereal_full.def`; objdump auto-detectado
+  (triplete→plano→PATH, test_env hermético); regresiones
+  (test_def exact-match, test_exports twins 38+3).
+- Aislado verificado: harness/build-behavior solo temp; V-1
+  directo escribe salidas documentadas gitignored (diseño).
+  Docs: TESTING (F-3) + README + PROJECT_STATE. Panel intacto.
+
 ## 2026-10-10 — 0.0.0 — F-2 evaluado: benigno y justificado (sin cambios de código)
 
 - Dictamen `-Wcast-function-type` (`gshim.c:312`, cast

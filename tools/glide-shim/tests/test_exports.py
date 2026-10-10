@@ -190,6 +190,12 @@ def main():
     check(rc == 0 and 'CHECK_EXPORTS: PASS' in buf.getvalue()
           and len(exp38) == 38 and len(code38) == 3 and len(fwd38) == 35,
           'CLI --shim-only passes a full-38 shim via the real list')
+    twins = [n[1:] for n in code38]
+    ok, rep = verdict_shim(build_pe(exp38 + twins,
+                                    {n: REAL_MOD + '.' + n for n in fwd38}),
+                           exp38)
+    check(not ok and all(t in ' '.join(rep) for t in twins),
+          'F-3 shape (38 + undecorated alias twins) fails and names them')
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
 

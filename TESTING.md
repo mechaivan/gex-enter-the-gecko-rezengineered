@@ -734,6 +734,18 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   estático de tablas de exports; NO prueba carga en proceso, NO
   prueba Gex ni integración en ejecución. F-2 evaluado 2026-10-10
   (benigno y justificado, no corregido); V-2 no iniciado.
+- **V-1 REINTENTO (PC mantenedor 2026-10-11, MSYS2 MINGW32):
+  BUILD PASS + verificación FAIL (38+3).** Hallazgo F-3: con
+  `gshim.def` en forma alias `"decorada"=interna-sin-_`, enlace OK
+  y objdump rc=0, pero `check_exports.py` rc=1 — las 38 esperadas
+  presentes MÁS 3 extras prohibidas (`grBufferNumPending@0`,
+  `grBufferSwap@4`, `grGlideShutdown@0`): MinGW-32 exporta también
+  el interno cuando no coincide exactamente. Fix PROPUESTO
+  (pendiente validación PC): alias exact-match `"dec"="dec"` +
+  objdump auto-detectado + regresiones
+  (test_def/test_exports/test_env). V-1 original 2026-10-10 PASS
+  intacto (hecho histórico, otro .def/momento toolchain). V-1
+  reintento NO superado; V-2 no iniciado.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

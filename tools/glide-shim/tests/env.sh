@@ -16,6 +16,31 @@ find_python() {
   return 1
 }
 
+# find_objdump <cc>: print a working objdump paired with toolchain <cc>.
+# Tries, in order: <cc-dir>/i686-w64-mingw32-objdump, <cc-dir>/objdump,
+# then plain objdump in PATH. Each candidate must exist AND run
+# (--version rc=0); prints the path (return 0) or nothing (return 1).
+# Never presumes the triplet name exists: MSYS2 MINGW32 only guarantees
+# plain objdump, so the triplet is preferred only when it runs.
+find_objdump() {
+  # NOTE: ${_p%/*} instead of $(dirname) — builtins only, so pairing
+  # works even with a minimal PATH (and stays hermetic under test).
+  _dir=""
+  _p=$(command -v "$1" 2>/dev/null) && _dir=${_p%/*}
+  if [ -n "$_dir" ]; then
+    for _c in "$_dir/i686-w64-mingw32-objdump" "$_dir/objdump"; do
+      if [ -x "$_c" ] && "$_c" --version >/dev/null 2>&1; then
+        echo "$_c"; return 0
+      fi
+    done
+  fi
+  if command -v objdump >/dev/null 2>&1 \
+     && objdump --version >/dev/null 2>&1; then
+    command -v objdump; return 0
+  fi
+  return 1
+}
+
 # host_run_ok: can this machine compile AND run gshim.c as a host binary?
 # Prints the reason when not (return 1). Used to SKIP (never PASS) the
 # behaviour stage outside Linux with a native compiler.
