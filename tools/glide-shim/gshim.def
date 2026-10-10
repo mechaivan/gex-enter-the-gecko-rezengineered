@@ -9,12 +9,20 @@
 ;    AND listed here, so the export never depends on linker auto-export).
 ;    grGlideShutdown runs the final log dump on the game thread (DllMain
 ;    DETACH is intentionally a no-op; see gshim.c + README).
+;  - MINGW-32 LINK RULE (2026-10-11, maintainer-PC evidence): the 3 code
+;    exports MUST use the explicit-alias form "decorated"=internal, with
+;    the internal name WITHOUT the leading underscore. Bare decorated
+;    lines (_grBufferSwap@4 etc.) fail the link with the current
+;    MinGW-32 toolchain even though this same file linked on 2026-10-10
+;    (V-1 PASS) — a toolchain-side change. The alias form below is the
+;    /tmp-proven fix (objdump-confirmed public names); V-1 byte-verifies
+;    all 38 exports, and test_def.py forbids bare decorated lines.
 LIBRARY glide2x
 EXPORTS
     _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
     _grAlphaCombine@20=glide2x_gex_real._grAlphaCombine@20
-    _grBufferNumPending@0
-    _grBufferSwap@4
+    "_grBufferNumPending@0"=grBufferNumPending@0
+    "_grBufferSwap@4"=grBufferSwap@4
     _grChromakeyMode@4=glide2x_gex_real._grChromakeyMode@4
     _grChromakeyValue@4=glide2x_gex_real._grChromakeyValue@4
     _grConstantColorValue4@16=glide2x_gex_real._grConstantColorValue4@16
@@ -28,7 +36,7 @@ EXPORTS
     _grGlideGetState@4=glide2x_gex_real._grGlideGetState@4
     _grGlideInit@0=glide2x_gex_real._grGlideInit@0
     _grGlideSetState@4=glide2x_gex_real._grGlideSetState@4
-    _grGlideShutdown@0
+    "_grGlideShutdown@0"=grGlideShutdown@0
     _grLfbWriteRegion@32=glide2x_gex_real._grLfbWriteRegion@32
     _grSstControl@4=glide2x_gex_real._grSstControl@4
     _grSstQueryHardware@4=glide2x_gex_real._grSstQueryHardware@4

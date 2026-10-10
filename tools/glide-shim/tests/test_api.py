@@ -7,7 +7,8 @@ This test asserts:
   1. 4*nparams == @N for all 38 rows (x86 stdcall arithmetic; all SDK
      params are 4-byte kinds — verified at fixture generation).
   2. Every row's decorated name _(func)@(N) is exported by gshim.def
-     (forwarder or code export) and vice versa (no extras).
+     (forwarder, bare, or "decorated"=internal alias form) and vice
+     versa (no extras).
 Exit 0 = all pass.
 """
 import re
@@ -40,6 +41,7 @@ def main():
 
     deftext = (SHIM / 'gshim.def').read_text()
     exports = set(re.findall(r'(_gr\w+@\d+|_gu\w+@\d+)=', deftext))
+    exports |= set(re.findall(r'"(_gr\w+@\d+|_gu\w+@\d+)"=', deftext))
     exports |= set(re.findall(r'(?m)^\s*(_gr\w+@\d+|_gu\w+@\d+)\s*$', deftext))
     want = {f'_{fn}@{w}' for fn, _, w in rows}
     check(want == exports,

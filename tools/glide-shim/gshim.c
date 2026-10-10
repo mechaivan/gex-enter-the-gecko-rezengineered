@@ -9,8 +9,10 @@
  * Design (setvbuf audit 2026-10-10, v5 -> v6; see git history):
  *  - 35 pure-forward functions go through gshim.def forwarder exports
  *    (no code, no arity/type assumptions at all). 3 intercepted calls are
- *    BOTH __declspec(dllexport) here AND listed in gshim.def, so their
- *    export never depends on linker auto-export behaviour:
+ *    BOTH __declspec(dllexport) here AND listed in gshim.def as explicit
+ *    "decorated"=internal aliases (bare decorated lines fail the
+ *    MinGW-32 link; see gshim.def), so their export never depends on
+ *    linker auto-export behaviour:
  *      void  grBufferSwap(FxI32 swap_interval)  -> _grBufferSwap@4
  *      FxI32 grBufferNumPending(void)           -> _grBufferNumPending@0
  *      void  grGlideShutdown(void)              -> _grGlideShutdown@0

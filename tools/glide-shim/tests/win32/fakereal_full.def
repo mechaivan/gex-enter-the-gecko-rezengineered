@@ -5,9 +5,14 @@
 ; build-harness.sh (this file minus one line each), so the fake keeps
 ; its code but loses the export — GetProcAddress then fails exactly
 ; like a real DLL lacking that symbol.
+; MINGW-32 LINK RULE (same latent defect as gshim.def, 2026-10-11):
+; explicit-alias form "decorated"=internal only (internal WITHOUT the
+; leading underscore) — bare decorated lines fail the current MinGW-32
+; link. Variant generation (grep -vF '_gr...@N') still matches, since
+; the decorated name stays on its own line.
 LIBRARY glide2x_gex_real
 EXPORTS
-    _grBufferSwap@4
-    _grBufferNumPending@0
-    _grGlideShutdown@0
-    _fakereal_counts@16
+    "_grBufferSwap@4"=grBufferSwap@4
+    "_grBufferNumPending@0"=grBufferNumPending@0
+    "_grGlideShutdown@0"=grGlideShutdown@0
+    "_fakereal_counts@16"=fakereal_counts@16

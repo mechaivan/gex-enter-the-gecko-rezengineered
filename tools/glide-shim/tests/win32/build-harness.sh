@@ -3,8 +3,9 @@
 # mingw-w64-i686-gcc; any Windows shell works if that toolchain is in
 # PATH — the -dumpmachine gate below is the real requirement).
 # Builds, into a temp build dir (default mktemp -d, or $1):
-#   glide2x.dll            staged PRODUCTION copy (fresh build-win32.sh;
-#                          the repo file is never loaded by the harness)
+#   glide2x.dll            staged PRODUCTION copy (fresh build-win32.sh
+#                          with OUTDIR=build dir; the repo tree is never
+#                          written, let alone loaded, by the harness)
 #   fake_full.dll + 3 missing-one-export variants (staged per scenario
 #                          as glide2x_gex_real.dll; NEVER that name here,
 #                          or the W07 bare-name fallback would resolve it)
@@ -28,13 +29,16 @@ echo "target: $("$W32CC" -dumpmachine)"
 echo "build dir: $B"
 BLOG="$B/build.log"
 : > "$BLOG"
-echo "step 1/3: fresh production DLL (build-win32.sh, shim-only)"
-if ! CC="$W32CC" ./build-win32.sh; then
+echo "step 1/3: fresh production DLL (build-win32.sh, OUTDIR=temp)"
+if ! CC="$W32CC" OUTDIR="$B" ./build-win32.sh; then
   echo "W32HARNESS FAIL: production build failed (see above)"
   exit 1
 fi
 echo "step 2/3: compile fakes + runner"
-cp glide2x.dll "$B/glide2x.dll" || { echo "W32HARNESS FAIL: cannot stage shim copy"; exit 1; }
+if [ ! -f "$B/glide2x.dll" ]; then
+  echo "W32HARNESS FAIL: OUTDIR build left no $B/glide2x.dll"
+  exit 1
+fi
 if ! "$W32CC" -m32 -O2 -Wall -Wextra -c tests/win32/fakereal.c \
     -o "$B/fakereal.o" 2>&1 | tee -a "$BLOG"; then
   echo "W32HARNESS FAIL: fakereal.c compile error (see $BLOG)"
