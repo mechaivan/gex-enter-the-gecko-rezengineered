@@ -137,15 +137,17 @@ instalar; reportar + `exports_real.txt`). Veredicto automático:
 tests/expected_iat.txt` (lee ambas tablas de exports y exige
 arquitectura + resolución de forwarders; su lógica está
 auto-probada en `test_exports`, pero el veredicto real exige los
-artefactos Windows). Hipótesis de trabajo (SIN
-verificar hasta este paso): la DLL nGlide 2.10 exporta los 38
+artefactos Windows). Hipótesis de trabajo (CONFIRMADA en este
+paso, V-1b 2026-10-10, 38/38): la DLL nGlide 2.10 exporta los 38
 nombres que el exe importa — el Hito 1 solo prueba que esa
 combinación cargó entonces.
 
-**Estado V-1b: PENDIENTE (no ejecutado 2026-10-10).** Falta la
-copia real verificada como argumento (copia temporal aislada en
-PC, sin instalar, sin Gex). La validación con DLL real NO ha
-pasado; V-1 solo verificó el shim.
+**Estado V-1b: SUPERADO 2026-10-10 (PC mantenedor, MSYS2 MINGW32,
+copia temporal aislada).** PASS, exit 0: ambas PE32/i386; cruce
+38/38 (0 adicionales), 3 interceptadas + 35 forwarders OK; shim
+temporal SHA-256 `1f234c0a…ccb98217` (NO en el repo).
+Limitaciones: cruce estático de exports; NO prueba carga en
+proceso, Gex ni integración en ejecución (ver TESTING).
 
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
 
@@ -295,7 +297,8 @@ instalar); sin ellos, SKIP ruidoso.
 Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0 superado 2026-10-10 (identidad + copia, PC mantenedor);
 V-1 superado 2026-10-10 (build + 38/38, PC mantenedor; F-2
-pendiente); V-1b pendiente (falta cruce vs DLL real); V-2 pendiente.
+pendiente); V-1b superado 2026-10-10 (cruce vs DLL real);
+V-2 pendiente.
 
 ## Estado, riesgos abiertos y evidencia que FALTA
 
@@ -313,6 +316,6 @@ esperada por contrato C89, pendiente de confirmación empírica
 en V-2 (B13 solo observa glibc; no se afirma como promesa
 portable). Los exports de la DLL concreta se verifican
 en V-1b (evidencia directa); la carga real, en V-2. Pendiente
-explícito de Windows: V-1b + arnés W00–W11 (evidencia PC
-pendiente) + V-2 (V-0/V-1 OK).
+explícito de Windows: arnés W00–W11 (evidencia PC pendiente)
++ V-2 (V-0/V-1/V-1b OK).
 **Compatibilidad plena y validación dinámica NO declaradas.**

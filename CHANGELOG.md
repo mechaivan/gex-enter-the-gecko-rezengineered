@@ -2,6 +2,18 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — V-1b superado en PC (cruce vs DLL real 38/38)
+
+- V-1b EJECUTADO en PC mantenedor (MSYS2 MINGW32, copia temporal
+  aislada): PASS, exit 0. `build-win32.sh` con copia real
+  verificada (sin instalar, sin Gex): ambas PE32/i386; cruce
+  38/38 (0 adicionales), 3 interceptadas + 35 forwarders OK;
+  shim temporal SHA-256 `1f234c0a…ccb98217` (NO en repo).
+  Limitaciones: cruce estático; no prueba carga ni Gex.
+- F-2, arnés W00–W11 y V-2 siguen PENDIENTES (sin evidencia nueva).
+- Sync: TESTING, PROJECT_STATE, shim-README, tools-README, M-13,
+  REVERSE. Panel intacto (V-1b no mueve indicadores).
+
 ## 2026-10-10 — 0.0.0 — Coherencia V-1: actualizar Diagnóstico TESTING (V-1 PASS / V-1b PENDING / F-2)
 
 - TESTING «Diagnóstico suite en PC Windows»: la cláusula

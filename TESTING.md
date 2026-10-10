@@ -696,7 +696,7 @@ Cuando haya implementación, cubrir por cambio:
 
 Principio aplicable: **Original → Fix existente → REZengineered**.
 
-## V-0 superado + V-1 superado + V-1b pendiente (2026-10-10)
+## V-0 + V-1 + V-1b superados (2026-10-10)
 
 - **V-0 (EJECUTADO en PC mantenedor, salida real): PASS.**
   `SysWOW64\glide2x.dll`: 1630208 B, SHA-256 `7cbd…9aab`, MD5
@@ -715,12 +715,18 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   35 forwarders a `glide2x_gex_real` mismo nombre. Hallazgo F-2
   (PENDIENTE de evaluación, sin corregir): warning de conversión
   entre tipos de función en `gshim.c:312`; código intacto.
-- **V-1b (PENDIENTE, no ejecutado):** falta el cruce vs copia
-  real verificada (argumento a `build-win32.sh`: `objdump -p` +
-  veredicto 38 incl. interceptores + resolución de forwarders;
-  la validación con DLL real NO ha pasado). Procedimiento seguro
-  pendiente de ejecutar: copia temporal aislada en PC, sin
-  instalar, sin Gex. Gex no ejecutado; V-2 no iniciado.
+- **V-1b (EJECUTADO en PC mantenedor 2026-10-10, MSYS2 MINGW32,
+  copia temporal aislada): PASS, exit 0.** `build-win32.sh` con
+  copia real verificada como argumento (copia temporal, sin
+  instalar, sin Gex): ambas PE32/i386; `check_exports.py` cruce
+  completo — 38/38 esperadas (0 adicionales), 3 interceptadas y
+  35 forwarders coinciden; shim temporal SHA-256
+  `1f234c0a05b851b1d365c7efb1b3945fd21befafebc88cd5c2cb7c43ccb98217`
+  (NO incorporado al repo). Criterios superados: arquitectura +
+  presencia exacta + resolución de forwarders. Limitaciones: cruce
+  estático de tablas de exports; NO prueba carga en proceso, NO
+  prueba Gex ni integración en ejecución. F-2 sigue PENDIENTE;
+  V-2 no iniciado.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 
