@@ -19,6 +19,8 @@ gcc -std=c11 -O1 -I tests/behavior tests/behavior/driver.c \
   tests/behavior/harness_impl.c gshim.c -o "$BIN" 2>"$(mktemp -d)/build.log" \
   || { echo "FAIL behaviour build"; exit 1; }
 echo "PASS behaviour build"
+TRACER_DIR=$(mktemp -d); TRACER="$TRACER_DIR/syscall_tracer"
+TLOG=$(mktemp); gcc -Wall -Wextra -o "$TRACER" tests/behavior/syscall_tracer.c >"$TLOG" 2>&1 && [ -d /proc/self/fd ] && [ "$(uname -m)" = "x86_64" ] && echo "PASS tracer build" || { echo "SKIP B13 (needs Linux x86_64 + /proc + ptrace)"; cat "$TLOG"; TRACER=""; }
 T() { mktemp -d; }
 
 # B1a: exact logging, constant pending (1 change + 1 periodic@4096)
@@ -81,8 +83,8 @@ d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 GSHIM_TEST_LOAD_FAIL=1 \
 
 # B6: crash mid-run (no shutdown) -> partial rows, no footer
 d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 "$BIN" 5000 0 0 1 0 >/dev/null 2>&1 ); [ $? -eq 42 ]; ok $? "B6 exit 42"
-[ "$(grep -c '^[0-9]' "$d/gshim_log.csv")" -ge 4700 ]; ok $? "B6 >=4700/5000 rows on disk"
-grep -q '^# gshim 4' "$d/gshim_log.csv"; ok $? "B6 header present"
+[ "$(grep -c '^[0-9]' "$d/gshim_log.csv")" -ge 4700 ]; ok $? "B6 >=4700/5000 rows on disk (2KB buf: worst loss ~233)"
+grep -q '^# gshim ' "$d/gshim_log.csv"; ok $? "B6 header present"
 ! grep -q '^# end' "$d/gshim_log.csv"; ok $? "B6 no footer"
 
 # B7: no QPC -> exit 111
@@ -111,6 +113,20 @@ echo "$out" | grep -qE 'csv=[0-9]+/[0-9]+ marker=-1/-1' && \
 d=$(T); ( cd "$d" && "$BIN" 50 0 1 0 0 >/dev/null 2>&1 ); ok $? "B12 exit 0"
 [ ! -e "$d/load_arg.txt" ]; ok $? "B12 no LoadLibrary call"
 grep -q '^swap=50 pending=0 shutdown=1 ' "$d/forwarded.counts"; ok $? "B12 forwarded via fast path"
+
+# B13a: syscall-level proof — implicit writes are <= 2KB, batched
+if [ -n "$TRACER" ]; then
+d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 "$TRACER" "$d/trace.log" "$BIN" 3000 0 1 0 0 >/dev/null 2>&1 ); ok $? "B13a exit 0"
+cnt=$(grep -c '^csv_write ' "$d/trace.log"); mx=$(grep -oE '^csv_write [0-9]+' "$d/trace.log" | awk '{print $2}' | sort -n | tail -1)
+[ "$mx" -le 2048 ] 2>/dev/null; ok $? "B13a max csv write <= 2048 (got $mx)"
+[ "$cnt" -ge 10 ] && [ "$cnt" -le 60 ]; ok $? "B13a batched count in [10,60] (got $cnt)"
+# B13b: crash run has ZERO explicit flushes anywhere -> every counted
+# write is an implicit CRT flush. This is point-2's smoking gun.
+d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 "$TRACER" "$d/trace.log" "$BIN" 5000 0 0 1 0 >/dev/null 2>&1 ); [ $? -eq 42 ]; ok $? "B13b exit 42"
+cnt=$(grep -c '^csv_write ' "$d/trace.log"); mx=$(grep -oE '^csv_write [0-9]+' "$d/trace.log" | awk '{print $2}' | sort -n | tail -1)
+[ "$cnt" -ge 15 ]; ok $? "B13b implicit writes without any fflush (got $cnt)"
+[ "$mx" -le 2048 ] 2>/dev/null; ok $? "B13b max csv write <= 2048 (got $mx)"
+fi
 
 echo "BEHAVIOUR: $pass passed, $fails failed"
 [ "$fails" -eq 0 ]

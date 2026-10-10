@@ -8,10 +8,11 @@ del exe EU a la DLL real (renombrada) y registra `grBufferSwap`
 1/4096 periódico) con ticks QPC crudos en `gshim_log.csv`. **No altera
 ninguna llamada.** El exe queda intacto (md5 verificable antes/después).
 
-Diseño v4 (revisión capacidad/I-O 2026-10-10): anillo 262144 filas en
+Diseño v5 (auditoría búfer CRT 2026-10-10): anillo 262144 filas en
 RAM con stop-on-full (nunca reutiliza; desbordar = alarma + tanda
 descartada); `DllMain` solo-ATTACH; volcado final en hook
-`grGlideShutdown` + goteo (64 filas, sin `fflush`) en path medido;
+`grGlideShutdown` + goteo de 64 filas (sin `fflush` explícito;
+implícitos acotados por `setvbuf` 2 KB, medidos a nivel syscall);
 fallos fail-fast (nunca retornos ficticios); `GSHIM_NOLOG=1` sin tocar
 el log y con fallos de marcador audibles; auto-coste medido (footer).
 
@@ -141,18 +142,29 @@ tanda NOLOG inválida: no usar para A/B; reportar, revertir.
 ## Impacto en timing (cómo medirlo, no asumirlo)
 
 - Por diseño: el path medido hace 2 QPC + stores en RAM + (1 de
-  cada ~64 filas) un goteo de 64 `fprintf` al búfer CRT (memcpys,
-  ~µs) + `flush` implícitos raros del CRT. **Ninguna syscall de
-  disco por diseño en el path**: el único `fflush` fuera de
-  finalize es el marcador de overflow (tanda ya condenada).
-- Coste residual posible: el goteo + flush CRT en ráfagas de
-  muestreo caliente (peor caso: decenas de µs en 1 llamada de
-  cada ~64). Se mide de dos formas: (1) footer `log_cost_us_max`
-  (peor llamada de la tanda, incluye goteos); (2) A/B NOLOG vs
-  log en la misma escena (FPS iguales dentro del ruido =
-  impacto despreciable).
+  cada ~64 filas) un goteo de 64 `fprintf` al búfer CRT. Sin
+  `fflush` explícito en el path válido. PERO cualquier `fprintf`
+  puede disparar una escritura implícita al llenarse el búfer
+  (stdio estándar, sin excepción: titular ausencia total de
+  syscalls —como hacía la v4— sería falso).
+  Garantía demostrable: `setvbuf` fija el búfer en 2 KB (C89
+  portable; MSVCRT y glibc lo respetan), luego cada escritura
+  implícita es ≤2 KB (~1–10 µs en page-cache) con cadencia
+  determinista (~1 cada ~100 filas) en ambos CRT. Medido a nivel
+  syscall en Linux (B13: máximo exacto 2048 B, con y sin
+  finalize); la latencia concreta en Windows la da cada tanda
+  (footer + A/B).
+- `log_cost_us_max`: SÍ captura los `flush` implícitos (ocurren
+  dentro de la ventana medida de alguna llamada): es el peor caso
+  observado de la tanda. Limitaciones: es un escalar (sin
+  distribución; la media sale de `sum`/filas offline); no se
+  transfiere entre máquinas/tandas (page-cache, AV, disco);
+  confla goteo+flush (conservador, sobre-atribuye); no cubre el
+  `fclose` de finalize (fuera del path por diseño); en NOLOG no
+  existe (el A/B aísla el reenvío).
 - Crash: en disco queda todo menos la cola (<64 filas de anillo
-  + ~150 del búfer CRT; probado: ≥4700/5000 tras kill -9).
+  + ≤2 KB del búfer ≈ ~200 filas; probado: ≥4700/5000 tras
+  kill -9).
 - Criterio provisional: `max` documentado en el reporte; si `max`
   sale del orden de µs–decenas de µs o el juego va distinto,
   DESCARTAR tanda.
@@ -160,7 +172,7 @@ tanda NOLOG inválida: no usar para A/B; reportar, revertir.
 ## Formato del log
 
 ```text
-# gshim 4 (capacity/io review 2026-10-10) qpf=<ticks/s> (init)
+# gshim 5 (crt-buffer audit 2026-10-10) qpf=<ticks/s> (init)
 # seq,tick_raw,event,arg
 1,123456789,S,3
 2,123457101,P,0
@@ -180,7 +192,7 @@ tanda descartada aunque haya footer.
 `gshim_nolog.marker` (solo NOLOG, 2 líneas o tanda inválida):
 
 ```text
-gshim 4 (capacity/io review 2026-10-10) nolog=1 qpf=<ticks/s>
+gshim 5 (crt-buffer audit 2026-10-10) nolog=1 qpf=<ticks/s>
 end swaps=<n> pending_calls=<n> by=shutdown
 ```
 
@@ -205,16 +217,18 @@ del criterio de aceptación.
 
 Estructurales (propiedades del código, NO conducta): `test_def`
 14 (38/38 `.def` vs IAT + hook shutdown), `test_api` 3
-(4·nparams=@N vs SDK), `test_init` 65 (DllMain solo-ATTACH,
-fail-fast, choke NOLOG, finalize, capacidad/I-O v4),
-`gcc -fsyntax-only` con stub. Verdes 2026-10-10.
+(4·nparams=@N vs SDK), `test_init` 69 (DllMain solo-ATTACH,
+fail-fast, choke NOLOG, finalize, capacidad/I-O v4, búfer CRT
+v5), `test_docs` 3 (tripwires honestidad), `gcc -fsyntax-only`
+con stub. Verdes 2026-10-10.
 
 Conductuales (el `gshim.c` REAL compilado contra fakes Win32
-funcionales; afirman ficheros/cuentas/orden/códigos): 57 checks
-en 12 escenarios (B1a/b exactitud incl. muestreo 1/4096, B2 tope
-262144 + marcador, B3 NOLOG, B4 marcador roto, B5 111×4,
+funcionales; afirman ficheros/cuentas/orden/códigos/syscalls):
+63 checks en 13 escenarios (B1a/b exactitud incl. muestreo 1/4096,
+B2 tope 262144 + marcador, B3 NOLOG, B4 marcador roto, B5 111×4,
 B6 kill -9, B7 sin QPC, B8 doble shutdown, B10 log bloqueado,
-B11 DETACH no-op, B12 fast-path). Verdes 2026-10-10 (Linux).
+B11 DETACH no-op, B12 fast-path, B13 traza write ≤2 KB +
+implícitos sin `fflush`). Verdes 2026-10-10 (Linux).
 
 Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0/V-1/V-1b/V-2 siguen pendientes (build MinGW + DLL real +
@@ -223,13 +237,15 @@ carga + juego).
 ## Estado, riesgos abiertos y evidencia que FALTA
 
 Verificado: IAT 38/38 + aridades SDK + suites verde (estructural
-14+3+65 y conductual 57) + `DllMain` solo-ATTACH + fail-fast +
-choke NOLOG. Riesgos ABIERTOS (no bloquean el build, condicionan
+14+3+69+3 y conductual 63) + `DllMain` solo-ATTACH + fail-fast +
+choke NOLOG + búfer CRT fijado (implícitos ≤2 KB, medidos a nivel
+syscall). Riesgos ABIERTOS (no bloquean el build, condicionan
 el uso): (1) el juego podría salir sin `grGlideShutdown` ⇒ sin
 footer (V-2 lo decide; fallback WinClose pendiente); (2) tasa de
 llamadas spin real desconocida hasta V-2 (márgenes calculados,
-alarma lista); (3) coste CRT/QPC real en Windows solo medible
-allí (footer + A/B). Los exports de la DLL concreta se verifican
+alarma lista); (3) latencia concreta de implícitos en Windows
+solo medible allí (footer `max` + A/B por tanda; page-cache/AV
+pueden moverla). Los exports de la DLL concreta se verifican
 en V-1b (evidencia directa); la carga real, en V-2. Pendiente
 explícito de Windows: build MinGW-32 + V-0/V-1/V-1b/V-2.
 **Compatibilidad plena y validación dinámica NO declaradas.**

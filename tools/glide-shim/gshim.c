@@ -1,4 +1,4 @@
-/* GEX caloD shim v4 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
+/* GEX caloD shim v5 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
  *
  * What it does: forwards all 38 Glide imports the EU exe uses to the real
  * DLL (renamed), and logs grBufferSwap issue + grBufferNumPending depth
@@ -6,8 +6,7 @@
  * What it does NOT do: change any call, argument, timing or return value.
  * The exe is untouched (md5 verifiable before/after).
  *
- * Design (capacity/io review 2026-10-10, v3 -> v4; v2 -> v3: ATTACH-only
- * DllMain + shutdown-hook finalize + fail-fast, see git history):
+ * Design (crt-buffer audit 2026-10-10, v4 -> v5; see git history):
  *  - 35 pure-forward functions go through gshim.def forwarder exports
  *    (no code, no arity/type assumptions at all). 3 intercepted calls are
  *    BOTH __declspec(dllexport) here AND listed in gshim.def, so their
@@ -28,12 +27,16 @@
  *    usable; self-cost lost) — must be confirmed present in V-2;
  *    hooking grSstWinClose as fallback is explicitly pending that
  *    evidence.
- *  - No file I/O syscalls on the measured path: rows go to an in-RAM
- *    ring (raw QPC ticks; offline conversion with the header qpf);
- *    the only on-path writes are memcpys into the CRT buffer (64-row
- *    trickle, ~1/64 rows) plus rare implicit CRT flushes. No fflush
- *    outside finalize. Residual cost is self-measured (footer max)
- *    and isolated by NOLOG A/B (see README).
+ *  - No EXPLICIT fflush on the measured path (verified structurally).
+ *    Implicit CRT flushes DO happen (any fprintf can trigger one when
+ *    the stream buffer fills — standard stdio, no exception): they are
+ *    bounded, not banished. setvbuf pins a 2 KB stream buffer (portable
+ *    C89, honored by MSVCRT and glibc alike), so every implicit write
+ *    is <= ~2 KB (~1-10 us page-cache) and cadence is deterministic on
+ *    both CRTs (~1 flush per ~100 rows). Each lands inside some call's
+ *    measured window, so footer max captures the worst one (see README
+ *    for what max does and does not prove). Crash loss <= ~2 KB
+ *    (~200 rows) + 64-row trickle tail.
  *  - CAPACITY (stop-on-full, never wrap, never hide loss): 262144 rows
  *    (~25 swaps/s + pending changes + 1/4096 periodic). Planned 60 s
  *    runs need < ~5K rows typical, < ~150K pathological-hot-spin;
@@ -84,7 +87,7 @@
 #error "gshim must be built 32-bit (e.g. i686-w64-mingw32-gcc -m32)"
 #endif
 
-#define GSHIM_VERSION "4 (capacity/io review 2026-10-10)"
+#define GSHIM_VERSION "5 (crt-buffer audit 2026-10-10)"
 #define REAL_DLL "glide2x_gex_real.dll"
 #define LOG_FILE "gshim_log.csv"
 #define ERR_FILE "gshim_error.txt"
@@ -97,9 +100,14 @@
  * (see trip marker in log_row + README). Flushed rows are NOT freed: the
  * RAM copy stays until shutdown; flushed_n only tracks file progress. */
 #define RING_N 262144u
-/* Trickle: at most TRICKLE_N rows per measured-path call, memcpys into
- * the CRT buffer, never fflush (durability is finalize's job). */
+/* Trickle: at most TRICKLE_N rows per measured-path call into the CRT
+ * buffer, never fflush (durability is finalize's job). */
+/* Stream buffer, pinned (not defaulted): implicit flushes are then <= 2 KB
+ * on ANY CRT, with identical cadence on MSVCRT and glibc — the Linux
+ * behavioural bounds transfer to Windows by construction. */
 #define TRICKLE_N 64u
+#define FILEBUF_N 2048u
+static char filebuf[FILEBUF_N];
 
 typedef struct {
     uint64_t tick;  /* raw QueryPerformanceCounter */
@@ -164,6 +172,8 @@ static void open_log(const char *note)
     if (logf || nolog)
         return;
     logf = fopen(LOG_FILE, "a");
+    if (logf)
+        setvbuf(logf, filebuf, _IOFBF, FILEBUF_N);
     if (logf && !header_written) {
         fprintf(logf, "# gshim %s qpf=%lld (%s)\n",
                 GSHIM_VERSION, (long long)qpf, note);

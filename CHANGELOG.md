@@ -2,6 +2,30 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Shim Glide v5: auditoría búfer CRT (fin del «cero syscalls»)
+
+- Hallazgo: `fprintf` SÍ dispara escrituras implícitas al llenarse
+  el búfer aunque no haya `fflush` (stdio estándar) — la v4 lo
+  admitía como «residual» pero titulaba «cero syscalls»: falso y
+  retirado de README + `gshim.c` (tripwire `test_docs`).
+- Solución mínima: `setvbuf` 2 KB (C89 portable; MSVCRT y glibc
+  lo respetan) ⇒ cada implícito ≤2 KB (~1–10 µs) con cadencia
+  determinista (~1/100 filas) en ambos CRT; sin hilos ni
+  bloqueos. Alternativas descartadas: búfer gigante (mata la
+  forense de crash), sin búfer (syscall por fila), mmap/hilos
+  (complejidad). Crash acotado a ~200 filas + cola de 64.
+- `log_cost_us_max` SÍ captura los implícitos (ocurren dentro de
+  la ventana medida) — documentadas 6 limitaciones (escalar, no
+  transfiere entre máquinas, confla goteo+flush, sin finalize,
+  sin NOLOG, page-cache/AV).
+- Pruebas: B13 traza write() a nivel syscall (ptrace propio;
+  LD_PRELOAD descartado: no ve escrituras intra-libc): máx
+  exacto 2048 B con y sin finalize; 40 implícitos en tanda
+  crash sin ningún `fflush` (prueba del punto 2). Suites verdes
+  14+3+69+3 y 63 conductual. Sin Windows/Gex (V-x pendientes).
+- Sync: README v5 (timing honesto + método), MODERNIZATION M-13,
+  PROJECT_STATE, REVERSE_ENGINEERING, tools/README. Panel intacto.
+
 ## 2026-10-10 — 0.0.0 — Shim Glide v4: capacidad, I-O en path y marcador NOLOG
 
 - Auditoría final pre-build (sin ejecutar Gex/compilar en Windows

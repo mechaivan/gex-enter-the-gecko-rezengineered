@@ -82,8 +82,8 @@
   ejecutar/modificar) + M-13 flujo temporal estático (TESTING,
   REVERSE_ENGINEERING) + I-23 causa identificada + R-audio
   confirmado + `tools/m13-core` verificado (120 checks) +
-  `tools/glide-shim` v4 capacidad-revisado (suites verdes 2026-10-10:
-  14+3+65 + 57 conductual; sin compilar ni ejecutar,
+  `tools/glide-shim` v5 crt-revisado (suites verdes 2026-10-10:
+  14+3+69+3 + 63 conductual; sin compilar ni ejecutar,
   V-0/V-1/V-1b/V-2 pendientes PC Windows).
 
 ## Limitaciones actuales

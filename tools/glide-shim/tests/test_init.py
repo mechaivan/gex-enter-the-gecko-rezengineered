@@ -24,6 +24,8 @@ behaviour needs Windows + the real DLL, see README "Validar"):
   7. Capacity & I/O (v4): 262144-row stop-on-full ring with a trip-once
      invalidation marker; trickle writes, no fflush on the measured
      path; 1/4096 pending sampling; loud marker failures.
+  8. CRT buffer pinned (v5): 2 KB user buffer via setvbuf BEFORE any I/O,
+     so implicit flushes are <= 2 KB on any CRT (MSVCRT and glibc alike).
 Exit 0 = all pass.
 """
 import re
@@ -172,6 +174,15 @@ def main():
         body = func_body(code, fn)
         check('else' in body and 'note_error' in body,
               f'{fn} reports failure loudly')
+
+    # 8. CRT buffer pinned (v5)
+    check('#define FILEBUF_N 2048u' in code, 'stream buffer is 2048 bytes')
+    check('static char filebuf[FILEBUF_N]' in code,
+          'user buffer is static storage')
+    check('setvbuf(logf, filebuf, _IOFBF, FILEBUF_N)' in openlog,
+          'open_log pins the buffer')
+    check(openlog.index('setvbuf') < openlog.index('fprintf'),
+          'setvbuf precedes any I/O on the stream')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
