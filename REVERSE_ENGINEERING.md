@@ -50,8 +50,11 @@
 
 ### Etapa C — Sistemas (uno por uno, con engineering log)
 
-- [ ] Timing/FPS (I-01, I-02): buscar sleeps, `timeGetTime`, contadores,
-      divisores de frame; explicar por qué 30 FPS es "correcto".
+- [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
+      (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/
+      divisor 16.666 localizados + flujo temporal gameplay reconstruido
+      (ver Avance abajo); «30 FPS correcto» aún sin explicar del todo;
+      acoplamiento pendiente de prueba dinámica (E-2 bloqueado).
 - [ ] Render (I-03–I-10): ruta Glide única en EU (sin selección D3D en el
       binario); modos de vídeo; petición de 75 Hz; paths de resolución.
       Selección Glide/D3D solo en US/F-01 (pendiente de binario).
@@ -66,6 +69,69 @@
 - [ ] Menú debug (F-12, Lote 1): localizar el presunto debug menu de
       desarrolladores en la build D3D (la fuente afirma acceso con F1 vía
       memory patch; sin verificar por el proyecto) — superficie RE potencial.
+
+> **Avance E-3/M-13 — flujo temporal gameplay (2026-10-10, estático
+> acotado, solo lectura; exe EU md5 `692b1282…`, copia eliminada;
+> nada ejecutado/modificado).** Método y candidatos: TESTING E-3.
+> Nota metodología: `objdump` lineal desincroniza junto a
+> `0x412F8B` (tabla de datos); resincronizado con `--start-address`.
+>
+> | Dirección | Función observada | Evidencia | Dependencias | Dudas |
+> |---|---|---|---|---|
+> | `0x43B36D`/`0x43B373` (en `0x43B11D` ← `0x463A29`, estado 3) | Init temporal (1×/nivel): `[obj+0x10C]=0`, `t0=GetTickCount()`→`ds:0x57B5FC`, `[obj+0x108]=0`, `[obj+0x104]=0` | Disasm (único escritor t0) | obj=`ds:0x551640` | — |
+> | `0x43E5DD`/`0x43E5E3` (en `0x43E1BA` ← `0x43EA36` ← `0x463AAA`, estado 2) | Sello por frame: `elapsed=now-t0`, `/16.666` (doble `0x54C060` VERIFICADO) → `_ftol` → `[obj+0x10C]`; `[obj+0x104]++` | Disasm (único lector t0; `0x43E1BA`/`0x43EA36` INDEPENDIENTES verificadas) | t0 `0x57B5FC` | Lectores `+0x10C`: NINGUNO en ámbito acotado |
+> | `0x43E1BA` (`0x43E1BA`–`0x43E63C`, 1 llamador) | Update por frame: ~20 subsistemas + doble-buffer `+0x14` + sello final | Disasm completo | — | Rol de cada subsistema (mov/anim/cám/fís/input/cine sin mapear) |
+> | `0x43F80D` (pre-update; 4 llamadores) | OSD «DEMO MODE» (`0x55029C/2A8`); si `+0x104==0` → `ds:0x57B63C=0` (1er frame) | Disasm + strings | Contador `+0x104` | `ds:0x57B63C` SIN lectores (2 escritores) = muerto/vestigial |
+> | `0x43DC3A` (en update si `+0x4E38==0`; +llamador `0x424B0D`) | Instala callbacks render + envía 2 listas (pasa contador a `0x473238`) + drena `grBufferNumPending` | Disasm | Contador `+0x104` | `0x473238` (mipmaps/texturas) IGNORA el contador (sin `[ebp+0x10]`) |
+> | `0x43EA51`/`0x43EA5E` (cola `0x43EA36`) | Espera `grBufferNumPending→0` + `grBufferSwap(3)`; luego no-op `0x46300C` | Disasm + IAT Glide | Presentación | — |
+> | `0x53FCB7` (post-frame) | Housekeeping: puerta `0x54038E`, pump `0x5380B3`/`0x5380A6`, cuenta atrás 375 frames `ds:0x5AF3E0`→`0x53FD31` | Disasm | — | — |
+> | `0x4622D7` (en `0x461FBD` ← init `0x43B1FE`) | Present durante init: `grBufferSwap(2)` + `+0x104` de OTRO objeto (`ds:0x551644`) | Disasm | — | Rol exacto (inferencia: pantalla carga) |
+> | `0x424C7F` / `0x537E6E` | `grBufferSwap(1)` (ruta `0x424C0F`; wrapper cine `0x537E69`) | Disasm | — | Roles exactos |
+> | `0x418FF8` (0 llamadores directos) | Lee `+0x104`/`+0x108`/`+0x10C` de SU objeto | Disasm | ??? | NO atribuible estáticamente (llamada indirecta) |
+> | `0x412F8B` (← `0x43E516`) | Cuenta atrás por frame (`+0x4BC−−`) + print = lógica frame-acoplada | Disasm resync | — | — |
+>
+> Flujo temporal (gameplay, estado 2; SERIE, sin hilos observados):
+>
+> ```text
+> [Estado 3, 1x/nivel] 0x463A29 -> 0x43B11D: +0x10C=0, t0=ahora, +0x108=0, +0x104=0
+>   -> estado 2 --+
+> [Por frame]     | 0x463AAA -> 0x43EA36(ds:0x551640):
+>   pre-update    |   0x43F80D (DEMO-MODE; 1er frame si +0x104==0; 0x43EA70/0x43F51D/0x43F94F)
+>   update+sello  |   0x43E1BA (~20 subsistemas; 0x43DC3A si +0x4E38==0;
+>   |             |    sello 16.666->+0x10C, +0x104++)
+>   presentacion  |   spin grBufferNumPending->0; grBufferSwap(3); no-op 0x46300C
+>   housekeeping  |   0x53FCB7 (pump + cuenta 375)
+>                 +-> repetir (sim+render comparten flujo; sin 2o dominio temporal)
+> ```
+>
+> **Separación sim/render:** NO observada. Update (incluye envío render
+> `0x43DC3A`) → drenaje cola → swap → casa, todo serie. La sim avanza
+> 1× por swap presentado (acoplamiento serie evidenciado;
+> cuantificación exacta pendiente de dinámica).
+>
+> **Throttle presentación (spec pública Glide 2.2/3.0 Ref Manual):**
+> `swap_interval` = retraces verticales a esperar (60 Hz+3 → máx 20
+> FPS). Juego: gameplay=3, init=2, resto=1. A 75 Hz (tasa pedida,
+> FA-05): 75/3 = **25 FPS máx** = coincide con ≈25 estables Hito 1
+> (INFERENCIA fuerte, no prueba: tasa real en runtime sin confirmar).
+>
+> **Sabemos (estático):** init t0 + resets; sello 16.666 + contador por
+> frame; orden serie update→swap→casa; 4 puntos de present (3/2/1/1);
+> consumidores efectivos (check 1er frame; cuenta atrás `0x412F8B`;
+> cuenta 375) y falsos (flag sin lectores; contador ignorado por
+> `0x473238`); `+0x10C` sin lectores en ámbito; `+0x14` doble-buffer.
+>
+> **NO podemos demostrar estáticamente:** qué subsistema mueve cada
+> cosa (mov/anim/cám/fís/input/cine); si el cociente `+0x10C` se lee
+> fuera del ámbito (dataflow global pendiente); atribución `0x418FF8`
+> (indirectas); tasa real de refresco en runtime; mecanismo F-03
+> (build distinta, no tocada); acoplamiento cuantitativo (E-2).
+>
+> **Próximo paso mínimo y seguro (sin intervención binaria):**
+> atribución acotada de `0x418FF8` (buscar su dirección como
+> puntero-dato) + E-2 dinámico cuando I-23 lo permita; el campo
+> `+0x10C` (frames fraccionales desde t0) ya computado es la entrada
+> natural de un futuro paso-fijo (diseño Fase 3, no ahora).
 
 ### Etapa D — Diffs de parches comunitarios
 

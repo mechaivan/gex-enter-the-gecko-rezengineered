@@ -223,6 +223,55 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   exes. Método sin registro invalidado; mediciones no iniciadas.
   Ver I-23. Origen sin investigar (orden expresa); pendiente futuro.
 
+## E-3 — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura)
+
+> Análisis estático acotado del exe EU original en Arena (descarga
+> Drive→sandbox verificada md5 `692b1282…`, objdump/binutils;
+> copia eliminada después). Sin ejecutar ni modificar nada
+> (exe/DLL/registro/instalación intactos). E-2 sigue BLOQUEADO (I-23).
+> Flujo temporal gameplay (M-13): REVERSE_ENGINEERING.md Etapa C.
+
+- **Superficie timing (hechos):** únicas APIs = `Sleep`+`GetTickCount`
+  (1 call real `Sleep(10)` en `0x4631C1`, loop idle; 7 calls
+  `GetTickCount`; stubs muertos `0x540418`/`0x5403CA`); init t0
+  `0x43B36D`→`ds:0x57B5FC`; cálculo `elapsed/16.666` (`0x43E5DD`,
+  doble `0x54C060` VERIFICADO) + contador frames; wrapper `0x537BB0`;
+  busy-waits 4000 ms (`0x4637F0`) / 0 (`0x463808`); debounce
+  10 ms `0x53B776`. 3 strings ancla: fmt Timer `0x54D0EC`←`0x406B3A`,
+  `grSstQuery-fail` `0x54F664`←`0x424DB1`, spline-error `0x54D310`←`0x411DD8`.
+- **Candidatos:** (1) `push 0xFA0` en `0x4637E4` (bytes `68 A0 0F 00 00`
+  @offset `0x62BE4`, VERIFICADO); (2) `Sleep(10→1)` en idle (no
+  gameplay). La rama `16.666` es la más relevante para M-13 pero NO
+  primer parche (riesgo float-math a ciegas).
+- **Contexto candidato 1 (hechos):** `0x463278` = WinMain (init +
+  máquina de 9 estados, jump table `0x463BC1`); estado 6 = rama cine:
+  compone `<InstallDir>\movie\<nombre>` desde tabla de **12 slots**
+  en `0x551668` (subs 0–0xB: crylogo, logo, intro, outro, scans,
+  clak1–4, bandai, midway, ubisoft); abre pares `.sag`/`.jam` modo
+  `'r'` (`0x537ED1`); SOLO `sub==1` (`\movie\logo`) toma
+  `0x538017(buf,0,4000)`; resto `(buf,1,0)` sin espera. Post-espera:
+  `0x4650FD`, estado 6, transiciones sub (0→0xB, 0xA→2, 0xB→2, 2→1,
+  3→check bits `0x27`→sub 4 ó estado 9, resto→9); estado 3 = init t0
+  (`0x43B11D`); estado 2 = loop juego. Secuencia arranque INFERIDA:
+  8→6 (crylogo→ubisoft→intro→logo+4 s)→9→3→2.
+- **Nota tabla 12 vs inventario (hecho + pregunta abierta):** el disco
+  EU trae 9 pares (FA-10, ficheros); el código referencia 12 (añade
+  clak4, bandai, midway). Diferencia código↔disco sin explicar;
+  FA-10 intacto (inventario de ficheros, no de código).
+- **Evidencia vs inferencia:** direcciones/ramas/tabla/modos `'r'` =
+  evidencia (disasm); propósito «hold splash logo ~4 s» = INFERENCIA
+  fuerte (no se descarta decode/sonido solapado — incógnita
+  principal); orden FMVs = inferencia; nombres sprintf/open/refcount
+  = inferencia (comportamiento evidenciado).
+- **Clasificación:** pausa funcional (hold splash/FMV). NO carga de
+  nivel, NO init motor, NO fade (sin rampas; `0x647EA8` = anidamiento).
+- **Riesgos test 4000→1000 ms (futuro, NO autorizado):** corte
+  FMV/sonido si decodifica durante el hold; posible race init;
+  alcance SOLO splash logo; cero efecto M-13 (gameplay = estado 2).
+- **Veredicto:** APTO para considerar micro-test reversible en copia
+  aislada como ejercicio de metodología A/B; NO como avance M-13.
+  Sin intervención binaria; pendiente autorización expresa.
+
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 
 > Primer hito funcional confirmado del proyecto: instalación manual F-05

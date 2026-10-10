@@ -43,8 +43,18 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   quirúrgico); SIN nueva API timing (mecanismo interno o de build);
   path `_demo` (hipótesis línea demo). FPS altos sin speedup
   exigiría desacoplar sim↔render (inferencia; ingeniería nueva).
+- **E-3/M-13 (2026-10-10, estático solo-lectura, hechos):** flujo
+  temporal gameplay reconstruido: init t0 (`0x43B36D`), sello
+  `elapsed/16.666` (`0x43E5DD`) + contador por frame, sim+render en
+  serie con `grBufferSwap(3)` gameplay (spec Glide: intervalo =
+  retraces a esperar; 75 Hz/3 = 25 FPS máx, consistente con ≈25
+  Hito 1 — inferencia). Acoplamiento serie evidenciado; prueba
+  dinámica pendiente (E-2 bloqueado). Detalle: TESTING E-3 +
+  REVERSE_ENGINEERING Etapa C.
 - **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
-  a nivel código sin localizar (Fase 2); E-1.1 OK; E-2 BLOQUEADO (I-23).
+  a nivel código LOCALIZADO estático (E-3/M-13: sello 16.666 + swap
+  serie; prueba cuantitativa pendiente E-2); E-1.1 OK; E-2
+  BLOQUEADO (I-23).
 
 ### I-02 — Límite de FPS distinto según versión/parche
 

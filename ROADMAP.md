@@ -39,7 +39,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
-- [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1).
+- [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1 + E-3/M-13 timing).
 - Proyecto Ghidra + naming (`WinMain`, game-loop).
 - C mínima: timing FA-04/05, ruta/registro FA-11 (I-23), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).

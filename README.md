@@ -31,7 +31,7 @@
 | Fase                | **1 — Research & Original PC Documentation**                 |
 | Versión             | 0.0.0                                                        |
 | Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`)  |
-| Reverse engineering | Profundo no iniciado (Etapa A documentada en Fase 1)         |
+| Reverse engineering | Profundo no iniciado (Etapa A + estático acotado E-3/M-13)   |
 | Implementación      | **No iniciada (solo vía Hito P tras Fase 3 + autorización)** |
 | Testing             | Hito 1 ejecutado (F-05 + arranque EU en Win11)              |
 | Ruta corta          | Hitos R → K → P + Olas 1–3 (ver ROADMAP)                    |

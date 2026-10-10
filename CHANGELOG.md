@@ -2,6 +2,25 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — E-3 documentado + M-13 estático: flujo temporal gameplay
+
+- TESTING E-3 (nuevo, ejecutado solo-lectura 2026-10-10): superficie
+  timing EU (Sleep+GetTickCount, t0 `0x43B36D`, `elapsed/16.666`
+  `0x43E5DD`); candidatos (1) `push 0xFA0` `0x4637E4`, (2) Sleep idle;
+  contexto candidato 1 = hold splash `\movie\logo` (estado 6, solo
+  sub==1; tabla 12 slots `0x551668` vs 9 pares en disco — pregunta
+  abierta); veredicto APTO reversible sin beneficio M-13. Nada
+  ejecutado/modificado; copia eliminada; E-2 sigue BLOQUEADO (I-23).
+- REVERSE_ENGINEERING Etapa C timing [~]: flujo temporal gameplay
+  (init estado 3 → pre/update/sello → swap(3) → housekeeping, serie
+  sin separación sim/render); throttle = `swap_interval` Glide
+  (spec pública; 75/3 = 25 FPS, consistente Hito 1 — inferencia);
+  consumidores mapeados (flag 1er frame sin lectores; `0x473238`
+  ignora contador; `+0x10C` sin lectores en ámbito; `0x418FF8` no
+  atribuible); sabido vs no-demostrable + próximo paso mínimo.
+  FA-04 → PARCIAL; I-01 + M-13 apuntan. Panel intacto (acoplamiento
+  sin prueba dinámica; A3.3 sigue 0/21).
+
 ## 2026-10-10 — 0.0.0 — Simplificación estratégica: ruta R→K→P + Olas 1–3
 
 - ROADMAP: Fases 4–14 fusionadas en Hitos R/K/P + Olas 1–3 (IDs
