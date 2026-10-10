@@ -2,7 +2,8 @@
 
 > **DISEÑO, no implementación.** Propuesta técnica 2026-10-10, insumo
 > para Fase 3. M-13 sigue PROPOSED; FA-04/FA-05 siguen PARCIAL; Fase 1
-> en curso; E-2 BLOQUEADO (I-23); método (loader/DLL/parche) SIN
+> en curso; E-2 LISTO (E-2.3, pendiente ejecución); método
+> (loader/DLL/parche) SIN
 > decidir — lo decide Fase 3 con evidencia. Desbloqueo de FPS en el
 > original: prohibido (regla 21). No se declara resuelta la causa del
 > límite de FPS.
@@ -131,6 +132,13 @@ comportamiento bajo carga respecto al original (R-catchup §6):
 a frame lento el original ralentiza el juego; el prototipo lo
 mantiene. Es el objetivo del desacoplado, pero debe caracterizarse,
 no asumirse gratis.
+
+> **Estado implementación (2026-10-10):** este §4 está implementado
+> en C11 sin plataforma en `tools/m13-core` (reloj inyectado,
+> `MAX_STEPS=5`, descarte instrumentado, Original Mode 1:1) y
+> verificado con harness propio (120 checks, 0 fallos, gcc Linux).
+> NO integrado en ningún loader/shim (puerta §10 intacta); M-13
+> sigue PROPOSED.
 
 ## 5. Puntos de intervención candidatos (método lo decide Fase 3)
 
@@ -266,9 +274,9 @@ estado render-mapeado.
 
 Evidencia MÍNIMA antes de autorizar implementación:
 
-1. **E-2 desbloqueado + ejecutado** (tras decisión método A/B pese a
-   I-23, sin investigar origen I-23): veredicto H1/H2/H3, ancla STEP
-   (25/30 Hz), render-bound probado.
+1. **E-2 ejecutado** (método E-2.3 decidido 2026-10-10; origen I-23
+   identificado estáticamente, confirmación dinámica pendiente):
+   veredicto H1/H2/H3, ancla STEP (25/30 Hz), render-bound probado.
 2. **Hito K completo:** DÓNDE intervenir — fronteras exactas sim/present
    POR CAMPO (`0x43DC3A`, `0x53FCB7`, `0x43F80D`), mapa de efectos
    (R1/R2 + contadores + estados), hipótesis de tabla `0x5ACBE5` como
@@ -289,7 +297,7 @@ init FA-03); D mínima (diffs F-02/F-03 vs original); fronteras
 por-campo (§3); escritores de tabla `0x5ACBE5`.
 **Pendiente de Fase 3:** todo (soluciones candidatas Hito K, método,
 arquitectura Hito P, promociones PLANNED). **Pendiente de Fase 1:**
-specs Hito 1, decisión A/B, `setup-re-env.sh`, cierre→autorización
+specs Hito 1, ejecución E-2.3, `setup-re-env.sh`, cierre→autorización
 Fase 2 (ROADMAP). Sin estos, ninguna implementación.
 
 ## 11. Revisión crítica Rev.1 (2026-10-10; sin implementación)
@@ -337,4 +345,5 @@ respaldado, N=no demostrado, R=refutado):
 | S-06 | Update re-entrante | N | Cero evidencia en ningún sentido |
 | R-audio…R-count | 12 riesgos §6 | P (fundados) | Premisas con base estática cada una; magnitudes/efectos TBD dinámica |
 
-Nada refutado; nada implementado; E-2 sigue BLOQUEADO.
+Nada refutado; núcleo §4 implementado+verificado en harness
+(`tools/m13-core`, NO integrado); E-2 listo (E-2.3, ejecución pendiente).

@@ -12,9 +12,10 @@
 > Lote tools (2026-10-09): H-01/H-02 + R-03/R-04 (S-24); ejecución
 > pendiente, licencias comprobadas (MIT solo R-04).
 > P-F03/B (2026-10-09): binarios F-03 en Drive + rama B ejecutada
-> (42–44 FPS + speedup, observación); E-1 completo, E-2 BLOQUEADO (I-23).
+> (42–44 FPS + speedup, observación); E-1 completo, E-2 listo
+> (E-2.3, pendiente ejecución).
 > E-1 (2026-10-09, ejecutado): F03-EU = build 1998-06-29 (no parche);
-> sin nueva API timing; path `_demo`; E-1.1 OK; E-2 BLOQUEADO (I-23).
+> sin nueva API timing; path `_demo`; E-1.1 OK; E-2 listo (E-2.3).
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -214,7 +215,8 @@ Reglas:
   + hash local + metadato Drive md5 `3198350e…`). P-F03/B atribuido
   al exe analizado (build 1998-06-29); rama «FPS↑» firme.
 - **Estado:** E-1 COMPLETO (identidad confirmada E-1.1);
-  mecanismo a nivel código pendiente (Fase 2); E-2 BLOQUEADO (I-23).
+  mecanismo a nivel código pendiente (Fase 2); E-2 listo (E-2.3,
+  pendiente ejecución).
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)
 

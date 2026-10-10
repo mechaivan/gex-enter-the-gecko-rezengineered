@@ -52,12 +52,12 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   consistente con ≈25 Hito 1 — inferencia reforzada, tasa real
   runtime sin confirmar). Lectores `+0x10C` localizados (R1/R2,
   Línea B). Acoplamiento serie evidenciado; prueba dinámica
-  pendiente (E-2 bloqueado). Detalle: TESTING E-3 +
+  pendiente (E-2 listo E-2.3, ejecución pendiente). Detalle: TESTING E-3 +
   REVERSE_ENGINEERING Etapa C.
 - **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
   a nivel código LOCALIZADO estático (E-3/M-13: sello 16.666 + swap
   serie; prueba cuantitativa pendiente E-2); E-1.1 OK; E-2
-  BLOQUEADO (I-23).
+  LISTO (E-2.3, pendiente ejecución).
 
 ### I-02 — Límite de FPS distinto según versión/parche
 
@@ -305,13 +305,20 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   C:\GEX_REZ\GEX2\font3.dff`.
 - **Fuente:** prep E-2 (2026-10-10), observación directa del mantenedor
   (reproducida: principal renombrada + ambas copias). Ver TESTING E-2.2.
-- **Interpretación provisional (NO confirmada):** dependencia de una ruta
-  fija para localizar recursos. Origen exacto sin confirmar; no
-  investigado por orden expresa (pendiente futuro).
-- **Impacto E-2:** invalida el lanzamiento sin registro desde carpetas
-  propias; mediciones E-2 NO iniciadas; método en revisión.
-- **Estado:** OBSERVADO (reproducido 3/3); causa UNKNOWN; PENDIENTE
-  resolución futura.
+- **Causa IDENTIFICADA estáticamente (2026-10-10, disasm acotado, exe
+  EU md5 `692b1282…`):** WinMain `0x463281–95` lee `InstallDir` vía
+  `0x442F41` (`HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00`,
+  exige REG_SZ; defecto `…\Gex23dfx`) + `CDDriveName`; el cargador
+  de fuentes `0x4329EF` (boot) compone `<InstallDir>\font.3df` y
+  ante fallo → fatal `0x463011`. Un InstallDir obsoleto explica
+  totalmente E-2.2 (ruta vieja en el mensaje, copias que fallan
+  desde sus exes). Micro-item abierto: `\font.3df` estático vs
+  `font3.dff` reportado (1 dir listing lo salda).
+- **Impacto E-2:** método sin registro invalidado; REPARADO con
+  conmutación de registro por copia (TESTING E-2.3, listo para
+  ejecutar). Mediciones NO iniciadas.
+- **Estado:** OBSERVADO (reproducido 3/3); causa IDENTIFICADA
+  (estática); confirmación dinámica pendiente (E-2.3).
 
 ## Relación con objetivos (sin duplicar)
 

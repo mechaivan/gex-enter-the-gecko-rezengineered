@@ -17,6 +17,18 @@ source /opt/rea-toolkit/env.sh
 python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_info())"
 ```
 
+## Prototipos e instrumentación
+
+- **`m13-core/`** — Núcleo C11 del acumulador de paso fijo
+  (`docs/M13_DECOUPLE_PROPOSAL.md` §4): reloj inyectado, sin
+  plataforma, harness propio. Verificado 2026-10-10 (120 checks,
+  0 fallos, gcc Linux). NO integrado; M-13 sigue PROPOSED.
+- **`glide-shim/`** — Proxy `glide2x.dll` SOLO instrumentación
+  (Fase A): 36 reenvíos + intercepta `grBufferSwap` /
+  `grBufferNumPending` → CSV. Fuente + `.def` 36/36 contra la IAT
+  del exe; **sin compilar ni ejecutar** (requiere MinGW-32 en PC
+  Windows). Ver README propio (procedimiento + reversión).
+
 ## Reglas
 
 - Solo código propio, bajo la licencia del repo (ver `/LICENSE.md`).

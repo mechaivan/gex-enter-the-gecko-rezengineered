@@ -31,8 +31,10 @@ E-1/E-1.1, matrices FA/testing. **Catálogos cerrados: no ampliar
 F-xx/S-xx sin necesidad de una implementación concreta.**
 
 - [ ] Specs Hito 1 (build/GPU/driver/refresco) — 1 registro.
-- [ ] Decisión método A/B pese a I-23 (mantenedor).
-- [ ] E-2 (Tests 1–2; Test 3 condicional) — BLOQUEADO hasta decidir A/B.
+- [x] Método A/B decidido: E-2.3 (conmutación InstallDir por copia;
+  I-23 causa identificada 2026-10-10).
+- [ ] E-2 (Tests 1–2; Test 3 condicional) — LISTO (E-2.3),
+  pendiente ejecución PC mantenedor.
 - [ ] Probar `tools/setup-re-env.sh` en máquina sin restricciones.
 - [ ] Cierre Fase 1 → autorización Fase 2.
 
@@ -41,7 +43,8 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
 - [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1 + E-3/M-13 timing).
 - Proyecto Ghidra + naming (`WinMain`, game-loop).
-- C mínima: timing FA-04/05, ruta/registro FA-11 (I-23), init FA-03.
+- C mínima: timing FA-04/05, ruta/registro FA-11 (I-23 causa
+  identificada estática 2026-10-10; dinámica pendiente), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).
 - Resto de C/D POSPUESTO hasta que una implementación lo pida.
 
@@ -58,7 +61,7 @@ Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
 
 ### Hito R — Base de ejecución reproducible
 - [x] Hito 1 (arranca + jugable Win11+nGlide).
-- [ ] Specs + método A/B + E-2 (ver Fase 1 restante).
+- [ ] Specs + E-2 (método E-2.3 listo; ejecución pendiente).
 - Criterio: cualquiera repite arranque y A/B con la hoja TESTING.
 
 ### Hito K — Conocimiento mínimo (Fase 2 mínima)

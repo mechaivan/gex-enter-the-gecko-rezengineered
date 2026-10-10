@@ -82,7 +82,7 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 completo; E-2 BLOQUEADO I-23) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 completo; E-2 listo E-2.3, pendiente ejecución) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
 | FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Ola 3) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
 ## Prueba P-F03 — A/B exe EU F-03 vs original (rama B ejecutada 2026-10-09; ABA completo pendiente)
@@ -191,7 +191,7 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   Detalle: S-26 + F-03. **E-1.1 OK (2026-10-09):** paste sha256 =
   bytes Drive EU (triple: paste + metadato + hash local re-descarga).
 
-## E-2 — Micro-test sim-vs-FPS (AUTORIZADO 2026-10-10; BLOQUEADO por I-23)
+## E-2 — Micro-test sim-vs-FPS (AUTORIZADO 2026-10-10; LISTO PARA EJECUTAR 2026-10-10 — método E-2.3)
 
 > Diseñado para distinguir H2 (throttle eliminado → render-bound)
 > de H3 (timer reprogramado). 1 variable cada vez; copias A/B.
@@ -211,8 +211,8 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   (`...\exe original\GEX3D.EXE`) md5 = pin repo/Drive
   `692b1282…` (match exacto; aviso de discrepancia = solo
   mayúsculas de PowerShell, sin error de transcripción).
-  Fuente de copia A verificada; E-2 sigue bloqueado hasta
-  preparar A/B aisladas sin registro.
+  Fuente de copia A verificada; el método sin registro quedó
+  invalidado (E-2.2) y reparado (E-2.3).
 - **E-2.1 copias A/B (2026-10-10, OK):** `E2_A_ORIGINAL` md5 match
   (original), `E2_B_F03EU` sha256 match (F-03 EU); principal
   conservada; lanzamiento sin registro (desde carpeta propia,
@@ -221,14 +221,29 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   `C:\GEX_REZ\GEX2\` impide el arranque (error `Cannot load font
   C:\GEX_REZ\GEX2\font3.dff`); copias A/B también fallan desde sus
   exes. Método sin registro invalidado; mediciones no iniciadas.
-  Ver I-23. Origen sin investigar (orden expresa); pendiente futuro.
+  Ver I-23. Origen IDENTIFICADO estáticamente 2026-10-10
+  (cadena InstallDir→`font.3df`); confirmación dinámica pendiente (E-2.3).
+- **E-2.3 método reparado (2026-10-10, LISTO PARA EJECUTAR, PC
+  mantenedor):** cada copia A/B se lanza con su propio `InstallDir`
+  registrado (WOW64: usar `reg … /reg:32`): (1) punto de
+  restauración: `reg export HKLM\SOFTWARE\Crystal Dynamics\Gex2`
+  + md5 del exe (= pin repo); (2) `reg add …\Gex2\1.00 /v InstallDir
+  /d <carpeta-copia>` antes de cada tanda + CD `D:` presente;
+  (3) arrancar desde la carpeta de la copia, tanda A (travesía ×3 +
+  FPS + ciclos anim 10 s), conmutar registro, tanda B, escena
+  simple↔compleja, VSync on/off; (4) reversión: registro a Hito 1,
+  borrar copia B, retorno verificado. ACEPTAR: A/B arrancan y miden
+  (I-23 confirmado dinámicamente si el fallo sigue la ruta
+  registrada); DESCARTAR: cualquier arranque fuera de su InstallDir
+  registrado. Micro-item: 1 dir listing (`font.3df` vs `font3.dff`).
 
 ## E-3 — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura)
 
 > Análisis estático acotado del exe EU original en Arena (descarga
 > Drive→sandbox verificada md5 `692b1282…`, objdump/binutils;
 > copia eliminada después). Sin ejecutar ni modificar nada
-> (exe/DLL/registro/instalación intactos). E-2 sigue BLOQUEADO (I-23).
+> (exe/DLL/registro/instalación intactos). E-2 listo para ejecutar
+> (método E-2.3; ver I-23).
 > Flujo temporal gameplay (M-13): REVERSE_ENGINEERING.md Etapa C.
 
 - **Superficie timing (hechos):** únicas APIs = `Sleep`+`GetTickCount`

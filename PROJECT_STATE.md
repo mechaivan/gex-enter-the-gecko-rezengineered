@@ -76,19 +76,24 @@
   build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado
   (A1–A4); rama B autorizada y ejecutada parcial
   (42–44 FPS + speedup, observación 2026-10-09); E-1 ejecutado
-  (E-1.1 identidad confirmada sha256); E-2 BLOQUEADO (I-23);
+  (E-1.1 identidad confirmada sha256); E-2 LISTO (método E-2.3
+  reparado 2026-10-10, ejecución pendiente PC mantenedor);
   E-3 ejecutado (2026-10-10, estático solo-lectura, sin
   ejecutar/modificar) + M-13 flujo temporal estático (TESTING,
-  REVERSE_ENGINEERING).
+  REVERSE_ENGINEERING) + I-23 causa identificada + R-audio
+  confirmado + `tools/m13-core` verificado (120 checks) +
+  `tools/glide-shim` fuente (sin compilar, 2026-10-10).
 
 ## Limitaciones actuales
 
-- **Originales inventariados, sin copias locales:** `originals/` en Drive
-  (volcado CloneCD + contenido del CD) catalogado en
-  `docs/ORIGINAL_ARTIFACT_INVENTORY.md` con hashes y análisis estático de
-  solo lectura; no queda ninguna copia en el sandbox ni en el repo.
-  El análisis binario profundo sigue bloqueado hasta que el mantenedor
-  indique el cambio de fase.
+- **Originales inventariados; copia de trabajo verificada (fuera del
+  repo):** `originals/` en Drive (volcado CloneCD + contenido del CD)
+  catalogado en `docs/ORIGINAL_ARTIFACT_INVENTORY.md` con hashes;
+  copia de trabajo del exe EU en scratch del sandbox (md5
+  `692b1282…` verificado; NADA en el repo). Análisis binario
+  profundo AUTORIZADO 2026-10-10 (pívot: modificar código,
+  investigar dinámicamente incl. I-23, experimentos controlados;
+  originales intactos + hashes + copias + restore points).
 - **Windows de pruebas parcial:** este entorno (Linux) solo permite análisis
   estático; el PC del mantenedor (Win11 64-bit) ejecutó el Hito 1; build,
   GPU/driver y herramientas de captura siguen pendientes de registrar.

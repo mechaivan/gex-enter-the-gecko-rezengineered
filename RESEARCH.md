@@ -566,7 +566,7 @@ fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
 - P-F03/B (observación mantenedor): B = 42–44 FPS menú+juego,
   cinemáticas ≈15, sim acelerada, audio normal. Rama «FPS↑»
   (inesperada) → identidad CONFIRMADA (E-1.1). Detalle: F-03,
-  TESTING P-F03/B; E-1 completo; E-2 autorizado, BLOQUEADO (I-23).
+  TESTING P-F03/B; E-1 completo; E-2 listo (E-2.3, ejecución pendiente).
 - Límite técnico: bytes inaccesibles desde aquí (egress Google
   bloqueado; download inline inviable ~2 MB base64) → estático
   profundo vía scripts solo-lectura lado mantenedor (E-1).
@@ -598,7 +598,7 @@ copias eliminadas tras el análisis. TXT md5 `2fff411e…3cd4d5`.
   junio-1998; el «límite» es conductual-emergente, no parche
   quirúrgico. Localización a nivel código → Fase 2.
 - **E-1.1 OK (2026-10-09):** sha256 paste = bytes Drive EU
-  (match exacto triple). E-2 autorizado, BLOQUEADO (I-23).
+  (match exacto triple). E-2 listo (E-2.3, ejecución pendiente).
 - Confianza: alta (bytes verificados, herramientas estándar).
 
 ## Áreas de investigación futura (separación estricta)

@@ -2,6 +2,40 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Pívot: I-23 identificada, R-audio confirmado, núcleo M-13 verificado, shim Glide (fuente)
+
+- Autorización expresa (pívot 2026-10-10): modificar código,
+  investigar dinámicamente (incl. origen I-23) y experimentos
+  controlados; originales intactos + hashes + copias + restore
+  points. Análisis sobre copia trabajo (md5 `692b1282…`, fuera
+  del repo); nada redistribuido.
+- I-23 causa IDENTIFICADA (estática): WinMain `0x463281–95` lee
+  `InstallDir`/`CDDriveName` vía `0x442F41`
+  (`HKLM\…\Gex2\1.00`, REG_SZ); `0x4329EF` compone
+  `<InstallDir>\font.3df`, fallo → fatal `0x463011`. E-2 método
+  REPARADO: E-2.3 (conmutación InstallDir por copia, `/reg:32`,
+  restore point + criterios) LISTO PARA EJECUTAR en PC
+  mantenedor; confirmación dinámica pendiente. Micro-item:
+  `font.3df` vs `font3.dff` (1 dir listing).
+- R-audio CONFIRMADO: fmt `0x55A708` (`<InstallDir>\audio\
+  voiceuk\<n>.sag`, `0x53FF0D`) + `VOICEUK/` 400 `.SAG`;
+  `0x53FCB7` decode completo (pump + scheduler 375 + array
+  voces); tabla `0x5ACBE4` filas por voz (R2 WORD = canal voz,
+  hipótesis fuerte) → audio wall-clock obligatorio, valida
+  propuesta §4. `0x43F80D`: 3 llamadores efectivos
+  (frame/init/cine) + `0x4D5763` muerto. IAT Glide: 38 imports
+  con slots (`0x65F45C–0x65F4F0`).
+- Nuevo `tools/m13-core` (núcleo §4 C11 + harness): 120 checks,
+  0 fallos (gcc Linux 2026-10-10); NO integrado, M-13 PROPOSED.
+- Nuevo `tools/glide-shim` (proxy instrumentación Fase A):
+  fuente C + `.def` 36/36 verificado contra IAT; sin compilar
+  ni ejecutar (sin MinGW/Wine en sandbox; requiere PC Windows).
+- Sync: TESTING E-2/E-2.3, KNOWN I-23/I-01, MODERN FA-04/08/11 +
+  M-13, REVERSE Etapa C + avance, ROADMAP método/E-2/Hito R,
+  STATE Fase 1 + limitaciones, PATCH, RESEARCH, propuesta
+  (§4 estado, §10 puerta). Panel intacto (ningún hito
+  completado: E-2 listo ≠ ejecutado; causa I-23 ≠ fix).
+
 ## 2026-10-10 — 0.0.0 — M-13: revisión crítica Rev.1 de la propuesta (sin implementar)
 
 - `docs/M13_DECOUPLE_PROPOSAL.md` Rev.1: 8 hallazgos aplicados —
