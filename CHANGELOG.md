@@ -2,6 +2,14 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — I-23: dependencia de ruta fija (método E-2 bloqueado)
+
+- Observación reproducida 3/3 (principal + copias A/B): renombrar
+  `C:\GEX_REZ\GEX2\` impide arrancar (`Cannot load font
+  C:\GEX_REZ\GEX2\font3.dff`). Método sin registro invalidado;
+  mediciones no iniciadas. Origen sin investigar (orden expresa).
+  KNOWN I-23 (nuevo) + TESTING E-2.2 + mapeo FA-11. Panel intacto.
+
 ## 2026-10-10 — 0.0.0 — E-2.1: copias A/B verificadas (hashes match)
 
 - `E2_A_ORIGINAL` = original (md5), `E2_B_F03EU` = F-03 EU (sha256);

@@ -6,7 +6,8 @@
 > foros, reportes de usuarios) recensadas el 2026-10-08. El Hito 1
 > ([TESTING.md](TESTING.md)) aporta la primera ejecución propia: confirma
 > parcialmente I-15/I-16, no reproduce I-11 en esa config y añade
-> observaciones propias (I-21, I-22). Varios issues tienen evidencia
+> observaciones propias (I-21, I-22; I-23 en prep E-2, 2026-10-10).
+> Varios issues tienen evidencia
 > estática propia (Fase 1) anotada en cada issue.
 > Ver [RESEARCH.md](RESEARCH.md) para las fuentes y
 > [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md)
@@ -248,7 +249,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **Fuente:** PCGamingWiki.
 - **Estado:** DESCONOCIDO (nota genérica, no específica de Gex).
 
-## Primeras observaciones propias (Hito 1, 2026-10-09)
+## Primeras observaciones propias (Hito 1 + prep E-2, 2026-10-09/10)
 
 ### I-21 — Bandas negras descentradas + HUD descolocado (observación propia)
 
@@ -282,6 +283,23 @@ Formato por problema: identificador, descripción, fuente(s), estado.
   arrancar, no parpadeo continuo (refina 5ª; modo sin medir).
 - **Estado:** OBSERVADO 4 veces (causa UNKNOWN).
 
+### I-23 — El juego no arranca si `C:\GEX_REZ\GEX2\` cambia de nombre (propia)
+
+- **Descripción:** al renombrar la carpeta principal
+  (`C:\GEX_REZ\GEX2\`), el juego deja de arrancar; también fallan
+  las copias aisladas `E2_A_ORIGINAL` y `E2_B_F03EU` ejecutadas desde
+  sus propios exes. Error mostrado: `Cannot load font
+  C:\GEX_REZ\GEX2\font3.dff`.
+- **Fuente:** prep E-2 (2026-10-10), observación directa del mantenedor
+  (reproducida: principal renombrada + ambas copias). Ver TESTING E-2.2.
+- **Interpretación provisional (NO confirmada):** dependencia de una ruta
+  fija para localizar recursos. Origen exacto sin confirmar; no
+  investigado por orden expresa (pendiente futuro).
+- **Impacto E-2:** invalida el lanzamiento sin registro desde carpetas
+  propias; mediciones E-2 NO iniciadas; método en revisión.
+- **Estado:** OBSERVADO (reproducido 3/3); causa UNKNOWN; PENDIENTE
+  resolución futura.
+
 ## Relación con objetivos (sin duplicar)
 
 Las features futuras viven en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md),
@@ -299,3 +317,4 @@ no aquí. Mapeo orientativo issue → objetivo de investigación:
 | I-20 (LAA) | FA-01 |
 | I-21 (viewport/HUD, propio) | FA-13 → M-04 |
 | I-22 (multimonitor, propio) | FA-14 → M-05, M-19 |
+| I-23 (ruta fija datos, propio) | FA-11 |

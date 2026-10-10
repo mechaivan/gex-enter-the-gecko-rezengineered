@@ -216,7 +216,12 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
 - **E-2.1 copias A/B (2026-10-10, OK):** `E2_A_ORIGINAL` md5 match
   (original), `E2_B_F03EU` sha256 match (F-03 EU); principal
   conservada; lanzamiento sin registro (desde carpeta propia,
-  InstallDir Hito 1 intacto). Mediciones aún no iniciadas.
+  InstallDir Hito 1 intacto). Mediciones NO iniciadas (ver E-2.2).
+- **E-2.2 hallazgo (2026-10-10, BLOQUEANTE método):** renombrar
+  `C:\GEX_REZ\GEX2\` impide el arranque (error `Cannot load font
+  C:\GEX_REZ\GEX2\font3.dff`); copias A/B también fallan desde sus
+  exes. Método sin registro invalidado; mediciones no iniciadas.
+  Ver I-23. Origen sin investigar (orden expresa); pendiente futuro.
 
 ## Hito 1 — Primera prueba funcional (2026-10-09, PC del mantenedor) ✅ EJECUTADA
 
