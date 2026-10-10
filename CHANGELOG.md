@@ -2,6 +2,18 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — M-13: revisión crítica Rev.1 de la propuesta (sin implementar)
+
+- `docs/M13_DECOUPLE_PROPOSAL.md` Rev.1: 8 hallazgos aplicados —
+  fronteras por-campo (`0x43DC3A`/`0x53FCB7`), fases A/B (FPS-1
+  original inejecutable con throttle intacto), A no acelera
+  (drenaje en el exe), tolerancias como placeholders + procedimiento
+  k×σ_baseline (Hito R/MAIN-8), Q pared-absoluta aclarada, R-catchup
+  como divergencia declarada, ORG-1 + C′ + REV-1/NREG-1/PASO-1
+  corregidos, typo Original Mode. S-01…S-06 clasificados (P/N);
+  nada refutado. Veredicto: MANTENER con REVISIÓN.
+  M-13 PROPOSED; FA/M/hitos intactos; E-2 bloqueado; panel intacto.
+
 ## 2026-10-10 — 0.0.0 — M-13: propuesta de prototipo reversible sim/render (diseño)
 
 - Nuevo `docs/M13_DECOUPLE_PROPOSAL.md` (diseño, NO implementación):
