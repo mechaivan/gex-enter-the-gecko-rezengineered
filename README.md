@@ -1,4 +1,4 @@
-![Gex: Enter the Gecko — REZengineered](assets/logo01.png)
+![Gex: Enter the Gecko — REZengineered](assets/logo02.png)
 
 # Gex: Enter the Gecko — REZengineered
 
