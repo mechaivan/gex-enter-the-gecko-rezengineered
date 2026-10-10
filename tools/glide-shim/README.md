@@ -125,7 +125,10 @@ F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
 (build rc=0, `CHECK_EXPORTS: PASS`). dllexport emitía twins
 `X@N` (dedup solo por nombre); sospecha del mantenedor
-CONFIRMADA. Integrado en árbol; V-1/V-2 pendientes de correr.
+CONFIRMADA. Integrado en árbol; V-1 H4a superado PC (38/38,
+log/sha pendientes de archivar). V-2 bloqueada por 2 fallos del
+harness (rutas child_load + cmp ausente); fix en árbol,
+re-run pendiente.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en

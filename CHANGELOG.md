@@ -2,6 +2,24 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-1 H4a superado PC (38/38); V-2 bloqueada por 2 fallos harness (fix en árbol)
+
+- PC mantenedor (reportado 2026-10-11, GCC i686 16.1.0): V-1 H4a
+  PASS — build OK, 38/38 exactas, 0 extras. Artefactos (log
+  completo, SHA DLL) pendientes de archivar.
+- V-2 NO superada: los 14 escenarios fallan en `child_load`
+  («shim module is not the staged copy»: `join_path` doblaba el
+  separador tras la `\` final de `GetTempPathA` mientras
+  `GetModuleFileNameA` devuelve la grafía normalizada) y
+  `run-harness.sh` exigía `cmp` (ausente en ese MSYS2).
+- Fix: `canon_path` (canonización absoluta estricta por fichero,
+  nunca basename; ambas grafías en el diagnóstico) +
+  `join_path` sin doble separador; `files_identical` (sha256
+  stdlib, sin binarios) + compare shell para git. Regresiones:
+  `test_harness` (join extraído verbatim + gcc) + 4 casos
+  herméticos en `test_env`. `gshim.c`/`.def` congelados.
+  Panel intacto (sin hito: V-2 aún no pasa).
+
 ## 2026-10-11 — 0.0.0 — F-3 RESUELTO por H4a: mismatch-alias + sin dllexport = 38 exactas
 
 - Matriz-2 PC (GCC 16.1.0, sobre `e3bbe01`): H4a (`.def`

@@ -10,6 +10,8 @@
 # OUTDIR + per-scenario dirs under %TEMP%); after the run the repo-side
 # build outputs (glide2x.dll, exports_shim.txt) must be byte-identical
 # to before — or still absent — AND `git status` must be unchanged.
+# Comparisons need no cmp/sha256sum binaries (python-sha256 via
+# files_identical() + plain shell string compare for git status).
 # Any repo write = FAIL, never a PASS.
 # Exit: 0 all-PASS (or SKIP/compile-only); 1 any FAIL.
 cd "$(dirname "$0")/../.." || exit 1
@@ -40,7 +42,7 @@ check_repo_intact() {
   for p in glide2x.dll exports_shim.txt; do
     snap="$RUNDIR/repo_before_$(basename "$p")"
     if [ -e "$snap" ]; then
-      if ! cmp -s "$p" "$snap"; then
+      if ! files_identical "$PYBIN" "$p" "$snap"; then
         echo "FAIL win32-harness: repo $p changed during the run"
         _fail=1
       else
@@ -54,7 +56,7 @@ check_repo_intact() {
     fi
   done
   if [ "$HAVE_GIT" -eq 1 ]; then
-    if ! git status --short | cmp -s - "$RUNDIR/git_before.txt"; then
+    if [ "$(git status --short 2>/dev/null)" != "$(cat "$RUNDIR/git_before.txt")" ]; then
       echo "FAIL win32-harness: repo tree changed during the run (see git status)"
       _fail=1
     else
@@ -65,6 +67,11 @@ check_repo_intact() {
 }
 if ! ./tests/win32/build-harness.sh "$RUNDIR/build"; then
   echo "FAIL win32-harness (build or export checks failed; see above)"
+  exit 1
+fi
+PYBIN=$(find_python) || PYBIN=""
+if [ -z "$PYBIN" ]; then
+  echo "FAIL win32-harness: no working python for the integrity checks (refusing to PASS blind)"
   exit 1
 fi
 if ! reason=$(win32_run_ok); then

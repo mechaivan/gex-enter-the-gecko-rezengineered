@@ -772,6 +772,18 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   cirugía `.def`, `-D` retirado); test_def/test_api exigen la
   forma H4a y prohíben dllexport. V-1/V-2 NO superados (H4a
   validó la FORMA en /tmp, no este árbol).
+- **V-1 H4a (PC mantenedor, reportado 2026-10-11): PASS.**
+  GCC i686 16.1.0; build OK; 38/38 exactas, 0 extras.
+  Artefactos (log completo, SHA-256 DLL) pendientes de
+  archivar — solicitados al mantenedor.
+- **V-2 (PC MSYS2 MINGW32): BLOQUEADA, 2 fallos harness.**
+  (1) Los 14 escenarios FAIL en `child_load` («shim module is
+  not the staged copy»): `join_path` doblaba el separador tras
+  la `\` final de `GetTempPathA` mientras `GetModuleFileNameA`
+  devuelve la grafía normalizada. (2) `run-harness.sh` exigía
+  `cmp` (ausente en ese MSYS2). Fix en árbol: `canon_path` +
+  `join_path` + `files_identical` + regresiones (`test_harness`,
+  `test_env`); `gshim.c`/`.def` congelados. Re-run pendiente.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

@@ -139,6 +139,30 @@ def main():
     with tempfile.TemporaryDirectory() as d:
         rc, out, _ = sh('find_objdump i686-w64-mingw32-gcc', [d])
         check(rc != 0 and out == '', 'no objdump yields empty')
+    with tempfile.TemporaryDirectory() as d:
+        # files_identical: stdlib-only byte compare for the harness
+        # integrity gates (MSYS2 MINGW32 ships no cmp).
+        a = os.path.join(d, 'a.bin')
+        b = os.path.join(d, 'b.bin')
+        open(a, 'wb').write(b'\x00\x01\x02binary\xff')
+        open(b, 'wb').write(b'\x00\x01\x02binary\xff')
+        py = sys.executable
+        rc, _, _ = sh('files_identical "%s" "%s" "%s"' % (py, a, b), [d])
+        check(rc == 0, 'identical binaries compare equal')
+        open(b, 'wb').write(b'\x00\x01\x02binary\xfe')
+        rc, _, _ = sh('files_identical "%s" "%s" "%s"' % (py, a, b), [d])
+        check(rc == 1, 'differing binaries compare different')
+        rc, _, _ = sh('files_identical "%s" "%s" "%s"'
+                      % (py, a, os.path.join(d, 'missing')), [d])
+        check(rc == 2, 'missing file yields rc=2 (never false equal)')
+    with tempfile.TemporaryDirectory() as d:
+        e = os.path.join(d, 'empty')
+        os.mkdir(e)
+        a = os.path.join(d, 'a.bin')
+        open(a, 'wb').write(b'x')
+        rc, _, _ = sh('files_identical "%s" "%s" "%s"'
+                      % (sys.executable, a, a), [e])
+        check(rc == 0, 'compare works with empty PATH (no cmp/sha256sum)')
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
 

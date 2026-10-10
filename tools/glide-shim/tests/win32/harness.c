@@ -196,16 +196,22 @@ static int parse_footer(const char *line, unsigned long long *rows,
     return by[0] != '\0';
 }
 
-/* Join a + "\\" + b; 0 if it would not fit (no silent truncation). */
+/* Join a + "\\" + b (no doubled separator when a already ends in one,
+ * e.g. GetTempPathA's trailing backslash); 0 if it would not fit
+ * (no silent truncation). */
 static int join_path(char *dst, size_t cap, const char *a, const char *b)
 {
     size_t la = strlen(a), lb = strlen(b);
-    if (la + 1 + lb + 1 > cap)
+    int need_sep = la == 0 || (a[la - 1] != '\\' && a[la - 1] != '/');
+    if (la + (need_sep ? 1 : 0) + lb + 1 > cap)
         return 0;
     memcpy(dst, a, la);
-    dst[la] = '\\';
-    memcpy(dst + la + 1, b, lb);
-    dst[la + 1 + lb] = '\0';
+    if (need_sep) {
+        dst[la] = '\\';
+        la++;
+    }
+    memcpy(dst + la, b, lb);
+    dst[la + lb] = '\0';
     return 1;
 }
 
@@ -252,9 +258,45 @@ struct child_ctx {
     int sarg;
 };
 
+/* Canonicalize a Win32 path for STRICT file-identity comparison: full
+ * path, long (non-8.3) spelling, extended-prefix stripped, separators
+ * folded to backslash (interior duplicates collapsed; a leading "\\"
+ * root is preserved). Returns 1 on success; on ANY failure dst is ""
+ * — callers must check the return, since "" never proves identity. */
+static int canon_path(char *dst, size_t cap, const char *src)
+{
+    char tmp[MAX_PATHBUF], lng[MAX_PATHBUF];
+    const char *s;
+    size_t i, o;
+    if (!cap)
+        return 0;
+    dst[0] = '\0';
+    if (!GetFullPathNameA(src, (DWORD)sizeof(tmp), tmp, NULL))
+        return 0;
+    s = tmp;
+    if (GetLongPathNameA(tmp, lng, (DWORD)sizeof(lng)))
+        s = lng;
+    if (!strncmp(s, "\\\\?\\", 4) || !strncmp(s, "\\??\\", 4))
+        s += 4;
+    o = 0;
+    for (i = 0; s[i]; i++) {
+        char ch = s[i] == '/' ? '\\' : s[i];
+        if (ch == '\\' && o > 1 && dst[o - 1] == '\\')
+            continue;
+        if (o + 1 >= cap) {
+            dst[0] = '\0';
+            return 0;
+        }
+        dst[o++] = ch;
+    }
+    dst[o] = '\0';
+    return 1;
+}
+
 static void child_load(struct child_ctx *c, int preload_fake)
 {
-    char got[MAX_PATHBUF];
+    char got[MAX_PATHBUF], cg[MAX_PATHBUF], cw[MAX_PATHBUF];
+    int ok;
     if (!SetCurrentDirectoryA(c->dir)) {
         CHECK(0, "setup: cannot CWD to scenario dir");
         return;
@@ -267,11 +309,17 @@ static void child_load(struct child_ctx *c, int preload_fake)
     CHECK(c->hshim != NULL, "setup: LoadLibrary(shim copy) failed");
     if (!c->hshim)
         return;
-    /* Isolation proof: the handle MUST be our staged copy. */
+    /* Isolation proof: the handle MUST be our staged copy. Both
+     * spellings are canonicalized (the loader returns a normalized
+     * path; ours may carry GetTempPathA's trailing separator or
+     * short-name segments) and BOTH are printed on mismatch. */
     got[0] = '\0';
     GetModuleFileNameA(c->hshim, got, sizeof(got));
-    CHECK(_stricmp(got, c->shim_path) == 0,
-          "setup: shim module is not the staged copy");
+    ok = canon_path(cg, sizeof(cg), got) &&
+         canon_path(cw, sizeof(cw), c->shim_path);
+    CHECK(ok && _stricmp(cg, cw) == 0,
+          "setup: shim module is not the staged copy (got=%s want=%s)",
+          got, c->shim_path);
     c->p_swap = (swap_fn)GetProcAddress(c->hshim, "_grBufferSwap@4");
     c->p_pending =
         (pending_fn)GetProcAddress(c->hshim, "_grBufferNumPending@0");
@@ -283,7 +331,8 @@ static void child_load(struct child_ctx *c, int preload_fake)
 
 static void child_check_fake(struct child_ctx *c)
 {
-    char got[MAX_PATHBUF];
+    char got[MAX_PATHBUF], cg[MAX_PATHBUF], cw[MAX_PATHBUF];
+    int ok;
     /* The shim must have bound OUR staged fake (never anything else). */
     c->hfake = GetModuleHandleA("glide2x_gex_real.dll");
     CHECK(c->hfake != NULL, "fake: shim did not bind glide2x_gex_real");
@@ -291,8 +340,11 @@ static void child_check_fake(struct child_ctx *c)
         return;
     got[0] = '\0';
     GetModuleFileNameA(c->hfake, got, sizeof(got));
-    CHECK(_stricmp(got, c->fake_path) == 0,
-          "fake: bound module is not the staged fake");
+    ok = canon_path(cg, sizeof(cg), got) &&
+         canon_path(cw, sizeof(cw), c->fake_path);
+    CHECK(ok && _stricmp(cg, cw) == 0,
+          "fake: bound module is not the staged fake (got=%s want=%s)",
+          got, c->fake_path);
     c->p_counts =
         (counts_fn)GetProcAddress(c->hfake, "_fakereal_counts@16");
     CHECK(c->p_counts != NULL, "fake: counts export missing");

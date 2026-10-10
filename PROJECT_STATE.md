@@ -86,9 +86,10 @@
   14+3+74+3+3+17+11 + 71 conductual; V-0 superado PC; suite portable;
   V-1 superado PC 2026-10-10 (GCC 16.1.0, 38/38, F-2 evaluado benigno);
   F-3 H4a verificado PC (mismatch-alias + sin dllexport = 38);
-  integrado en árbol, V-1/V-2 pendientes de correr);
-  V-1b superado PC 2026-10-10 (cruce vs DLL real 38/38); arnés
-  nativo W00–W11 preparado (pendiente PC); V-2 pendiente).
+  integrado en árbol, V-1 H4a superado PC (38/38, log/sha
+  pendientes de archivar); V-1b superado PC 2026-10-10
+  (cruce vs DLL real 38/38); V-2 bloqueada (2 fallos harness:
+  rutas child_load + cmp ausente; fix en árbol, re-run pendiente)).
 
 ## Limitaciones actuales
 

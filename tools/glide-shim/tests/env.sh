@@ -41,6 +41,21 @@ find_objdump() {
   return 1
 }
 
+# files_identical <python> <a> <b>: rc=0 iff both files exist and are
+# byte-identical (stdlib hashlib compare). Needs NOTHING but the given
+# python (no cmp/sha256sum binaries: MSYS2 MINGW32 ships no cmp).
+# rc=1 differ, rc=2 unreadable — never a false equal.
+files_identical() {
+  "$1" -c 'import sys,hashlib
+a, b = sys.argv[1], sys.argv[2]
+try:
+    ha = hashlib.sha256(open(a, "rb").read()).hexdigest()
+    hb = hashlib.sha256(open(b, "rb").read()).hexdigest()
+except OSError:
+    sys.exit(2)
+sys.exit(0 if ha == hb else 1)' "$2" "$3"
+}
+
 # host_run_ok: can this machine compile AND run gshim.c as a host binary?
 # Prints the reason when not (return 1). Used to SKIP (never PASS) the
 # behaviour stage outside Linux with a native compiler.
