@@ -334,6 +334,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   R1/R2 localizados (R2 consume el cociente: el diseño debe preservar
   esa ruta); boceto desacoplado mínimo en REVERSE_ENGINEERING
   (diseño solo, NO implementar; desbloqueo FPS prohibido regla 21).
+  Propuesta completa: `docs/M13_DECOUPLE_PROPOSAL.md` (puerta §10).
 
 ## M-14 — Unlimited Render Mode (experimental)
 

@@ -179,6 +179,8 @@
 > `TRX/src/trx/game/{clock,phase}` (paso-fijo + interpolación);
 > `sezero/glide` ya minado (semántica swap); KAIN2-PC no (sin
 > Glide, obsoleto). Sin suponer motor compartido.
+> Insumo Fase 3: propuesta completa en
+> `docs/M13_DECOUPLE_PROPOSAL.md` (2026-10-10; diseño, no implementar).
 
 ### Etapa D — Diffs de parches comunitarios
 

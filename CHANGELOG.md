@@ -2,6 +2,16 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — M-13: propuesta de prototipo reversible sim/render (diseño)
+
+- Nuevo `docs/M13_DECOUPLE_PROPOSAL.md` (diseño, NO implementación):
+  arquitectura SIM/PRESENT + acumulador de paso fijo, pseudocódigo,
+  puntos de intervención A/B/C (método lo decide Fase 3), riesgos
+  R-* + supuestos S-*, criterios REV/SIM/FPS/PASO/NREG (umbrales
+  propuestos), puerta de autorización (E-2 + Hito K + Fase 3).
+  M-13 sigue PROPOSED; FA/M intactos; causa del límite de FPS no
+  resuelta. Panel intacto (documentar no completa hitos MAIN).
+
 ## 2026-10-10 — 0.0.0 — Línea A+B: refs Glide/desacoplado + lectores `+0x10C` y 75 Hz
 
 - Línea B (estático solo-lectura, exe EU md5 `692b1282…`, copia

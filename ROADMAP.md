@@ -49,6 +49,8 @@ Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
 
 - Soluciones candidatas (solo Hito K) + método (loader/DLL/parche —
   sin presuponer; se decide aquí con evidencia).
+- Insumo disponible: `docs/M13_DECOUPLE_PROPOSAL.md` (propuesta M-13;
+  no sustituye la decisión de método ni promociona estados).
 - Arquitectura mínima para Hito P; resto pospuesto.
 - Promover a PLANNED solo los FA/M-xx implicados en Hito P.
 
