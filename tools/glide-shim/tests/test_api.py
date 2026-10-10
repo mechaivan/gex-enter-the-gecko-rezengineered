@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""test_api: every .def arity (@N) matches the Glide 2.x SDK signature.
+"""test_api: every export arity (@N) matches the Glide 2.x SDK signature.
 
 Fixture glide2x_signatures.txt pins (func, nparams, @N) derived from the
 Glide 2.x SDK headers (provenance inside the file; FX_CALL=__stdcall).
 This test asserts:
   1. 4*nparams == @N for all 38 rows (x86 stdcall arithmetic; all SDK
      params are 4-byte kinds — verified at fixture generation).
-  2. Every row's decorated name _(func)@(N) is exported by gshim.def
-     (forwarder, bare, or "decorated"=internal alias form) and vice
-     versa (no extras).
+  2. Every row's decorated name _(func)@(N) is exported — via a gshim.def
+     line (forwarder, bare, or "decorated"=internal alias) or via a
+     __declspec(dllexport) __stdcall wrapper in gshim.c resolved against
+     the SDK arity (F-3 split: the .def cannot express the 3 code
+     exports, so they live on the dllexport side) — and vice versa
+     (no extras).
 Exit 0 = all pass.
 """
 import re
@@ -39,13 +42,19 @@ def main():
             ok = False
     check(ok, '4*nparams == @N for every row')
 
+    byfn = {fn: w for fn, _, w in rows}
     deftext = (SHIM / 'gshim.def').read_text()
     exports = set(re.findall(r'(_gr\w+@\d+|_gu\w+@\d+)=', deftext))
     exports |= set(re.findall(r'"(_gr\w+@\d+|_gu\w+@\d+)"=', deftext))
     exports |= set(re.findall(r'(?m)^\s*(_gr\w+@\d+|_gu\w+@\d+)\s*$', deftext))
+    csrc = (SHIM / 'gshim.c').read_text()
+    dllexport_fns = set(re.findall(
+        r'__declspec\(dllexport\)\s+\S.*__stdcall\s+(\w+)\s*\(', csrc))
+    exports |= {f'_{fn}@{byfn[fn]}' for fn in dllexport_fns if fn in byfn}
     want = {f'_{fn}@{w}' for fn, _, w in rows}
     check(want == exports,
-          f'fixture names == .def exports (missing={sorted(want - exports)}, '
+          f'fixture names == exports (.def + dllexport) '
+          f'(missing={sorted(want - exports)}, '
           f'extra={sorted(exports - want)})')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')

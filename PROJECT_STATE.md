@@ -85,8 +85,8 @@
   `tools/glide-shim` v6 setvbuf-comprobado (suites verdes 2026-10-10:
   14+3+74+3+3+17+11 + 71 conductual; V-0 superado PC; suite portable;
   V-1 superado PC 2026-10-10 (GCC 16.1.0, 38/38, F-2 evaluado benigno);
-  F-3 en curso (V-1 reintento 2026-10-11 BUILD PASS + 38+3 twins;
-  fix exact-match + objdump robusto, pendiente PC);
+  F-3 causa aislada (matriz A/B-fail D-mal; 5 grafías agotadas;
+  fix H1 .def-35+dllexport, matriz H1-H4b pendiente PC);
   V-1b superado PC 2026-10-10 (cruce vs DLL real 38/38); arnés
   nativo W00–W11 preparado (pendiente PC); V-2 pendiente).
 

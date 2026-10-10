@@ -6,10 +6,12 @@
  * harness asserts the loaded module path, so a wrong DLL can only FAIL
  * loudly, never pass silently. NEVER installed anywhere real.
  *
- * Same object, 4 link variants (see build-harness.sh, one .def minus one
- * line each): full + missing-one-export x3. The omitted symbol keeps its
- * code but loses its export, so GetProcAddress fails exactly like a
+ * Same source, 4 compile variants (see build-harness.sh, one
+ * -DFAKE_NO_* flag each): full + missing-one-export x3. The omitted
+ * symbol loses its code, so GetProcAddress fails exactly like a
  * real DLL lacking that export (fail_fast path, exit 111).
+ * (.def surgery is dead: F-3 proved MinGW-32 cannot express the
+ * decorated names via .def — see fakereal_full.def.)
  *
  * Control: GSHIM_FAKE_PENDING=const:V | alt | ramp:N (queue depth
  * script, mirrors the Linux harness GSHIM_TEST_PENDING semantics).
@@ -29,12 +31,15 @@ static long f_pending = 0;
 static long f_shutdown = 0;
 static long f_last_arg = -1;
 
+#ifndef FAKE_NO_SWAP
 __declspec(dllexport) void __stdcall grBufferSwap(int32_t swap_interval)
 {
     f_swap++;
     f_last_arg = (long)swap_interval;
 }
+#endif
 
+#ifndef FAKE_NO_PENDING
 __declspec(dllexport) int32_t __stdcall grBufferNumPending(void)
 {
     char mode[64];
@@ -53,6 +58,7 @@ __declspec(dllexport) int32_t __stdcall grBufferNumPending(void)
     }
     return 0;
 }
+#endif
 
 static int read_line(FILE *f, char *buf, size_t cap)
 {
@@ -100,6 +106,7 @@ static int file_line_count(const char *path)
     return n;
 }
 
+#ifndef FAKE_NO_SHUTDOWN
 __declspec(dllexport) void __stdcall grGlideShutdown(void)
 {
     FILE *f;
@@ -121,6 +128,7 @@ __declspec(dllexport) void __stdcall grGlideShutdown(void)
         fclose(f);
     }
 }
+#endif
 
 /* Live counts for the harness child (cross-checked with the file). */
 __declspec(dllexport) void __stdcall fakereal_counts(int *swap, int *pending,

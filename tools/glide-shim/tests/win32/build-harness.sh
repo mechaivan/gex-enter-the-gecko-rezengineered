@@ -6,7 +6,9 @@
 #   glide2x.dll            staged PRODUCTION copy (fresh build-win32.sh
 #                          with OUTDIR=build dir; the repo tree is never
 #                          written, let alone loaded, by the harness)
-#   fake_full.dll + 3 missing-one-export variants (staged per scenario
+#   fake_full.dll + 3 missing-one-export variants, each compiled with
+#                          its -DFAKE_NO_* flag (the omitted function is
+#                          absent from the object; staged per scenario
 #                          as glide2x_gex_real.dll; NEVER that name here,
 #                          or the W07 bare-name fallback would resolve it)
 #   w32harness.exe         parent+child runner (harness.c)
@@ -39,18 +41,23 @@ if [ ! -f "$B/glide2x.dll" ]; then
   echo "W32HARNESS FAIL: OUTDIR build left no $B/glide2x.dll"
   exit 1
 fi
-if ! "$W32CC" -m32 -O2 -Wall -Wextra -c tests/win32/fakereal.c \
-    -o "$B/fakereal.o" 2>&1 | tee -a "$BLOG"; then
-  echo "W32HARNESS FAIL: fakereal.c compile error (see $BLOG)"
-  exit 1
-fi
-cp tests/win32/fakereal_full.def "$B/fakereal_full.def"
-grep -vF '_grBufferSwap@4' tests/win32/fakereal_full.def > "$B/fakereal_noswap.def"
-grep -vF '_grBufferNumPending@0' tests/win32/fakereal_full.def > "$B/fakereal_nopending.def"
-grep -vF '_grGlideShutdown@0' tests/win32/fakereal_full.def > "$B/fakereal_noshutdown.def"
+# F-3: variants drop the function at compile time (-DFAKE_NO_*), since
+# MinGW-32 cannot express the decorated names via .def (see
+# fakereal_full.def). $defs is unquoted on purpose: empty for full.
 for v in full noswap nopending noshutdown; do
-  if ! "$W32CC" -m32 -shared -O2 -o "$B/fake_$v.dll" "$B/fakereal.o" \
-      "$B/fakereal_$v.def" 2>&1 | tee -a "$BLOG"; then
+  defs=""
+  case "$v" in
+    noswap) defs="-DFAKE_NO_SWAP" ;;
+    nopending) defs="-DFAKE_NO_PENDING" ;;
+    noshutdown) defs="-DFAKE_NO_SHUTDOWN" ;;
+  esac
+  if ! "$W32CC" -m32 -O2 -Wall -Wextra $defs -c tests/win32/fakereal.c \
+      -o "$B/fakereal_$v.o" 2>&1 | tee -a "$BLOG"; then
+    echo "W32HARNESS FAIL: fakereal.c ($v) compile error (see $BLOG)"
+    exit 1
+  fi
+  if ! "$W32CC" -m32 -shared -O2 -o "$B/fake_$v.dll" "$B/fakereal_$v.o" \
+      tests/win32/fakereal_full.def 2>&1 | tee -a "$BLOG"; then
     echo "W32HARNESS FAIL: fake_$v.dll link error (see $BLOG)"
     exit 1
   fi

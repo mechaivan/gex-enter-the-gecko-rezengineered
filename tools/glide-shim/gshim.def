@@ -1,30 +1,23 @@
-; gshim.def — exports for the proxy glide2x.dll (38 total).
+; gshim.def — forwarder exports for the proxy glide2x.dll (35 here).
 ; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact;
 ; verified: 38 named, 0 ordinal-only, 0 undecorated) and arity-checked
 ; against the Glide 2.x SDK headers (sezero/glide, FX_CALL=__stdcall).
 ; The REAL renamed DLL's exports are verified directly (V-1b), never
 ; assumed from the exe's imports.
 ;  - 35 pass-through imports: pure forwarder exports (no code).
-;  - 3 intercepted calls: exported from gshim.c code (__declspec(dllexport)
-;    AND listed here, so the export never depends on linker auto-export).
-;    grGlideShutdown runs the final log dump on the game thread (DllMain
-;    DETACH is intentionally a no-op; see gshim.c + README).
-;  - MINGW-32 LINK RULE (F-3, 2026-10-11, maintainer-PC evidence): the 3
-;    code exports MUST use the explicit-alias form "decorated"=internal
-;    with the internal name EXACTLY the decorated symbol (WITH the
-;    leading underscore; quotes around the internal side optional).
-;    Bare decorated lines do NOT link with the current MinGW-32
-;    toolchain, and an internal name WITHOUT the underscore links but
-;    is ALSO exported (38+3 twins: V-1 re-run BUILD PASS + verify FAIL,
-;    2026-10-11). The exact-match alias below is the proposed fix —
-;    PENDING PC validation; V-1 byte-verifies all 38, test_def.py
-;    enforces the form statically.
+;  - The 3 intercepted calls are NOT listed here: F-3 (2026-10-11,
+;    maintainer-PC matrix) proved no .def spelling yields their
+;    decorated names with current MinGW-32 — bare and alias-with-
+;    underscore internals do NOT link ("undefined"); an underscore-less
+;    internal links but is ALSO exported (38+3 twins); undecorated lines
+;    export the wrong names. They are exported ONLY via
+;    __declspec(dllexport) in gshim.c (explicit annotation, not linker
+;    auto-export); V-1 byte-verifies the exact 38 and test_def.py
+;    enforces this split statically. See TESTING (F-3 record).
 LIBRARY glide2x
 EXPORTS
     _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
     _grAlphaCombine@20=glide2x_gex_real._grAlphaCombine@20
-    "_grBufferNumPending@0"=_grBufferNumPending@0
-    "_grBufferSwap@4"=_grBufferSwap@4
     _grChromakeyMode@4=glide2x_gex_real._grChromakeyMode@4
     _grChromakeyValue@4=glide2x_gex_real._grChromakeyValue@4
     _grConstantColorValue4@16=glide2x_gex_real._grConstantColorValue4@16
@@ -38,7 +31,6 @@ EXPORTS
     _grGlideGetState@4=glide2x_gex_real._grGlideGetState@4
     _grGlideInit@0=glide2x_gex_real._grGlideInit@0
     _grGlideSetState@4=glide2x_gex_real._grGlideSetState@4
-    "_grGlideShutdown@0"=_grGlideShutdown@0
     _grLfbWriteRegion@32=glide2x_gex_real._grLfbWriteRegion@32
     _grSstControl@4=glide2x_gex_real._grSstControl@4
     _grSstQueryHardware@4=glide2x_gex_real._grSstQueryHardware@4

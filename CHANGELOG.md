@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — F-3 causa aislada: matriz A/B/D agota `.def`; fix H1 (dllexport autoridad)
+
+- Matriz PC: A/B (alias con `_`) link FAIL, D (sin `_`) 38
+  erróneas; ninguna grafía `.def` da 38 exactas. Modelo: lookup
+  antepone `_`, verbatim en exportación, twins de mismatch,
+  dedup dllexport∪.def. «dllexport causa twins» REFUTADA.
+- Fix H1 PROPUESTO (pendiente PC): `.def` 35-forwarders +
+  dllexport×3; fakes dllexport + variantes `-DFAKE_NO_*`;
+  test_def/test_api invertidos; matriz H1/H2/H3/H4a/H4b decide
+  (H4b adopta la propuesta usuario si da 38).
+- Docs: TESTING (matriz+causa+H1) + README + PROJECT_STATE.
+  V-1/V-2 NO superados; panel intacto (sin hito).
+
 ## 2026-10-11 — 0.0.0 — F-3: V-1 reintento BUILD PASS + verificación FAIL (38+3 twins); fix propuesto
 
 - PC 2026-10-11 (MSYS2 MINGW32): alias `"dec"=interna-sin-_`

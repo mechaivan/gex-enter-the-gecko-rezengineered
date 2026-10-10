@@ -746,6 +746,26 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   (test_def/test_exports/test_env). V-1 original 2026-10-10 PASS
   intacto (hecho histórico, otro .def/momento toolchain). V-1
   reintento NO superado; V-2 no iniciado.
+- **F-3 MATRIZ (PC mantenedor 2026-10-11, MSYS2 MINGW32): A/B no
+  enlazan, D exporta mal.** Sobre `9240262`: (A) `"dec"="dec"`:
+  link FAIL (no encuentra `_grBufferSwap@4` + 2); (B) alias con
+  ambos lados entrecomillados: mismo FAIL; (D) `gr...@N` pelado:
+  build OK pero exporta sin guion y pierde los 3 esperados. Con
+  `1f88513` (38+3 twins) y pelada-con-`_` (FAIL): 5 grafías
+  agotadas, ninguna da 38 exactas.
+- **F-3 CAUSA (modelo unificado, inferido — veredicto en matriz
+  H1-H4b):** lookup interno `.def` antepone `_` sin intento
+  exacto; exportación verbatim; interno distinto acaba twin;
+  dllexport ∪ `.def` con dedup por símbolo (`.def` gana). La
+  hipótesis «dllexport causa twins» queda REFUTADA (twins sin
+  `_`; D con dllexport no muestra `_X@N`); «quitar dllexport»
+  se ensaya como H4b. V-1 2026-10-10 intacto.
+- **F-3 FIX H1 (PROPUESTO, pendiente PC):** `.def` 35-forwarders
+  + dllexport autoridad de los 3 (predice 38); fakes igual con
+  variantes `-DFAKE_NO_*`; test_def/test_api invertidos.
+  Predicciones matriz: H1 38, H2 fail-link, H3 flag-quizás, H4a
+  38+3, H4b fail-link (si H4b da 38, se adopta). V-1/V-2 NO
+  superados.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 
@@ -779,8 +799,9 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
 - **Qué es:** `tests/win32/` — `harness.c` (padre lanza 1 hijo por
   escenario en dirs temporales), `fakereal.c` (doble de
   `glide2x_gex_real.dll` con conteos en vivo + STRICT:
-  finalize-antes-de-reenviar o exit 99), `fakereal_full.def` (las
-  3 variantes sin-1-export se derivan con `grep -v`),
+  finalize-antes-de-reenviar o exit 99), `fakereal_full.def` (sin
+  líneas de export; F-3: las 3 variantes sin-1-export se compilan
+  con `-DFAKE_NO_*`, una por variante),
   `build-harness.sh` + `run-harness.sh` (etapa 9 de la suite).
 - **Decisión de diseño (sin hooks):** la costura de test es la
   propia ruta beside-shim de `do_init`: el hijo carga la DLL de
