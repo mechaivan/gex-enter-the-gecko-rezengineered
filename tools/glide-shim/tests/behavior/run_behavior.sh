@@ -140,5 +140,24 @@ head -1 "$d/gshim_log.csv" | grep -q 'buf=default-UNPINNED'; ok $? "B14 header f
 tail -1 "$d/gshim_log.csv" | grep -q '^# end rows=501 overflow=0'; ok $? "B14 data complete (501 rows)"
 ! grep -q 'FATAL' "$d/gshim_error.txt"; ok $? "B14 no fail-fast (measurement survives)"
 
+# B15: lazy-bind contract — ATTACH alone binds NOTHING; the first call
+# binds (GetModuleHandle first, full-path LoadLibrary fallback). This is
+# the Linux-executed equivalent of the V-2 child_load/check ordering:
+# the REAL gshim.c provably has nothing bound before its first call.
+d=$(T); ( cd "$d" && "$BIN" 0 0 0 0 0 >/dev/null 2>&1 ); ok $? "B15a exit 0 (attach, no calls)"
+[ ! -e "$d/bind_log.txt" ]; ok $? "B15a no bind attempted before first call"
+[ ! -e "$d/load_arg.txt" ]; ok $? "B15a no LoadLibrary before first call"
+d=$(T); ( cd "$d" && "$BIN" 0 0 0 0 1 >/dev/null 2>&1 ); ok $? "B15a exit 0 (attach+detach, no calls)"
+[ ! -e "$d/bind_log.txt" ]; ok $? "B15a detach binds nothing either"
+d=$(T); ( cd "$d" && "$BIN" 1 0 1 0 0 >/dev/null 2>&1 ); ok $? "B15b exit 0 (one swap)"
+[ "$(cat "$d/bind_log.txt")" = "getmodule:glide2x_gex_real.dll" ]; ok $? "B15b first call probes GetModuleHandle once"
+[ ! -e "$d/load_arg.txt" ]; ok $? "B15b fast path: no LoadLibrary when prebound"
+grep -q '^swap=1 pending=0 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B15b forwarded once"
+d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 "$BIN" 1 0 1 0 0 >/dev/null 2>&1 ); ok $? "B15c exit 0 (fallback path)"
+[ "$(head -1 "$d/bind_log.txt")" = "getmodule:glide2x_gex_real.dll" ]; ok $? "B15c GetModuleHandle attempted first"
+grep -qF 'loadlib:C:\game\glide2x_gex_real.dll' "$d/bind_log.txt"; ok $? "B15c full-path LoadLibrary fallback second"
+[ "$(wc -l < "$d/bind_log.txt")" = "2" ]; ok $? "B15c exactly two bind attempts"
+grep -q '^swap=1 pending=0 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B15c forwarded via fallback"
+
 echo "BEHAVIOUR: $pass passed, $fails failed"
 [ "$fails" -eq 0 ]

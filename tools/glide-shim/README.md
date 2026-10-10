@@ -127,7 +127,9 @@ F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `X@N` (dedup solo por nombre); sospecha del mantenedor
 CONFIRMADA. Integrado en árbol; V-1 H4a superado PC (38/38,
 log/sha pendientes de archivar). V-2 bloqueada por 2 fallos del
-harness (rutas child_load + cmp ausente); fix en árbol,
+harness (rutas child_load + cmp ausente); fix en árbol.
+Re-run V-2 (a827647): 6/14 — check de bind antes de la 1.ª
+llamada (el shim enlaza perezoso por diseño); fix en árbol,
 re-run pendiente.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras

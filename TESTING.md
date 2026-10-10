@@ -784,6 +784,26 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `cmp` (ausente en ese MSYS2). Fix en árbol: `canon_path` +
   `join_path` + `files_identical` + regresiones (`test_harness`,
   `test_env`); `gshim.c`/`.def` congelados. Re-run pendiente.
+- **V-2 re-run (PC MSYS2 MINGW32 sobre `a827647`, reportado
+  2026-10-11): 6 PASS / 8 FAIL.** Fallan W00/W01/W02/W03/W04/
+  W05/W09/W10 con «fake: shim did not bind glide2x_gex_real»;
+  pasan W06×3, W07, W08 y W11. Build + 38 exportaciones +
+  integridad repo OK (`V2_RC=1`).
+- **V-2 CAUSA (bind perezoso vs check temprano — DISTINTA de
+  la anterior):** `gshim.c` enlaza el backend SOLO en la primera
+  llamada interceptada (`do_init` vía `ensure_init`; DllMain es
+  ATTACH-only por diseño, sin loader-lock); el harness llamaba
+  `child_check_fake` justo tras `child_load`, antes de ninguna
+  llamada → `GetModuleHandle` NULL por construcción. W11 pasa
+  por preload; W06/W07/W08 no chequean. Staging exonerado
+  (padre copia `fake_*.dll` como `glide2x_gex_real.dll` en cada
+  escenario; el fallback beside-shim + bare audita correcto).
+  Fix: check movido tras `child_actions` en los 9 sitios
+  (mismas aserciones STRICT, ninguna eliminada/debilitada).
+  Regresiones: B15 conductual (`gshim.c` REAL bajo stubs:
+  ATTACH no enlaza, 1.ª llamada sí, orden handle→path) + pin
+  de orden en `test_harness`. `gshim.c`/`.def` intactos.
+  Re-run PC pendiente (única validación V-2 válida).
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

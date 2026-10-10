@@ -503,8 +503,12 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        /* AFTER the first call: the shim binds lazily via
+         * ensure_init, so before any call NOTHING is bound
+         * by design (V-2: checking earlier always fails).
+         * The identity proof itself is unchanged (STRICT). */
+        child_check_fake(&c);
         child_check_counts(&c, 1, 1, 1, 1);
         c1 = file_size("gshim_log.csv");
         CHECK(c1 > 0, "W00: csv empty before DETACH");
@@ -523,8 +527,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 3000, 5000, 1, 3);
         child_audit_csv(id, 3003, 0, 3000, 5000, 7, 2, 1);
         CHECK(!file_exists("gshim_error.txt"), "W01: error file present");
@@ -537,8 +541,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 3000, 5000, 1, 3);
         child_audit_csv(id, 8001, 0, 3000, 5000, -1, 5000, 1);
         CHECK(!file_exists("gshim_error.txt"), "W02: error file present");
@@ -554,8 +558,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 300000, 0, 1, 5);
         child_audit_csv(id, 262144, 1, 300000, 0, -1, 0, 0);
         f = fopen("gshim_log.csv", "r");
@@ -585,8 +589,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 1000, 2000, 1, 4);
         CHECK(!file_exists("gshim_log.csv"), "W04: csv must be absent");
         f = fopen("gshim_nolog.marker", "r");
@@ -623,8 +627,8 @@ static int child_run(const char *id, const char *dir)
             CHECK(0, "W05: cannot stage blocking dir");
             goto verdict;
         }
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 100, 50, 1, 6);
         CHECK(file_contains("gshim_error.txt", "marker init failed"),
               "W05: error lacks marker-init note");
@@ -674,8 +678,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 0);
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 100, 0, 2, 8);
         child_audit_csv(id, 101, 0, 100, 0, -1, 0, 1);
         CHECK(!file_exists("gshim_error.txt"), "W09: error file present");
@@ -693,8 +697,8 @@ static int child_run(const char *id, const char *dir)
             CHECK(0, "W10: cannot stage blocking dir");
             goto verdict;
         }
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 200, 0, 1, 2);
         CHECK(file_contains("gshim_error.txt", "cannot open log"),
               "W10: error lacks cannot-open note");
@@ -709,8 +713,8 @@ static int child_run(const char *id, const char *dir)
         child_load(&c, 1); /* fake already bound: fast path */
         if (child_fail[0])
             goto verdict;
-        child_check_fake(&c);
         child_actions(&c);
+        child_check_fake(&c);
         child_check_counts(&c, 50, 0, 1, 7);
         child_audit_csv(id, 51, 0, 50, 0, -1, 0, 1);
         CHECK(!file_exists("gshim_error.txt"), "W11: error file present");

@@ -62,9 +62,18 @@ DWORD GetModuleFileNameA(HMODULE h, char *buf, DWORD n)
     return (DWORD)strlen(buf);
 }
 
+static void record_bind(const char *tag, LPCSTR arg)
+{
+    FILE *f = fopen("bind_log.txt", "a");
+    if (f) {
+        fprintf(f, "%s:%s\n", tag, arg ? arg : "(null)");
+        fclose(f);
+    }
+}
+
 HMODULE GetModuleHandleA(LPCSTR name)
 {
-    (void)name;
+    record_bind("getmodule", name);
     if (getenv("GSHIM_TEST_NULL_MODULE"))
         return NULL;
     return (HMODULE)0x1000;
@@ -77,6 +86,7 @@ HMODULE LoadLibraryA(LPCSTR path)
         fprintf(f, "%s\n", path ? path : "(null)");
         fclose(f);
     }
+    record_bind("loadlib", path);
     if (getenv("GSHIM_TEST_LOAD_FAIL"))
         return NULL;
     return (HMODULE)0x2000;

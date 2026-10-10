@@ -2,6 +2,24 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-2 re-run 6/14: causa bind perezoso vs check temprano (fix en árbol)
+
+- PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `a827647`):
+  W00/W01/W02/W03/W04/W05/W09/W10 FAIL con «fake: shim did
+  not bind glide2x_gex_real»; W06×3/W07/W08/W11 PASS. Build,
+  38 exportaciones e integridad repo OK (`V2_RC=1`).
+- Causa raíz: `gshim.c` enlaza el backend SOLO en la primera
+  llamada interceptada (`ensure_init`; DllMain ATTACH-only por
+  diseño); `child_check_fake` corría tras `child_load`, antes
+  de ninguna llamada → NULL por construcción. W11 pasa por
+  preload; W06/W07/W08 no chequean. Staging exonerado.
+- Fix: check movido tras `child_actions` (9 sitios, mismas
+  aserciones STRICT, ninguna eliminada). Regresiones: B15
+  conductual (`gshim.c` real: ATTACH no enlaza, 1.ª llamada
+  sí, orden handle→path) + pin de orden en `test_harness`
+  (9 checks presentes). `gshim.c`/`.def` intactos. Panel
+  intacto (V-2 aún no pasa). Re-run PC pendiente.
+
 ## 2026-10-11 — 0.0.0 — V-1 H4a superado PC (38/38); V-2 bloqueada por 2 fallos harness (fix en árbol)
 
 - PC mantenedor (reportado 2026-10-11, GCC i686 16.1.0): V-1 H4a

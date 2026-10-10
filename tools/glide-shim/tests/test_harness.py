@@ -18,6 +18,9 @@ Checks:
      through it (the raw _stricmp(got, c->shim_path/fake_path) lines
      are gone); mismatch messages print both spellings; and
      run-harness.sh invokes no cmp (files_identical instead).
+  C. ORDER (stdlib only): every child_check_fake runs AFTER
+     child_actions (V-2 lazy-bind fix), and all 9 checks are
+     still present (none deleted to force a pass).
 Exit 0 = all pass (or behavioural SKIP without gcc).
 """
 import os
@@ -130,6 +133,24 @@ def structural(src):
           'run-harness.sh invokes no cmp (absent on MSYS2)')
     check('files_identical' in rhs,
           'run-harness.sh uses files_identical')
+    # C. V-2 lazy-bind ordering: the shim binds only on its first
+    # intercepted call (ensure_init), so child_check_fake is only
+    # meaningful AFTER child_actions. Pin the count (no deleted
+    # assertions) and the order in every scenario block.
+    check(src.count('child_check_fake(&c);') == 9,
+          'all 9 bind checks present (none deleted)')
+    parts = src.split('strcmp(id, "W')
+    checked = 0
+    ordered = True
+    for part in parts[1:]:
+        if 'child_check_fake(&c);' in part:
+            checked += 1
+            ia = part.find('child_actions(&c);')
+            ic = part.find('child_check_fake(&c);')
+            if ia < 0 or ic < ia:
+                ordered = False
+    check(checked == 9, 'bind checks span 9 scenarios')
+    check(ordered, 'every bind check runs after child_actions')
 
 
 def main():
