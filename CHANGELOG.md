@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — F-3 RESUELTO por H4a: mismatch-alias + sin dllexport = 38 exactas
+
+- Matriz-2 PC (GCC 16.1.0, sobre `e3bbe01`): H4a (`.def`
+  `"_X@N"=X@N` + C sin dllexport) VERIFICA 38/38, 0 extras,
+  `CHECK_EXPORTS: PASS`. H1/H2/H3 no superan (detalle pendiente).
+- Causa refinada: dllexport-stdcall emite `X@N` + dedup por
+  nombre (el viejo dedupaba por símbolo: V-1 2026-10-10). La
+  nota «REFUTADA» previa queda corregida: la interacción sí —
+  sospecha del mantenedor CONFIRMADA.
+- Integrado (mínimo vs H4a, export-lines idénticas): `.def`
+  mismatch ×2, C/fakes sin dllexport, variantes por cirugía
+  `.def`, test_def/test_api prohíben dllexport + exigen H4a.
+- V-1/V-2 NO superados (H4a validó la FORMA en /tmp, falta el
+  árbol). Panel intacto (sin hito).
+
 ## 2026-10-11 — 0.0.0 — F-3 causa aislada: matriz A/B/D agota `.def`; fix H1 (dllexport autoridad)
 
 - Matriz PC: A/B (alias con `_`) link FAIL, D (sin `_`) 38

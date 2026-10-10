@@ -1,23 +1,24 @@
-; gshim.def — forwarder exports for the proxy glide2x.dll (35 here).
+; gshim.def — exports for the proxy glide2x.dll (38 total).
 ; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact;
 ; verified: 38 named, 0 ordinal-only, 0 undecorated) and arity-checked
 ; against the Glide 2.x SDK headers (sezero/glide, FX_CALL=__stdcall).
 ; The REAL renamed DLL's exports are verified directly (V-1b), never
 ; assumed from the exe's imports.
 ;  - 35 pass-through imports: pure forwarder exports (no code).
-;  - The 3 intercepted calls are NOT listed here: F-3 (2026-10-11,
-;    maintainer-PC matrix) proved no .def spelling yields their
-;    decorated names with current MinGW-32 — bare and alias-with-
-;    underscore internals do NOT link ("undefined"); an underscore-less
-;    internal links but is ALSO exported (38+3 twins); undecorated lines
-;    export the wrong names. They are exported ONLY via
-;    __declspec(dllexport) in gshim.c (explicit annotation, not linker
-;    auto-export); V-1 byte-verifies the exact 38 and test_def.py
-;    enforces this split statically. See TESTING (F-3 record).
+;  - 3 intercepted calls: mismatch-alias exports "decorated"=internal
+;    with the internal name WITHOUT the leading underscore (F-3 H4a,
+;    PC-verified 38-exact 2026-10-11). Bare and exact-match spellings
+;    do NOT link with MinGW-32; undecorated exports the wrong names.
+;    gshim.c carries NO dllexport annotation: MinGW-32 dllexport emits
+;    the underscore-less spelling as extra twins (38+3 — the 1f88513
+;    failure). V-1 byte-verifies the exact 38; test_def.py enforces
+;    both halves statically. See TESTING (F-3 record).
 LIBRARY glide2x
 EXPORTS
     _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
     _grAlphaCombine@20=glide2x_gex_real._grAlphaCombine@20
+    "_grBufferNumPending@0"=grBufferNumPending@0
+    "_grBufferSwap@4"=grBufferSwap@4
     _grChromakeyMode@4=glide2x_gex_real._grChromakeyMode@4
     _grChromakeyValue@4=glide2x_gex_real._grChromakeyValue@4
     _grConstantColorValue4@16=glide2x_gex_real._grConstantColorValue4@16
@@ -31,6 +32,7 @@ EXPORTS
     _grGlideGetState@4=glide2x_gex_real._grGlideGetState@4
     _grGlideInit@0=glide2x_gex_real._grGlideInit@0
     _grGlideSetState@4=glide2x_gex_real._grGlideSetState@4
+    "_grGlideShutdown@0"=grGlideShutdown@0
     _grLfbWriteRegion@32=glide2x_gex_real._grLfbWriteRegion@32
     _grSstControl@4=glide2x_gex_real._grSstControl@4
     _grSstQueryHardware@4=glide2x_gex_real._grSstQueryHardware@4

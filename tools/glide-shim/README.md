@@ -121,13 +121,11 @@ V-1b; secundaria: typedef `FARPROC` (corroboración web). Cast
 SIN cambios (supresión local solo ante `-Werror` real).
 Límite: estático; dinámica en V-2/P-W5.
 
-F-3 (2026-10-11, matriz PC): A/B (alias con `_`) no enlazan, D
-(sin `_`) exporta mal; 5 grafías `.def` agotadas sin 38 exactas.
-Causa: lookup interno antepone `_` + twins de interno distinto
-+ dedup dllexport∪`.def` (ver TESTING). Fix H1 PROPUESTO:
-`.def` 35-forwarders + dllexport autoridad de los 3 (fakes igual,
-variantes `-DFAKE_NO_*`); matriz H1–H4b pendiente PC. V-1
-reintento NO superado; V-2 no iniciado.
+F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
+`"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
+(build rc=0, `CHECK_EXPORTS: PASS`). dllexport emitía twins
+`X@N` (dedup solo por nombre); sospecha del mantenedor
+CONFIRMADA. Integrado en árbol; V-1/V-2 pendientes de correr.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en

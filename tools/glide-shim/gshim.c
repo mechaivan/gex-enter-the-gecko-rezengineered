@@ -9,11 +9,10 @@
  * Design (setvbuf audit 2026-10-10, v5 -> v6; see git history):
  *  - 35 pure-forward functions go through gshim.def forwarder exports
  *    (no code, no arity/type assumptions at all). 3 intercepted calls are
- *    exported ONLY via __declspec(dllexport) here: F-3 matrix-proved
- *    that no .def spelling yields their decorated names with MinGW-32
- *    (bare/alias = link fail; mismatched internal = twin exports;
- *    undecorated = wrong names) — see gshim.def + TESTING. V-1
- *    byte-verifies the exact 38:
+ *    exported ONLY via gshim.def mismatch-alias lines: F-3 H4a proved
+ *    MinGW-32 dllexport emits underscore-less twins (38+3), so the
+ *    dllexport annotation is FORBIDDEN in this file — see gshim.def +
+ *    TESTING. V-1 byte-verifies the exact 38:
  *      void  grBufferSwap(FxI32 swap_interval)  -> _grBufferSwap@4
  *      FxI32 grBufferNumPending(void)           -> _grBufferNumPending@0
  *      void  grGlideShutdown(void)              -> _grGlideShutdown@0
@@ -383,7 +382,7 @@ static void finalize_log(const char *by)
 }
 
 /* ---- intercepted calls (pass-through + log) ---- */
-__declspec(dllexport) void __stdcall grBufferSwap(int32_t swap_interval)
+void __stdcall grBufferSwap(int32_t swap_interval)
 {
     ensure_init(); /* never returns on failure: p_Swap is non-NULL below */
     if (!nolog)
@@ -392,7 +391,7 @@ __declspec(dllexport) void __stdcall grBufferSwap(int32_t swap_interval)
     p_Swap(swap_interval);
 }
 
-__declspec(dllexport) int32_t __stdcall grBufferNumPending(void)
+int32_t __stdcall grBufferNumPending(void)
 {
     int32_t v;
     ensure_init(); /* never returns on failure: p_Pending non-NULL below */
@@ -407,7 +406,7 @@ __declspec(dllexport) int32_t __stdcall grBufferNumPending(void)
     return v;
 }
 
-__declspec(dllexport) void __stdcall grGlideShutdown(void)
+void __stdcall grGlideShutdown(void)
 {
     ensure_init(); /* never returns on failure: p_Shutdown non-NULL below */
     if (!nolog)

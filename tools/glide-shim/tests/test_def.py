@@ -1,32 +1,34 @@
 #!/usr/bin/env python3
-"""test_def: gshim.def + dllexport cover the exe's 38 glide imports.
+"""test_def: gshim.def covers the exe's 38 glide imports, exactly.
 
-F-3 SPLIT (2026-10-11, MinGW-32 matrix-proven): no .def spelling can
-express the 3 decorated stdcall code exports (bare and alias-with-
-underscore internals do not link; a mismatched internal is ALSO
-exported as a twin; undecorated lines export the wrong names).
-Authority is therefore split:
-  - gshim.def carries ONLY the 35 same-name forwarder exports;
-  - the 3 intercepted calls are exported ONLY via __declspec(dllexport)
-    in gshim.c (explicit annotation, not linker auto-export).
+F-3 RESOLVED (2026-10-11, H4a verified 38-exact on PC): the 3 decorated
+stdcall code exports use the mismatch-alias form "decorated"=internal
+with internal == decorated minus the leading underscore, and gshim.c
+carries NO dllexport annotation — MinGW-32 dllexport emits the
+underscore-less spelling as extra twins (38+3), while the alias alone
+yields exactly the 38. Bare decorated lines still do not link.
 Checks (all static, stdlib only):
   1. expected_iat.txt holds 38 unique decorated names (fixture provenance
      inside the file: EU exe md5 692b1282..., 0 ordinal-only).
-  2. gshim.def has a LIBRARY line, 35 same-name forwarder exports to
-     glide2x_gex_real.<same name>, and NO other export line.
-  3. The 3 code names are ABSENT from gshim.def (any spelling: bare,
-     quoted, or alias — every F-3-failing shape is rejected).
-  4. .def forwarders UNION dllexport-3 == IAT set (no missing, no extras).
-  5. Each code name exists in gshim.c as a __stdcall function with
-     __declspec(dllexport) and the verified signature (the authority).
+  2. gshim.def has a LIBRARY line, 35 same-name forwarder exports and
+     exactly the 3 mismatch-alias code exports (_grBufferSwap@4,
+     _grBufferNumPending@0, _grGlideShutdown@0).
+  3. Union of .def exports == IAT set (no missing, no extras, no dupes).
+  4. Each forwarder target is glide2x_gex_real.<same-name>.
+  5. gshim.c defines the 3 __stdcall wrappers with verified signatures
+     and carries NO dllexport annotation (H4a rule: any re-added
+     dllexport reintroduces the 38+3 twins — FAIL).
   6. The shutdown wrapper calls finalize_log (final dump on the game
      thread; DllMain DETACH must stay a no-op — see test_init).
-  7. tests/win32/fakereal_full.def has LIBRARY + EXPORTS and NO export
-     lines (same F-3 rule; all 4 fake exports are dllexport-only).
-  8. fakereal.c guards each droppable function in its #ifndef
-     FAKE_NO_* block and dllexports exactly the 4 fake functions.
-  9. build-harness.sh compiles the 3 -DFAKE_NO_* variants (the variant
-     mechanism replacing .def surgery) and generates no .def variants.
+  7. REGRESSION (F-3 shapes): no bare decorated line, no exact-match
+     alias ("dec"="dec", either quoting) and no undecorated line in
+     gshim.def — matrix A/B/D shapes, all link or export wrong.
+  8. tests/win32/fakereal_full.def mirrors H4a (LIBRARY + exactly the
+     4 mismatch-alias exports: 3 stdcall + _fakereal_counts@16).
+  9. fakereal.c defines the 4 stdcall functions, carries NO dllexport,
+     and has NO FAKE_NO_* guards (single variant mechanism).
+  10. build-harness.sh derives variants by .def surgery (grep -v) and
+     passes NO -DFAKE_NO_* flag (single variant mechanism).
 Exit 0 = all pass; prints FAIL lines otherwise.
 """
 import re
@@ -34,7 +36,6 @@ import sys
 from pathlib import Path
 
 SHIM = Path(__file__).resolve().parent.parent
-CODE3 = ['_grBufferNumPending@0', '_grBufferSwap@4', '_grGlideShutdown@0']
 fails = []
 
 
@@ -58,41 +59,65 @@ def main():
     check(any(l.startswith('LIBRARY') for l in lines), '.def has LIBRARY')
     check('EXPORTS' in lines, '.def has EXPORTS')
 
-    fwds, others = {}, []
+    fwds, codes = {}, []
+    bare, badalias, undecorated = [], [], []
     for l in lines:
         m = re.fullmatch(r'(_gr\w+@\d+|_gu\w+@\d+)=glide2x_gex_real\.(_gr\w+@\d+|_gu\w+@\d+)', l)
         if m:
             fwds[m.group(1)] = m.group(2)
-        elif not l.startswith('LIBRARY') and l != 'EXPORTS':
-            others.append(l)
+            continue
+        m = re.fullmatch(r'"(_gr\w+@\d+|_gu\w+@\d+)"=((?:gr|gu)\w+@\d+)', l)
+        if m:
+            if m.group(1) == '_' + m.group(2):
+                codes.append(m.group(1))
+            else:
+                badalias.append(l)
+            continue
+        m = re.fullmatch(r'"(_gr\w+@\d+|_gu\w+@\d+)"="(_gr\w+@\d+|_gu\w+@\d+)"', l)
+        if m:
+            badalias.append(l)
+            continue
+        m = re.fullmatch(r'"(_gr\w+@\d+|_gu\w+@\d+)"=(_gr\w+@\d+|_gu\w+@\d+)', l)
+        if m:
+            badalias.append(l)
+            continue
+        m = re.fullmatch(r'(_gr\w+@\d+|_gu\w+@\d+)', l)
+        if m:
+            bare.append(m.group(1))
+            continue
+        m = re.fullmatch(r'((?:gr|gu)\w+@\d+)', l)
+        if m:
+            undecorated.append(m.group(1))
     check(len(fwds) == 35, f'35 forwarders (got {len(fwds)})')
     check(all(k == v for k, v in fwds.items()),
           'every forwarder target == export name (same-name)')
-    check(not others, f'.def carries no non-forwarder line (got {others})')
-    code_in_def = [l for l in lines
-                   if 'BufferSwap' in l or 'BufferNumPending' in l
-                   or 'GlideShutdown' in l]
-    check(not code_in_def,
-          f'code-3 absent from .def in any spelling (got {code_in_def})')
-    union = set(fwds) | set(CODE3)
+    check(sorted(codes) == ['_grBufferNumPending@0', '_grBufferSwap@4',
+                            '_grGlideShutdown@0'],
+          f'code exports are exactly Swap+Pending+Shutdown, mismatch-alias '
+          f'form (got {sorted(codes)})')
+    check(not bare,
+          f'no bare decorated lines in EXPORTS (got {sorted(bare)})')
+    check(not badalias,
+          f'no exact-match/mispaired aliases in EXPORTS (got {badalias})')
+    check(not undecorated,
+          f'no undecorated lines in EXPORTS (got {sorted(undecorated)})')
+    union = set(fwds) | set(codes)
     check(union == set(iat),
-          f'.def FORWARDERS union dllexport-3 == IAT set '
-          f'(missing={sorted(set(iat) - union)}, '
+          f'.def union == IAT set (missing={sorted(set(iat) - union)}, '
           f'extra={sorted(union - set(iat))})')
-    check(len(fwds) + len(CODE3) == len(union), 'no duplicate export names')
+    check(len(fwds) + len(codes) == len(union), 'no duplicate export names')
 
     csrc = (SHIM / 'gshim.c').read_text()
-    for dec, fn, sig in [('_grBufferSwap@4', 'grBufferSwap',
-                          r'int32_t(\s+\w+)?'),
-                         ('_grBufferNumPending@0', 'grBufferNumPending',
-                          r'void'),
-                         ('_grGlideShutdown@0', 'grGlideShutdown',
-                          r'void')]:
-        m = re.search(r'__declspec\(dllexport\)\s+\S.*__stdcall\s+%s\s*\(\s*%s\s*\)'
-                      % (re.escape(fn), sig), csrc)
-        check(m is not None,
-              f'{dec}: dllexport + __stdcall wrapper with ({sig}) '
-              f'in gshim.c (authority)')
+    check(re.search(r'__declspec\s*\(\s*dllexport\s*\)', csrc) is None,
+          'gshim.c carries no dllexport annotation (H4a rule: twins)')
+    for dec, pat in [('_grBufferSwap@4',
+                      r'\bvoid\s+__stdcall\s+grBufferSwap\s*\(\s*int32_t(\s+\w+)?\s*\)'),
+                     ('_grBufferNumPending@0',
+                      r'\bint32_t\s+__stdcall\s+grBufferNumPending\s*\(\s*void\s*\)'),
+                     ('_grGlideShutdown@0',
+                      r'\bvoid\s+__stdcall\s+grGlideShutdown\s*\(\s*void\s*\)')]:
+        check(re.search(pat, csrc) is not None,
+              f'{dec}: __stdcall definition with verified signature in gshim.c')
     m = re.search(r'grGlideShutdown\s*\(\s*void\s*\)\s*\{(.*?)\n\}',
                   csrc, re.S)
     check(m is not None and 'finalize_log(' in m.group(1),
@@ -104,30 +129,46 @@ def main():
     check(any(l.startswith('LIBRARY') for l in flines),
           'fakereal_full.def has LIBRARY')
     check('EXPORTS' in flines, 'fakereal_full.def has EXPORTS')
-    fothers = [l for l in flines
-               if not l.startswith('LIBRARY') and l != 'EXPORTS']
-    check(not fothers,
-          f'fakereal_full.def carries no export line (got {fothers})')
+    falias, fbad = {}, []
+    for l in flines:
+        m = re.fullmatch(r'"(_\w+@\d+)"=(\w+@\d+)', l)
+        if m and m.group(1) == '_' + m.group(2):
+            falias[m.group(1)] = m.group(2)
+        elif not l.startswith('LIBRARY') and l != 'EXPORTS':
+            fbad.append(l)
+    check(sorted(falias) == ['_fakereal_counts@16',
+                             '_grBufferNumPending@0', '_grBufferSwap@4',
+                             '_grGlideShutdown@0'],
+          f'fake exports are exactly 3 stdcall + counts, mismatch-alias '
+          f'form (got {sorted(falias)})')
+    check(not fbad,
+          f'fakereal_full.def carries no other line (got {fbad})')
 
     fsrc = (SHIM / 'tests' / 'win32' / 'fakereal.c').read_text()
-    for guard, fn in [('FAKE_NO_SWAP', 'grBufferSwap'),
-                      ('FAKE_NO_PENDING', 'grBufferNumPending'),
-                      ('FAKE_NO_SHUTDOWN', 'grGlideShutdown')]:
-        m = re.search(r'#ifndef %s.*?__declspec\(dllexport\).*?__stdcall\s+%s\s*\(.*?#endif'
-                      % (guard, re.escape(fn)), fsrc, re.S)
-        check(m is not None,
-              f'fakereal.c: {fn} dllexported inside #ifndef {guard}')
-    ndll = len(re.findall(r'__declspec\(dllexport\)', fsrc))
-    check(ndll == 4, f'fakereal.c dllexports exactly 4 (got {ndll})')
+    check(re.search(r'__declspec\s*\(\s*dllexport\s*\)', fsrc) is None,
+          'fakereal.c carries no dllexport annotation (H4a rule: twins)')
+    for dec, pat in [('_grBufferSwap@4',
+                      r'\bvoid\s+__stdcall\s+grBufferSwap\s*\(\s*int32_t(\s+\w+)?\s*\)'),
+                     ('_grBufferNumPending@0',
+                      r'\bint32_t\s+__stdcall\s+grBufferNumPending\s*\(\s*void\s*\)'),
+                     ('_grGlideShutdown@0',
+                      r'\bvoid\s+__stdcall\s+grGlideShutdown\s*\(\s*void\s*\)'),
+                     ('_fakereal_counts@16',
+                      r'\bvoid\s+__stdcall\s+fakereal_counts\s*\(')]:
+        check(re.search(pat, fsrc) is not None,
+              f'{dec}: __stdcall definition in fakereal.c')
+    check('FAKE_NO_' not in fsrc,
+          'fakereal.c has no FAKE_NO_* guards (single mechanism)')
 
     harness = (SHIM / 'tests' / 'win32' / 'build-harness.sh').read_text()
-    for flag in ['-DFAKE_NO_SWAP', '-DFAKE_NO_PENDING', '-DFAKE_NO_SHUTDOWN']:
-        check(flag in harness,
-              f'build-harness.sh compiles {flag} variant')
-    check('fakereal_noswap.def' not in harness
-          and 'fakereal_nopending.def' not in harness
-          and 'fakereal_noshutdown.def' not in harness,
-          'build-harness.sh generates no .def variants (.def surgery dead)')
+    for v in ['fakereal_noswap.def', 'fakereal_nopending.def',
+              'fakereal_noshutdown.def']:
+        check(v in harness,
+              f'build-harness.sh derives {v} (.def surgery)')
+    check('grep -vF' in harness,
+          'build-harness.sh derives variants with grep -vF')
+    check('-DFAKE_NO_' not in harness,
+          'build-harness.sh passes no -DFAKE_NO_* (single mechanism)')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
