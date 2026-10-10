@@ -189,8 +189,8 @@
 > `0x473238`; `Swap(3)`+drain-a-cero = latencia 3 retraces/frame.
 > **Incógnitas:** tasa real runtime; disparo R1/R2; orden
 > subsistemas. **Primer paso reversible:** shim instrumentación
-> `tools/glide-shim` v5 (crt-revisado 2026-10-10, suites verdes
-> estructural + conductual + traza syscall; build MinGW-32 +
+> `tools/glide-shim` v6 (setvbuf-comprobado 2026-10-10, suites verdes
+> estructural + conductual + traza syscall + setvbuf-forzado; build MinGW-32 +
 > V-0/V-1/V-1b/V-2 pendientes) +
 > E-2.3; núcleo acumulador verificado en harness
 > (`tools/m13-core`, 120 checks); el desacoplado

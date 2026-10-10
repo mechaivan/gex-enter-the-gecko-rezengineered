@@ -27,10 +27,11 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
   (Fase A): 35 reenvíos + intercepta `grBufferSwap` /
   `grBufferNumPending` / `grGlideShutdown` → CSV (ticks QPC
   crudos, anillo 256K stop-on-full, auto-coste, `GSHIM_NOLOG`
-  aislado). v5 crt-revisado 2026-10-10: `DllMain` solo-ATTACH +
+  aislado). v6 setvbuf-comprobado 2026-10-10: `DllMain` solo-ATTACH +
   finalize en shutdown, fail-fast exit 111, goteo-64 + `setvbuf`
-  2 KB (implícitos acotados, medidos a nivel syscall), `.def`
-  38/38 + aridades SDK, suites verdes (14+3+69+3 + 63
+  2 KB comprobado (cota condicional; medida ≤2048 B en glibc,
+  MSVCRT pendiente V-2), `.def`
+  38/38 + aridades SDK, suites verdes (14+3+74+3 + 71
   conductual); **sin compilar ni ejecutar** (requiere MinGW-32 +
   V-0/V-1/V-1b/V-2 en PC Windows; compatibilidad plena NO
   confirmada). Ver README propio (construir + validar +

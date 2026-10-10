@@ -8,11 +8,12 @@ del exe EU a la DLL real (renombrada) y registra `grBufferSwap`
 1/4096 periódico) con ticks QPC crudos en `gshim_log.csv`. **No altera
 ninguna llamada.** El exe queda intacto (md5 verificable antes/después).
 
-Diseño v5 (auditoría búfer CRT 2026-10-10): anillo 262144 filas en
+Diseño v6 (auditoría setvbuf 2026-10-10): anillo 262144 filas en
 RAM con stop-on-full (nunca reutiliza; desbordar = alarma + tanda
 descartada); `DllMain` solo-ATTACH; volcado final en hook
 `grGlideShutdown` + goteo de 64 filas (sin `fflush` explícito;
-implícitos acotados por `setvbuf` 2 KB, medidos a nivel syscall);
+implícitos acotados a 2 KB vía `setvbuf` COMPROBADO — rechazo =
+tanda marcada y descartada, § Impacto);
 fallos fail-fast (nunca retornos ficticios); `GSHIM_NOLOG=1` sin tocar
 el log y con fallos de marcador audibles; auto-coste medido (footer).
 
@@ -42,6 +43,7 @@ Debe compilar sin errores. (Un build x86-64 lo rechaza `gshim.c` con
 |---|---|---|
 | Sin QPC / algún símbolo (Swap/Pending/Shutdown) irresoluble | `gshim_error.txt` + salida inmediata código 111. El juego NUNCA sigue con retornos ficticios | Sí: quitar el shim (mismo § Reversión) |
 | Anillo lleno (262144 filas) | Marcador `# overflow … RUN INVALID` + `fflush` (una vez) + nota de error; footer `overflow=1`; el fichero conserva un prefijo contiguo pero **la tanda SE DESCARTA SIEMPRE** | N/A (re-diseñar tanda con `pending_calls` del footer) |
+| `setvbuf` rechazado (raro: CRT sin búfer propio) | Reenvío intacto, datos completos, pero cota 2 KB INVÁLIDA: error anotado + cabecera `buf=default-UNPINNED`. **Tanda descartada** (mismo criterio error-file); nunca salida 111 ni cota afirmada a ciegas | Sí |
 | `gshim_log.csv` no abrible | El reenvío sigue intacto; error anotado + reintento en finalize. El gap (log ausente/corto + error) es visible; el juego no se ve afectado | Sí |
 | Marcador NOLOG no escribible (init o end) | Reenvío intacto; error anotado. La tanda NOLOG es INVÁLIDA para A/B (modo o salida limpia no demostrables sin sus 2 líneas) | Sí |
 | Salida sin `grGlideShutdown` / crash | Filas de goteo en disco (pérdida acotada, ver § Impacto); footer ausente (visible). Sin footer no hay auto-coste de esa tanda | N/A (datos parciales honestos) |
@@ -147,13 +149,16 @@ tanda NOLOG inválida: no usar para A/B; reportar, revertir.
   puede disparar una escritura implícita al llenarse el búfer
   (stdio estándar, sin excepción: titular ausencia total de
   syscalls —como hacía la v4— sería falso).
-  Garantía demostrable: `setvbuf` fija el búfer en 2 KB (C89
-  portable; MSVCRT y glibc lo respetan), luego cada escritura
-  implícita es ≤2 KB (~1–10 µs en page-cache) con cadencia
-  determinista (~1 cada ~100 filas) en ambos CRT. Medido a nivel
-  syscall en Linux (B13: máximo exacto 2048 B, con y sin
-  finalize); la latencia concreta en Windows la da cada tanda
-  (footer + A/B).
+  Cota 2 KB = propiedad ESPERADA de implementación (pendiente de
+  confirmación en Windows, punto (b)); jamás se afirma a ciegas:
+  el retorno de `setvbuf` SE COMPRUEBA, y si el CRT la rechaza la
+  tanda queda marcada (`buf=default-UNPINNED` + error) y se
+  descarta. Evidencia separada: (a) OBSERVADO en Linux/glibc a
+  nivel syscall (B13: máximo exacto 2048 B, con y sin finalize);
+  (b) en Windows/MSVCRT es esperada por contrato C89, pero solo
+  V-2 la confirma empíricamente (footer `max` de cada tanda real
+  + A/B; el criterio provisional —abajo— decide cada tanda con
+  datos).
 - `log_cost_us_max`: SÍ captura los `flush` implícitos (ocurren
   dentro de la ventana medida de alguna llamada): es el peor caso
   observado de la tanda. Limitaciones: es un escalar (sin
@@ -172,7 +177,7 @@ tanda NOLOG inválida: no usar para A/B; reportar, revertir.
 ## Formato del log
 
 ```text
-# gshim 5 (crt-buffer audit 2026-10-10) qpf=<ticks/s> (init)
+# gshim 6 (setvbuf audit 2026-10-10) qpf=<ticks/s> (init) buf=2048
 # seq,tick_raw,event,arg
 1,123456789,S,3
 2,123457101,P,0
@@ -192,10 +197,12 @@ tanda descartada aunque haya footer.
 `gshim_nolog.marker` (solo NOLOG, 2 líneas o tanda inválida):
 
 ```text
-gshim 5 (crt-buffer audit 2026-10-10) nolog=1 qpf=<ticks/s>
+gshim 6 (setvbuf audit 2026-10-10) nolog=1 qpf=<ticks/s>
 end swaps=<n> pending_calls=<n> by=shutdown
 ```
 
+Cabecera `buf=2048` = cota vigente y comprobada;
+`buf=default-UNPINNED` = `setvbuf` rechazado (descartar tanda).
 `gshim_error.txt` solo aparece si algo falló; su ausencia es parte
 del criterio de aceptación.
 
@@ -217,18 +224,19 @@ del criterio de aceptación.
 
 Estructurales (propiedades del código, NO conducta): `test_def`
 14 (38/38 `.def` vs IAT + hook shutdown), `test_api` 3
-(4·nparams=@N vs SDK), `test_init` 69 (DllMain solo-ATTACH,
+(4·nparams=@N vs SDK), `test_init` 74 (DllMain solo-ATTACH,
 fail-fast, choke NOLOG, finalize, capacidad/I-O v4, búfer CRT
-v5), `test_docs` 3 (tripwires honestidad), `gcc -fsyntax-only`
+v5, setvbuf comprobado v6), `test_docs` 3 (tripwires honestidad), `gcc -fsyntax-only`
 con stub. Verdes 2026-10-10.
 
 Conductuales (el `gshim.c` REAL compilado contra fakes Win32
 funcionales; afirman ficheros/cuentas/orden/códigos/syscalls):
-63 checks en 13 escenarios (B1a/b exactitud incl. muestreo 1/4096,
+71 checks en 14 escenarios (B1a/b exactitud incl. muestreo 1/4096,
 B2 tope 262144 + marcador, B3 NOLOG, B4 marcador roto, B5 111×4,
 B6 kill -9, B7 sin QPC, B8 doble shutdown, B10 log bloqueado,
 B11 DETACH no-op, B12 fast-path, B13 traza write ≤2 KB +
-implícitos sin `fflush`). Verdes 2026-10-10 (Linux).
+implícitos sin `fflush`, B14 setvbuf forzado a fallar). Verdes
+2026-10-10 (Linux).
 
 Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0/V-1/V-1b/V-2 siguen pendientes (build MinGW + DLL real +
@@ -237,15 +245,18 @@ carga + juego).
 ## Estado, riesgos abiertos y evidencia que FALTA
 
 Verificado: IAT 38/38 + aridades SDK + suites verde (estructural
-14+3+69+3 y conductual 63) + `DllMain` solo-ATTACH + fail-fast +
-choke NOLOG + búfer CRT fijado (implícitos ≤2 KB, medidos a nivel
-syscall). Riesgos ABIERTOS (no bloquean el build, condicionan
+14+3+74+3 y conductual 71) + `DllMain` solo-ATTACH + fail-fast +
+choke NOLOG + `setvbuf` comprobado (cota 2 KB esperada; observada
+≤2048 B en Linux, pendiente confirmar en Windows/MSVCRT en V-2). Riesgos ABIERTOS (no bloquean el build, condicionan
 el uso): (1) el juego podría salir sin `grGlideShutdown` ⇒ sin
 footer (V-2 lo decide; fallback WinClose pendiente); (2) tasa de
 llamadas spin real desconocida hasta V-2 (márgenes calculados,
 alarma lista); (3) latencia concreta de implícitos en Windows
 solo medible allí (footer `max` + A/B por tanda; page-cache/AV
-pueden moverla). Los exports de la DLL concreta se verifican
+pueden moverla); (4) efectividad de la cota 2 KB en MSVCRT:
+esperada por contrato C89, pendiente de confirmación empírica
+en V-2 (B13 solo observa glibc; no se afirma como promesa
+portable). Los exports de la DLL concreta se verifican
 en V-1b (evidencia directa); la carga real, en V-2. Pendiente
 explícito de Windows: build MinGW-32 + V-0/V-1/V-1b/V-2.
 **Compatibilidad plena y validación dinámica NO declaradas.**

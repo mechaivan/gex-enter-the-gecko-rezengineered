@@ -10,8 +10,13 @@
  *   GSHIM_TEST_STRICT=1       fake_shutdown asserts footer/marker order
  * Fake DLL calls are counted; counts are dumped by fake_shutdown to
  * forwarded.counts (proves forwarding happened, with exact argc).
+ * setvbuf is interposed (test double): normally passes through to the
+ * real one, but GSHIM_TEST_SETVBUF_FAIL=1 forces nonzero (B14) without
+ * depending on the OS refusing spontaneously.
  */
+#define _GNU_SOURCE
 #include <windows.h>
+#include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -191,6 +196,18 @@ void OutputDebugStringA(LPCSTR s)
 void ExitProcess(DWORD code)
 {
     _exit((int)code);
+}
+
+/* setvbuf test double: gshim's call resolves here (executable symbols
+ * win over libc's); passthrough unless failure is forced. */
+int setvbuf(FILE *fp, char *buf, int mode, size_t size)
+{
+    static int (*real_setvbuf)(FILE *, char *, int, size_t) = NULL;
+    if (getenv("GSHIM_TEST_SETVBUF_FAIL"))
+        return 1;
+    if (!real_setvbuf)
+        real_setvbuf = dlsym(RTLD_NEXT, "setvbuf");
+    return real_setvbuf(fp, buf, mode, size);
 }
 
 long InterlockedCompareExchange(volatile long *dst, long ex, long cmp)

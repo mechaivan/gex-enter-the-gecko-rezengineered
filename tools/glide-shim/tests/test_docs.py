@@ -15,8 +15,10 @@ fails = []
 
 BANNED = ['cero syscalls', 'zero syscall', 'ninguna syscall',
           'sin syscalls', 'no file i/o syscalls',
-          'no syscalls on the measured path']
-REQUIRED_README = ['implícit', 'setvbuf', '2048']
+          'no syscalls on the measured path', 'garantía portable',
+          'portable guarantee', 'cota portable', 'on both crts',
+          'en ambos crt']
+REQUIRED_README = ['implícit', 'setvbuf', '2048', 'msvcrt']
 
 
 def check(cond, msg):

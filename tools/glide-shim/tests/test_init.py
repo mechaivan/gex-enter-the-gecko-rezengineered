@@ -25,7 +25,11 @@ behaviour needs Windows + the real DLL, see README "Validar"):
      invalidation marker; trickle writes, no fflush on the measured
      path; 1/4096 pending sampling; loud marker failures.
   8. CRT buffer pinned (v5): 2 KB user buffer via setvbuf BEFORE any I/O,
-     so implicit flushes are <= 2 KB on any CRT (MSVCRT and glibc alike).
+     so implicit flushes are <= 2 KB when honored (observed glibc;
+     MSVCRT pending V-2 — v6 makes the condition explicit).
+  9. setvbuf return checked (v6): refusal is LOUDLY flagged (error file +
+     header buf=default-UNPINNED), never silently claimed; forwarding is
+     not fail-fast on this path.
 Exit 0 = all pass.
 """
 import re
@@ -183,6 +187,15 @@ def main():
           'open_log pins the buffer')
     check(openlog.index('setvbuf') < openlog.index('fprintf'),
           'setvbuf precedes any I/O on the stream')
+
+    # 9. setvbuf return checked (v6)
+    check('setvbuf(logf, filebuf, _IOFBF, FILEBUF_N) == 0' in openlog,
+          'open_log checks the setvbuf return value')
+    check('buf_pinned' in code, 'pin state is tracked')
+    check('setvbuf failed' in openlog, 'refusal notes the error file')
+    check('buf=%s' in openlog and 'default-UNPINNED' in openlog,
+          'header flags the unpinned run')
+    check('fail_fast(' not in openlog, 'no fail-fast on setvbuf refusal')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0

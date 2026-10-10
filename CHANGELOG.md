@@ -2,6 +2,29 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Shim Glide v6: setvbuf comprobado (cota 2 KB condicional + evidencia separada)
+
+- Hallazgo: el retorno de `setvbuf` NO se comprobaba — si el CRT
+  rechazaba el búfer de 2 KB, la v5 afirmaba igual la cota: falso.
+- Solución: `open_log` comprueba `setvbuf(...) == 0`
+  (`buf_pinned`); rechazo ⇒ reenvío intacto + datos completos +
+  tanda LOUDLY marcada (`buf=default-UNPINNED` + `gshim_error.txt`)
+  y descartada por el criterio error-file existente (nunca 111).
+  Cabecera gana campo `buf=2048|default-UNPINNED` (crash-safe).
+- B14: doble de `setvbuf` en el harness (forzado por env,
+  passthrough `RTLD_NEXT` si no): 6 checks (reenvío, error,
+  cabecera, 501 filas, sin fail-fast). `buf=2048` afirmado en
+  B1a/B6. Suites verdes 14+3+74+3 y 71 conductual.
+- Docs honestos: cota 2 KB = propiedad ESPERADA pendiente de
+  confirmación en Windows (no promesa portable); evidencia
+  separada — (a) OBSERVADO ≤2048 B en Linux/glibc (B13),
+  (b) MSVCRT esperado por contrato C89, V-2 lo confirma (footer
+  `max` + A/B). Tripwires `test_docs` ampliados (banean
+  absolutos portables).
+- Sync: README v6 (Impacto condicional + fila de fallo + riesgo
+  MSVCRT), MODERNIZATION M-13, PROJECT_STATE, REVERSE_ENGINEERING,
+  tools/README. Panel intacto (hitos, no conteos por auditoría).
+
 ## 2026-10-10 — 0.0.0 — Shim Glide v5: auditoría búfer CRT (fin del «cero syscalls»)
 
 - Hallazgo: `fprintf` SÍ dispara escrituras implícitas al llenarse

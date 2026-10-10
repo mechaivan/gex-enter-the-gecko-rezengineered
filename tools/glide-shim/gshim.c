@@ -1,4 +1,4 @@
-/* GEX caloD shim v5 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
+/* GEX caloD shim v6 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
  *
  * What it does: forwards all 38 Glide imports the EU exe uses to the real
  * DLL (renamed), and logs grBufferSwap issue + grBufferNumPending depth
@@ -6,7 +6,7 @@
  * What it does NOT do: change any call, argument, timing or return value.
  * The exe is untouched (md5 verifiable before/after).
  *
- * Design (crt-buffer audit 2026-10-10, v4 -> v5; see git history):
+ * Design (setvbuf audit 2026-10-10, v5 -> v6; see git history):
  *  - 35 pure-forward functions go through gshim.def forwarder exports
  *    (no code, no arity/type assumptions at all). 3 intercepted calls are
  *    BOTH __declspec(dllexport) here AND listed in gshim.def, so their
@@ -30,13 +30,17 @@
  *  - No EXPLICIT fflush on the measured path (verified structurally).
  *    Implicit CRT flushes DO happen (any fprintf can trigger one when
  *    the stream buffer fills — standard stdio, no exception): they are
- *    bounded, not banished. setvbuf pins a 2 KB stream buffer (portable
- *    C89, honored by MSVCRT and glibc alike), so every implicit write
- *    is <= ~2 KB (~1-10 us page-cache) and cadence is deterministic on
- *    both CRTs (~1 flush per ~100 rows). Each lands inside some call's
- *    measured window, so footer max captures the worst one (see README
- *    for what max does and does not prove). Crash loss <= ~2 KB
- *    (~200 rows) + 64-row trickle tail.
+ *    bounded, not banished. setvbuf requests a 2 KB stream buffer and
+ *    its return value is CHECKED: if honored (the common case), every
+ *    implicit write is <= ~2 KB (~1-10 us page-cache) with
+ *    deterministic cadence (~1 per ~100 rows); if refused, the run is
+ *    LOUDLY flagged (error file + header buf=default-UNPINNED) and
+ *    must be discarded — the bound is never claimed blindly. Observed
+ *    <= 2048 B on glibc (B13 syscall trace); MSVCRT effectiveness is
+ *    expected by C89 contract but pending V-2 measurement (see README).
+ *    Each implicit flush lands inside some call's measured window, so
+ *    footer max captures the worst one. Crash loss <= ~2 KB + 64 rows
+ *    while pinned.
  *  - CAPACITY (stop-on-full, never wrap, never hide loss): 262144 rows
  *    (~25 swaps/s + pending changes + 1/4096 periodic). Planned 60 s
  *    runs need < ~5K rows typical, < ~150K pathological-hot-spin;
@@ -53,6 +57,10 @@
  *      log file unopenable -> forwarding continues, error noted loudly
  *        (the missing/short log + error file make the gap visible; the
  *        game itself is unaffected). Retry at finalize.
+ *      setvbuf refused -> forwarding continues, data still complete,
+ *        but the 2KB bound is void: error noted + header flagged
+ *        (buf=default-UNPINNED); the run MUST be discarded (same
+ *        error-file criterion). Never fail-fast: measurement survives.
  *      nolog marker unwritable (init or end) -> forwarding continues,
  *        error noted loudly; the NOLOG run is INVALID for A/B (mode or
  *        clean exit unprovable without its marker lines).
@@ -87,7 +95,7 @@
 #error "gshim must be built 32-bit (e.g. i686-w64-mingw32-gcc -m32)"
 #endif
 
-#define GSHIM_VERSION "5 (crt-buffer audit 2026-10-10)"
+#define GSHIM_VERSION "6 (setvbuf audit 2026-10-10)"
 #define REAL_DLL "glide2x_gex_real.dll"
 #define LOG_FILE "gshim_log.csv"
 #define ERR_FILE "gshim_error.txt"
@@ -124,6 +132,7 @@ static void (__stdcall *p_Shutdown)(void) = NULL;
 static HMODULE hShim = NULL;
 static HMODULE hReal = NULL;
 static FILE *logf = NULL;
+static int buf_pinned = 0; /* setvbuf honored on the operative stream */
 static int64_t qpf = 0;
 static int nolog = 0;          /* GSHIM_NOLOG=1: pure pass-through */
 static int finalized = 0;      /* finalize_log ran (shutdown hook) */
@@ -172,11 +181,18 @@ static void open_log(const char *note)
     if (logf || nolog)
         return;
     logf = fopen(LOG_FILE, "a");
-    if (logf)
-        setvbuf(logf, filebuf, _IOFBF, FILEBUF_N);
+    if (logf) {
+        if (setvbuf(logf, filebuf, _IOFBF, FILEBUF_N) == 0) {
+            buf_pinned = 1;
+        } else {
+            buf_pinned = 0;
+            note_error("setvbuf failed (2KB flush bound void; run flagged)");
+        }
+    }
     if (logf && !header_written) {
-        fprintf(logf, "# gshim %s qpf=%lld (%s)\n",
-                GSHIM_VERSION, (long long)qpf, note);
+        fprintf(logf, "# gshim %s qpf=%lld (%s) buf=%s\n",
+                GSHIM_VERSION, (long long)qpf, note,
+                buf_pinned ? "2048" : "default-UNPINNED");
         fprintf(logf, "# seq,tick_raw,event,arg\n");
         header_written = 1;
     }

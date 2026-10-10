@@ -16,7 +16,7 @@ ok() { # ok <cond-exit> <label>
 if ! command -v gcc >/dev/null; then echo "SKIP behaviour (no gcc)"; exit 0; fi
 BIN=$(mktemp -d)/behavior_test
 gcc -std=c11 -O1 -I tests/behavior tests/behavior/driver.c \
-  tests/behavior/harness_impl.c gshim.c -o "$BIN" 2>"$(mktemp -d)/build.log" \
+  tests/behavior/harness_impl.c gshim.c -ldl -o "$BIN" 2>"$(mktemp -d)/build.log" \
   || { echo "FAIL behaviour build"; exit 1; }
 echo "PASS behaviour build"
 TRACER_DIR=$(mktemp -d); TRACER="$TRACER_DIR/syscall_tracer"
@@ -34,6 +34,7 @@ grep -q '^1,[0-9]*,S,3$' "$d/gshim_log.csv"; ok $? "B1a first row S/arg3"
 grep '^[0-9]' "$d/gshim_log.csv" | awk -F, '{if ($1 != NR) bad=1} END{exit bad}'; ok $? "B1a seq contiguous"
 grep '^[0-9]' "$d/gshim_log.csv" | awk -F, '{if ($2 <= p) bad=1; p=$2} END{exit bad}'; ok $? "B1a ticks monotonic"
 tail -1 "$d/gshim_log.csv" | grep -q '# end rows=3003 overflow=0 swaps=3000 pending_calls=5000 .* by=shutdown'; ok $? "B1a footer exact"
+head -1 "$d/gshim_log.csv" | grep -q 'buf=2048'; ok $? "B1a header buf=2048"
 tail -1 "$d/gshim_log.csv" | grep -q 'log_cost_us_sum=.* max='; ok $? "B1a footer cost fields"
 grep -q '^swap=3000 pending=5000 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B1a forwarded counts"
 grep -qF 'C:\game\glide2x_gex_real.dll' "$d/load_arg.txt"; ok $? "B1a full-path LoadLibrary"
@@ -85,6 +86,7 @@ d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 GSHIM_TEST_LOAD_FAIL=1 \
 d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 "$BIN" 5000 0 0 1 0 >/dev/null 2>&1 ); [ $? -eq 42 ]; ok $? "B6 exit 42"
 [ "$(grep -c '^[0-9]' "$d/gshim_log.csv")" -ge 4700 ]; ok $? "B6 >=4700/5000 rows on disk (2KB buf: worst loss ~233)"
 grep -q '^# gshim ' "$d/gshim_log.csv"; ok $? "B6 header present"
+head -1 "$d/gshim_log.csv" | grep -q 'buf=2048'; ok $? "B6 header buf=2048"
 ! grep -q '^# end' "$d/gshim_log.csv"; ok $? "B6 no footer"
 
 # B7: no QPC -> exit 111
@@ -127,6 +129,15 @@ cnt=$(grep -c '^csv_write ' "$d/trace.log"); mx=$(grep -oE '^csv_write [0-9]+' "
 [ "$cnt" -ge 15 ]; ok $? "B13b implicit writes without any fflush (got $cnt)"
 [ "$mx" -le 2048 ] 2>/dev/null; ok $? "B13b max csv write <= 2048 (got $mx)"
 fi
+
+# B14: forced setvbuf failure -> forwarding intact, data complete, run LOUDLY flagged
+d=$(T); ( cd "$d" && GSHIM_TEST_NULL_MODULE=1 GSHIM_TEST_SETVBUF_FAIL=1 \
+  "$BIN" 500 0 1 0 0 >/dev/null 2>&1 ); ok $? "B14 exit 0 (forwarding intact)"
+grep -q '^swap=500 pending=0 shutdown=1 ' "$d/forwarded.counts"; ok $? "B14 forwarded despite setvbuf fail"
+grep -q 'setvbuf failed' "$d/gshim_error.txt"; ok $? "B14 error notes setvbuf"
+head -1 "$d/gshim_log.csv" | grep -q 'buf=default-UNPINNED'; ok $? "B14 header flagged UNPINNED"
+tail -1 "$d/gshim_log.csv" | grep -q '^# end rows=501 overflow=0'; ok $? "B14 data complete (501 rows)"
+! grep -q 'FATAL' "$d/gshim_error.txt"; ok $? "B14 no fail-fast (measurement survives)"
 
 echo "BEHAVIOUR: $pass passed, $fails failed"
 [ "$fails" -eq 0 ]

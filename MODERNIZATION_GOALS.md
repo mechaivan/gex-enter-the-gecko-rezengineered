@@ -340,10 +340,10 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   por voz, hipótesis fuerte; audio wall-clock obligatorio — valida
   propuesta §4); núcleo acumulador §4 implementado+verificado en
   `tools/m13-core` (harness 120 checks OK; NO integrado, M-13 sigue
-  PROPOSED); shim instrumentación `tools/glide-shim` v5 (auditoría
-  búfer CRT 2026-10-10: `setvbuf` 2 KB (implícitos acotados,
-  medidos ≤2048 B a nivel syscall; afirmación v4 retirada por falsa),
-  38/38 + aridades SDK, suites 14+3+69+3 y 63 conductual; sin
+  PROPOSED); shim instrumentación `tools/glide-shim` v6 (auditoría setvbuf
+  2026-10-10: retorno comprobado, cota 2 KB condicional (medida
+  ≤2048 B en glibc; MSVCRT pendiente V-2),
+  38/38 + aridades SDK, suites 14+3+74+3 y 71 conductual; sin
   compilar ni ejecutar — V-0/V-1/V-1b/V-2 pendientes PC Windows,
   compat NO confirmada).
 
