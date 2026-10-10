@@ -737,8 +737,11 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `test_env` 8/8 hermético (más prueba extremo a extremo
   simulando Store+py+mingw64: suite verde con SKIPs).
   `build-win32.sh` revisado sin defectos. Producción intacta
-  (`gshim.c`/`.def` sin tocar); V-1/V-1b pendientes de evidencia
-  Win32 real.
+  (`gshim.c`/`.def` sin tocar). Nota posterior al diagnóstico:
+  V-1 superada en PC 2026-10-10 (MSYS2 MINGW32, copia temporal
+  aislada; GCC 16.1.0, PE32/i386, 38/38); V-1b PENDING (falta
+  cruce vs copia real verificada); F-2 (warning `gshim.c:312`)
+  pendiente de evaluación, código sin modificar.
 - **Codificación (mismo PC):** `test_docs.py` reventaba con
   `UnicodeDecodeError` (byte 0x81): leía con la codificación del
   locale (cp1252) dos ficheros UTF-8. Ajuste: `encoding='utf-8'`

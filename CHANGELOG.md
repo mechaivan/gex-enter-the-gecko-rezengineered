@@ -2,6 +2,15 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Coherencia V-1: actualizar Diagnóstico TESTING (V-1 PASS / V-1b PENDING / F-2)
+
+- TESTING «Diagnóstico suite en PC Windows»: la cláusula
+  «V-1/V-1b pendientes de evidencia Win32 real» quedó obsoleta
+  tras d8abd27; actualizada a V-1 superada PC (MSYS2 MINGW32,
+  GCC 16.1.0, 38/38), V-1b PENDING (falta cruce vs DLL real) y
+  F-2 pendiente de evaluación. Sin cambios de estado: nada nuevo
+  pasa a superado. Entradas históricas intactas.
+
 ## 2026-10-10 — 0.0.0 — V-1 superado en PC (build Win32 + 38/38); V-1b pendiente; hallazgo F-2
 
 - V-1 EJECUTADO en PC mantenedor (MSYS2 MINGW32, copia temporal
