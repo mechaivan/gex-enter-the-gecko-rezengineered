@@ -1,10 +1,14 @@
 ; gshim.def — exports for the proxy glide2x.dll (38 total).
 ; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact;
-; re-verified: 38 named, 0 ordinal-only, 0 undecorated) and cross-checked
+; verified: 38 named, 0 ordinal-only, 0 undecorated) and arity-checked
 ; against the Glide 2.x SDK headers (sezero/glide, FX_CALL=__stdcall).
-;  - 36 pass-through imports: pure forwarder exports (no code).
-;  - 2 intercepted calls: exported from gshim.c code (__declspec(dllexport)
+; The REAL renamed DLL's exports are verified directly (V-1b), never
+; assumed from the exe's imports.
+;  - 35 pass-through imports: pure forwarder exports (no code).
+;  - 3 intercepted calls: exported from gshim.c code (__declspec(dllexport)
 ;    AND listed here, so the export never depends on linker auto-export).
+;    grGlideShutdown runs the final log dump on the game thread (DllMain
+;    DETACH is intentionally a no-op; see gshim.c + README).
 LIBRARY glide2x
 EXPORTS
     _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
@@ -24,7 +28,7 @@ EXPORTS
     _grGlideGetState@4=glide2x_gex_real._grGlideGetState@4
     _grGlideInit@0=glide2x_gex_real._grGlideInit@0
     _grGlideSetState@4=glide2x_gex_real._grGlideSetState@4
-    _grGlideShutdown@0=glide2x_gex_real._grGlideShutdown@0
+    _grGlideShutdown@0
     _grLfbWriteRegion@32=glide2x_gex_real._grLfbWriteRegion@32
     _grSstControl@4=glide2x_gex_real._grSstControl@4
     _grSstQueryHardware@4=glide2x_gex_real._grSstQueryHardware@4

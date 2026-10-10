@@ -2,6 +2,30 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Shim Glide v3: revisión final de riesgos pre-build
+
+- Revisión punto por punto (sin ejecutar Gex ni tocar
+  instalaciones/registro; validación dinámica NO declarada):
+  (1) `DllMain` pasa a solo-ATTACH (DETACH no-op: cero I/O bajo
+  loader-lock; riesgo deadlock evaluado); volcado final en hook
+  `grGlideShutdown` (hilo del juego, idempotente) + incremental
+  cada 4096. (2) `GSHIM_NOLOG=1` aislado: `gshim_log.csv` con un
+  único punto de apertura (`open_log`, call-sites guardados);
+  señal = `gshim_nolog.marker` (init+end, contadores A/B).
+  (3) Política fail-fast documentada: sin QPC o símbolo
+  irresoluble → `gshim_error.txt` + exit 111, nunca retornos
+  ficticios; log no abrible → reenvío intacto + gap visible.
+  (4) Fuera la inferencia por transitividad: hipótesis explícita
+  + V-1b (volcado DIRECTO de exports de la DLL real renombrada).
+- `.def`: 35 reenvíos + 3 código (Shutdown se une a Swap/Pending).
+  Suite verde 14+3+55 + sintaxis; `test_init` cubre las 4
+  propiedades (estructural, no conductual). Footer con `by=` +
+  fila `X`; fallback `grSstWinClose` pendiente explícito de V-2
+  (footer tras salida normal).
+- Sync: README v2→v3 (política fallos + V-1b + formato),
+  MODERNIZATION M-13, PROJECT_STATE, REVERSE_ENGINEERING,
+  tools/README. Panel intacto (revisión ≠ hito).
+
 ## 2026-10-10 — 0.0.0 — Auditoría pre-ejecución del shim Glide (v2 + suite)
 
 - Auditoría estática de `tools/glide-shim` (sin ejecutar Gex ni

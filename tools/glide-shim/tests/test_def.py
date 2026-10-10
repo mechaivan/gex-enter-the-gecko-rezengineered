@@ -4,12 +4,15 @@
 Checks (all static, stdlib only):
   1. expected_iat.txt holds 38 unique decorated names (fixture provenance
      inside the file: EU exe md5 692b1282..., 0 ordinal-only).
-  2. gshim.def has a LIBRARY line, 36 same-name forwarder exports and
-     exactly the 2 code exports (_grBufferSwap@4, _grBufferNumPending@0).
+  2. gshim.def has a LIBRARY line, 35 same-name forwarder exports and
+     exactly the 3 code exports (_grBufferSwap@4, _grBufferNumPending@0,
+     _grGlideShutdown@0; shutdown runs the final dump, v3).
   3. Union of .def exports == IAT set (no missing, no extras, no dupes).
   4. Each forwarder target is glide2x_gex_real.<same-name>.
   5. Each code-exported name exists in gshim.c as a __stdcall function
      with __declspec(dllexport) (belt and braces: .def + attribute).
+  6. The shutdown wrapper calls finalize_log (final dump on the game
+     thread; DllMain DETACH must stay a no-op — see test_init).
 Exit 0 = all pass; prints FAIL lines otherwise.
 """
 import re
@@ -49,11 +52,12 @@ def main():
         m = re.fullmatch(r'(_gr\w+@\d+|_gu\w+@\d+)', l)
         if m:
             codes.append(m.group(1))
-    check(len(fwds) == 36, f'36 forwarders (got {len(fwds)})')
+    check(len(fwds) == 35, f'35 forwarders (got {len(fwds)})')
     check(all(k == v for k, v in fwds.items()),
           'every forwarder target == export name (same-name)')
-    check(sorted(codes) == ['_grBufferNumPending@0', '_grBufferSwap@4'],
-          f'code exports are exactly Swap+Pending (got {sorted(codes)})')
+    check(sorted(codes) == ['_grBufferNumPending@0', '_grBufferSwap@4',
+                            '_grGlideShutdown@0'],
+          f'code exports are exactly Swap+Pending+Shutdown (got {sorted(codes)})')
     union = set(fwds) | set(codes)
     check(union == set(iat),
           f'.def union == IAT set (missing={sorted(set(iat) - union)}, '
@@ -64,11 +68,17 @@ def main():
     for dec, fn, sig in [('_grBufferSwap@4', 'grBufferSwap',
                           r'int32_t(\s+\w+)?'),
                          ('_grBufferNumPending@0', 'grBufferNumPending',
+                          r'void'),
+                         ('_grGlideShutdown@0', 'grGlideShutdown',
                           r'void')]:
         m = re.search(r'__declspec\(dllexport\)\s+\S.*__stdcall\s+%s\s*\(\s*%s\s*\)'
                       % (re.escape(fn), sig), csrc)
         check(m is not None,
               f'{dec}: dllexport + __stdcall wrapper with ({sig}) in gshim.c')
+    m = re.search(r'grGlideShutdown\s*\(\s*void\s*\)\s*\{(.*?)\n\}',
+                  csrc, re.S)
+    check(m is not None and 'finalize_log(' in m.group(1),
+          'grGlideShutdown wrapper calls finalize_log')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0

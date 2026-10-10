@@ -27,5 +27,6 @@ HMODULE LoadLibraryA(LPCSTR);
 void *GetProcAddress(HMODULE, LPCSTR);
 DWORD GetEnvironmentVariableA(LPCSTR, char *, DWORD);
 void OutputDebugStringA(LPCSTR);
+void ExitProcess(DWORD);
 long InterlockedCompareExchange(volatile long *, long, long);
 #endif

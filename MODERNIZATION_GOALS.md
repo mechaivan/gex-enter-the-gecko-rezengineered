@@ -340,11 +340,12 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   por voz, hipótesis fuerte; audio wall-clock obligatorio — valida
   propuesta §4); núcleo acumulador §4 implementado+verificado en
   `tools/m13-core` (harness 120 checks OK; NO integrado, M-13 sigue
-  PROPOSED); shim instrumentación `tools/glide-shim` v2 (auditoría
-  2026-10-10: DllMain mínimo + init perezoso, anillo RAM sin I/O
-  por frame, 38/38 vs IAT + aridades vs SDK Glide 2.x, suite
-  verde 12+3+21; sin compilar ni ejecutar — validación V-1/V-2
-  pendiente en PC Windows, compatibilidad plena NO confirmada).
+  PROPOSED); shim instrumentación `tools/glide-shim` v3 (revisión
+  riesgos 2026-10-10: DllMain solo-ATTACH + finalize en hook
+  shutdown, fail-fast exit 111 sin retornos ficticios, NOLOG sin
+  tocar el log, 38/38 vs IAT + aridades vs SDK, suite verde
+  14+3+55; sin compilar ni ejecutar — V-0/V-1/V-1b/V-2 pendientes
+  en PC Windows, compatibilidad plena NO confirmada).
 
 ## M-14 — Unlimited Render Mode (experimental)
 
