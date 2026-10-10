@@ -2,6 +2,33 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Auditoría pre-ejecución del shim Glide (v2 + suite)
+
+- Auditoría estática de `tools/glide-shim` (sin ejecutar Gex ni
+  tocar instalaciones): 6 defectos encontrados y corregidos —
+  D-01 exports de wrappers dependientes del auto-export (ahora
+  `dllexport` + `.def` explícito), D-02 `LoadLibrary`/fopen en
+  `DllMain` (ahora `DllMain` mínimo + init perezoso con guarda),
+  D-03 `fflush` por swap (ahora anillo RAM 64K + volcado
+  incremental), D-04 overflow `tick*1e6` (ahora ticks crudos +
+  conversión offline), D-05 sin guarda de arquitectura (ahora
+  `#error` si no-i386), D-06 carrera en init (Interlocked).
+- Verificación nueva (más allá de IAT vs `.def`): exe PE32/i386
+  re-confirmado, 38 imports Glide nombrados (0 ordinales, 0 sin
+  decorar); aridades 38/38 contra SDK Glide 2.x
+  (`sezero/glide`, `FX_CALL=__stdcall`; rama clásica en los 3
+  prototipos duales). Sin MinGW/Wine/DLL real en sandbox
+  (verificado ausente): build + dumpbin + dinámica quedan como
+  validación V-1/V-2 en PC mantenedor (pins hash DLL Hito 1 en
+  README). Compatibilidad plena NO confirmada.
+- Nueva suite `./tests/run_tests.sh` (verde: 12+3+21 checks +
+  `gcc -fsyntax-only`): `test_def` (38/38), `test_api`
+  (4·nparams=@N), `test_init` (estructural, no conductual).
+  README v2: construir + validar (V-0/V-1/V-2) + impacto timing
+  (footer auto-coste + A/B `GSHIM_NOLOG`) + reversión.
+- Sync: MODERNIZATION M-13, PROJECT_STATE, REVERSE_ENGINEERING,
+  tools/README. Panel intacto (auditoría ≠ hito).
+
 ## 2026-10-10 — 0.0.0 — Pívot: I-23 identificada, R-audio confirmado, núcleo M-13 verificado, shim Glide (fuente)
 
 - Autorización expresa (pívot 2026-10-10): modificar código,

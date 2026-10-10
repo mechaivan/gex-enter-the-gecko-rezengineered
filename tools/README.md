@@ -25,9 +25,13 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
   0 fallos, gcc Linux). NO integrado; M-13 sigue PROPOSED.
 - **`glide-shim/`** — Proxy `glide2x.dll` SOLO instrumentación
   (Fase A): 36 reenvíos + intercepta `grBufferSwap` /
-  `grBufferNumPending` → CSV. Fuente + `.def` 36/36 contra la IAT
-  del exe; **sin compilar ni ejecutar** (requiere MinGW-32 en PC
-  Windows). Ver README propio (procedimiento + reversión).
+  `grBufferNumPending` → CSV (ticks QPC crudos, anillo RAM,
+  auto-coste, modo `GSHIM_NOLOG`). v2 auditado 2026-10-10:
+  `DllMain` mínimo + init perezoso, `.def` 38/38 vs IAT del exe
+  + aridades vs SDK Glide 2.x, suite `./tests/run_tests.sh` verde;
+  **sin compilar ni ejecutar** (requiere MinGW-32 + validación
+  V-1/V-2 en PC Windows; compatibilidad plena NO confirmada).
+  Ver README propio (construir + validar + reversión).
 
 ## Reglas
 

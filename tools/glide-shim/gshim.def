@@ -1,11 +1,16 @@
-; gshim.def — forwarder exports for the 36 pass-through Glide imports.
-; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact).
-; The 2 intercepted calls (grBufferSwap, grBufferNumPending) are exported
-; from gshim.c code instead and are NOT listed here.
+; gshim.def — exports for the proxy glide2x.dll (38 total).
+; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact;
+; re-verified: 38 named, 0 ordinal-only, 0 undecorated) and cross-checked
+; against the Glide 2.x SDK headers (sezero/glide, FX_CALL=__stdcall).
+;  - 36 pass-through imports: pure forwarder exports (no code).
+;  - 2 intercepted calls: exported from gshim.c code (__declspec(dllexport)
+;    AND listed here, so the export never depends on linker auto-export).
 LIBRARY glide2x
 EXPORTS
     _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
     _grAlphaCombine@20=glide2x_gex_real._grAlphaCombine@20
+    _grBufferNumPending@0
+    _grBufferSwap@4
     _grChromakeyMode@4=glide2x_gex_real._grChromakeyMode@4
     _grChromakeyValue@4=glide2x_gex_real._grChromakeyValue@4
     _grConstantColorValue4@16=glide2x_gex_real._grConstantColorValue4@16

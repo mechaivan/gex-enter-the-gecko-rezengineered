@@ -1,0 +1,42 @@
+# glide2x.dll imports of the EU exe (IAT order).
+# Provenance: GEX3D_orig_EU.exe md5 692b12825003417cc4a5a9d4db13eebe,
+# enumerated 2026-10-10 (audit): 38 named, 0 ordinal-only, 0 undecorated.
+# gshim.def must cover ALL of these (36 forwarders + 2 code exports).
+_grDrawLine@8
+_grSstSelect@4
+_grTexMipMapMode@12
+_grDepthBufferMode@4
+_grTexFilterMode@12
+_grTexCombineFunction@8
+_grChromakeyMode@4
+_grChromakeyValue@4
+_grFogMode@4
+_grTexMinAddress@4
+_grTexMaxAddress@4
+_grGlideGetState@4
+_grSstWinClose@0
+_grSstControl@4
+_grGlideInit@0
+_grGlideShutdown@0
+_grConstantColorValue4@16
+_grAlphaCombine@20
+_grAlphaBlendFunction@16
+_guColorCombineFunction@4
+_grTexSource@16
+_grDrawTriangle@12
+_gu3dfGetInfo@8
+_gu3dfLoad@8
+_grTexTextureMemRequired@8
+_grTexDownloadMipMap@16
+_grSstQueryHardware@4
+_grBufferSwap@4
+_grDrawPlanarPolygonVertexList@8
+_grTexDownloadTable@12
+_grLfbWriteRegion@32
+_grTexDownloadMipMapLevelPartial@40
+_grTexNCCTable@8
+_grGlideSetState@4
+_grSstWinOpen@28
+_grCullMode@4
+_grDepthMask@4
+_grBufferNumPending@0
