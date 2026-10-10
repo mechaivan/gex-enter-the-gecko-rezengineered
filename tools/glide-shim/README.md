@@ -302,7 +302,7 @@ instalar); sin ellos, SKIP ruidoso.
 Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0 superado 2026-10-10 (identidad + copia, PC mantenedor);
 V-1 superado 2026-10-10 (build + 38/38, PC mantenedor; F-2
-pendiente); V-1b superado 2026-10-10 (cruce vs DLL real);
+evaluado benigno); V-1b superado 2026-10-10 (cruce vs DLL real);
 V-2 pendiente.
 
 ## Estado, riesgos abiertos y evidencia que FALTA

@@ -732,8 +732,8 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   (NO incorporado al repo). Criterios superados: arquitectura +
   presencia exacta + resolución de forwarders. Limitaciones: cruce
   estático de tablas de exports; NO prueba carga en proceso, NO
-  prueba Gex ni integración en ejecución. F-2 sigue PENDIENTE;
-  V-2 no iniciado.
+  prueba Gex ni integración en ejecución. F-2 evaluado 2026-10-10
+  (benigno y justificado, no corregido); V-2 no iniciado.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

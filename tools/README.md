@@ -33,7 +33,7 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
   MSVCRT pendiente V-2), `.def`
   38/38 + aridades SDK, suites verdes (14+3+74+3+3+17+11 + 71
   conductual); V-0 superado en PC 2026-10-10; V-1 superado en PC
-  2026-10-10 (GCC 16.1.0, 38/38; F-2 pendiente); V-1b superado en
+  2026-10-10 (GCC 16.1.0, 38/38; F-2 evaluado benigno); V-1b superado en
   PC 2026-10-10 (cruce vs DLL real); arnés nativo W00–W11
   preparado, pendiente PC; compatibilidad plena NO
   confirmada). Ver README propio (construir + validar +

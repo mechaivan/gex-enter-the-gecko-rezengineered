@@ -345,7 +345,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   ≤2048 B en glibc; MSVCRT pendiente V-2),
   38/38 + aridades SDK, suites 14+3+74+3+3+17+11 y 71 conductual; V-0
   superado PC 2026-10-10 — V-1 superado PC 2026-10-10 (38/38;
-  F-2 pendiente); V-1b superado PC 2026-10-10 (cruce real);
+  F-2 evaluado benigno); V-1b superado PC 2026-10-10 (cruce real);
   arnés W00–W11 preparado, pendiente PC), compat NO confirmada).
 
 ## M-14 — Unlimited Render Mode (experimental)

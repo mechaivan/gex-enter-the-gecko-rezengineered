@@ -191,7 +191,7 @@
 > subsistemas. **Primer paso reversible:** shim instrumentación
 > `tools/glide-shim` v6 (setvbuf-comprobado 2026-10-10, suites verdes
 > estructural + conductual + traza syscall + setvbuf-forzado; V-0
-> superado PC, V-1 superado PC (38/38; F-2 pendiente); V-1b
+> superado PC, V-1 superado PC (38/38; F-2 evaluado benigno); V-1b
 > superado PC (cruce real); arnés W00–W11 preparado, pendiente PC) +
 > E-2.3; núcleo acumulador verificado en harness
 > (`tools/m13-core`, 120 checks); el desacoplado
