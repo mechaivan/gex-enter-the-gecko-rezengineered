@@ -1,0 +1,56 @@
+# ── REZengineered: never commit proprietary or bulky material ──────────────
+
+# Original game binaries / proprietary files (never redistribute)
+*.exe
+*.dll
+*.rom
+*.z64
+*.n64
+*.iso
+*.bin
+*.cue
+*.sub
+*.img
+# Game assets
+*.pak
+*.wad
+*.dat
+*.str
+*.xa
+*.vag
+# ...but keep our own scripts/tools (un-ignore by path when needed, e.g. tools/)
+!tools/**
+
+# RE working copies & artifacts (large / regenerable)
+work/
+workspace-local/
+*.gpr
+*.rep/
+ghidra-projects/
+*.sym
+*.map
+dumps/
+logs/
+*.log
+
+# Builds & releases
+build/
+dist/
+out/
+release/
+*.zip
+*.7z
+*.rar
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Python tooling
+__pycache__/
+*.pyc
+.venv/

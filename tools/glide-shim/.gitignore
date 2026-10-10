@@ -1,0 +1,4 @@
+# V-1 build artifacts (generated on the maintainer PC; never commit binaries).
+/glide2x.dll
+/exports_shim.txt
+/exports_real.txt

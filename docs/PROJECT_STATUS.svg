@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" font-family="monospace">
+  <title>REZengineered — panel de progreso</title>
+  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 20% (57/285). A1 32, A2 46, A3 0, A4 0, A5 33.</desc>
+  <defs>
+    <linearGradient id="gradMain" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="gradDim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4c1d95"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fondo + tarjeta -->
+  <rect width="760" height="700" fill="#050309"/>
+  <rect x="10" y="10" width="740" height="680" rx="18" fill="none" stroke="#7c3aed" stroke-width="2" opacity="0.25"/>
+  <rect x="16" y="16" width="728" height="668" rx="14" fill="#0c0616" stroke="#7c3aed" stroke-width="1.5"/>
+  <rect x="22" y="22" width="716" height="656" rx="10" fill="none" stroke="#2e1065" stroke-width="1"/>
+  <g fill="none" stroke="#a855f7" stroke-width="2">
+    <path d="M26 46 V32 Q26 26 32 26 H46"/>
+    <path d="M734 46 V32 Q734 26 728 26 H714"/>
+    <path d="M26 652 V666 Q26 674 34 674 H48"/>
+    <path d="M734 652 V666 Q734 674 726 674 H712"/>
+  </g>
+
+  <!-- cabecera -->
+  <text x="44" y="50" font-size="15" font-weight="bold" letter-spacing="3" fill="#e9d5ff">REZENGINEERED</text>
+  <text x="212" y="50" font-size="12" letter-spacing="2" fill="#8b5cf6">· PANEL DE PROGRESO</text>
+  <text x="716" y="50" text-anchor="end" font-size="12" fill="#8b5cf6">v3.3</text>
+  <line x1="44" y1="62" x2="716" y2="62" stroke="#2e1065" stroke-width="1"/>
+
+  <!-- MAIN protagonista -->
+  <text x="44" y="94" font-size="14" font-weight="bold" letter-spacing="2" fill="#c4b5fd">MAIN — PRIMERA VERSIÓN JUGABLE</text>
+  <rect x="592" y="74" width="124" height="26" rx="13" fill="#14532d" stroke="#4ade80"/>
+  <text x="654" y="91" text-anchor="middle" font-size="11" font-weight="bold" letter-spacing="1" fill="#4ade80">● EN CURSO</text>
+  <text x="44" y="195" font-size="68" font-weight="bold" fill="#f5f0ff">40%</text>
+  <text x="200" y="150" font-size="15" font-weight="bold" fill="#e9d5ff">6/12 HITOS COMPLETADOS</text>
+  <text x="200" y="176" font-size="15" font-weight="bold" fill="#a78bfa">14/35 PUNTOS</text>
+  <text x="200" y="202" font-size="12" fill="#8b5cf6">Avance hacia la primera versión jugable para pruebas.</text>
+
+  <!-- barra MAIN -->
+  <rect x="40" y="244" width="276.8" height="30" rx="10" fill="#7c3aed" opacity="0.25"/>
+  <rect x="44" y="240" width="672" height="34" rx="8" fill="#170b2e" stroke="#4c1d95"/>
+  <rect x="44" y="240" width="268.8" height="34" rx="8" fill="url(#gradMain)"/>
+  <rect x="50" y="245" width="256" height="3" rx="1.5" fill="#e9d5ff" opacity="0.5"/>
+  <g stroke="#0c0616" stroke-width="2" opacity="0.7">
+    <line x1="212" y1="240" x2="212" y2="274"/>
+    <line x1="380" y1="240" x2="380" y2="274"/>
+    <line x1="548" y1="240" x2="548" y2="274"/>
+  </g>
+  <line x1="312.8" y1="240" x2="312.8" y2="274" stroke="#f5f0ff" stroke-width="2"/>
+  <text x="44" y="292" font-size="9" fill="#8b5cf6">0</text>
+  <text x="716" y="292" text-anchor="end" font-size="9" fill="#8b5cf6">100</text>
+
+  <!-- etiqueta objetivo -->
+  <line x1="262" y1="308" x2="296" y2="308" stroke="#4c1d95" stroke-width="1"/>
+  <line x1="464" y1="308" x2="498" y2="308" stroke="#4c1d95" stroke-width="1"/>
+  <text x="380" y="312" text-anchor="middle" font-size="11" font-weight="bold" letter-spacing="3" fill="#c4b5fd">VERSIÓN JUGABLE</text>
+  <line x1="44" y1="336" x2="716" y2="336" stroke="#2e1065" stroke-width="1"/>
+  <text x="380" y="340" text-anchor="middle" font-size="9" fill="#7c3aed">◆</text>
+
+  <!-- GLOBAL secundario -->
+  <text x="44" y="366" font-size="11" letter-spacing="2" fill="#8b5cf6">GLOBAL</text>
+  <text x="44" y="410" font-size="40" font-weight="bold" fill="#d8b4fe">20%</text>
+  <rect x="140" y="378" width="400" height="16" rx="5" fill="#150b28" stroke="#3b1d7a"/>
+  <rect x="140" y="378" width="80" height="16" rx="5" fill="url(#gradDim)"/>
+  <text x="552" y="391" font-size="12" fill="#8b5cf6">57/285 PTS</text>
+  <text x="140" y="414" font-size="10.5" fill="#8b5cf6">Progreso general de la hoja de ruta.</text>
+  <line x1="44" y1="434" x2="716" y2="434" stroke="#2e1065" stroke-width="1"/>
+
+  <!-- áreas: mini-tarjetas -->
+  <g>
+    <rect x="44" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="54" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A1 COMPATIBILIDAD</text>
+    <text x="54" y="506" font-size="26" font-weight="bold" fill="#e9d5ff">32%</text>
+    <rect x="54" y="512" width="108" height="10" rx="3" fill="#241640"/>
+    <rect x="54" y="512" width="32" height="10" rx="3" fill="#7c3aed"/>
+    <text x="54" y="540" font-size="9" fill="#4ade80">EN CURSO</text>
+  </g>
+  <g>
+    <rect x="180" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="190" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A2 INVESTIGACIÓN</text>
+    <text x="190" y="506" font-size="26" font-weight="bold" fill="#e9d5ff">46%</text>
+    <rect x="190" y="512" width="108" height="10" rx="3" fill="#241640"/>
+    <rect x="190" y="512" width="46" height="10" rx="3" fill="#7c3aed"/>
+    <text x="190" y="540" font-size="9" fill="#4ade80">EN CURSO</text>
+  </g>
+  <g>
+    <rect x="316" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="326" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A3 GRÁFICOS</text>
+    <text x="326" y="506" font-size="26" font-weight="bold" fill="#6b7280">0%</text>
+    <rect x="326" y="512" width="108" height="10" rx="3" fill="#241640"/>
+    <text x="326" y="540" font-size="9" fill="#6b7280">PENDIENTE</text>
+  </g>
+  <g>
+    <rect x="452" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="462" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A4 CALIDAD DE VIDA</text>
+    <text x="462" y="506" font-size="26" font-weight="bold" fill="#6b7280">0%</text>
+    <rect x="462" y="512" width="108" height="10" rx="3" fill="#241640"/>
+    <text x="462" y="540" font-size="9" fill="#6b7280">PENDIENTE</text>
+  </g>
+  <g>
+    <rect x="588" y="450" width="128" height="104" rx="8" fill="#120a24" stroke="#3b1d7a"/>
+    <text x="598" y="474" font-size="9.5" font-weight="bold" fill="#c4b5fd">A5 PUBLICACIÓN</text>
+    <text x="598" y="506" font-size="26" font-weight="bold" fill="#e9d5ff">33%</text>
+    <rect x="598" y="512" width="108" height="10" rx="3" fill="#241640"/>
+    <rect x="598" y="512" width="33" height="10" rx="3" fill="#7c3aed"/>
+    <text x="598" y="540" font-size="9" fill="#4ade80">EN CURSO</text>
+  </g>
+
+  <!-- resumen -->
+  <text x="44" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#4ade80">CONSEGUIDO</text>
+  <text x="44" y="600" font-size="12" fill="#e9d5ff">Instalación + arranque + nivel</text>
+  <text x="44" y="618" font-size="12" fill="#e9d5ff">Audio base · ficha glide2x</text>
+  <text x="280" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#fbbf24">EN INVESTIGACIÓN</text>
+  <text x="280" y="600" font-size="12" fill="#e9d5ff">Wrapper: nGlide 2.10</text>
+  <text x="280" y="618" font-size="12" fill="#e9d5ff">I-21 · I-22 · API efectiva</text>
+  <text x="520" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#c4b5fd">SIGUIENTE HITO</text>
+  <text x="520" y="600" font-size="12" fill="#e9d5ff">Causa de 25 FPS estables</text>
+  <text x="520" y="618" font-size="12" fill="#e9d5ff">(FA-05 · I-01/I-02)</text>
+  <line x1="44" y1="640" x2="716" y2="640" stroke="#2e1065" stroke-width="1"/>
+
+  <!-- pie -->
+  <text x="44" y="666" font-size="9.5" fill="#8b5cf6">UPD 2026-10-09 · REF e9e846c</text>
+  <text x="716" y="666" text-anchor="end" font-size="9.5" fill="#8b5cf6">METODOLOGÍA → PROJECT_STATUS.md</text>
+</svg>

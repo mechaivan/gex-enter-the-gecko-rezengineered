@@ -1,0 +1,51 @@
+; gshim.def — exports for the proxy glide2x.dll (38 total).
+; Names + arities (@N) from the EU exe IAT (2026-10-10, static fact;
+; verified: 38 named, 0 ordinal-only, 0 undecorated) and arity-checked
+; against the Glide 2.x SDK headers (sezero/glide, FX_CALL=__stdcall).
+; The REAL renamed DLL's exports are verified directly (V-1b), never
+; assumed from the exe's imports.
+;  - 35 pass-through imports: pure forwarder exports (no code).
+;  - 3 intercepted calls: exported from gshim.c code (__declspec(dllexport)
+;    AND listed here, so the export never depends on linker auto-export).
+;    grGlideShutdown runs the final log dump on the game thread (DllMain
+;    DETACH is intentionally a no-op; see gshim.c + README).
+LIBRARY glide2x
+EXPORTS
+    _grAlphaBlendFunction@16=glide2x_gex_real._grAlphaBlendFunction@16
+    _grAlphaCombine@20=glide2x_gex_real._grAlphaCombine@20
+    _grBufferNumPending@0
+    _grBufferSwap@4
+    _grChromakeyMode@4=glide2x_gex_real._grChromakeyMode@4
+    _grChromakeyValue@4=glide2x_gex_real._grChromakeyValue@4
+    _grConstantColorValue4@16=glide2x_gex_real._grConstantColorValue4@16
+    _grCullMode@4=glide2x_gex_real._grCullMode@4
+    _grDepthBufferMode@4=glide2x_gex_real._grDepthBufferMode@4
+    _grDepthMask@4=glide2x_gex_real._grDepthMask@4
+    _grDrawLine@8=glide2x_gex_real._grDrawLine@8
+    _grDrawPlanarPolygonVertexList@8=glide2x_gex_real._grDrawPlanarPolygonVertexList@8
+    _grDrawTriangle@12=glide2x_gex_real._grDrawTriangle@12
+    _grFogMode@4=glide2x_gex_real._grFogMode@4
+    _grGlideGetState@4=glide2x_gex_real._grGlideGetState@4
+    _grGlideInit@0=glide2x_gex_real._grGlideInit@0
+    _grGlideSetState@4=glide2x_gex_real._grGlideSetState@4
+    _grGlideShutdown@0
+    _grLfbWriteRegion@32=glide2x_gex_real._grLfbWriteRegion@32
+    _grSstControl@4=glide2x_gex_real._grSstControl@4
+    _grSstQueryHardware@4=glide2x_gex_real._grSstQueryHardware@4
+    _grSstSelect@4=glide2x_gex_real._grSstSelect@4
+    _grSstWinClose@0=glide2x_gex_real._grSstWinClose@0
+    _grSstWinOpen@28=glide2x_gex_real._grSstWinOpen@28
+    _grTexCombineFunction@8=glide2x_gex_real._grTexCombineFunction@8
+    _grTexDownloadMipMap@16=glide2x_gex_real._grTexDownloadMipMap@16
+    _grTexDownloadMipMapLevelPartial@40=glide2x_gex_real._grTexDownloadMipMapLevelPartial@40
+    _grTexDownloadTable@12=glide2x_gex_real._grTexDownloadTable@12
+    _grTexFilterMode@12=glide2x_gex_real._grTexFilterMode@12
+    _grTexMaxAddress@4=glide2x_gex_real._grTexMaxAddress@4
+    _grTexMinAddress@4=glide2x_gex_real._grTexMinAddress@4
+    _grTexMipMapMode@12=glide2x_gex_real._grTexMipMapMode@12
+    _grTexNCCTable@8=glide2x_gex_real._grTexNCCTable@8
+    _grTexSource@16=glide2x_gex_real._grTexSource@16
+    _grTexTextureMemRequired@8=glide2x_gex_real._grTexTextureMemRequired@8
+    _gu3dfGetInfo@8=glide2x_gex_real._gu3dfGetInfo@8
+    _gu3dfLoad@8=glide2x_gex_real._gu3dfLoad@8
+    _guColorCombineFunction@4=glide2x_gex_real._guColorCombineFunction@4

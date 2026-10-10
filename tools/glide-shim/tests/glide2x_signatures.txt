@@ -1,0 +1,49 @@
+# Glide 2.x SDK signatures for the 38 functions the EU exe imports.
+# Provenance: sezero/glide @ HEAD 2026-10-10, glide2x/sst1/glide/src/:
+#   glide.h    sha f0ed9865c21be0909db52aa94ed1bfefdf75f3f0
+#   glideutl.h sha 756c4d06fc11e4576d232d6156b2470f89dedf4b
+#   FX_CALL=__stdcall (MSVC/MinGW/Watcom/IBM): swlibs/fxmisc/3dfx.h
+#     sha 8a9ce250b7ef8d7339d4386ca30ad22e35c7682c, lines 64-84.
+# Rule: classic Glide 2.x branch (#else of GLIDE3 / GLIDE3_ALPHA dual
+# prototypes; arity is branch-independent except grTexDownloadTable /
+# grLfbWriteRegion / grTexNCCTable, which take the 2nd form).
+# All params are 4-byte kinds (scalars/enums/pointers; x86 promotion).
+# Columns: func nparams stdcall_@N
+grAlphaBlendFunction 4 16
+grAlphaCombine 5 20
+grBufferNumPending 0 0
+grBufferSwap 1 4
+grChromakeyMode 1 4
+grChromakeyValue 1 4
+grConstantColorValue4 4 16
+grCullMode 1 4
+grDepthBufferMode 1 4
+grDepthMask 1 4
+grDrawLine 2 8
+grDrawPlanarPolygonVertexList 2 8
+grDrawTriangle 3 12
+grFogMode 1 4
+grGlideGetState 1 4
+grGlideInit 0 0
+grGlideSetState 1 4
+grGlideShutdown 0 0
+grLfbWriteRegion 8 32
+grSstControl 1 4
+grSstQueryHardware 1 4
+grSstSelect 1 4
+grSstWinClose 0 0
+grSstWinOpen 7 28
+grTexCombineFunction 2 8
+grTexDownloadMipMap 4 16
+grTexDownloadMipMapLevelPartial 10 40
+grTexDownloadTable 3 12
+grTexFilterMode 3 12
+grTexMaxAddress 1 4
+grTexMinAddress 1 4
+grTexMipMapMode 3 12
+grTexNCCTable 2 8
+grTexSource 4 16
+grTexTextureMemRequired 2 8
+gu3dfGetInfo 2 8
+gu3dfLoad 2 8
+guColorCombineFunction 1 4
