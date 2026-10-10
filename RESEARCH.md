@@ -655,6 +655,57 @@ que habrá que verificar contra el juego real (Fase 1–2):
 | Texture formats, asset loading, texture replacement | M-23 |
 | Audio configuration, CD audio behavior | FA-08, FA-09, M-20 |
 
+## S-26 — Repos RE externos: Glide + desacoplado sim/render (Línea A, 2026-10-10)
+
+- Alcance: solo resultados que responden preguntas del proyecto
+  (frame sync, `grBufferSwap`, `grBufferNumPending`, caps FPS,
+  separación sim/render). Clones de lectura eliminados tras el
+  estudio. Sin suponer motor compartido.
+- **G-01 — sezero/glide** (implementación Glide, NO RE):
+  <https://github.com/sezero/glide> — fork activo (★110,
+  push 2026-09-02, `glide_license.txt` = 3DFX GLIDE Source Code
+  General Public License; metadato GitHub NOASSERTION). Minado:
+  `glide2x/sst1/glide/src/gglide.c` (`grBufferSwap` :502-654:
+  override env, `while(pending>6)`, quirk fbiRev==1, encola y
+  retorna; `grBufferNumPending` :660-688 = campo 3 bits HW) +
+  enums `sst1vid.h` sst1/cvg/h3 (75 Hz=`0x3`, 512x384=`0x3`,
+  640x480=`0x7`, 60 Hz=`0x0`) usados para decodificar
+  `grSstWinOpen` de Gex (Línea B). Valor: semántica swap
+  autoritativa. Confianza: alta.
+- **G-02 — fmil95/soul-re** (Crystal Dynamics, familia Gex-2):
+  <https://github.com/fmil95/soul-re> — decomp PSX MIPS→C desde
+  prototipo con símbolos debug (★82, MIT, push 2026-09-21; 41
+  `.c/.h` en `src/Game`, progreso trackeado decomp.dev). README:
+  «SLUS_007.08 = Gex 2 engine + game code». Estudiado:
+  `src/Game/GAMELOOP.c` (2176 lín): `GAMELOOP_DoTimeProcess`
+  (:1583: acumulador punto-fijo `timeMult=(ms<<12)/33`,
+  `while(>=4097){gameFramePassed=1;−=4096;fps30Count++}`, locks
+  33/50 ms, clamp 66 ms) + flag literal **`decoupleGame`** +
+  gating lógica por `gameFramePassed` (:534/:562); `PSX/MAIN.c`:
+  bucle por VBL (`VSync(0)`, `VblTick`). Valor: patrón de gating
+  de la FAMILIA del motor (PSX, sin Glide — no extrapolar a PC).
+  Confianza: alta (hechos leídos); aplicabilidad PC: hipótesis.
+- **G-03 — LostArtefacts/TRX** (patrón desacoplado moderno):
+  <https://github.com/LostArtefacts/TRX> — decomp+reimplementación
+  TR1/2/3 (★1006, GPL-3.0, push 2026-10-09; renderer OpenGL
+  moderno, NO Glide). Estudiado: `src/trx/game/phase/executor.c`
+  (`nframes=Clock_WaitTick()`→N×`M_Control()`→draw interpolado
+  opcional→`M_Draw()`) + `src/trx/game/phase/phase_game.c`
+  (separación Control/Draw) + `src/trx/game/clock/`
+  (`WaitTick`/`SyncTick`, FPS fijo). Valor: REFERENCIA de diseño
+  para M-13 (paso-fijo + interpolación en proyecto decomp).
+  Confianza: alta.
+- **G-04 — TheSerioliOfNosgoth/KAIN2-PC** (DÉBIL, no estudiar):
+  <https://github.com/TheSerioliOfNosgoth/KAIN2-PC> — port PC de
+  decomp PSX (Valkyrie+SDL2; 10 `.c`/34 `.h`; sin licencia; ★0;
+  push 2023-03-12, obsoleto). Renderer `KAIN2/Game/PC/d3d/` (D3D)
+  + `libgpu.c` (emu GPU PSX); grep `glide` = falsos positivos
+  («gliding» de Raziel). Sin Glide, sin loop estudiado. Veredicto:
+  no aporta a frame-sync/Glide. (Hermano: Gh0stBlade/KAIN2,
+  Unlicense, 2024 — no estudiado, PSX.)
+- Veredicto Línea A: estudiar G-02 (gating familia motor) + G-03
+  (patrón desacoplado); G-01 ya minado; G-04 descartado.
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

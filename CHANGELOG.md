@@ -2,6 +2,26 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Línea A+B: refs Glide/desacoplado + lectores `+0x10C` y 75 Hz
+
+- Línea B (estático solo-lectura, exe EU md5 `692b1282…`, copia
+  eliminada; nada ejecutado/modificado): lectores del cociente
+  `+0x10C` LOCALIZADOS — R1 `0x53FED4` (snapshot→`ds:0x5ACBD4`,
+  1W/1R) y R2 `0x451A0C` (delta→tabla `0x5ACBE5`→WORD; flags modo
+  `ds:0x5ACBC4`∈{0,3} + `ds:0x5ACBC3`); alias `ds:0x551640`=
+  `ds:0x551644`→`0x648900`; snapshot/restore contador `ds:0x65CD30`;
+  `grSstWinOpen` juego=512x384@75 Hz pedidos (`0x46324D`), cine=
+  640x480@60 Hz (`0x537EA6`); 25 FPS reforzado (sigue hipótesis:
+  tasa real runtime sin confirmar); boceto desacoplado (diseño
+  solo, sin implementar). Detalle: REVERSE_ENGINEERING Etapa C.
+- Línea A (solo lectura; clones eliminados): catálogo S-26 —
+  sezero/glide (impl `grBufferSwap`/`grBufferNumPending` minada),
+  soul-re (Gex-2-engine: `GAMELOOP_DoTimeProcess` + `decoupleGame`,
+  PSX/VBL), TRX (patrón paso-fijo+interpolación, ref. diseño),
+  KAIN2-PC (débil: D3D, sin Glide, 2023). Detalle: RESEARCH S-26.
+- FA-04 sigue PARCIAL (semántica tabla + dinámica E-2 pendientes).
+  Panel intacto (sin hito).
+
 ## 2026-10-10 — 0.0.0 — Atribución estática `0x418FF8`: fn2 «tvend», ajena a M-13
 
 - Puntero-dato único en `.data` `0x553378` (slot fn2 del registro

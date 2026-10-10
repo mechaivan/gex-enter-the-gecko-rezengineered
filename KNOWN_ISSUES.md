@@ -46,10 +46,13 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 - **E-3/M-13 (2026-10-10, estático solo-lectura, hechos):** flujo
   temporal gameplay reconstruido: init t0 (`0x43B36D`), sello
   `elapsed/16.666` (`0x43E5DD`) + contador por frame, sim+render en
-  serie con `grBufferSwap(3)` gameplay (spec Glide: intervalo =
-  retraces a esperar; 75 Hz/3 = 25 FPS máx, consistente con ≈25
-  Hito 1 — inferencia). Acoplamiento serie evidenciado; prueba
-  dinámica pendiente (E-2 bloqueado). Detalle: TESTING E-3 +
+  serie con `grBufferSwap(3)` gameplay (spec+impl Glide: intervalo =
+  retraces; drenaje-a-cero antes de cada swap; 75 Hz PEDIDOS
+  confirmados en call-site `0x46324D` → 75/3 = 25 FPS máx,
+  consistente con ≈25 Hito 1 — inferencia reforzada, tasa real
+  runtime sin confirmar). Lectores `+0x10C` localizados (R1/R2,
+  Línea B). Acoplamiento serie evidenciado; prueba dinámica
+  pendiente (E-2 bloqueado). Detalle: TESTING E-3 +
   REVERSE_ENGINEERING Etapa C.
 - **Estado:** OBSERVADO en P-F03/B (acoplamiento sim↔FPS); mecanismo
   a nivel código LOCALIZADO estático (E-3/M-13: sello 16.666 + swap

@@ -4,7 +4,7 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic)
+**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
