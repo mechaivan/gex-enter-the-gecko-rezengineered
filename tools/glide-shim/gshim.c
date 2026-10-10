@@ -1,4 +1,4 @@
-/* GEX caloD shim v3 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
+/* GEX caloD shim v4 — proxy glide2x.dll for INSTRUMENTATION ONLY (Fase A).
  *
  * What it does: forwards all 38 Glide imports the EU exe uses to the real
  * DLL (renamed), and logs grBufferSwap issue + grBufferNumPending depth
@@ -6,7 +6,8 @@
  * What it does NOT do: change any call, argument, timing or return value.
  * The exe is untouched (md5 verifiable before/after).
  *
- * Design (risk review 2026-10-10, v2 -> v3):
+ * Design (capacity/io review 2026-10-10, v3 -> v4; v2 -> v3: ATTACH-only
+ * DllMain + shutdown-hook finalize + fail-fast, see git history):
  *  - 35 pure-forward functions go through gshim.def forwarder exports
  *    (no code, no arity/type assumptions at all). 3 intercepted calls are
  *    BOTH __declspec(dllexport) here AND listed in gshim.def, so their
@@ -21,13 +22,26 @@
  *    and abnormal termination skips DETACH (or arrives with the CRT gone)
  *    anyway. The final dump runs on the GAME thread instead: the
  *    grGlideShutdown wrapper calls finalize_log() (idempotent) BEFORE
- *    forwarding. Incremental appends every 4096 rows bound crash loss.
- *    If the game ever quits without grGlideShutdown, the run visibly
- *    lacks its footer (rows stay usable; self-cost lost) — must be
- *    confirmed present in V-2; hooking grSstWinClose as fallback is
- *    explicitly pending that evidence.
- *  - No per-frame file I/O, no per-row division: rows go to an in-RAM
- *    ring (raw QPC ticks; offline conversion with the header qpf).
+ *    forwarding. Trickle appends (64 rows, no fflush) bound crash loss
+ *    without on-path stalls. If the game ever quits without
+ *    grGlideShutdown, the run visibly lacks its footer (rows stay
+ *    usable; self-cost lost) — must be confirmed present in V-2;
+ *    hooking grSstWinClose as fallback is explicitly pending that
+ *    evidence.
+ *  - No file I/O syscalls on the measured path: rows go to an in-RAM
+ *    ring (raw QPC ticks; offline conversion with the header qpf);
+ *    the only on-path writes are memcpys into the CRT buffer (64-row
+ *    trickle, ~1/64 rows) plus rare implicit CRT flushes. No fflush
+ *    outside finalize. Residual cost is self-measured (footer max)
+ *    and isolated by NOLOG A/B (see README).
+ *  - CAPACITY (stop-on-full, never wrap, never hide loss): 262144 rows
+ *    (~25 swaps/s + pending changes + 1/4096 periodic). Planned 60 s
+ *    runs need < ~5K rows typical, < ~150K pathological-hot-spin;
+ *    overflow is therefore a canary for pathological behaviour, not a
+ *    routine event. On trip: an invalidation marker + fflush (once) +
+ *    error note; footer overflow=1; the file keeps a contiguous prefix
+ *    but the RUN MUST BE DISCARDED (policy, see README). The footer
+ *    pending_calls counter then sizes the next attempt rationally.
  *  - FAILURE POLICY (fail fast, never fake):
  *      forwarding unusable (no QPC / any of the 3 symbols unresolvable,
  *        all-or-nothing) -> gshim_error.txt + ExitProcess(111). The game
@@ -36,6 +50,9 @@
  *      log file unopenable -> forwarding continues, error noted loudly
  *        (the missing/short log + error file make the gap visible; the
  *        game itself is unaffected). Retry at finalize.
+ *      nolog marker unwritable (init or end) -> forwarding continues,
+ *        error noted loudly; the NOLOG run is INVALID for A/B (mode or
+ *        clean exit unprovable without its marker lines).
  *    NOTE: if the game runs at all, the loader has already bound the 35
  *    forwarder targets, so resolution failure is a defense-in-depth path.
  *  - GSHIM_NOLOG=1: pure pass-through. gshim_log.csv is NEVER opened
@@ -67,7 +84,7 @@
 #error "gshim must be built 32-bit (e.g. i686-w64-mingw32-gcc -m32)"
 #endif
 
-#define GSHIM_VERSION "3 (risk-review 2026-10-10)"
+#define GSHIM_VERSION "4 (capacity/io review 2026-10-10)"
 #define REAL_DLL "glide2x_gex_real.dll"
 #define LOG_FILE "gshim_log.csv"
 #define ERR_FILE "gshim_error.txt"
@@ -75,9 +92,14 @@
 #define NOLOG_ENV "GSHIM_NOLOG"
 #define EXIT_INIT_FAILED 111
 
-/* 65536 rows >> any session (25 swaps/s + sparse pending samples). */
-#define RING_N 65536u
-#define FLUSH_EVERY 4096u
+/* 262144 rows x 24 B = 6 MB static. Stop-on-full (never wrap): the ring
+ * keeps a contiguous prefix and overflow becomes a discard-the-run alarm
+ * (see trip marker in log_row + README). Flushed rows are NOT freed: the
+ * RAM copy stays until shutdown; flushed_n only tracks file progress. */
+#define RING_N 262144u
+/* Trickle: at most TRICKLE_N rows per measured-path call, memcpys into
+ * the CRT buffer, never fflush (durability is finalize's job). */
+#define TRICKLE_N 64u
 
 typedef struct {
     uint64_t tick;  /* raw QueryPerformanceCounter */
@@ -159,6 +181,8 @@ static void marker_init(void)
         fprintf(m, "gshim %s nolog=1 qpf=%lld\n",
                 GSHIM_VERSION, (long long)qpf);
         fclose(m);
+    } else {
+        note_error("nolog marker init failed (NOLOG run invalid for A/B)");
     }
 }
 
@@ -170,6 +194,8 @@ static void marker_end(const char *by)
                 (unsigned long long)n_swaps,
                 (unsigned long long)pending_calls, by);
         fclose(m);
+    } else {
+        note_error("nolog marker end failed (clean exit unprovable)");
     }
 }
 
@@ -186,8 +212,9 @@ static void write_rows(uint32_t from, uint32_t to)
     }
 }
 
-/* Cost of this function (one QPC pair + stores, + a rare batched flush)
- * is self-measured into log_cost_sum/max, reported in the footer. */
+/* Cost of this function (one QPC pair + stores, + a 64-row trickle on
+ * ~1/64 rows) is self-measured into log_cost_sum/max, reported in the
+ * footer. No fflush here: stalls stay out of the measured path. */
 static void log_row(uint8_t ev, int32_t arg)
 {
     LARGE_INTEGER t0, t1;
@@ -199,13 +226,20 @@ static void log_row(uint8_t ev, int32_t arg)
         ring[ring_n].seq = ring_n + 1;
         ring[ring_n].ev = ev;
         ring_n++;
-        if (logf && (ring_n % FLUSH_EVERY) == 0) {
-            write_rows(flushed_n, ring_n);
-            flushed_n = ring_n;
+        if (logf && ring_n - flushed_n >= TRICKLE_N) {
+            write_rows(flushed_n, flushed_n + TRICKLE_N);
+            flushed_n += TRICKLE_N;
+        }
+    } else if (!ring_overflow) {
+        /* Trip-once invalidation: this run is doomed (discard policy),
+         * so one durable marker here is honest, not a perturbation. */
+        ring_overflow = 1;
+        if (logf) {
+            fprintf(logf, "# overflow at seq=%u: RUN INVALID, tail dropped\n",
+                    ring_n);
             fflush(logf);
         }
-    } else {
-        ring_overflow = 1;
+        note_error("ring overflow (run invalid, see footer/marker)");
     }
     QueryPerformanceCounter(&t1);
     dt = (uint64_t)(t1.QuadPart - t0.QuadPart);
@@ -335,8 +369,9 @@ __declspec(dllexport) int32_t __stdcall grBufferNumPending(void)
     ensure_init(); /* never returns on failure: p_Pending non-NULL below */
     v = p_Pending();
     pending_calls++;
-    /* Spin loops call this thousands of times/s: log on change + 1/1024. */
-    if (!nolog && (v != last_pending || (pending_calls & 1023) == 0)) {
+    /* Spin loops call this hot: log every change + 1/4096 periodic
+     * (plateau confirmation only; transitions are always exact). */
+    if (!nolog && (v != last_pending || (pending_calls & 4095) == 0)) {
         last_pending = v;
         log_row('P', v);
     }

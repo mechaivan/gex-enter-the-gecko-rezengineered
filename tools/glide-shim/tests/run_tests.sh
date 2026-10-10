@@ -1,7 +1,9 @@
 #!/bin/bash
-# Audit test-suite for glide-shim: static only, no Windows needed.
-# 1-3: python checks (.def coverage, SDK arities, init structure).
+# Audit test-suite for glide-shim: static + behavioural, no Windows needed.
+# 1-3: python checks (.def coverage, SDK arities, init/exit structure).
 # 4: C syntax check vs the win32 stub (needs gcc; SKIP if absent).
+# 5: behavioural suite — the REAL gshim.c compiled against functional
+#    Win32 fakes; asserts files/counts/order/exit codes (needs gcc).
 cd "$(dirname "$0")/.." || exit 1
 fail=0
 for t in test_def test_api test_init; do
@@ -15,5 +17,7 @@ if command -v gcc >/dev/null; then
 else
   echo "SKIP c-syntax (no gcc)"
 fi
+echo "=== behaviour ==="
+./tests/behavior/run_behavior.sh || fail=1
 [ "$fail" -eq 0 ] && echo "SUITE: ALL PASS" || echo "SUITE: FAILURES"
 exit "$fail"

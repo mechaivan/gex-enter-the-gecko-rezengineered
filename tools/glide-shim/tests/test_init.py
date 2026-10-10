@@ -21,6 +21,9 @@ behaviour needs Windows + the real DLL, see README "Validar"):
      do_init (outside DllMain); 32-bit build guard present.
   6. No direct file I/O in any wrapper: logging goes through log_row
      (ring); fopen/fflush appear only in init/finalize paths.
+  7. Capacity & I/O (v4): 262144-row stop-on-full ring with a trip-once
+     invalidation marker; trickle writes, no fflush on the measured
+     path; 1/4096 pending sampling; loud marker failures.
 Exit 0 = all pass.
 """
 import re
@@ -149,6 +152,26 @@ def main():
         body = func_body(code, w)
         for tok in ['fprintf', 'fflush', 'fopen', 'fwrite', 'fclose']:
             check(tok not in body, f'{w} wrapper has no direct {tok}')
+
+    # 7. capacity & I/O (v4)
+    check('#define RING_N 262144u' in code, 'ring is 262144 rows')
+    check('FLUSH_EVERY' not in code, 'no FLUSH_EVERY batching left')
+    logrow = func_body(code, 'log_row')
+    trip = logrow[logrow.index('else if'):]
+    valid_path = logrow[:logrow.index('else if')]
+    check('fflush' not in valid_path,
+          'log_row valid path has no fflush (no on-path stall)')
+    check('fflush' in trip,
+          'overflow trip marker is flushed once (durable invalidation)')
+    check('TRICKLE_N' in logrow, 'log_row trickles bounded batches')
+    check('# overflow' in logrow, 'overflow trips an in-file marker')
+    check('note_error' in logrow, 'overflow also notes the error file')
+    check('(pending_calls & 4095)' in func_body(code, 'grBufferNumPending'),
+          'pending sampling is 1/4096')
+    for fn in ['marker_init', 'marker_end']:
+        body = func_body(code, fn)
+        check('else' in body and 'note_error' in body,
+              f'{fn} reports failure loudly')
 
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0

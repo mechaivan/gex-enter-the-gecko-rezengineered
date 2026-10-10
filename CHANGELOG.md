@@ -2,6 +2,32 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Shim Glide v4: capacidad, I-O en path y marcador NOLOG
+
+- Auditoría final pre-build (sin ejecutar Gex/compilar en Windows
+  ni tocar instalaciones; dinámica NO declarada): (1) anillo a
+  262144 stop-on-full (nunca reutiliza) + marcador `# overflow`
+  + `fflush` una sola vez + nota error; `overflow=1` descarta la
+  tanda siempre; análisis de capacidad (típico <5K, patológico
+  <150K/60 s; footer `pending_calls` para re-dimensionar).
+  (2) I/O en path: fuera el `fflush` cada 4096 (picos ~ms en el
+  frame); goteo de 64 filas al búfer CRT sin syscalls por diseño;
+  coste residual (~µs, 1/64 filas + flush CRT raros) medido por
+  footer `max` + A/B NOLOG; crash acotado (~centenas de filas).
+  Muestreo pending 1/1024→1/4096 (cambios siempre exactos).
+  (3) Marcador NOLOG: fallos init/end audibles (error + tanda
+  inválida para A/B); reenvío intacto.
+- Nueva suite CONDUCTUAL (`tests/behavior`, 57 checks verdes):
+  el `gshim.c` real compilado contra fakes Win32 (QPC/env/
+  resolución programables): exactitud filas/footer/muestreo,
+  tope + marcador, NOLOG, marcador roto, 111×4 + sin QPC,
+  kill -9, doble shutdown, log bloqueado, DETACH no-op,
+  fast-path. Estructurales 14+3+65 (10 pines v4 nuevos).
+  Conductual ≠ validación Windows (V-0/V-1/V-1b/V-2 pendientes).
+- Sync: README v4 (capacidad + timing + riesgos abiertos),
+  MODERNIZATION M-13, PROJECT_STATE, REVERSE_ENGINEERING,
+  tools/README. Panel intacto (auditoría ≠ hito).
+
 ## 2026-10-10 — 0.0.0 — Shim Glide v3: revisión final de riesgos pre-build
 
 - Revisión punto por punto (sin ejecutar Gex ni tocar

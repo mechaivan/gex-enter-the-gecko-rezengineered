@@ -26,14 +26,15 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
 - **`glide-shim/`** — Proxy `glide2x.dll` SOLO instrumentación
   (Fase A): 35 reenvíos + intercepta `grBufferSwap` /
   `grBufferNumPending` / `grGlideShutdown` → CSV (ticks QPC
-  crudos, anillo RAM, auto-coste, modo `GSHIM_NOLOG` aislado).
-  v3 riesgo-revisado 2026-10-10: `DllMain` solo-ATTACH + finalize
-  en shutdown, fail-fast (exit 111, sin retornos ficticios),
-  `.def` 38/38 vs IAT + aridades vs SDK Glide 2.x, suite
-  `./tests/run_tests.sh` verde (14+3+55); **sin compilar ni
-  ejecutar** (requiere MinGW-32 + V-0/V-1/V-1b/V-2 en PC Windows;
-  compatibilidad plena NO confirmada). Ver README propio
-  (construir + validar + reversión).
+  crudos, anillo 256K stop-on-full, auto-coste, `GSHIM_NOLOG`
+  aislado). v4 capacidad-revisado 2026-10-10: `DllMain`
+  solo-ATTACH + finalize en shutdown, fail-fast exit 111,
+  goteo-64 sin fflush en path, muestreo 1/4096, `.def` 38/38 +
+  aridades SDK, suites verdes (14+3+65 + 57 conductual);
+  **sin compilar ni ejecutar** (requiere MinGW-32 +
+  V-0/V-1/V-1b/V-2 en PC Windows; compatibilidad plena NO
+  confirmada). Ver README propio (construir + validar +
+  reversión).
 
 ## Reglas
 
