@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-10 — 0.0.0 — Simplificación estratégica: ruta R→K→P + Olas 1–3
+
+- ROADMAP: Fases 4–14 fusionadas en Hitos R/K/P + Olas 1–3 (IDs
+  M/FA intactos); Hito P = MAIN 100% (sin tercera definición);
+  Fase 1 recortada a restante real; catálogos F/S cerrados salvo
+  necesidad de implementación.
+- Clasificación: RUTA = FA-01/04/05/11, I-01/I-23, F-05/F-03/F-02,
+  M-13+enablers; resto POSPUESTO (sin IDs eliminados). RE
+  priorizado (B→C mínima→D mínima); Etapa A variantes [~] (E-1).
+- Sync: E-2 BLOQUEADO (I-23) en STATE/TESTING/RESEARCH; P-F03
+  cabecera factual; COMPAT matriz futura comprimida; README ruta
+  + objetivos 3–4 acotados. Panel intacto (reorganización, §6).
+
 ## 2026-10-10 — 0.0.0 — I-23: dependencia de ruta fija (método E-2 bloqueado)
 
 - Observación reproducida 3/3 (principal + copias A/B): renombrar

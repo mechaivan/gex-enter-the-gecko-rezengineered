@@ -3,7 +3,7 @@
 > **Nivel de evidencia global: PRIMER TEST PROPIO (Hito 1, 2026-10-09) +
 > estáticos Fase 1.** Las notas no marcadas proceden de fuentes
 > secundarias (2026-10-08) y están sin verificar. Esta matriz se
-> rellenará con resultados de testing propio desde Fase 4/5.
+> rellenará con resultados de testing propio desde las Olas.
 
 ## Versiones del juego
 
@@ -36,21 +36,13 @@
 | D3D (EU + F-01)   | Añadido por parche; cap 24 FPS (?)       | PCGamingWiki  |
 | dgVoodoo2         | Crash con vorpX                          | PCGamingWiki  |
 
-## Dimensiones futuras de la matriz (sin resultados)
+## Matriz futura (futura — vacía; formato + dimensiones)
 
-Cuando haya testing propio, cubrir: resoluciones, refresh rates, aspect
-ratios, fullscreen / borderless / windowed, multi-monitor, DPI (100–200%),
-APIs de mando (DirectInput legacy / XInput / DualShock), fabricantes de GPU
-(AMD / NVIDIA / Intel, iGPU/dGPU) y configuraciones modernas de Windows.
-
-## Matriz de hardware (estructura, Fase 13 — vacía)
-
-> Herramienta de QA/documentación, no feature. NO rellenar con datos
-> inventados. Ejemplo de formato (ficticio, solo ilustra columnas):
-
-| GPU | Fabricante | iGPU/dGPU | Windows | Driver | Renderer | Resolución | Refresh | Modo | Mando | Resultado | FPS | Estabilidad | Problemas | Workaround | REZ ver. |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| *(ejemplo)* | AMD | dGPU | 11 | — | Modern | 1080p | 144 Hz | borderless | XInput | ✅ | — | — | — | — | — |
+Cuando haya testing propio: resoluciones, refrescos, aspect ratios,
+modos pantalla, multi-monitor, DPI, APIs de mando, GPUs y Windows.
+Columnas acordadas: GPU, fabricante, iGPU/dGPU, Windows, driver,
+renderer, resolución, refresh, modo, mando, resultado, FPS,
+estabilidad, problemas, workaround, REZ ver. NO inventar datos.
 
 ## Notas
 

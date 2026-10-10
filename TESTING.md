@@ -82,10 +82,10 @@ US/D3D/parches solo como comparadores, nunca como referencia de «correcto».
 | FA-08 | SFX + voces UK + volúmenes | Audio funcional | Instalación | SFX por nivel, disparadores de voz, efecto volumen (I-13) | Moderno: DSound emulado | I-13 (un solo reporte) | P1 |
 | FA-14 | Fullscreen/ventana/foco/Alt+Tab | — | Instalación | Modo real, Alt+Tab, pérdida de foco | Moderno sí (+wrappers); época: exclusividad ref | I-06 | P2 |
 | FA-07 | Cámara: controles y comportamiento | Juego jugable | Instalación | Controles reales PC, seguimiento, colisiones | Ambas (época ideal); sin evidencia previa | Sin base documental | P2 |
-| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 completo (E-1.1 identidad OK); E-2 pendiente) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
-| FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Fase 13) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
+| FA-05 | F-03 antes/después (diff funcional) | Binario F-03 (E-1 completo; E-2 BLOQUEADO I-23) | FPS baseline + acceso | FPS/velocidad exe F-03 vs original | Moderno (declarado Win98–XP: limitación) | Alcance declarado estrecho | P2 |
+| FA-15 | Referencias «correcto» per sistema + matriz HW | Resultados de las filas anteriores | Todas (continua) | Tabla de referencia por sistema; matriz HW (Ola 3) | Gap época: sin HW propio salvo mantenedor | No inventar época | P1 |
 
-## Prueba preparada P-F03 — A/B exe EU F-03 vs original (PENDIENTE DE AUTORIZACIÓN)
+## Prueba P-F03 — A/B exe EU F-03 vs original (rama B ejecutada 2026-10-09; ABA completo pendiente)
 
 > Plan redactado 2026-10-09. NO ejecutado. Ningún paso corre sin
 > autorización explícita del mantenedor (A1–A4). Caracterización
@@ -191,7 +191,7 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   Detalle: S-26 + F-03. **E-1.1 OK (2026-10-09):** paste sha256 =
   bytes Drive EU (triple: paste + metadato + hash local re-descarga).
 
-## E-2 — Micro-test sim-vs-FPS (PENDIENTE AUTORIZACIÓN)
+## E-2 — Micro-test sim-vs-FPS (AUTORIZADO 2026-10-10; BLOQUEADO por I-23)
 
 > Diseñado para distinguir H2 (throttle eliminado → render-bound)
 > de H3 (timer reprogramado). 1 variable cada vez; copias A/B.

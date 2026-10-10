@@ -8,13 +8,13 @@
 > (S-23); binarios siguen sin inspeccionar.
 > Prep. P-F03 (2026-10-09): enlace exacto + gating miembros + README
 > verbatim + detector cruzado con inventario; protocolo A/B en
-> TESTING.md (pendiente de autorización).
+> TESTING.md (rama B ejecutada; ABA completo pendiente).
 > Lote tools (2026-10-09): H-01/H-02 + R-03/R-04 (S-24); ejecución
 > pendiente, licencias comprobadas (MIT solo R-04).
 > P-F03/B (2026-10-09): binarios F-03 en Drive + rama B ejecutada
-> (42–44 FPS + speedup, observación); E-1/E-2 pendientes.
+> (42–44 FPS + speedup, observación); E-1 completo, E-2 BLOQUEADO (I-23).
 > E-1 (2026-10-09, ejecutado): F03-EU = build 1998-06-29 (no parche);
-> sin nueva API timing; path `_demo`; E-1.1 OK; E-2 pendiente.
+> sin nueva API timing; path `_demo`; E-1.1 OK; E-2 BLOQUEADO (I-23).
 
 ## 0. Taxonomía (categorías estrictamente separadas)
 
@@ -198,7 +198,7 @@ Reglas:
   observación mantenedor): B = 42–44 FPS (menú+juego), cinemáticas
   ≈15, sim acelerada, audio normal. Rama «FPS↑» (inesperada) →
   identidad CONFIRMADA (E-1.1 sha256 match, 2026-10-09).
-  E-2 pendiente de autorización.
+  E-2 autorizado 2026-10-10, BLOQUEADO (I-23; ver I-23).
 - **E-1 EJECUTADO (2026-10-09, Arena, solo lectura; ver S-26):**
   descargas verificadas por hash; F03-EU = build distinta ligada
   1998-06-29 (82.9% bytes ≠, 55016 runs, 1/381 bloques 4KB =);
@@ -214,7 +214,7 @@ Reglas:
   + hash local + metadato Drive md5 `3198350e…`). P-F03/B atribuido
   al exe analizado (build 1998-06-29); rama «FPS↑» firme.
 - **Estado:** E-1 COMPLETO (identidad confirmada E-1.1);
-  mecanismo a nivel código pendiente (Fase 2); E-2 pendiente.
+  mecanismo a nivel código pendiente (Fase 2); E-2 BLOQUEADO (I-23).
 
 ## F-04 — Supuesto «ejecutable capeado a 30 FPS» (nGlide compatibility list)
 
@@ -607,7 +607,7 @@ verificadas en ejecución. Ojo licencias: ninguna tiene (ver cada una).
 | F-11 (NO-CD D3D) | FA-12 (check de CD; posible US) |
 | F-12 (debug tool) | Herramienta potencial Fase 2 (menú debug PC) |
 | F-13 (parche oficial 3dfx+genérico) | FA-03 (añade Glide a base D3D; patrón exe-por-renderer), FA-01 (variantes US) |
-| T-01…T-06 (wrappers) | Comparativas de testing (Fase 5+) |
+| T-01…T-06 (wrappers) | Comparativas de testing (Olas) |
 | H-01 (extractor VFX) | M-23 (extracción texturas), FA-03 (formato .VFX PC) |
 | H-02 (visor niveles) | M-23 (extracción/modelos), FA-03 (geometría/texturas PC) |
 | R-03 (LZSS PS1) | Referencia compresión (Etapa D); sin FA directa |

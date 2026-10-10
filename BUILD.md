@@ -2,7 +2,7 @@
 
 > Estado: **pendiente de definir** (Fase 1: no hay nada que construir).
 
-Cuando exista implementación (Fase 4), este documento describirá:
+Cuando exista implementación (Olas, tras Hito P), este documento describirá:
 
 - requisitos (compiladores, SDKs, dependencias);
 - pasos de build reproducibles;

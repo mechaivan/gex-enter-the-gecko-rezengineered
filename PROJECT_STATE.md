@@ -5,10 +5,10 @@
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1)
-**Implementation:** Not started (blocked until research is sufficient)
+**Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -30,6 +30,8 @@
 
 > Understand the original PC version of Gex: Enter the Gecko and existing
 > community fixes before implementing any modifications.
+> Ruta corta (2026-10-10): Hito R → Hito K → Hito P (= MAIN 100%) →
+> Olas 1–3. Ver ROADMAP.
 
 ## Checklist de la Fase 0 ✅ (cerrada 2026-10-08)
 
@@ -56,14 +58,14 @@
   CD-audio): estático hecho; dinámico pendiente.
 - [~] Problemas conocidos con evidencia: estática propia añadida;
   primeras observaciones propias (Hito 1: I-15/I-16 parciales,
-  I-11 no reproducido, I-21/I-22 nuevos).
+  I-11 no reproducido, I-21/I-22/I-23 nuevos).
 - [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
   F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
   diffs binarios pendientes (Fase 2); Lote 2 (2026-10-09): F-13 oficial
   + F-01/F-03/F-10 profundizados (S-23; binarios pendientes).
-- [~] Cubrir FA-01…FA-15 a nivel documental: matriz de cobertura
-  (2026-10-09, MODERNIZATION_GOALS) con estados y lagunas; toda la
-  dinámica pendiente (Fase 2+).
+- [x] Cubrir FA-01…FA-15 a nivel documental: matriz de cobertura
+  (2026-10-09); cobertura exhaustiva CERRADA 2026-10-10 (resto por
+  implementación, ROADMAP R→K→P).
 - [x] Inventariar S-14 (setup package speedrun): metadatos + hashes +
   inventario nominal (22 entradas) + README leído (2026-10-09, carpeta
   `S-14_extracted`, solo lectura). Análisis binario → Fase 2.
@@ -71,10 +73,10 @@
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +
   evaluación de alternativas + requisitos/checklist (TESTING.md,
   2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
-  build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado,
-  pendiente de autorización (A1–A4). P-F03/B ejecutado parcial
+  build/GPU/driver pendientes). Protocolo P-F03 (A/B F-03) preparado
+  (A1–A4); rama B autorizada y ejecutada parcial
   (42–44 FPS + speedup, observación 2026-10-09); E-1 ejecutado
-  (E-1.1 identidad confirmada sha256); E-2 pendiente.
+  (E-1.1 identidad confirmada sha256); E-2 BLOQUEADO (I-23).
 
 ## Limitaciones actuales
 

@@ -6,7 +6,7 @@
 > reverse-engineering, preservation and modernization project for the
 > original 1998 PC port.
 > Goal: understand how the PC version really works, document every known issue
-> and existing community fix with evidence, and only then implement native,
+> and key community fixes with evidence, and only then implement native,
 > well-understood fixes — without redistributing proprietary game files.
 > Current phase: **1 — Research & Original PC Documentation**.
 > Original artifacts inventoried; no game modifications yet.
@@ -15,9 +15,9 @@
 
 1. Comprender cómo funciona realmente la versión original de PC.
 2. Analizar su ejecutable, arquitectura, sistemas y dependencias.
-3. Investigar todos sus problemas conocidos.
-4. Recopilar y analizar las soluciones, parches, wrappers, fixes y proyectos
-   comunitarios existentes —y entender **por qué** funciona cada uno.
+3. Investigar los problemas que bloqueen el prototipo y las mejoras prioritarias.
+4. Recopilar las soluciones comunitarias existentes y analizar en
+   profundidad solo las que informen una implementación concreta.
 5. Localizar las causas reales dentro del juego mediante reverse engineering.
 6. Desarrollar soluciones propias, priorizando fixes nativos sobre dependencias
    externas cuando sea técnicamente viable.
@@ -32,8 +32,9 @@
 | Versión             | 0.0.0                                                        |
 | Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`)  |
 | Reverse engineering | Profundo no iniciado (Etapa A documentada en Fase 1)         |
-| Implementación      | **No iniciada (prohibida hasta completar la investigación)**  |
+| Implementación      | **No iniciada (solo vía Hito P tras Fase 3 + autorización)** |
 | Testing             | Hito 1 ejecutado (F-05 + arranque EU en Win11)              |
+| Ruta corta          | Hitos R → K → P + Olas 1–3 (ver ROADMAP)                    |
 
 Ver [PROJECT_STATE.md](PROJECT_STATE.md) para el estado detallado.
 

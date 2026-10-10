@@ -36,6 +36,16 @@ tras la investigación**. Ninguna estimación es un compromiso.
 
 ---
 
+## Ruta corta al prototipo (2026-10-10; IDs intactos)
+
+- **RUTA:** FA-01, FA-04, FA-05, FA-11 (+ FA-02/FA-03 confirmación) →
+  Hito K → Hito P. M-13 en Ola 1 (sus FA salen del camino crítico).
+- **POSPUESTOS:** FA-06…FA-10, FA-12(profundo)…FA-15; M-04…M-12,
+  M-14…M-20, M-22…M-26 (Olas 2–3, por dependencias reales).
+- **ENABLERS Ola 1:** M-01/M-02/M-03, M-21 (referencia viva).
+- Regla: ningún M-xx avanza sin sus FA; ningún FA se reabre sin
+  implementación que lo pida. Detalle: ROADMAP (R→K→P).
+
 # FASE A — FUNDAMENTOS Y COMPATIBILIDAD (P0, no son features)
 
 Base del proyecto: **preservar y entender el Gex original de PC**. Todo M-xx
@@ -86,7 +96,7 @@ Estados FA sin cambiar.
 | ID y tema | Conocido | Evidencia y fuente | Tipo | Relevancia EU-Glide | Falta | Siguiente acción | Estado |
 |---|---|---|---|---|---|---|---|
 | FA-01 — Ejecutable, variantes, hashes, versiones | EU `GEX3D.EXE` v1.00.000: 1557504 B, MD5/SHA-256, PE32 i386 GUI, link 1998-05-18, rama `3dfx\release_europe`; `Gex2-Europe` + `1.00.000`; instalador despliega exacto `GEX2/` | Inventario §4.1, §3.2, §10, §11–§13 (30/30 SHA) | Original estática | Directa (artefacto de referencia) | Variantes US/demo/parcheadas; parseo formal CAB; `data3.ca0`; etiqueta volumen | Registrar hashes de variantes al recibirlas (sin analizar); §14 → Fase 2 | BASE DOCUMENTADA |
-| FA-02 — Dependencias y bibliotecas | 38 imports `glide2x`; WINMM (`joyGetPosEx`, `aux*`, `mciSendCommandA`); DSOUND; K32/U32/GDI32/ADVAPI32; 0 D3D/DDraw/DInput; «requires Glide 2.1+»; CD trae DX 4.05.01.1600 + DRIVERS Win95 (contexto, no dependencia probada) | Inventario §4.1, §9 (`DXVER.INF`), §11 | Original estática | Directa | Uso real en dinámico; Indeo (sin evidencia estática en ningún sentido) | Confirmación dinámica en Windows (Fase 4/5); Indeo vía FA-10 | BASE DOCUMENTADA |
+| FA-02 — Dependencias y bibliotecas | 38 imports `glide2x`; WINMM (`joyGetPosEx`, `aux*`, `mciSendCommandA`); DSOUND; K32/U32/GDI32/ADVAPI32; 0 D3D/DDraw/DInput; «requires Glide 2.1+»; CD trae DX 4.05.01.1600 + DRIVERS Win95 (contexto, no dependencia probada) | Inventario §4.1, §9 (`DXVER.INF`), §11 | Original estática | Directa | Uso real en dinámico; Indeo (sin evidencia estática en ningún sentido) | Confirmación dinámica en Windows (Olas); Indeo vía FA-10 | BASE DOCUMENTADA |
 | FA-03 — Renderer y rutas Glide/D3D | EU Glide exclusiva en estático; llamadas cubren init/shutdown, `grSstWinOpen`, triángulos, `grBufferSwap`, texturas, fog, alpha, LFB; D3D5 nativo US declarado (PCGW, sin verificar); F-01 añade D3D a PAL (declarado) | Inventario §4.1; S-01; F-01 | Original estática (EU) + pública/declarada (US/F-01) | Directa (vía EU); US/D3D no extrapolable | Comportamiento en ejecución (modos, 75 Hz, resolución); selección US; mecanismo F-01 | Etapa C render; diffs Etapa D | BASE DOCUMENTADA |
 | FA-04 — Timing y game loop | Nada observado en EU; hipótesis I-01 (lógica ligada a frames) sin confirmar | I-01 (hipótesis) | Desconocido | Crítica (preservar comportamiento; base M-13/M-14) | Estructura del loop, timers, sleeps, contadores | Etapa C timing (Ghidra + dinámico) | PENDIENTE |
 | FA-05 — FPS y acoplamiento lógica | «too fast even at 60fps, needs 30fps cap» (Zeus); caps PCGW 30 base / 24 parche D3D; F-03 declarado (3DFX+Win98–XP, mecanismo y objetivo sin declarar); F-04 sin resolver; FAQ nGlide: V-Sync si «too fast»; petición 75 Hz | S-02, S-01, F-03, F-04, T-03 | Pública + declarada | Directa (velocidad EU), sin observación EU | FPS reales EU (época/moderno); mecanismo acoplamiento; mecanismo F-03; F-04 | Medir en Windows (referencia + moderno); diffs | PARCIAL |
@@ -99,7 +109,7 @@ Estados FA sin cambiar.
 | FA-12 — Comprobación del CD | Mensajes CD-check en strings («A valid Gex… CD was not found.»); I-16; No-CD declarados F-01 (PAL), F-11 (posible US, NOPs sin verificar), exe 2013 S-14 (NTSC); AF exige primer lector (adyacente) | Inventario §4.1; I-16; F-01; F-11; F-09 | Original estática (mensajes) + declarada | Directa | Lógica/ubicación del check; método identificación disco; dinámica | Etapa C CD-check; diffs Etapa D | PARCIAL |
 | FA-13 — Resolución, viewport, HUD | Secundaria: Voodoo2 real 512x384@60, petición 75 Hz (Zeus); adyacentes: `FONT.3DF` (fuente 3dfx) y `GEX.VFX` (rampa paleta/gamma, formato UNKNOWN); I-06 anomalía borderless (contexto wrapper) | S-02; inventario §4.2; I-06 | Pública (débil) + estática adyacente | Directa (modos originales; base M-04) | Lista de modos; viewport/HUD; rutas de resolución en exe | Enumeración dinámica en Windows; Etapa C render | PARCIAL (mínima) |
 | FA-14 — Fullscreen, ventana, foco, Alt+Tab | `grSstWinOpen` (creación ventana vía Glide) + subsistema GUI en estático; comportamiento desconocido | Inventario §4.1 | Original estática (mínima) | Directa | Exclusividad fullscreen; ventana posible; foco/Alt+Tab | Tests dinámicos en Windows; Etapa C | PARCIAL (mínima) |
-| FA-15 — Referencia en HW/SW de época | Sin pruebas propias; indicios secundarios dispersos: Voodoo2 512x384@60, bugs audio también en Voodoo real (Zeus), Vista+nGlide0.99 (AF, wrapper, no HW original); comportamiento «correcto» per sistema sin definir | S-02, S-08; COMPATIBILITY (notas) | Pública (indicios) + desconocido (pruebas) | Total (define «correcto») | Definir referencias per sistema; resultados HW/SW época | Máquina Windows + protocolo captura (Fase 1); matriz HW (Fase 13) | PENDIENTE |
+| FA-15 — Referencia en HW/SW de época | Sin pruebas propias; indicios secundarios dispersos: Voodoo2 512x384@60, bugs audio también en Voodoo real (Zeus), Vista+nGlide0.99 (AF, wrapper, no HW original); comportamiento «correcto» per sistema sin definir | S-02, S-08; COMPATIBILITY (notas) | Pública (indicios) + desconocido (pruebas) | Total (define «correcto») | Definir referencias per sistema; resultados HW/SW época | Máquina Windows + protocolo captura (Fase 1); matriz HW (Ola 3) | PENDIENTE |
 
 **Lagunas cerrables solo con documentación:** descripciones de hilos tgames
 citados no leídos (`gex3d_windows10.zip`, `GEX3DFX_PatchD3D_V1.2.zip`;
@@ -523,7 +533,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   las traducciones de Gex Trilogy sean reutilizables; Trilogy no es
   fuente de verdad.** Otras versiones, solo referencias secundarias.
 - **Compatible con Original Mode:** Sí (English original) · **Pertenece a Modern Mode:** Sí
-- **Notas:** sin fase de roadmap asignada todavía (post-Fase 11, TBD).
+- **Notas:** sin fase de roadmap asignada todavía (Ola 3, TBD).
   No confundir con M-25 (selección de voces UK/USA, audio).
 
 # NIVEL 10 — AUDIO / VOCES
@@ -566,7 +576,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
 - **Compatible con Original Mode:** Sí (UK por defecto) · **Pertenece a Modern Mode:** Sí
 - **Notas:** no confundir con M-24 (localización de TEXTOS). Voz JP
   (consola) fuera de alcance. Gex Trilogy no es fuente de audio. Sin fase
-  de roadmap asignada todavía (post-Fase 11, TBD).
+  de roadmap asignada todavía (Ola 3, TBD).
 
 ---
 
@@ -593,7 +603,7 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
 - **Relación con comportamiento original:** añadido opt-in; Original Mode
   la reproduce siempre como el original.
 - **Compatible con Original Mode:** Sí (siempre visible) · **Pertenece a Modern Mode:** Sí
-- **Notas:** sin fase de roadmap asignada todavía (post-Fase 11, TBD).
+- **Notas:** sin fase de roadmap asignada todavía (Ola 3, TBD).
   No confundir con bugs de intro (I-14): la intro FUNCIONA; esto es QoL.
 
 ---

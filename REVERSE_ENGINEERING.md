@@ -29,13 +29,17 @@
 
 ## 3. Plan por etapas
 
+> Orden de ruta (2026-10-10): B → C mínima (timing → ruta/registro →
+> init render) → D mínima (F-02/F-03). Resto pospuesto (ROADMAP Hito K).
+
 ### Etapa A — Inventario (sin desensamblar) ✅ (Fase 1, ver inventario §2–§4)
 
 - [x] Recibir y hashear originales (SHA-256) + registrar procedencia.
 - [x] `file`, headers PE (máquina, subsistema, timestamp, secciones).
 - [x] Tablas de imports/exports y DLLs implícitas.
 - [x] Extracción de strings (rutas, claves de registro, mensajes, DX/Glide).
-- [ ] Comparar variantes disponibles (US/EU/demo/exes parcheados).
+- [~] Comparar variantes: parcial (E-1: ORIG vs EU/US F-03 + imports,
+  2026-10-09); US-retail/demo pendientes.
 
 ### Etapa B — Proyecto Ghidra + naming inicial
 

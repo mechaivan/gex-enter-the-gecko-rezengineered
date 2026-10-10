@@ -266,7 +266,7 @@ lo ya verificado se indica en § «Áreas de investigación futura».
   US / parche F-01: el binario EU inventariado no tiene ruta D3D);
   (b) **código abierto para estudiar** cómo se interceptan/solucionan APIs
   legacy (no copiar a ciegas: entender y decidir solución propia).
-- Estado: catalogado; probar en Fase 5 donde aplique.
+- Estado: catalogado; probar en Olas donde aplique.
 
 ## S-17 — dgVoodoo2 (dege-diosg) — herramienta de referencia (freeware, NO OSS)
 
@@ -276,7 +276,7 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Utilidad: alternativa de testing para rutas Glide y D3D; comparar
   comportamiento nGlide vs dgVoodoo2 vs nativo.
 - Nota: PCGamingWiki reporta crash dgVoodoo2 + vorpX (I-10, sin verificar).
-- Estado: catalogado; probar en Fase 5.
+- Estado: catalogado; probar en Olas.
 
 ## S-18 — REA (morluto/rea) — herramienta RE del proyecto (MIT)
 
@@ -566,7 +566,7 @@ fetch HTTP 500 (host fuera de la lista permitida) → sin verificación.
 - P-F03/B (observación mantenedor): B = 42–44 FPS menú+juego,
   cinemáticas ≈15, sim acelerada, audio normal. Rama «FPS↑»
   (inesperada) → identidad CONFIRMADA (E-1.1). Detalle: F-03,
-  TESTING P-F03/B; E-1 completo; E-2 pendiente de autorización.
+  TESTING P-F03/B; E-1 completo; E-2 autorizado, BLOQUEADO (I-23).
 - Límite técnico: bytes inaccesibles desde aquí (egress Google
   bloqueado; download inline inviable ~2 MB base64) → estático
   profundo vía scripts solo-lectura lado mantenedor (E-1).
@@ -598,7 +598,7 @@ copias eliminadas tras el análisis. TXT md5 `2fff411e…3cd4d5`.
   junio-1998; el «límite» es conductual-emergente, no parche
   quirúrgico. Localización a nivel código → Fase 2.
 - **E-1.1 OK (2026-10-09):** sha256 paste = bytes Drive EU
-  (match exacto triple). E-2 pendiente de autorización.
+  (match exacto triple). E-2 autorizado, BLOQUEADO (I-23).
 - Confianza: alta (bytes verificados, herramientas estándar).
 
 ## Áreas de investigación futura (separación estricta)

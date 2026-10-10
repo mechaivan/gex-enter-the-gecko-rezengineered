@@ -10,6 +10,10 @@ Los objetivos de modernización viven en [MODERNIZATION_GOALS.md](MODERNIZATION_
 (M-01…M-26, todos PROPOSED; X-01/X-02 DEFERRED). Este roadmap puede cambiar
 si la investigación demuestra que es necesario.
 
+> Ruta corta (2026-10-10): **Hitos R → K → P + Olas 1–3**.
+> Las antiguas Fases 4–14 se fusionan abajo; los IDs M-xx/FA-xx NO cambian.
+> Hito P = MAIN 100% del panel (sin crear otra definición).
+
 ## Fase 0 — Planning / Documentation ✅ (cerrada 2026-10-08)
 
 - [x] Definir objetivos y principios del proyecto.
@@ -22,120 +26,60 @@ si la investigación demuestra que es necesario.
 
 ## Fase 1 — Research & Original PC Documentation 🟡 (en curso)
 
-- [x] Inventariar archivos originales (hashes, versiones, regiones):
-  edición EU v1.00.000 completa —
-  [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md).
-  Variantes US/demo/parcheadas: pendientes.
-- [~] Documentar la versión PC: ejecutable identificado (`GEX3D.EXE`,
-  Glide exclusivo, rama `3dfx\release_europe`), dependencias
-  (Glide/WinMM/DSound; sin D3D ni DirectInput en EU), claves de
-  registro, CD-audio (TOC 1+16). Dinámico: pendiente.
-- [~] Analizar fixes existentes: Lote 1 (2026-10-09) con descripciones
-  F-01…F-12 verificadas en fuente + revisión cruzada + S-14 (2026-10-09);
-  diffs binarios en Fase 2.
-- [~] Lista de problemas conocidos con niveles de evidencia (evidencia
-  estática propia añadida; Hito 1: I-15/I-16 parciales, I-11 no
-  reproducido, I-21/I-22 nuevos).
-- [x] Registrar propuesta M-25 (voice pack UK/USA, PROPOSED, P3, sin fase)
-  + fuente S-20 (reparto vocal) — solo documentación (2026-10-09).
-- [x] Registrar propuesta M-26 (cinemática de intro omisible, PROPOSED,
-  P3, sin fase) — solo documentación (2026-10-09).
-- [~] Cubrir las áreas FA-01…FA-15 a nivel documental: matriz de
-  cobertura (2026-10-09); dinámica y RE pendientes (Fase 2+).
-- [ ] Probar `tools/setup-re-env.sh` (Ghidra+JDK) en máquina sin restricciones.
-- [~] Definir máquina Windows de testing + protocolo de captura:
-  protocolo + matriz FA + evaluación/requisitos (2026-10-09);
-  Hito 1 ejecutado en PC del mantenedor (Win11 64-bit; specs pendientes).
-- [x] Inventariar S-14 (setup package): metadatos + hashes + inventario
-  (22 entradas) + README leído (2026-10-09). Binarios → Fase 2.
+Completado: inventario EU, Hito 1, catálogos F/S (Lotes 1–2, S-14),
+E-1/E-1.1, matrices FA/testing. **Catálogos cerrados: no ampliar
+F-xx/S-xx sin necesidad de una implementación concreta.**
 
-## Fase 2 — Reverse Engineering ⬜ (no iniciada)
+- [ ] Specs Hito 1 (build/GPU/driver/refresco) — 1 registro.
+- [ ] Decisión método A/B pese a I-23 (mantenedor).
+- [ ] E-2 (Tests 1–2; Test 3 condicional) — BLOQUEADO hasta decidir A/B.
+- [ ] Probar `tools/setup-re-env.sh` en máquina sin restricciones.
+- [ ] Cierre Fase 1 → autorización Fase 2.
 
-- [x] Análisis estático del ejecutable (imports, strings, secciones) —
-  adelantado en Fase 1 como documentación (ver inventario §4.1).
-- Proyecto Ghidra + naming inicial de funciones/sistemas.
-- Dependencias: confirmar en dinámico (estático Fase 1 en EU: Glide ✅,
-  WinMM ✅, DSound ✅; Direct3D ❌, DirectInput ❌; Indeo ?).
-- Sistemas: timing/FPS, render, audio, input, cámara, CD-check.
-- Comparación binaria: original vs ejecutables parcheados.
-- Confirmar causas raíz (o refutar hipótesis).
-- Detalle en [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md).
+## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
-## Fase 3 — Technical Planning ⬜
+Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
+- [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1).
+- Proyecto Ghidra + naming (`WinMain`, game-loop).
+- C mínima: timing FA-04/05, ruta/registro FA-11 (I-23), init FA-03.
+- D mínima: diffs F-02/F-03 vs original (pistas timing).
+- Resto de C/D POSPUESTO hasta que una implementación lo pida.
 
-- Soluciones candidatas por problema.
-- Alternativas (nativo vs wrapper vs parche binario).
-- Priorización por impacto/riesgo.
-- Arquitectura de implementación (loader, DLL, patches…).
-- Promover objetivos M-xx de PROPOSED a PLANNED solo con evidencia.
+## Fase 3 — Technical Planning ⬜ (puerta del prototipo)
 
-## Fase 4 — Foundation / Compatibility ⬜
+- Soluciones candidatas (solo Hito K) + método (loader/DLL/parche —
+  sin presuponer; se decide aquí con evidencia).
+- Arquitectura mínima para Hito P; resto pospuesto.
+- Promover a PLANNED solo los FA/M-xx implicados en Hito P.
 
-- Estabilizar la base: arranque, instalación, dependencias, renderer
-  original funcional en Windows moderno.
-- Cerrar FA-01…FA-15 con verificación.
-- Sin features modernas todavía: solo entender y estabilizar.
+## Hitos R → K → P + Olas 1–3 (2026-10-10; sustituyen a Fases 4–14)
 
-## Fase 5 — Low-risk Modernization ⬜
+### Hito R — Base de ejecución reproducible
+- [x] Hito 1 (arranca + jugable Win11+nGlide).
+- [ ] Specs + método A/B + E-2 (ver Fase 1 restante).
+- Criterio: cualquiera repite arranque y A/B con la hoja TESTING.
 
-- M-01 Modern Configuration System.
-- M-02 Portable Configuration.
-- M-03 Reduce / Remove Registry Dependency.
-- M-04 Modern Resolution Selection.
-- M-05 Borderless Windowed.
+### Hito K — Conocimiento mínimo (Fase 2 mínima)
+- Criterio: sabemos DÓNDE intervenir (timing, ruta, init) + Fase 3
+  decide el método. Nada más se investiga sin pedirlo una
+  implementación.
 
-## Fase 6 — Modern Input ⬜
+### Hito P — Primer prototipo (= MAIN 100% del panel)
+- Una intervención mínima, reversible y documentada sobre copia:
+  arranca, cambio observable, resto idéntico, sin regresión.
+- Criterio: MAIN-1…MAIN-10 completados (docs/PROJECT_STATUS.md §4.9).
 
-- M-06 Modern Input System (+ investigación FA-06/FA-07 previa).
-- M-07 XInput · M-08 DualShock/DualSense.
-- M-09 Button Remapping · M-10 Analog Deadzones · M-11 Vibration.
-- M-12 Modern Camera Control (hipótesis; requiere FA-07).
+### Ola 1 — Desacoplamiento + base (tras Hito P)
+M-13 (+ M-14 solo tras verificar M-13) + enablers mínimos
+(M-01/M-02/M-03, M-21 como referencia viva). M-13 va primero porque
+sus FA (FA-04/05) salen del camino crítico de Hito K.
 
-## Fase 7 — Timing / Render Decoupling ⬜
+### Ola 2 — Display e input
+M-04/M-05, M-15…M-17, M-06…M-12. Requieren FA-06/07/13/14; orden por
+dependencia real, no por número.
 
-- M-13 Modern Render Refresh Rates (desacoplar render de simulación).
-- M-14 Unlimited Render Mode (experimental).
-- Requiere FA-04/FA-05 completamente entendidos.
-
-## Fase 8 — Widescreen / Resolution / Camera ⬜
-
-- M-15 Native 16:9 (real, no estirado).
-- M-16 Ultrawide 21:9 / 32:9 (después de 16:9).
-- M-17 Adaptive FOV / Camera for Widescreen.
-
-## Fase 9 — Windows Modern Integration ⬜
-
-- M-18 Robust Alt+Tab.
-- M-19 Multi-monitor / DPI Awareness (meta de compatibilidad).
-
-## Fase 10 — In-Game Configuration ⬜
-
-- M-20 In-Game Options Menu (Video, Audio, Controls, Advanced).
-- Integra los sistemas de las fases 5–9; no eliminar el launcher
-  externo sin evidencia.
-
-## Fase 11 — Original Mode / Modern Mode ⬜
-
-- M-21 Original Mode (referencia viva del comportamiento PC).
-- M-22 Modern Mode (agrupa mejoras; sin modificar gameplay).
-
-## Fase 12 — Optional Enhanced Visuals ⬜
-
-- M-23 Optional Enhanced Visuals / HD Texture Pack.
-- Opcional, desactivable, fuera de Original Mode.
-
-## Fase 13 — Extended Compatibility / Hardware Matrix ⬜
-
-- Rellenar la matriz de hardware con resultados reales.
-- Cobertura: GPUs, Windows, drivers, renderers, resoluciones, refrescos,
-  controllers. Ver [COMPATIBILITY.md](COMPATIBILITY.md).
-
-## Fase 14 — Experimental / Deferred ⬜
-
-- X-01 Linux / Proton / Steam Deck: DEFERRED, baja prioridad.
-- X-02 Posible rewrite Rust/Bevy: LONG-TERM RESEARCH, prioridad muy baja;
-  no es una fase de implementación (ver MODERNIZATION_GOALS.md).
-- Nada de esta fase compite con Windows ni con el objetivo principal.
+### Ola 3 — Integración y resto
+M-18/M-19/M-20, M-22…M-26. X-01/X-02 siguen DEFERRED.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 
