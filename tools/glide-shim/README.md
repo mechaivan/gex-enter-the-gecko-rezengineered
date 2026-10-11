@@ -205,10 +205,15 @@ H4a, archivado aparte en `REZengineered/Reports/H4a/`).
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
 
 > Nota de nombres: «V-2» en este apartado = paso **in-game**
-> (juego instalado), aún PENDIENTE. El gate «V-2» del repo =
-> arnés+suite en PC (superado 2026-10-11) — no confundir: el
-> arnés valida la DLL contra una fake staged, NO que el shim esté
-> listo para instalar.
+> (juego instalado). El gate «V-2» del repo = arnés+suite en PC
+> (superado 2026-10-11) — no confundir: el arnés valida la DLL
+> contra una fake staged, NO que el shim esté listo para instalar.
+>
+> Estado 2026-10-11: **smoke de arranque REAL con H4a OK** (copia
+> aislada `C:\GEX_REZ\SMOKE_H4A`; hasta el menú principal; salida
+> 0; registro 32-bit restaurado — ver TESTING § Smoke in-game H4a;
+> el modo del smoke no consta). La tanda instrumentada de 60 s
+> (footer `# end` + `overflow=0`) sigue PENDIENTE.
 
 ```bat
 set GSHIM_NOLOG=1
@@ -241,6 +246,12 @@ tanda NOLOG inválida: no usar para A/B; reportar, revertir.
    `gshim_error.txt` + `gshim_nolog.marker` si existen, renombrar
    `glide2x_gex_real.dll` → `glide2x.dll`; re-verificar md5 del
    exe; arranque Hito 1 repetible.
+
+> Cautela de Registro (si el flujo usa `InstallDir`, p. ej. E-2):
+> exportar ANTES la vista de 32 bits (`reg export … /reg:32`) y
+> tener reversión documentada y verificada. El smoke H4a de
+> 2026-10-11 dejó el valor restaurado y verificado como
+> `C:\GEX_REZ\GEX2`. No repetir cambios de Registro sin ese backup.
 
 ## Impacto en timing (cómo medirlo, no asumirlo)
 
@@ -379,9 +390,13 @@ no se afirma como promesa
 portable. Los exports de la DLL concreta se verifican
 en V-1b (evidencia directa) y su resolución dinámica vía shim en
 P-W5 (2026-10-11); la carga real en el juego, en el procedimiento
-in-game. Pendiente explícito: procedimiento in-game (instalación
-en copia + smoke NOLOG + tanda real: requiere ejecutar el juego).
+in-game. Smoke de arranque in-game H4a: OK 2026-10-11 (hasta menú;
+copia aislada; registro restaurado — ver TESTING § Smoke in-game
+H4a). Pendiente explícito: tanda instrumentada in-game (60 s;
+footer/overflow) — requiere ejecutar el juego; y estabilidad/render
+en partida.
 El arnés W00–W11 y la suite ya tienen evidencia PC 2026-10-11
 (V-2 superado).
 **Compatibilidad plena NO declarada; la validación dinámica del
-arnés (fake) está superada (V-2); la in-game sigue sin declarar.**
+arnés (fake) está superada (V-2); la in-game completa sigue sin
+declarar (solo arranque a menú confirmado).**

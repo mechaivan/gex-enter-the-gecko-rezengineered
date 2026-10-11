@@ -724,7 +724,10 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   código intacto.
   ACTUALIZADO 2026-10-11: V-2 SUPERADO ⇒ la ruta dinámica del
   arnés (carga en proceso + reenvío a fake staged) quedó cubierta;
-  contra la DLL real sigue pendiente (P-W5/in-game).
+  contra la DLL real, resolución cubierta por P-W5 y carga real en
+  el juego confirmada por el smoke in-game (2026-10-11, sección
+  propia); la conducta en llamada durante partida sigue sin
+  evidencia.
 - **V-1b (EJECUTADO en PC mantenedor 2026-10-10, MSYS2 MINGW32,
   copia temporal aislada): PASS, exit 0.** `build-win32.sh` con
   copia real verificada como argumento (copia temporal, sin
@@ -919,9 +922,10 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   staged al lado, SIN Gex ni la DLL real. NO cubre: conducta de
   los 35 forwarders contra la DLL real (P-W5 — CERRADO 2026-10-11
   en su parte de resolución dinámica; ver bloque P-W5) ni el
-  procedimiento in-game (smoke NOLOG + tanda real, README §
-  Procedimiento), que sigue pendiente y requiere ejecutar el
-  juego en la copia de trabajo.
+  procedimiento in-game completo (README § Procedimiento): el smoke
+  de arranque quedó OK 2026-10-11 (ver § Smoke in-game H4a); la
+  tanda instrumentada de 60 s sigue pendiente y requiere ejecutar
+  el juego en la copia de trabajo.
 - **Efecto colateral verificado:** W01 pasa en PC ⇒ el contrato
   del propio W01 dictamina que `%llu`/`%lld` de `gshim.c` no se
   manglan en esta toolchain (MSYS2 GCC 16.1.0); F-1 queda como
@@ -969,6 +973,38 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `551fae1`). El probe comprueba la propiedad por base del módulo
   cargado como `glide2x_gex_real.dll`; la identidad de esa copia
   (hashes) está cubierta por V-0/V-1b.
+
+## Smoke in-game H4a (2026-10-11, PC mantenedor, Windows 11; arranque real a menú)
+
+- **Smoke de arranque REAL con el shim H4a — OK (reportado por el
+  mantenedor; log aún sin archivar).** Copia aislada
+  `C:\GEX_REZ\SMOKE_H4A`: ejecutable EU original (SHA-256
+  `d0932549…` = fila `GEX3D.EXE` de
+  `docs/ORIGINAL_ARTIFACT_INVENTORY.md`, md5 `692b1282…`), shim H4a
+  como `glide2x.dll` (SHA-256 `d0ea3151…`, el MISMO binario del run
+  V-1 H4a) y `glide2x_gex_real.dll` = DLL real V-0 (SHA-256
+  `7cbd0958…299aab`); CD `D:` montado y accesible. El juego llegó al
+  menú principal; el proceso terminó con código de salida 0 (cierre
+  del usuario con Alt+F4).
+- **Registro:** `InstallDir` (vista de 32 bits) apuntado
+  temporalmente a la copia y RESTAURADO/verificado después como
+  `C:\GEX_REZ\GEX2`. Cautela permanente: no repetir cambios de
+  Registro sin backup previo de la vista de 32 bits
+  (`reg export … /reg:32`) y procedimiento de reversión documentado
+  y verificado.
+- **Primer intento:** falló por CD no montado (entorno; NO es un
+  fallo del shim). **Log local del 2º intento:**
+  `C:\GEX_REZ\SMOKE_H4A\preflight\smoke-h4a-launch-2.txt` — NO
+  archivado en Drive; subir manualmente a
+  `REZengineered/Reports/H4a/` si se quiere conservar allí. El modo
+  del smoke (NOLOG/instrumentado) no consta en el reporte.
+- **Distinción y alcance:** prueba de ARRANQUE real — distinta de
+  las estáticas V-0/V-1/V-1b (tablas de exports) y del arnés V-2
+  (carga en proceso contra una fake staged). Confirmado: el shim
+  carga en el juego real hasta menú y el proceso termina con código
+  0. NO demostrado aún: conducta de los hooks durante la partida,
+  estabilidad prolongada, renderizado correcto, compatibilidad plena
+  ni la tanda instrumentada (footer `# end` + `overflow=0`).
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

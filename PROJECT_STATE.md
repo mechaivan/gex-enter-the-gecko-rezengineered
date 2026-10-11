@@ -6,7 +6,7 @@
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
-**Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente)
+**Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-10-11
 
@@ -102,8 +102,10 @@
   `REZengineered/Reports/{H4a,V1b,Matrix2,V2}/` (completo:
   también el `exports_shim.txt` del run H4a, 2026-10-11 —
   SHA-256 `9b9170a6…` —, nunca mezclado con el de V-1b).
-  Pendiente: procedimiento in-game (smoke NOLOG +
-  tanda real en copia de trabajo)).
+  Smoke in-game H4a SUPERADO PC 2026-10-11 (arranque real hasta
+  menú, copia aislada, salida 0; registro restaurado). Pendiente:
+  tanda instrumentada in-game (60 s; footer/overflow) y estabilidad
+  en partida.)
 
 ## Limitaciones actuales
 

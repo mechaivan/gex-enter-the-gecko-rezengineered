@@ -2,6 +2,39 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — Smoke test in-game H4a OK (arranque real a menú, PC); panel v3.6 (solo estado verificado)
+
+- **Smoke in-game H4a (PC mantenedor, Windows 11, reportado
+  2026-10-11): OK.** Copia aislada `C:\GEX_REZ\SMOKE_H4A` con el
+  ejecutable EU original (SHA-256 `d0932549…` = fila `GEX3D.EXE` de
+  `docs/ORIGINAL_ARTIFACT_INVENTORY.md`, md5 `692b1282…`), shim H4a
+  como `glide2x.dll` (SHA-256 `d0ea3151…`, el binario del run V-1
+  H4a) y `glide2x_gex_real.dll` = DLL real V-0 (SHA-256
+  `7cbd0958…299aab`); CD `D:` montado. El juego llegó al menú
+  principal; proceso con código de salida 0 (cierre del usuario con
+  Alt+F4). `InstallDir` (vista de 32 bits) apuntado temporalmente a
+  la copia y RESTAURADO/verificado después como `C:\GEX_REZ\GEX2`.
+- Primer intento: falló por CD no montado (entorno; NO fallo del
+  shim). Log local del 2º intento
+  (`preflight\smoke-h4a-launch-2.txt`) NO archivado en Drive: subir
+  manualmente a `REZengineered/Reports/H4a/` si se quiere conservar
+  allí. El modo del smoke (NOLOG/instrumentado) no consta.
+- Alcance: ARRANQUE real — distinto de las estáticas V-0/V-1/V-1b
+  (tablas de exports) y del arnés V-2 (carga en proceso contra una
+  fake staged). NO demostrado aún: hooks durante partida, estabilidad
+  prolongada, renderizado, compatibilidad plena ni tanda instrumentada
+  (footer `# end` + `overflow=0`). Cautela permanente: no repetir
+  cambios de Registro sin backup de la vista de 32 bits
+  (`reg export … /reg:32`) y reversión documentada y verificada.
+- Panel **v3.6**: SOLO dato de estado verificado → micro-línea
+  «Shim OK V-0→V-2+P-W5 + smoke a menú» + fecha/ref (`3d342e8`).
+  **Cifras sin cambios** (ningún hito/área cambia). Mismo diseño.
+- Sync: TESTING (nueva sección Smoke in-game H4a), README shim
+  (estado in-game + cautela Registro), PROJECT_STATE (blurb +
+  Testing), PROJECT_STATUS/SVG (v3.6). Sin cambios de código ni
+  binarios; el smoke se ejecutó en el PC del mantenedor, no desde
+  Arena.
+
 ## 2026-10-11 — 0.0.0 — H4a: `exports_shim.txt` archivado en `Reports/H4a/` — archivo de evidencias V-1 completo
 
 - El mantenedor subió el `exports_shim.txt` del run H4a a
