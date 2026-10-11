@@ -761,7 +761,8 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `__declspec(dllexport)`: build rc=0, PE32/i386, 38/38, 0
   extras, 3 interceptadas, forwarders OK, `CHECK_EXPORTS: PASS`.
   H1/H2/H3 no superan (predicción H1 fallida; modos exactos y
-  H4b pendientes de `matrix2.log` completo).
+  H4b: `matrix2.log` archivado 2026-10-11 en
+  `REZengineered/Reports/Matrix2/` — H4b no enlaza, rc=1).
 - **F-3 CAUSA REFINADA (H4a):** MinGW-32 `dllexport` en stdcall
   emite la grafía SIN guion (`X@N`) y el ld nuevo dedupa solo
   por nombre (el viejo, por símbolo — de ahí V-1 2026-10-10):
@@ -777,8 +778,12 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   validó la FORMA en /tmp, no este árbol).
 - **V-1 H4a (PC mantenedor, reportado 2026-10-11): PASS.**
   GCC i686 16.1.0; build OK; 38/38 exactas, 0 extras.
-  Artefactos (log completo, SHA-256 DLL) pendientes de
-  archivar — solicitados al mantenedor.
+  Artefactos archivados 2026-10-11 en
+  `REZengineered/Reports/H4a/` (`v1-h4a.log` — incluye el
+  SHA-256 del shim H4a `d0ea3151…` — y `v2-h4a.log`, suite
+  sobre el árbol H4a con los 2 fallos pre-fix del arnés); el
+  volcado `exports_shim.txt` de H4a queda pendiente de
+  re-subida (sin mezclar con el de V-1b).
 - **V-2 (PC MSYS2 MINGW32): BLOQUEADA, 2 fallos harness.**
   (1) Los 14 escenarios FAIL en `child_load` («shim module is
   not the staged copy»): `join_path` doblaba el separador tras

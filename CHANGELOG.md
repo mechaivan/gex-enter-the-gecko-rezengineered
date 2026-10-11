@@ -2,6 +2,45 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — Evidencias V-1 H4a/V-1b/Matrix2/V-2 organizadas en `Reports/` (Drive): subcarpetas + hashes recomputados
+
+- Organización (solo mover; sin duplicar ni borrar) en
+  `REZengineered/Reports/`: `H4a/` (`v1-h4a.log`, `v2-h4a.log`),
+  `V1b/` (`v1b.log`, `exports_real.txt`, `exports_shim.txt`),
+  `Matrix2/` (`matrix2.log`), `V2/` (`v2_cleanupfix.log`); los 5
+  artefactos P-W5 siguen en la raíz de `Reports/` (md5 intactos).
+- Hashes recomputados 2026-10-11 en el sandbox sobre copias
+  descargadas (MD5 de Drive == MD5 local en los 7 ⇒ descarga
+  íntegra). SHA-256: `v1-h4a.log` `2fe53c6c…`, `v2-h4a.log`
+  `da4319be…`, `v1b.log` `da8e375d…`, `exports_real.txt`
+  `e44d0c76…`, `exports_shim.txt` `9a6f2bfe…`, `matrix2.log`
+  `cc26ff90…`, y `v2_cleanupfix.log`
+  `3ff4672a5602337fa02f03696df91469b31595dd923726e2e9aaafc4c3d824ea`
+  (== SHA-256 documentado de V-2 ⇒ recomputado y coincidente).
+- El único `exports_shim.txt` subido (había dos runs distintos,
+  NUNCA mezclados) queda identificado como el de **V-1b** por dos
+  señales independientes: su PE `Time/Date` `Sat Oct 10
+  23:39:13 2026` (objdump imprime esa marca en hora local;
+  calibrado con un PE sintético: 21:39:13Z ⇒ `23:39:13` en
+  Madrid; `v1b.log` se escribió a 21:39:14Z) y la grafía de ruta
+  sin `./` (V-1b) frente a `./` (`build-win32.sh`/H4a). El
+  volcado de H4a NO está en Drive ⇒ pendiente de re-subida (se
+  reconocería por `./glide2x.dll:` inicial y `Time/Date`
+  ~`Sun Oct 11 01:26` local).
+- Verificación cruzada: `p-w5-forwarder-probe.log` (no movido)
+  recomputado
+  `c630759a0782f5e174675202b65c0df42c66c63ee641eb7750139edec43e8b47`
+  == SHA aportado por el mantenedor; `v1-h4a.log` lleva el
+  SHA-256 del shim H4a `d0ea3151…`; `v1b.log` lleva el de V-1b
+  `1f234c0a…ccb98217` (== TESTING).
+- `matrix2.log` archivado cierra el pendiente H4b: build rc=1
+  (ld no exporta los nombres decorados) ⇒ H4a es la forma buena.
+- Sync: TESTING (V-1 H4a; MATRIZ-2/H4b), README shim (F-3;
+  reconciliación V-1b), PROJECT_STATE (blurb + pendientes),
+  PROJECT_STATUS (corrección puntual fila v3.5: SHA recomputado).
+  **SVG/panel intactos** (organizar evidencias no es hito). Sin
+  cambios de código: `gshim.c`/`.def`/arnés congelados.
+
 ## 2026-10-11 — 0.0.0 — P-W5: cierre documental — log SHA-256 + evidencias archivadas en Drive (`Reports/`)
 
 - Evidencias P-W5 archivadas (subida manual del mantenedor) en

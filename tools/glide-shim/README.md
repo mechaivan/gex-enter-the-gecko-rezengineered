@@ -130,8 +130,9 @@ F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
 (build rc=0, `CHECK_EXPORTS: PASS`). dllexport emitía twins
 `X@N` (dedup solo por nombre); sospecha del mantenedor
-CONFIRMADA. Integrado en árbol; V-1 H4a superado PC (38/38,
-log/sha pendientes de archivar). V-2 bloqueada por 2 fallos del
+CONFIRMADA. Integrado en árbol; V-1 H4a superado PC (38/38; log
+y SHA archivados 2026-10-11 en `REZengineered/Reports/H4a/`).
+V-2 bloqueada por 2 fallos del
 harness (rutas child_load + cmp ausente); fix en árbol.
 Re-run V-2 (a827647): 6/14 — check de bind antes de la 1.ª
 llamada (el shim enlaza perezoso por diseño); fix en árbol.
@@ -195,9 +196,11 @@ coincide (PASS, rc=0, real 38/38) con los criterios documentados
 → se MANTIENE el PASS (hecho histórico intacto). Falta de archivo
 concreta, sin reconstruir nada: los artefactos `v1b.log`,
 `exports_shim.txt` y `exports_real.txt` nunca estuvieron en git
-(`.gitignore` excluye `*.log`) → pendientes en
-`REZengineered/Reports/` (Drive), junto al log+SHA de V-1 H4a y
-el resto de `matrix2.log`.
+(`.gitignore` excluye `*.log`) → archivados 2026-10-11 en
+`REZengineered/Reports/V1b/` (Drive; el `exports_shim.txt`
+presente es el de este run V-1b — identificado por su PE
+`Time/Date` y la grafía de ruta — nunca mezclado con el de
+H4a, pendiente de re-subida).
 
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
 

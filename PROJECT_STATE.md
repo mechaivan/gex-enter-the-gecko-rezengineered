@@ -86,19 +86,23 @@
   14+3+74+3+3+17+11 + 71 conductual; V-0 superado PC; suite portable;
   V-1 superado PC 2026-10-10 (GCC 16.1.0, 38/38, F-2 evaluado benigno);
   F-3 H4a verificado PC (mismatch-alias + sin dllexport = 38);
-  integrado en árbol, V-1 H4a superado PC (38/38, log/sha
-  pendientes de archivar); V-1b superado PC 2026-10-10
+  integrado en árbol, V-1 H4a superado PC (38/38; log y SHA
+  archivados 2026-10-11 en `Reports/H4a/`); V-1b superado PC
+  2026-10-10
   (cruce vs DLL real 38/38); V-2 SUPERADO PC 2026-10-11 (sobre
   `0c22556`: `W32HARNESS: 14 passed, 0 failed` + `ALL PASS` +
   `SUITE: ALL PASS` + `V2_RC=0`; log SHA-256 `3ff4672a…`);
   P-W5 SUPERADO PC 2026-10-11 (probe aislado de resolución de
   exports: 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`,
   exit 0; sin llamadas y sin Gex); evidencias P-W5 ya archivadas en
-  `REZengineered/Reports/` (log SHA-256 aportado `c630759a…`, +
-  binario/fuente/lista/informe). Pendiente: procedimiento in-game
-  (smoke NOLOG + tanda real en copia de trabajo) y archivo de
-  evidencias restantes (v1b.log / exports_*.txt, log+SHA de V-1 H4a,
-  resto de matrix2.log) en Drive `REZengineered/Reports/`).
+  `REZengineered/Reports/` (log SHA-256 `c630759a…`, recomputado
+  2026-10-11 sobre la copia archivada: coincide; +
+  binario/fuente/lista/informe). Evidencias V-1 H4a/V-1b,
+  matrix2 y V-2 archivadas 2026-10-11 en
+  `REZengineered/Reports/{H4a,V1b,Matrix2,V2}/` (pendiente:
+  re-subir el `exports_shim.txt` del run H4a, nunca mezclado con
+  el de V-1b). Pendiente: procedimiento in-game (smoke NOLOG +
+  tanda real en copia de trabajo)).
 
 ## Limitaciones actuales
 

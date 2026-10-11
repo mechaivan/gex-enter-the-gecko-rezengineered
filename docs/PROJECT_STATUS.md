@@ -238,7 +238,7 @@ enabler verificado (2026-10-11): shim Glide validado V-0→V-2 y exports
 | v3.2 | 2026-10-09 | 6114f0b | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
 | v3.3 | 2026-10-09 | (este commit) | Datos: A2.3 atribución nGlide 2.10 (payload-hash = drop oficial) → A2 46%, global 20%. Corrige cabecera §4.4 (stale). Mismo diseño. |
 | v3.4 | 2026-10-11 | 0c22556 | Estado verificado: instrumentación Glide validada en PC (shim V-0→V-2; V-2 = arnés 14/14 + `SUITE: ALL PASS` + `V2_RC=0`; log sha256 `3ff4672a…`) → micro-línea en la zona de resumen (col. SIGUIENTE HITO) + fecha/ref. **Cifras sin cambios** (ningún hito/área cambia). Mismo diseño. |
-| v3.5 | 2026-10-11 | (este commit) | Estado verificado: P-W5 SUPERADO (probe PC, reportado: resolución 38/38 de exports por el cargador; 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`; sin llamadas ni Gex; evidencias archivadas 2026-10-11 en `REZengineered/Reports/`, log SHA-256 *aportado* `c630759a…`) → micro-línea del resumen actualizada. **Cifras sin cambios** (P-W5 no completa ningún hito del panel). Mismo diseño. |
+| v3.5 | 2026-10-11 | (este commit) | Estado verificado: P-W5 SUPERADO (probe PC, reportado: resolución 38/38 de exports por el cargador; 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`; sin llamadas ni Gex; evidencias archivadas 2026-10-11 en `REZengineered/Reports/`, log SHA-256 `c630759a…`, ahora recomputado 2026-10-11 y coincidente) → micro-línea del resumen actualizada. **Cifras sin cambios** (P-W5 no completa ningún hito del panel). Mismo diseño. |
 
 ## 6. Procedimiento de actualización (Arena)
 
