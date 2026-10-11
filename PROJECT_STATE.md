@@ -90,11 +90,14 @@
   pendientes de archivar); V-1b superado PC 2026-10-10
   (cruce vs DLL real 38/38); V-2 SUPERADO PC 2026-10-11 (sobre
   `0c22556`: `W32HARNESS: 14 passed, 0 failed` + `ALL PASS` +
-  `SUITE: ALL PASS` + `V2_RC=0`; log SHA-256 `3ff4672a…`).
-  Pendiente: procedimiento in-game (smoke NOLOG + tanda real en
-  copia de trabajo) y archivo de evidencias (v1b.log /
-  exports_*.txt, log+SHA de V-1 H4a, resto de matrix2.log) en
-  Drive `REZengineered/Reports/`).
+  `SUITE: ALL PASS` + `V2_RC=0`; log SHA-256 `3ff4672a…`);
+  P-W5 SUPERADO PC 2026-10-11 (probe aislado de resolución de
+  exports: 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`,
+  exit 0; sin llamadas y sin Gex). Pendiente: procedimiento in-game
+  (smoke NOLOG + tanda real en copia de trabajo) y archivo de
+  evidencias (v1b.log / exports_*.txt, log+SHA de V-1 H4a, resto de
+  matrix2.log, probe P-W5: binario/fuente/log) en Drive
+  `REZengineered/Reports/`).
 
 ## Limitaciones actuales
 

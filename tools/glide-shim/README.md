@@ -120,8 +120,11 @@ Fuentes primarias: `gshim.c:311-317`, firmas SDK, `.def`,
 V-1b; secundaria: typedef `FARPROC` (corroboración web). Cast
 SIN cambios (supresión local solo ante `-Werror` real).
 Límite: estático; la ruta dinámica del arnés quedó cubierta por
-V-2 (contra fake staged); contra la DLL real sigue pendiente
-(P-W5/in-game).
+V-2 (contra fake staged); contra la DLL real, la resolución quedó
+cubierta por P-W5 (probe PC 2026-10-11: 3/3 hooks → shim + 35/35
+forwarders → `glide2x_gex_real.dll`, sin llamadas ni Gex;
+artefactos del probe pendientes de archivar); la conducta en
+llamada / in-game sigue pendiente.
 
 F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
@@ -143,6 +146,14 @@ Re-run V-2 (0c22556): **SUPERADO** — `W32HARNESS: 14 passed, 0
 failed` + `W32HARNESS: ALL PASS`, `SUITE: ALL PASS`, `V2_RC=0`
 (log SHA-256 `3ff4672a…4c3d824ea`); `SKIP behaviour` en MINGW32
 = esperado (etapa Linux-host). V-1 PASS en la misma corrida.
+
+P-W5 (2026-10-11): **SUPERADO** — resolución de los 38 exports con
+el cargador de Windows: `PROBE SUMMARY: hooks=3/3 forwarders=35/35
+failed=0` + `PROBE: ALL PASS`, exit 0; los 3 hooks resuelven en el
+shim y los 35 forwarders en `glide2x_gex_real.dll` (copia real
+renombrada); sin llamadas a funciones exportadas y sin Gex.
+Evidencia aportada por el mantenedor (binario/fuente/log del probe
+pendientes de archivar en `REZengineered/Reports/`).
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
@@ -361,10 +372,10 @@ por contrato C89 + W01/W08 en PC (aceptación y pérdida acotada);
 la igualdad exacta no se mide sin hooks (B13 solo observa glibc) y
 no se afirma como promesa
 portable. Los exports de la DLL concreta se verifican
-en V-1b (evidencia directa); la carga real en el juego, en el
-procedimiento in-game. Pendiente explícito: procedimiento
-in-game (instalación en copia + smoke NOLOG + tanda real:
-requiere ejecutar el juego) y P-W5 (35 forwarders vs DLL real).
+en V-1b (evidencia directa) y su resolución dinámica vía shim en
+P-W5 (2026-10-11); la carga real en el juego, en el procedimiento
+in-game. Pendiente explícito: procedimiento in-game (instalación
+en copia + smoke NOLOG + tanda real: requiere ejecutar el juego).
 El arnés W00–W11 y la suite ya tienen evidencia PC 2026-10-11
 (V-2 superado).
 **Compatibilidad plena NO declarada; la validación dinámica del

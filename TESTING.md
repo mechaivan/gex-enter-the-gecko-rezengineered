@@ -911,14 +911,40 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   finalize-antes-de-forward, degradación con IO bloqueada,
   overflow, doble shutdown, DETACH/prebound — contra una fake
   staged al lado, SIN Gex ni la DLL real. NO cubre: conducta de
-  los 35 forwarders contra la DLL real (P-W5) ni el procedimiento
-  in-game (smoke NOLOG + tanda real, README § Procedimiento),
-  ambos pendientes y requieren ejecutar el juego en la copia de
-  trabajo.
+  los 35 forwarders contra la DLL real (P-W5 — CERRADO 2026-10-11
+  en su parte de resolución dinámica; ver bloque P-W5) ni el
+  procedimiento in-game (smoke NOLOG + tanda real, README §
+  Procedimiento), que sigue pendiente y requiere ejecutar el
+  juego en la copia de trabajo.
 - **Efecto colateral verificado:** W01 pasa en PC ⇒ el contrato
   del propio W01 dictamina que `%llu`/`%lld` de `gshim.c` no se
   manglan en esta toolchain (MSYS2 GCC 16.1.0); F-1 queda como
   nota de contingencia, código sin cambios.
+- **P-W5 SUPERADO (PC mantenedor, reportado 2026-10-11; probe
+  dinámico aislado): resolución de los 38 exports con el cargador
+  de Windows.** Evidencia aportada por el mantenedor —
+  `forwarder_probe.exe` (verificador Win32 de resolución de
+  exports; NO en el repo) en `/tmp/gex-pw5-e1-probe/`:
+  `PROBE SUMMARY: hooks=3/3 forwarders=35/35 failed=0` +
+  `PROBE: ALL PASS`, exit code 0. Atribución por módulo: los 3
+  hooks (`_grBufferSwap@4`, `_grBufferNumPending@0`,
+  `_grGlideShutdown@0`) dentro del shim `glide2x.dll`; los 35
+  forwarders dentro de `glide2x_gex_real.dll` (copia real
+  renombrada). El verificador no llamó a ninguna función
+  exportada y no inició Gex.
+- **Alcance de P-W5:** cubre la cadena de resolución del cargador
+  (shim → forwarder → módulo real) y la pertenencia de módulo de
+  las 38; implica (inferencia etiquetada, no medida directa) que
+  la copia real cargó bajo el nombre renombrado en ese entorno y
+  que los 35 no re-dirigen a un segundo salto en esa ruta
+  (coincide con V-1b). NO cubre: conducta en llamada de los 35
+  (el verificador no invoca; la ejerce funcionalmente la fase
+  in-game), in-game, rendimiento ni el camino del IAT del exe
+  (AC4 del plan; cobertura extra no exigida). **Procedencia:**
+  resultado reportado por el mantenedor; binario, fuente y log
+  NO están en el repo (pendientes de archivar en
+  `REZengineered/Reports/`); el commit exacto del árbol del probe
+  no consta (rama en `551fae1`).
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 
@@ -1024,8 +1050,10 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   ptrace/strace; cota MSVCRT por construcción + W01/W08);
   P-W4 setvbuf-rechazado en MSVCRT (CRT no interponible; rama
   cubierta por B14 en Linux; W01 afirma el positivo);
-  P-W5 conducta de los 35 forwarders (exige DLL real;
-  territorio V-1b/V-2); P-W6 compilación MinGW-32 real +
+  P-W5 resolución dinámica de los 35 forwarders (CERRADO
+  2026-10-11: probe PC 3/3 hooks + 35/35 forwarders → módulo real;
+  la conducta en llamada de los 35 no es del shim y la cubre
+  funcionalmente la fase in-game); P-W6 compilación MinGW-32 real +
   corrida de los 14 (CERRADO 2026-10-11: los 14 corrieron en PC,
   V-2 superado; este sandbox no tiene MinGW ni Windows:
   C warning-clean vs stub /tmp, parsers ensayados 22/22 con

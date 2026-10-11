@@ -2,6 +2,40 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — P-W5 SUPERADO (resolución dinámica de exports, probe PC); registro en Reports + panel v3.5 (solo dato de estado)
+
+- **P-W5 (resolución de los 38 exports con el cargador de Windows)
+  SUPERADO en PC** (reportado 2026-10-11): `forwarder_probe.exe`
+  en `/tmp/gex-pw5-e1-probe` → `PROBE SUMMARY: hooks=3/3
+  forwarders=35/35 failed=0` + `PROBE: ALL PASS`, exit code 0.
+  Los 3 hooks resuelven dentro del shim `glide2x.dll`; los 35
+  forwarders dentro de `glide2x_gex_real.dll` (copia real
+  renombrada). Sin llamadas a funciones exportadas y sin Gex.
+- Alcance: cubre resolución + pertenencia de módulo. NO cubre
+  conducta en llamada de los 35 (fuera del shim; la ejerce
+  funcionalmente la fase in-game), in-game, rendimiento, ni el
+  camino del IAT del exe (AC4 del plan; cobertura extra no
+  exigida). Inferencias etiquetadas (no medidas): la copia real
+  cargó bajo el nombre renombrado en ese entorno; los 35 no
+  re-dirigen a un segundo salto en esa ruta (coincide con V-1b).
+- Procedencia: resultado **aportado por el mantenedor**; binario,
+  fuente y log del probe NO están en el repo (no auditados por
+  Arena) → pendientes de archivar en `REZengineered/Reports/`.
+  El commit exacto del árbol del probe no consta (rama en
+  `551fae1`). Registro subido a Drive `REZengineered/Reports/`
+  (informe con ficha tamaño/SHA-256/MD5; validación = reportado
+  en PC; artefactos crudos pendientes).
+- Panel **v3.5**: SOLO dato de estado verificado (micro-línea
+  «Shim validado (V-0→V-2+P-W5, PC)») + fecha/ref. **Cifras
+  intactas** (A1 32, A2 46, A3 0, A4 0, A5 33; global 20%; MAIN
+  40%): P-W5 no completa ningún hito del panel.
+- Producción intacta (`gshim.c`/`.def`/arnés); sin ejecutar Gex;
+  DLL original intacta. Hitos abiertos sin cambios: procedimiento
+  in-game, P-W1…P-W4, E-2, y los MAIN/A-x sin evidencia.
+- Sync: TESTING (bloque P-W5 + alcance), README shim (estado
+  V-0→V-2+P-W5, riesgos re-anclados), PROJECT_STATE (blurb +
+  pendientes de archivo), PROJECT_STATUS/SVG (v3.5).
+
 ## 2026-10-11 — 0.0.0 — V-2 SUPERADO en PC (arnés 14/14 + SUITE ALL PASS); V-1b reconciliado; dashboard v3.4 sin cambios de cifras
 
 - **V-2 SUPERADO** (PC mantenedor, reportado 2026-10-11, sobre
