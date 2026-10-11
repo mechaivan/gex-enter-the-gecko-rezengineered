@@ -2,6 +2,36 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-2: harness PC 14/14; suite bloqueada por fakelogic (vehículo POSIX + `__stdcall` redefinido); fix en árbol
+
+- PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `85d72d2`):
+  `W32HARNESS: 14 passed, 0 failed` / `ALL PASS`; `SUITE:
+  FAILURES`, único fallo `fakelogic: real fakereal.c compiles`.
+- CAUSA 1 (error duro, oculto por el truncado a 300 chars del
+  diagnóstico): el vehículo de FAKELOGIC enlazaba
+  `tests/behavior/harness_impl.c` (Linux-only: `<dlfcn.h>`,
+  `dlsym(RTLD_NEXT)`, `-ldl`) → en MinGW `fatal error: 'dlfcn.h'
+  file not found` y `-ldl` inexistente. Reproducido en target
+  real `x86-windows-gnu`.
+- CAUSA 2 (aviso ruidoso + ABI cdecl silenciosa): el stub
+  redefinía `__stdcall`, que los compiladores Win32 predefinen
+  (GCC `gcc/config/i386/cygming.h:135`; clang además
+  `__declspec`) → `-Wmacro-redefined`.
+- Fix: FAKELOGIC compila el `fakereal.c` REAL + mini-impl
+  portable generado (`getenv`/`_Exit`, 25 líneas) sin `-ldl`;
+  ambos stubs guardan las grafías Win32 con `#ifndef` (gana la
+  definición del target); diagnóstico completo volcado al log
+  en fallo.
+- Pines nuevos (STUBTARGET): grafías guardadas en ambos stubs;
+  cero diagnósticos de redefinición (predefines reales en el PC,
+  emuladas en Linux); la definición del target sobrevive
+  (`__stdcall` → atributo, no vacío). Negativos vs `85d72d2`:
+  4 FAIL (`__stdcall` → EMPTY/cdecl).
+- Verificación: suite Linux `SUITE: ALL PASS` (291 checks,
+  BEHAVIOUR 93/93); vehículo nuevo compila+enlaza limpio en
+  `x86-windows-gnu` real con `-Wall -Wextra -Werror`. Panel
+  intacto (V-2 aún NO superado). Re-run PC pendiente.
+
 ## 2026-10-11 — 0.0.0 — V-2 re-run 11/14: W03 off-by-one + W05/W10 strict-99 (fix en árbol)
 
 - PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `002fd6a`):

@@ -1,8 +1,11 @@
 #!/bin/bash
 # Audit test-suite for glide-shim: static + behavioural + native win32 stage (loud SKIP when not on Windows).
-# 1-6: python checks (.def coverage, SDK arities, init/exit structure,
+# 1: python checks (.def coverage, SDK arities, init/exit structure,
 # docs honesty tripwires, export-checker self-test vs PE fixtures,
-# environment-detection self-test). Python resolved portably
+# environment-detection self-test, harness order pin, win32logic:
+# TRIPSCAN + FAKELOGIC + STUBTARGET execute the real Win32-only C
+# logic and the stub guards here AND on MSYS2 MINGW32).
+# Python resolved portably
 # (python3/python/py, verified to run: the MS Store alias is skipped).
 # 7: C syntax check vs the win32 stub (needs gcc; SKIP if absent or if
 # the shim's own 32-bit guard trips — e.g. a 64-bit Windows gcc, which

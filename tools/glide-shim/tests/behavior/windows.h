@@ -14,12 +14,27 @@ typedef long LONG;
 typedef const char *LPCSTR;
 #define TRUE 1
 #define FALSE 0
+/* Win32 calling-convention/declspec spellings. A real Win32 target
+ * ALREADY provides them: GCC predefines __stdcall as
+ * __attribute__((__stdcall__)) (gcc/config/i386/cygming.h), clang
+ * additionally predefines __declspec, and mingw-w64's _mingw.h only
+ * fills __declspec in when absent (#ifdef-guarded). Redefining them
+ * here would emit -Wmacro-redefined and silently downgrade the
+ * convention to cdecl (MSYS2 MINGW32 PC run, 85d72d2). Guarded, the
+ * target's own definition wins there, and on the Linux host -- where
+ * nothing defines them -- this stub stays the single source. */
+#ifndef APIENTRY
 #define APIENTRY
+#endif
+#ifndef __stdcall
+#define __stdcall
+#endif
+#ifndef __declspec
+#define __declspec(x)
+#endif
 #define MAX_PATH 260
 #define DLL_PROCESS_ATTACH 1
 #define DLL_PROCESS_DETACH 0
-#define __stdcall
-#define __declspec(x)
 typedef struct { long long QuadPart; } LARGE_INTEGER;
 void DisableThreadLibraryCalls(HMODULE);
 int QueryPerformanceFrequency(LARGE_INTEGER *);

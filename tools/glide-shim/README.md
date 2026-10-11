@@ -131,8 +131,10 @@ harness (rutas child_load + cmp ausente); fix en árbol.
 Re-run V-2 (a827647): 6/14 — check de bind antes de la 1.ª
 llamada (el shim enlaza perezoso por diseño); fix en árbol.
 Re-run V-2 (002fd6a): 11/14 — W03 off-by-one 38/37 en scan,
-W05/W10 STRICT-99 con IO bloqueada (finalize sí corrió);
-fix en árbol, re-run pendiente.
+W05/W10 STRICT-99 con IO bloqueada (finalize sí corrió); fix
+en árbol. Re-run V-2 (85d72d2): harness 14/14 ALL PASS, suite
+FAIL única por fakelogic (vehículo Linux-only <dlfcn.h>/-ldl +
+stub redefiniendo __stdcall); fix en árbol, re-run pendiente.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en

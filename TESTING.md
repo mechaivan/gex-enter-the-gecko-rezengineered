@@ -826,7 +826,39 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   (STRICT+bloqueo → exit 0, fallan 99 pre-fix), FAKELOGIC
   (`fakereal.c` REAL: 6 estados incl. 2×99 genuino),
   TRIPSCAN (scan REAL: 1 trip; 0 pre-fix). `gshim.c`/`.def`
-  intactos (cero cambios). Re-run PC pendiente.
+  intactos (cero cambios).
+- **V-2 re-run (PC sobre `85d72d2`, reportado 2026-10-11):
+  harness 14/14 (`W32HARNESS: ALL PASS`), suite FAIL única por
+  `fakelogic: real fakereal.c compiles`.** W00-W11 corren de
+  verdad; el fallo es de la etapa auxiliar, no del harness.
+- **CAUSA fakelogic #1 (error duro; quedaba invisible tras el
+  truncado a 300 chars del diagnóstico):** el vehículo enlazaba
+  `tests/behavior/harness_impl.c`, Linux-only (`<dlfcn.h>`,
+  `dlsym(RTLD_NEXT)`, `-ldl`). En un target MinGW real →
+  `fatal error: 'dlfcn.h' file not found` y `-ldl` inexistente.
+  Reproducido contra `x86-windows-gnu` real (toolchain + headers
+  mingw-w64): los 300 chars visibles eran solo los avisos de #2.
+- **CAUSA fakelogic #2 (ruido + ABI cdecl silenciosa):** el stub
+  redefinía `__stdcall`, que los compiladores Win32 predefinen
+  (GCC `gcc/config/i386/cygming.h:135` =
+  `__attribute__((__stdcall__))`; clang además `__declspec`) →
+  `-Wmacro-redefined` y pérdida de la convención del target.
+- **Fix:** FAKELOGIC compila el `fakereal.c` REAL + un mini-impl
+  portable generado (`getenv`/`_Exit`, 25 líneas) y enlaza sin
+  `-ldl`; ambos stubs (`tests/behavior/windows.h`,
+  `tests/win32_stub/windows.h`) guardan las grafías Win32 con
+  `#ifndef` (gana la definición del target); en fallo se vuelca
+  el diagnóstico completo al log (la tapa de 300 chars escondió
+  la causa real).
+- **Pines nuevos (STUBTARGET):** grafías guardadas en los dos
+  stubs; cero diagnósticos de redefinición con las predefines
+  reales del target (PC) o emuladas (Linux); y la definición del
+  target sobrevive (`__stdcall` → atributo, no vacío). Negativo
+  vs `85d72d2`: 4 FAIL (`__stdcall` → EMPTY/cdecl). Verificación
+  local: suite `SUITE: ALL PASS` (291 checks, BEHAVIOUR 93/93);
+  el vehículo nuevo compila y enlaza limpio en `x86-windows-gnu`
+  real con `-Wall -Wextra -Werror`. Win32 real sigue siendo el
+  PC. Panel intacto (V-2 aún NO superado). Re-run PC pendiente.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

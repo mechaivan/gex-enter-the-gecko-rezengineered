@@ -11,12 +11,22 @@ typedef long LONG;
 typedef const char *LPCSTR;
 #define TRUE 1
 #define FALSE 0
+/* Guarded: a real Win32 compiler already predefines these (GCC:
+ * gcc/config/i386/cygming.h; the PC's stage-7 log showed the
+ * redefinition warning). The guard keeps the toolchain's own
+ * definition where it exists and stays self-contained on Linux. */
+#ifndef APIENTRY
 #define APIENTRY
+#endif
+#ifndef __stdcall
+#define __stdcall __attribute__((stdcall))
+#endif
+#ifndef __declspec
+#define __declspec(x)
+#endif
 #define MAX_PATH 260
 #define DLL_PROCESS_ATTACH 1
 #define DLL_PROCESS_DETACH 0
-#define __stdcall __attribute__((stdcall))
-#define __declspec(x)
 typedef struct { long long QuadPart; } LARGE_INTEGER;
 void DisableThreadLibraryCalls(HMODULE);
 int QueryPerformanceFrequency(LARGE_INTEGER *);
