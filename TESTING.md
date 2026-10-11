@@ -722,6 +722,9 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `-Werror` con necesidad real. Límite: estático; invocación
   dinámica pendiente (V-2/P-W5). Estado: evaluado, no corregido;
   código intacto.
+  ACTUALIZADO 2026-10-11: V-2 SUPERADO ⇒ la ruta dinámica del
+  arnés (carga en proceso + reenvío a fake staged) quedó cubierta;
+  contra la DLL real sigue pendiente (P-W5/in-game).
 - **V-1b (EJECUTADO en PC mantenedor 2026-10-10, MSYS2 MINGW32,
   copia temporal aislada): PASS, exit 0.** `build-win32.sh` con
   copia real verificada como argumento (copia temporal, sin
@@ -891,7 +894,31 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   rompió `85d72d2`), win32-harness corre W00-W11 de verdad, y la
   etapa behaviour se salta por diseño. La validación Win32 es el PC.
 - Verificación local: `SUITE: ALL PASS` (295 checks; win32logic 26),
-  BEHAVIOUR 93/93, sin restos en `/tmp`. Re-run PC pendiente.
+  BEHAVIOUR 93/93, sin restos en `/tmp`.
+- **V-2 SUPERADO (PC mantenedor, reportado 2026-10-11, sobre
+  `0c22556`): PASS.** `W32HARNESS: 14 passed, 0 failed` +
+  `W32HARNESS: ALL PASS` (W00–W11 ejecutados de verdad, sin SKIP
+  de entorno); `SUITE: ALL PASS`; `V2_RC=0`; log
+  `/tmp/v2_cleanupfix.log` SHA-256
+  `3ff4672a5602337fa02f03696df91469b31595dd923726e2e9aaafc4c3d824ea`.
+  `SKIP behaviour` en MSYS2 MINGW32 = esperado (esa etapa está
+  reservada al host Linux). V-1 (build + 38/38) PASS en la misma
+  corrida; el fix de limpieza (`0c22556`) cerró el último fallo
+  auxiliar (EBUSY del scratch). Cierra **P-W6** (compilación
+  MinGW-32 real + corrida de los 14).
+- **Alcance de V-2:** valida la DLL compilada en el arnés — carga
+  real en proceso, reenvío ×3, resolución/fail-fast, orden
+  finalize-antes-de-forward, degradación con IO bloqueada,
+  overflow, doble shutdown, DETACH/prebound — contra una fake
+  staged al lado, SIN Gex ni la DLL real. NO cubre: conducta de
+  los 35 forwarders contra la DLL real (P-W5) ni el procedimiento
+  in-game (smoke NOLOG + tanda real, README § Procedimiento),
+  ambos pendientes y requieren ejecutar el juego en la copia de
+  trabajo.
+- **Efecto colateral verificado:** W01 pasa en PC ⇒ el contrato
+  del propio W01 dictamina que `%llu`/`%lld` de `gshim.c` no se
+  manglan en esta toolchain (MSYS2 GCC 16.1.0); F-1 queda como
+  nota de contingencia, código sin cambios.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 
@@ -964,7 +991,9 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   `PASS <id>` o `FAIL <id>: <motivo concreto>`; códigos: 0
   PASS, 1 FAIL, 111 fail_fast probado (solo W06/W07), 42 crash
   sin shutdown (solo W08), 99 orden violated (siempre FAIL).
-  Timeout 180 s/hijo (kill + FAIL).
+  Timeout 180 s/hijo (kill + FAIL). **Resultado PC 2026-10-11
+  (V-2): `W32HARNESS: 14 passed, 0 failed` + `ALL PASS` — ver
+  bloque «V-2 SUPERADO» más abajo.**
 - **Conducta (14 hijos, solo Windows):** W00 loader+aislamiento
   (rutas staged, DETACH no cambia el csv); W01 exactitud
   (3000/5000/arg3, 3003 filas, 2 P cambio+1/4096, footer exacto,
@@ -997,7 +1026,8 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   cubierta por B14 en Linux; W01 afirma el positivo);
   P-W5 conducta de los 35 forwarders (exige DLL real;
   territorio V-1b/V-2); P-W6 compilación MinGW-32 real +
-  corrida de los 14 (este sandbox no tiene MinGW ni Windows:
+  corrida de los 14 (CERRADO 2026-10-11: los 14 corrieron en PC,
+  V-2 superado; este sandbox no tiene MinGW ni Windows:
   C warning-clean vs stub /tmp, parsers ensayados 22/22 con
   los bytes exactos de `harness.c`, suite anfitriona verde y
   SKIP ruidoso verificados aquí; la evidencia Win32 la da el PC).
@@ -1010,3 +1040,8 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   decisión: cambia conducta Windows de basura-a-correcto):
   `-D__USE_MINGW_ANSI_STDIO=1` en `build-win32.sh`, cero
   cambios de fuente. No se toca producción en este turno.
+  ACTUALIZADO 2026-10-11: W01 PASÓ en PC (V-2 superado) ⇒ el
+  propio W01 dictamina sin mangle de `%llu`/`%lld` en esa
+  toolchain (MSYS2 GCC 16.1.0). La propuesta
+  `-D__USE_MINGW_ANSI_STDIO=1` queda como contingencia si otra
+  toolchain lo mangla; código sin cambios.

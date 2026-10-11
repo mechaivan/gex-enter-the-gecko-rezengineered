@@ -342,11 +342,13 @@ formato, `data3.ca0`/`unshield` y tests en Windows.
   `tools/m13-core` (harness 120 checks OK; NO integrado, M-13 sigue
   PROPOSED); shim instrumentación `tools/glide-shim` v6 (auditoría setvbuf
   2026-10-10: retorno comprobado, cota 2 KB condicional (medida
-  ≤2048 B en glibc; MSVCRT pendiente V-2),
+  ≤2048 B en glibc; en MSVCRT, aceptación + pérdida acotada por
+  W01/W08 en PC 2026-10-11),
   38/38 + aridades SDK, suites 14+3+74+3+3+17+11 y 71 conductual; V-0
   superado PC 2026-10-10 — V-1 superado PC 2026-10-10 (38/38;
   F-2 evaluado benigno); V-1b superado PC 2026-10-10 (cruce real);
-  arnés W00–W11 preparado, pendiente PC), compat NO confirmada).
+  V-2 SUPERADO PC 2026-10-11 (arnés 14/14 + SUITE ALL PASS), compat
+  NO confirmada).
 
 ## M-14 — Unlimited Render Mode (experimental)
 

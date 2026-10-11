@@ -2,6 +2,47 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-2 SUPERADO en PC (arnés 14/14 + SUITE ALL PASS); V-1b reconciliado; dashboard v3.4 sin cambios de cifras
+
+- **V-2 SUPERADO** (PC mantenedor, reportado 2026-10-11, sobre
+  `0c22556`): `W32HARNESS: 14 passed, 0 failed` + `W32HARNESS:
+  ALL PASS` (W00–W11 reales, sin SKIP de entorno) + `SUITE: ALL
+  PASS` + `V2_RC=0`; log `/tmp/v2_cleanupfix.log` SHA-256
+  `3ff4672a5602337fa02f03696df91469b31595dd923726e2e9aaafc4c3d824ea`;
+  `SKIP behaviour` en MINGW32 = esperado (etapa Linux-host); V-1
+  PASS en la misma corrida. Cierra P-W6.
+- Alcance: valida la DLL en el arnés (carga real en proceso,
+  reenvío, resolución/fail-fast, orden, degradación, overflow,
+  doble shutdown, DETACH/prebound) contra fake staged, sin Gex ni
+  DLL real. Pendiente: in-game (smoke NOLOG + tanda real) y P-W5
+  (35 forwarders vs DLL real). Efecto colateral: W01 PASS en PC ⇒
+  `%llu`/`%lld` sin mangle en esa toolchain (F-1, contingencia).
+- **V-1b RECONCILIADO: PASS 2026-10-10 se MANTIENE** (criterios
+  documentados superados: arquitectura + presencia exacta +
+  forwarders; registro recuperado coincide: rc=0, real 38/38).
+  Falta de archivo concreta, sin reconstruir nada: `v1b.log`,
+  `exports_shim.txt` y `exports_real.txt` nunca estuvieron en git
+  (`.gitignore` excluye `*.log`) ni constan archivados → pendientes
+  en `REZengineered/Reports/` (Drive), junto al log+SHA de V-1
+  H4a y el resto de `matrix2.log`.
+- **V-0 sin cambios:** identidad + SHA-256 `7cbd…9aab` (y MD5)
+  documentados; DLL original no modificada ni ejecutada.
+- **Dashboard v3.4** (PROJECT_STATUS.md + SVG): SOLO dato de
+  estado verificado (instrumentación Glide validada V-0→V-2,
+  2026-10-11) + fecha/ref `0c22556`; **cifras intactas** (A1 32,
+  A2 46, A3 0, A4 0, A5 33; global 20%; MAIN 40%): ningún
+  hito/área del panel cambió → sin cambios de pesos ni de estado
+  de áreas.
+- Producción intacta: `gshim.c`/`gshim.def`/`tests/win32/harness.c`
+  y los 14 escenarios sin tocar.
+- Sync: TESTING (bloque V-2 SUPERADO + alcance + P-W6 cerrado +
+  notas F-1/F-2 con fecha), README shim (cadenas de re-run, estado
+  V-0→V-2, riesgos abiertos re-anclados a la tanda in-game, nota
+  de nombres in-game vs gate, reconciliación V-1b),
+  PROJECT_STATE (V-2 superado + pendientes), MODERNIZATION_GOALS
+  (M-13: MSVCRT + V-2), REVERSE_ENGINEERING (primer paso
+  reversible: V-2 superado), PROJECT_STATUS/SVG (v3.4).
+
 ## 2026-10-11 — 0.0.0 — V-2: limpieza del scratch de fakelogic portable Linux ↔ MSYS2 (EBUSY); fix en árbol
 
 - PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `2a8e6da`):

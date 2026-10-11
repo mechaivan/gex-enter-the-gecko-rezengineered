@@ -2,9 +2,13 @@
 
 > Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
 > El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v3.3** · Fecha: **2026-10-09** ·
-> Ref: último commit con evidencia incorporada **`e9e846c`** (sin cambios;
-> v3.3 actualiza datos (A2.3 atribución nGlide 2.10; A2 46%, global 20%): mismo diseño y metodología).
+> Versión del panel: **v3.4** · Fecha: **2026-10-11** ·
+> Ref: último commit con evidencia incorporada **`0c22556`** (V-2 superado
+> en PC 2026-10-11).
+> v3.4 añade SOLO un dato de estado verificado a la zona de resumen
+> (instrumentación Glide validada V-0→V-2, PC) + fecha/ref: **cifras sin
+> cambios** (A1 32, A2 46, A3 0, A4 0, A5 33; global 20%; MAIN 40% — ningún
+> hito, peso ni estado de área cambia).
 
 ## 1. Propósito
 
@@ -217,7 +221,9 @@ ficha glide2x.
 **EN INVESTIGACIÓN**: Wrapper: nGlide 2.10 / I-21 · I-22 ·
 API efectiva.
 **SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05 · I-01/I-02);
-A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª).
+A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª);
+enabler verificado (2026-10-11): instrumentación Glide validada en PC
+(shim V-0→V-2).
 
 ## 5. Registro de cambios del panel
 
@@ -229,6 +235,7 @@ A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª).
 | v3.1 | 2026-10-09 | 87f33e3 | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
 | v3.2 | 2026-10-09 | 6114f0b | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
 | v3.3 | 2026-10-09 | (este commit) | Datos: A2.3 atribución nGlide 2.10 (payload-hash = drop oficial) → A2 46%, global 20%. Corrige cabecera §4.4 (stale). Mismo diseño. |
+| v3.4 | 2026-10-11 | 0c22556 | Estado verificado: instrumentación Glide validada en PC (shim V-0→V-2; V-2 = arnés 14/14 + `SUITE: ALL PASS` + `V2_RC=0`; log sha256 `3ff4672a…`) → micro-línea en la zona de resumen (col. SIGUIENTE HITO) + fecha/ref. **Cifras sin cambios** (ningún hito/área cambia). Mismo diseño. |
 
 ## 6. Procedimiento de actualización (Arena)
 
@@ -260,7 +267,7 @@ commits vacíos. Conservar el diseño aprobado (solo datos, barras,
 estados y textos afectados); no rediseñar sin petición explícita.
 Cada sesión informa si el dashboard cambió o no, y por qué.
 
-### Geometría del SVG v3.3 (viewBox 0 0 760 700)
+### Geometría del SVG v3.4 (viewBox 0 0 760 700)
 
 - Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» 68px + stats
   (6/12 hitos, 14/35 puntos) + barra protagonista x=44 w=672 h=34 →
@@ -276,6 +283,10 @@ Cada sesión informa si el dashboard cambió o no, y por qué.
   % áreas 26px · stats 15px · secundarias 12/11/10.5px · micro 9.5/9px.
 - Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha
   (UPD), referencia (REF), versión del panel, líneas del resumen.
+- Resumen: micro-línea verde 9px en la columna SIGUIENTE HITO
+  (x=520, y=630) con el dato de estado verificado (v3.4: shim
+  V-0→V-2 validado en PC 2026-10-11); retirar o actualizar solo si
+  el dato deja de ser el vigente.
 - Con 0% no hay rect de relleno (añadirlo al superar 0, misma x/y/h).
 - Colores: marco #7c3aed · texto #e9d5ff · dim #8b5cf6 ·
   verde #4ade80 · ámbar #fbbf24 · gris #6b7280 · fondos #050309/#0c0616.

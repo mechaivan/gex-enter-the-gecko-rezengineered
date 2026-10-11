@@ -192,8 +192,9 @@
 > `tools/glide-shim` v6 (setvbuf-comprobado 2026-10-10, suites verdes
 > estructural + conductual + traza syscall + setvbuf-forzado; V-0
 > superado PC, V-1 superado PC (38/38; F-2 evaluado benigno); V-1b
-> superado PC (cruce real); arnés W00–W11 preparado, pendiente PC) +
-> E-2.3; núcleo acumulador verificado en harness
+> superado PC (cruce real); V-2 superado PC 2026-10-11 (arnés
+> W00–W11 14/14 + SUITE ALL PASS) + E-2.3; núcleo acumulador
+> verificado en harness
 > (`tools/m13-core`, 120 checks); el desacoplado
 > se implementa en el PROTOTIPO Fase 1+ (Hito P), no en el exe.
 >

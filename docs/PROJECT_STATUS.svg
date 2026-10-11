@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 700" font-family="monospace">
   <title>REZengineered — panel de progreso</title>
-  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 20% (57/285). A1 32, A2 46, A3 0, A4 0, A5 33.</desc>
+  <desc>MAIN 40% (14/35 puntos, 6/12 hitos). Progreso general 20% (57/285). A1 32, A2 46, A3 0, A4 0, A5 33. Instrumentación Glide validada (V-0→V-2, PC 2026-10-11).</desc>
   <defs>
     <linearGradient id="gradMain" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#7c3aed"/>
@@ -27,7 +27,7 @@
   <!-- cabecera -->
   <text x="44" y="50" font-size="15" font-weight="bold" letter-spacing="3" fill="#e9d5ff">REZENGINEERED</text>
   <text x="212" y="50" font-size="12" letter-spacing="2" fill="#8b5cf6">· PANEL DE PROGRESO</text>
-  <text x="716" y="50" text-anchor="end" font-size="12" fill="#8b5cf6">v3.3</text>
+  <text x="716" y="50" text-anchor="end" font-size="12" fill="#8b5cf6">v3.4</text>
   <line x1="44" y1="62" x2="716" y2="62" stroke="#2e1065" stroke-width="1"/>
 
   <!-- MAIN protagonista -->
@@ -119,9 +119,10 @@
   <text x="520" y="580" font-size="12" font-weight="bold" letter-spacing="1" fill="#c4b5fd">SIGUIENTE HITO</text>
   <text x="520" y="600" font-size="12" fill="#e9d5ff">Causa de 25 FPS estables</text>
   <text x="520" y="618" font-size="12" fill="#e9d5ff">(FA-05 · I-01/I-02)</text>
+  <text x="520" y="630" font-size="9" fill="#4ade80">Shim Glide validado (V-0→V-2, PC)</text>
   <line x1="44" y1="640" x2="716" y2="640" stroke="#2e1065" stroke-width="1"/>
 
   <!-- pie -->
-  <text x="44" y="666" font-size="9.5" fill="#8b5cf6">UPD 2026-10-09 · REF e9e846c</text>
+  <text x="44" y="666" font-size="9.5" fill="#8b5cf6">UPD 2026-10-11 · REF 0c22556</text>
   <text x="716" y="666" text-anchor="end" font-size="9.5" fill="#8b5cf6">METODOLOGÍA → PROJECT_STATUS.md</text>
 </svg>

@@ -8,7 +8,7 @@
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-11
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -88,10 +88,13 @@
   F-3 H4a verificado PC (mismatch-alias + sin dllexport = 38);
   integrado en árbol, V-1 H4a superado PC (38/38, log/sha
   pendientes de archivar); V-1b superado PC 2026-10-10
-  (cruce vs DLL real 38/38); V-2: harness PC 14/14; suite bloqueada
-  solo por el aux fakelogic (vehículo POSIX + `__stdcall`
-  redefinido en `85d72d2`; limpieza EBUSY en `2a8e6da`; fix en
-  árbol, re-run pendiente)).
+  (cruce vs DLL real 38/38); V-2 SUPERADO PC 2026-10-11 (sobre
+  `0c22556`: `W32HARNESS: 14 passed, 0 failed` + `ALL PASS` +
+  `SUITE: ALL PASS` + `V2_RC=0`; log SHA-256 `3ff4672a…`).
+  Pendiente: procedimiento in-game (smoke NOLOG + tanda real en
+  copia de trabajo) y archivo de evidencias (v1b.log /
+  exports_*.txt, log+SHA de V-1 H4a, resto de matrix2.log) en
+  Drive `REZengineered/Reports/`).
 
 ## Limitaciones actuales
 

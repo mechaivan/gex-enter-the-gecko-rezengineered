@@ -119,7 +119,9 @@ justificado (`-Wcast-function-type`, cast `GetProcAddress` →
 Fuentes primarias: `gshim.c:311-317`, firmas SDK, `.def`,
 V-1b; secundaria: typedef `FARPROC` (corroboración web). Cast
 SIN cambios (supresión local solo ante `-Werror` real).
-Límite: estático; dinámica en V-2/P-W5.
+Límite: estático; la ruta dinámica del arnés quedó cubierta por
+V-2 (contra fake staged); contra la DLL real sigue pendiente
+(P-W5/in-game).
 
 F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
@@ -136,8 +138,11 @@ en árbol. Re-run V-2 (85d72d2): harness 14/14 ALL PASS, suite
 FAIL única por fakelogic (vehículo Linux-only <dlfcn.h>/-ldl +
 stub redefiniendo __stdcall); fix en árbol. Re-run V-2 (2a8e6da):
 harness 14/14; suite roja por OSError EBUSY al limpiar el scratch
-de fakelogic (TemporaryDirectory en MSYS2); fix en árbol,
-re-run pendiente.
+de fakelogic (TemporaryDirectory en MSYS2); fix en árbol.
+Re-run V-2 (0c22556): **SUPERADO** — `W32HARNESS: 14 passed, 0
+failed` + `W32HARNESS: ALL PASS`, `SUITE: ALL PASS`, `V2_RC=0`
+(log SHA-256 `3ff4672a…4c3d824ea`); `SKIP behaviour` en MINGW32
+= esperado (etapa Linux-host). V-1 PASS en la misma corrida.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
@@ -172,7 +177,22 @@ temporal SHA-256 `1f234c0a…ccb98217` (NO en el repo).
 Limitaciones: cruce estático de exports; NO prueba carga en
 proceso, Gex ni integración en ejecución (ver TESTING).
 
+**Reconciliación 2026-10-11:** el registro recuperado del PC
+coincide (PASS, rc=0, real 38/38) con los criterios documentados
+→ se MANTIENE el PASS (hecho histórico intacto). Falta de archivo
+concreta, sin reconstruir nada: los artefactos `v1b.log`,
+`exports_shim.txt` y `exports_real.txt` nunca estuvieron en git
+(`.gitignore` excluye `*.log`) → pendientes en
+`REZengineered/Reports/` (Drive), junto al log+SHA de V-1 H4a y
+el resto de `matrix2.log`.
+
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
+
+> Nota de nombres: «V-2» en este apartado = paso **in-game**
+> (juego instalado), aún PENDIENTE. El gate «V-2» del repo =
+> arnés+suite en PC (superado 2026-10-11) — no confundir: el
+> arnés valida la DLL contra una fake staged, NO que el shim esté
+> listo para instalar.
 
 ```bat
 set GSHIM_NOLOG=1
@@ -321,24 +341,31 @@ Ni las estructurales ni las conductuales sustituyen a Windows:
 V-0 superado 2026-10-10 (identidad + copia, PC mantenedor);
 V-1 superado 2026-10-10 (build + 38/38, PC mantenedor; F-2
 evaluado benigno); V-1b superado 2026-10-10 (cruce vs DLL real);
-V-2 pendiente.
+V-2 superado 2026-10-11 (PC mantenedor, sobre `0c22556`: arnés
+14/14 + `SUITE: ALL PASS` + `V2_RC=0`; log sha256 `3ff4672a…`).
 
 ## Estado, riesgos abiertos y evidencia que FALTA
 
 Verificado: IAT 38/38 + aridades SDK + suites verde (estructural
 14+3+74+3+3+17+11 y conductual 71) + `DllMain` solo-ATTACH + fail-fast +
 choke NOLOG + `setvbuf` comprobado (cota 2 KB esperada; observada
-≤2048 B en Linux, pendiente confirmar en Windows/MSVCRT en V-2). Riesgos ABIERTOS (no bloquean el build, condicionan
+≤2048 B en Linux; en MSVCRT, aceptación de `setvbuf` confirmada por
+W01 y pérdida acotada por W08 en PC 2026-10-11, V-2). Riesgos ABIERTOS (no bloquean el build, condicionan
 el uso): (1) el juego podría salir sin `grGlideShutdown` ⇒ sin
-footer (V-2 lo decide; fallback WinClose pendiente); (2) tasa de
-llamadas spin real desconocida hasta V-2 (márgenes calculados,
+footer (lo decide la tanda real in-game; fallback WinClose pendiente); (2) tasa de
+llamadas spin real desconocida hasta la tanda real in-game (márgenes calculados,
 alarma lista); (3) latencia concreta de implícitos en Windows
 solo medible allí (footer `max` + A/B por tanda; page-cache/AV
-pueden moverla); (4) efectividad de la cota 2 KB en MSVCRT:
-esperada por contrato C89, pendiente de confirmación empírica
-en V-2 (B13 solo observa glibc; no se afirma como promesa
-portable). Los exports de la DLL concreta se verifican
-en V-1b (evidencia directa); la carga real, en V-2. Pendiente
-explícito de Windows: arnés W00–W11 (evidencia PC pendiente)
-+ V-2 (V-0/V-1/V-1b OK).
-**Compatibilidad plena y validación dinámica NO declaradas.**
+pueden moverla); (4) efectividad exacta de la cota 2 KB en MSVCRT:
+por contrato C89 + W01/W08 en PC (aceptación y pérdida acotada);
+la igualdad exacta no se mide sin hooks (B13 solo observa glibc) y
+no se afirma como promesa
+portable. Los exports de la DLL concreta se verifican
+en V-1b (evidencia directa); la carga real en el juego, en el
+procedimiento in-game. Pendiente explícito: procedimiento
+in-game (instalación en copia + smoke NOLOG + tanda real:
+requiere ejecutar el juego) y P-W5 (35 forwarders vs DLL real).
+El arnés W00–W11 y la suite ya tienen evidencia PC 2026-10-11
+(V-2 superado).
+**Compatibilidad plena NO declarada; la validación dinámica del
+arnés (fake) está superada (V-2); la in-game sigue sin declarar.**
