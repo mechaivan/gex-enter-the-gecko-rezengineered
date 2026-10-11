@@ -200,7 +200,7 @@ concreta, sin reconstruir nada: los artefactos `v1b.log`,
 `REZengineered/Reports/V1b/` (Drive; el `exports_shim.txt`
 presente es el de este run V-1b — identificado por su PE
 `Time/Date` y la grafía de ruta — nunca mezclado con el de
-H4a, pendiente de re-subida).
+H4a, archivado aparte en `REZengineered/Reports/H4a/`).
 
 V-2. Smoke `NOLOG` (instalado según § Procedimiento, juego 10 s):
 

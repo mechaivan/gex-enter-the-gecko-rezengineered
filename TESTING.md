@@ -780,10 +780,11 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   GCC i686 16.1.0; build OK; 38/38 exactas, 0 extras.
   Artefactos archivados 2026-10-11 en
   `REZengineered/Reports/H4a/` (`v1-h4a.log` — incluye el
-  SHA-256 del shim H4a `d0ea3151…` — y `v2-h4a.log`, suite
-  sobre el árbol H4a con los 2 fallos pre-fix del arnés); el
-  volcado `exports_shim.txt` de H4a queda pendiente de
-  re-subida (sin mezclar con el de V-1b).
+  SHA-256 del shim H4a `d0ea3151…` —, `v2-h4a.log` — suite
+  sobre el árbol H4a con los 2 fallos pre-fix del arnés — y
+  `exports_shim.txt` del run H4a (36485 B, SHA-256 `9b9170a6…`;
+  grafía `./glide2x.dll:`, `Time/Date` 01:26 local), distinto
+  del de V-1b y sin mezclar con él).
 - **V-2 (PC MSYS2 MINGW32): BLOQUEADA, 2 fallos harness.**
   (1) Los 14 escenarios FAIL en `child_load` («shim module is
   not the staged copy»): `join_path` doblaba el separador tras

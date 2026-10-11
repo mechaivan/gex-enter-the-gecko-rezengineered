@@ -2,6 +2,38 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — H4a: `exports_shim.txt` archivado en `Reports/H4a/` — archivo de evidencias V-1 completo
+
+- El mantenedor subió el `exports_shim.txt` del run H4a a
+  `REZengineered/Reports/H4a/` (creado 2026-10-11T02:40:13Z;
+  mtime de origen `2026-10-10T23:26:16.281Z`, el segundo del run
+  H4a): 36485 B, MD5 `0e3e7b06724be1add54e9f8b94d88c54`,
+  SHA-256 recomputado en el sandbox
+  `9b9170a6eb2817ea353c754c32ce0f15374b174f43dfd698406209ab746ca228`.
+- V-1b intacto: `Reports/V1b/exports_shim.txt` sigue con 36483 B
+  y SHA-256 `9a6f2bfe…53b6071` (idéntico al verificado la ronda
+  anterior; MD5 de Drive == local en ambos).
+- Los dos dumps difieren exactamente en 7 campos (14 líneas), y
+  la tabla de 38 exports es idéntica: grafía inicial
+  (`./glide2x.dll:` H4a vs `glide2x.dll:` V-1b), `Time/Date`
+  (`Sun Oct 11 01:26:15` vs `Sat Oct 10 23:39:13` local),
+  `ImageBase` (`6c040000` vs `6ca40000`; auto-image-base de ld =
+  hash del dllname, única diferencia del comando: `./`),
+  `CheckSum`, `Time/Date stamp` (`6acac997` = 23:26:15Z vs
+  `6acab081` = 21:39:13Z) y
+  las 2 direcciones derivadas (import/export). Confirma la
+  identificación previa (predicción `./glide2x.dll:` + 01:26
+  local) y descarta cualquier mezcla entre runs.
+- Verificación cruzada de tiempos: stamp H4a 23:26:15Z = 1 s
+  antes de `v1-h4a.log` (mtime 23:26:16.375Z) y del propio dump
+  (23:26:16.281Z); stamp V-1b 21:39:13Z = 1 s antes de
+  `v1b.log` (21:39:14Z).
+- Sync: TESTING (V-1 H4a: archivo completo), README shim
+  (reconciliación V-1b), PROJECT_STATE (pendiente → completo).
+  PROJECT_STATUS sin cambios (no citaba el dump). **SVG/panel
+  intactos** (documental). Sin cambios de código; sin mover ni
+  alterar nada en Drive.
+
 ## 2026-10-11 — 0.0.0 — Evidencias V-1 H4a/V-1b/Matrix2/V-2 organizadas en `Reports/` (Drive): subcarpetas + hashes recomputados
 
 - Organización (solo mover; sin duplicar ni borrar) en

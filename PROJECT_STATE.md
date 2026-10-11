@@ -99,9 +99,10 @@
   2026-10-11 sobre la copia archivada: coincide; +
   binario/fuente/lista/informe). Evidencias V-1 H4a/V-1b,
   matrix2 y V-2 archivadas 2026-10-11 en
-  `REZengineered/Reports/{H4a,V1b,Matrix2,V2}/` (pendiente:
-  re-subir el `exports_shim.txt` del run H4a, nunca mezclado con
-  el de V-1b). Pendiente: procedimiento in-game (smoke NOLOG +
+  `REZengineered/Reports/{H4a,V1b,Matrix2,V2}/` (completo:
+  también el `exports_shim.txt` del run H4a, 2026-10-11 —
+  SHA-256 `9b9170a6…` —, nunca mezclado con el de V-1b).
+  Pendiente: procedimiento in-game (smoke NOLOG +
   tanda real en copia de trabajo)).
 
 ## Limitaciones actuales
