@@ -858,7 +858,40 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   local: suite `SUITE: ALL PASS` (291 checks, BEHAVIOUR 93/93);
   el vehículo nuevo compila y enlaza limpio en `x86-windows-gnu`
   real con `-Wall -Wextra -Werror`. Win32 real sigue siendo el
-  PC. Panel intacto (V-2 aún NO superado). Re-run PC pendiente.
+  PC. Panel intacto (V-2 aún NO superado).
+- **V-2 re-run (PC sobre `2a8e6da`, reportado 2026-10-11): harness
+  14/14 `ALL PASS`; suite roja con `OSError: [Errno 16] Device or
+  resource busy: '/tmp/tmpcit66x25'`** al salir el
+  `tempfile.TemporaryDirectory` de FAKELOGIC (tras un hijo
+  `_Exit(99)` y el exe recién escrito: en Windows/MSYS el directorio
+  queda marcado "en uso" un instante y `rmdir` lo reporta como
+  EBUSY). El código viejo no podía reintentar: el manejador de
+  `tempfile._rmtree` re-lanza los errores que no son
+  `PermissionError`, e `ignore_errors=True` los silenciaría
+  (prohibido).
+- **Causa concreta:** limpieza delegada en `TemporaryDirectory` +
+  borrado de directorios en mitad del flujo (uno por caso) + lecturas
+  sin `close` explícito. Reproducido localmente: el mismo EBUSY
+  inyectado en la capa real (`tempfile._rmtree`) mata al código viejo
+  con el traceback exacto del PC; el nuevo lo absorbe.
+- **Fix (portable Linux ↔ MSYS2 MINGW32):** ciclo de vida explícito
+  del scratch por etapa (`mkdtemp` + `scratch_rmtree` con reintentos
+  acotados), el directorio cwd del hijo se **vacía** entre casos en
+  vez de borrarse, escrituras/lecturas con `close` explícito, y si un
+  scratch no se puede borrar → **FAIL ruidoso con la ruta** (nunca
+  `ignore_errors`). Pines nuevos: EBUSY de un disparo inyectado en la
+  limpieza real de FAKELOGIC + SCRATCHSELFTEST (transitorio
+  reintentado, persistente devuelto, EACCES real reportado).
+- **Qué corre de verdad en cada plataforma:** Linux host → TRIPSCAN,
+  FAKELOGIC (fakes funcionales), STUBTARGET (predefines emuladas) y
+  SCRATCHSELFTEST; win32-harness necesita toolchain i686 (si no,
+  SKIP ruidoso) y la etapa behaviour es Linux-only por diseño.
+  MSYS2 MINGW32 (PC) → las mismas tres etapas corren NATIVAS (target
+  MinGW 32-bit; rama de predefines reales, justo el mecanismo que
+  rompió `85d72d2`), win32-harness corre W00-W11 de verdad, y la
+  etapa behaviour se salta por diseño. La validación Win32 es el PC.
+- Verificación local: `SUITE: ALL PASS` (295 checks; win32logic 26),
+  BEHAVIOUR 93/93, sin restos en `/tmp`. Re-run PC pendiente.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

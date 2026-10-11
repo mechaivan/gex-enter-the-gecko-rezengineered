@@ -2,6 +2,31 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-2: limpieza del scratch de fakelogic portable Linux ↔ MSYS2 (EBUSY); fix en árbol
+
+- PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `2a8e6da`):
+  harness 14/14 `ALL PASS`; suite roja con `OSError: [Errno 16]
+  Device or resource busy: '/tmp/tmpcit66x25'` al salir
+  `tempfile.TemporaryDirectory` en FAKELOGIC (tras un hijo
+  `_Exit(99)` y el exe recién escrito).
+- Causa: `TemporaryDirectory` no reintenta los errores que no son
+  `PermissionError` (`tempfile._rmtree` los re-lanza), se borraban
+  directorios en mitad del flujo (uno por caso) y había lecturas sin
+  `close` explícito; `ignore_errors=True` lo silenciaría (prohibido).
+  Reproducido: el mismo EBUSY inyectado en `tempfile._rmtree` mata
+  al código viejo con el traceback exacto del PC.
+- Fix portable: ciclo de vida explícito (`mkdtemp` + `scratch_rmtree`
+  con reintentos acotados), el dir cwd del hijo se vacía entre casos
+  en vez de borrarse, `close` explícito, y scratch imborrable →
+  FAIL ruidoso con la ruta (nunca ignorado).
+- Pines: EBUSY de un disparo inyectado en la limpieza real de
+  FAKELOGIC (pre-fix: muere con EBUSY; ahora pasa) y
+  SCRATCHSELFTEST (transitorio reintentado / persistente devuelto /
+  EACCES real reportado).
+- Verificación: `SUITE: ALL PASS` (295 checks; win32logic 26),
+  BEHAVIOUR 93/93, sin restos en /tmp. Matriz por plataforma en
+  TESTING. Panel intacto (V-2 aún NO superado). Re-run PC pendiente.
+
 ## 2026-10-11 — 0.0.0 — V-2: harness PC 14/14; suite bloqueada por fakelogic (vehículo POSIX + `__stdcall` redefinido); fix en árbol
 
 - PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `85d72d2`):

@@ -22,8 +22,33 @@ test compiles AND runs natively on the PC too. STUBTARGET pins both
 mechanisms on either host (emulated predefines on Linux, the real
 ones on Windows). Compile diagnostics are dumped in full on failure
 (the old 300-char cap hid the fatal dlfcn.h error on the PC).
-Needs gcc for the behavioural parts; loud SKIP otherwise (the
-extraction pins still run). Exit 0 = all pass.
+PC re-run on 2a8e6da: with that fixed, TemporaryDirectory.__exit__
+then raised OSError(EBUSY, 'Device or resource busy') on MSYS2
+MINGW32 right after an _Exit(99) child: a just-exited child -- and a
+freshly written exe -- can keep a directory marked in-use for a
+moment and MSYS rmdir reports exactly that. Scratch handling is now
+explicit and portable: one root per stage, the child's cwd directory
+is emptied between cases instead of being deleted, bounded retries
+absorb the late handle release, and a scratch dir that really cannot
+be removed is a LOUD FAIL with its path -- never ignore_errors, and
+never TemporaryDirectory.__exit__ aborting the stage. The EBUSY
+window itself is Windows/MSYS-only (on Linux rmdir even removes a
+live process's cwd), so SCRATCHSELFTEST pins the contract with
+simulated transient/persistent OSErrors plus a real EACCES case, and
+FAKELOGIC runs with a one-shot EBUSY INJECTED at its cleanup:
+pre-fix that killed the stage with the PC error, now it must pass.
+Per-platform reality:
+- Linux host: TRIPSCAN, FAKELOGIC (functional fakes), STUBTARGET
+  (emulated predefines) and SCRATCHSELFTEST run; win32-harness needs
+  an i686 toolchain (else loud SKIP); the behaviour stage is
+  Linux-host-only by design.
+- MSYS2 MINGW32 (the PC): the same three stages run NATIVELY
+  (32-bit MinGW target; real-predefines branch = the mechanism that
+  broke the 85d72d2 run); win32-harness runs W00-W11 for real; the
+  Linux behaviour stage SKIPs there by design.
+Win32 validation is the PC run. Needs gcc for the behavioural parts;
+loud SKIP otherwise (the extraction pins and the scratch self-test
+still run). Exit 0 = pass.
 """
 import os
 import re
@@ -31,6 +56,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import traceback
 
 TESTDIR = os.path.dirname(os.path.abspath(__file__))
 SHIMDIR = os.path.dirname(TESTDIR)
@@ -68,6 +95,67 @@ def dump_diag(p, cap=80):
         print('| ' + ln)
     if len(lines) > cap:
         print('| ...(%d more lines)' % (len(lines) - cap))
+
+
+def write_text(path, text):
+    """Explicit close: on Windows an open handle blocks scratch removal."""
+    with open(path, 'w') as f:
+        f.write(text)
+
+
+def read_text(path):
+    with open(path, 'r') as f:
+        return f.read()
+
+
+def scratch_rmtree(path, attempts=15, delay=0.2):
+    """Remove a scratch dir, retrying the OS's late handle release.
+
+    MSYS2 MINGW32: right after an _Exit(99) child (and for a freshly
+    written exe) the directory can still be marked in-use for a
+    moment; MSYS rmdir then fails with OSError(EBUSY, 'Device or
+    resource busy') -- observed on the PC at 2a8e6da. Retries are
+    bounded and the last error is RETURNED so the caller can FAIL
+    loudly with the path: a scratch dir that cannot be removed is
+    never silently ignored.
+    """
+    last = None
+    for i in range(attempts):
+        try:
+            shutil.rmtree(path)
+            return None, i
+        except OSError as exc:
+            last = exc
+            time.sleep(delay)
+    return last, attempts
+
+
+def report_cleanup(stage, path):
+    """Delete a stage's scratch root: note late releases, FAIL real ones."""
+    err, tries = scratch_rmtree(path)
+    if tries and err is None:
+        print('| note: %s scratch cleanup needed %d retry/ies (late handle '
+              'release on Windows/MSYS)' % (stage, tries))
+    if err is not None:
+        check(False, '%s: scratch dir removed (%s: %s)' % (stage, path, err))
+
+
+def clean_case_dir(path, attempts=8):
+    """Empty a case dir (files, not the dir) with bounded retries."""
+    last = None
+    for i in range(attempts):
+        try:
+            for name in os.listdir(path):
+                p = os.path.join(path, name)
+                if os.path.isdir(p):
+                    shutil.rmtree(p)
+                else:
+                    os.remove(p)
+            return None
+        except OSError as exc:
+            last = exc
+            time.sleep(0.2)
+    return last
 
 
 SCAN_MAIN = r'''
@@ -168,7 +256,7 @@ def extract_fn(src, start_mark):
 
 def tripscan_static():
     """Extraction pins (stdlib only). Returns driver context or None."""
-    h = open(HARNESS_C, encoding='utf-8').read()
+    h = read_text(HARNESS_C)
     if h.count('W03_overflow') < 1 or h.count('W04_nolog') < 1:
         check(False, 'tripscan: W03 block markers found')
         return None
@@ -190,7 +278,7 @@ def tripscan_static():
     check(True, 'tripscan: scan predicate extracted')
     check(lenexpr == 'sizeof(want) - 1',
           'tripscan: length derived via sizeof (no hand count)')
-    g = open(GSHIM_C, encoding='utf-8').read()
+    g = read_text(GSHIM_C)
     m = re.search(r'# overflow at seq=%u: ([^"]*?)\\n', g)
     if not m:
         check(False, 'tripscan: marker format extracted from gshim.c')
@@ -210,14 +298,15 @@ def tripscan_static():
 
 
 def tripscan_run(gcc, ctx):
-    with tempfile.TemporaryDirectory() as d:
+    d = tempfile.mkdtemp(prefix='tripscan-')
+    try:
         src = SCAN_MAIN.replace('@READLINE@', ctx['readline'])
         src = src.replace('@WANTDECL@', ctx['wantdecl'])
         src = src.replace('@LIT@', ctx['litexpr'])
         src = src.replace('@LEN@', ctx['lenexpr'])
         c = os.path.join(d, 'scan.c')
         exe = os.path.join(d, 'scan')
-        open(c, 'w').write(src)
+        write_text(c, src)
         fixture = ('# gshim test qpf=1 (init) buf=2048\n'
                    '# seq,tick_raw,event,arg\n'
                    '1,100,S,3\n'
@@ -226,7 +315,7 @@ def tripscan_run(gcc, ctx):
                    + ctx['marker'] + '\n'
                    + '3,300,S,3\n'
                    '# end rows=3 overflow=1 swaps=300000 by=shutdown\n')
-        open(os.path.join(d, 'scan.csv'), 'w').write(fixture)
+        write_text(os.path.join(d, 'scan.csv'), fixture)
         p = subprocess.run([gcc, '-std=c11', '-O2', '-o', exe, c],
                            capture_output=True, text=True)
         check(p.returncode == 0,
@@ -237,6 +326,8 @@ def tripscan_run(gcc, ctx):
         p = subprocess.run([exe], capture_output=True, text=True, cwd=d)
         check(p.returncode == 0,
               'tripscan: exactly 1 trip (%s)' % p.stdout.strip())
+    finally:
+        report_cleanup('tripscan', d)
 
 
 FAKE_CASES = [
@@ -272,18 +363,29 @@ FAKE_CASES = [
 
 
 def fakelogic(gcc):
-    """Compile the REAL fakereal.c + a portable mini-impl, then drive it."""
-    with tempfile.TemporaryDirectory() as d:
-        mini = os.path.join(d, 'w32mini.c')
-        open(mini, 'w').write(MINI_C)
-        fmain = os.path.join(d, 'fmain.c')
-        open(fmain, 'w').write(FAKE_MAIN)
+    """Compile the REAL fakereal.c + a portable mini-impl, then drive it.
+
+    Scratch layout: one root; bin/ holds the sources, objects and the
+    exe (never a child's cwd), case/ is the child's cwd and is emptied
+    between cases instead of being deleted -- on Windows/MSYS a
+    just-exited child can keep a directory marked in-use for a moment.
+    """
+    root = tempfile.mkdtemp(prefix='fakelogic-')
+    try:
+        bindir = os.path.join(root, 'bin')
+        casedir = os.path.join(root, 'case')
+        os.mkdir(bindir)
+        os.mkdir(casedir)
+        mini = os.path.join(bindir, 'w32mini.c')
+        fmain = os.path.join(bindir, 'fmain.c')
+        write_text(mini, MINI_C)
+        write_text(fmain, FAKE_MAIN)
         objs = []
         for label, csrc, oname in (
                 ('real fakereal.c compiles', FAKE_C, 'fakereal.o'),
                 ('portable mini-impl compiles', mini, 'w32mini.o'),
                 ('driver compiles', fmain, 'fmain.o')):
-            obj = os.path.join(d, oname)
+            obj = os.path.join(bindir, oname)
             p = subprocess.run([gcc, '-std=c11', '-O1', '-I', BEHAVIOR,
                                 '-c', csrc, '-o', obj],
                                capture_output=True, text=True)
@@ -292,7 +394,7 @@ def fakelogic(gcc):
                 dump_diag(p)
                 return
             objs.append(obj)
-        exe = os.path.join(d, 'fmain.exe')
+        exe = os.path.join(bindir, 'fmain.exe')
         p = subprocess.run([gcc, '-o', exe] + objs,
                            capture_output=True, text=True)
         check(p.returncode == 0, 'fakelogic: links (no POSIX -ldl)' + diag(p))
@@ -300,22 +402,28 @@ def fakelogic(gcc):
             dump_diag(p)
             return
         for label, env, files, want_rc, want_counts in FAKE_CASES:
-            with tempfile.TemporaryDirectory() as t:
-                for name, content in files.items():
-                    open(os.path.join(t, name), 'w').write(content)
-                runenv = {k: v for k, v in os.environ.items()
-                          if not k.startswith('GSHIM_')}
-                runenv.update(env)
-                p = subprocess.run([exe], capture_output=True, text=True,
-                                   cwd=t, env=runenv)
-                ok = p.returncode == want_rc
-                detail = 'rc=%d' % p.returncode
-                if ok and want_counts:
-                    counts = os.path.join(t, 'forwarded.counts')
-                    ok = (os.path.exists(counts)
-                          and 'shutdown=1' in open(counts).read())
-                    detail += ' + counts'
-                check(ok, 'fakelogic: %s (%s)' % (label, detail))
+            left = clean_case_dir(casedir)
+            if left is not None:
+                check(False, 'fakelogic: case scratch emptied (%s)'
+                      % left)
+                continue
+            for name, content in files.items():
+                write_text(os.path.join(casedir, name), content)
+            runenv = {k: v for k, v in os.environ.items()
+                      if not k.startswith('GSHIM_')}
+            runenv.update(env)
+            p = subprocess.run([exe], capture_output=True, text=True,
+                               cwd=casedir, env=runenv)
+            ok = p.returncode == want_rc
+            detail = 'rc=%d' % p.returncode
+            if ok and want_counts:
+                counts = os.path.join(casedir, 'forwarded.counts')
+                ok = (os.path.exists(counts)
+                      and 'shutdown=1' in read_text(counts))
+                detail += ' + counts'
+            check(ok, 'fakelogic: %s (%s)' % (label, detail))
+    finally:
+        report_cleanup('fakelogic', root)
 
 
 def compiler_predefines(gcc, names):
@@ -337,9 +445,9 @@ def stubtarget(gcc):
     convention to cdecl. On Linux the host has none of them, so the same
     mechanism is pinned by emulating the predefines.
     """
-    for label, path, extra in (('behaviour stub', BEHAVIOR_STUB, []),
-                               ('c-syntax stub', WIN32_STUB, [])):
-        text = open(path, encoding='utf-8').read()
+    for label, path in (('behaviour stub', BEHAVIOR_STUB),
+                        ('c-syntax stub', WIN32_STUB)):
+        text = read_text(path)
         unguarded = []
         for name in SPELLINGS:
             d = re.search(r'^#\s*define\s+%s\b' % re.escape(name),
@@ -362,7 +470,8 @@ def stubtarget(gcc):
         emul.append('-D__declspec(x)=__attribute__((x))')
     mode = 'real predefines' if not emul else 'emulated predefines'
 
-    with tempfile.TemporaryDirectory() as d:
+    d = tempfile.mkdtemp(prefix='stubtarget-')
+    try:
         # 1) the REAL fakereal.c + stub: zero redefinition diagnostics
         p = subprocess.run([gcc, '-std=c11', '-O1', '-c', '-I', BEHAVIOR]
                            + emul + [FAKE_C, '-o',
@@ -376,7 +485,7 @@ def stubtarget(gcc):
         # 2) the target's own definition must survive the stub
         c = os.path.join(d, 'keep.c')
         exe = os.path.join(d, 'keep.exe')
-        open(c, 'w').write(STUBKEEP_MAIN)
+        write_text(c, STUBKEEP_MAIN)
         p = subprocess.run([gcc, '-std=c11', '-O1', '-I', BEHAVIOR]
                            + emul + ['-o', exe, c],
                            capture_output=True, text=True)
@@ -385,15 +494,121 @@ def stubtarget(gcc):
                   % mode + diag(p))
             dump_diag(p)
         else:
-            p = subprocess.run([exe], capture_output=True, text=True, cwd=d)
+            # no cwd: the probe writes nothing, so no child ever holds a
+            # scratch directory open (Windows/MSYS late-release class).
+            p = subprocess.run([exe], capture_output=True, text=True)
             out = p.stdout.strip()
             check('attribute' in out,
                   'stubtarget: keep-the-target-definition (%s: __stdcall '
                   '-> %s)' % (mode, out or 'EMPTY (downgraded to cdecl)'))
+    finally:
+        report_cleanup('stubtarget', d)
+
+
+def scratch_selftest():
+    """Pin the cleanup contract. The EBUSY window is Windows/MSYS-only.
+
+    On Linux rmdir succeeds even for a directory that is a live child's
+    cwd (verified), so the PC's EBUSY cannot be reproduced here. The
+    contract is therefore pinned with simulated transient/persistent
+    OSErrors (never swallowed) plus a real permission-denied case where
+    the host enforces it.
+    """
+    real_rmtree = shutil.rmtree
+
+    # 1) transient failure (simulated EBUSY): retried until released
+    root = tempfile.mkdtemp(prefix='scratchselftest-')
+    write_text(os.path.join(root, 'f'), 'x')
+    calls = {'n': 0}
+
+    def flaky(path, *a, **kw):
+        calls['n'] += 1
+        if calls['n'] < 3:
+            raise OSError(16, 'Device or resource busy')
+        return real_rmtree(path, *a, **kw)
+
+    try:
+        shutil.rmtree = flaky
+        err, tries = scratch_rmtree(root, attempts=5, delay=0.01)
+    finally:
+        shutil.rmtree = real_rmtree
+    check(err is None and tries == 2 and not os.path.exists(root),
+          'scratch: transient OSError retried until released (simulated '
+          'EBUSY: tries=%d, err=%s)' % (tries, err))
+
+    # 2) persistent failure: returned to the caller, never swallowed
+    root = tempfile.mkdtemp(prefix='scratchselftest-')
+    write_text(os.path.join(root, 'f'), 'x')
+
+    def always_busy(path, *a, **kw):
+        raise OSError(16, 'Device or resource busy')
+
+    try:
+        shutil.rmtree = always_busy
+        err, tries = scratch_rmtree(root, attempts=3, delay=0.01)
+    finally:
+        shutil.rmtree = real_rmtree
+    check(err is not None and err.errno == 16 and os.path.exists(root),
+          'scratch: persistent OSError is returned, never swallowed '
+          '(errno=%s)' % (err.errno if err is not None else None))
+    real_rmtree(root)
+
+    # 3) a real host-enforced failure must come back too (Linux, non-root)
+    if sys.platform.startswith('linux') and hasattr(os, 'geteuid') \
+            and os.geteuid() != 0:
+        outer = tempfile.mkdtemp(prefix='scratchselftest-')
+        inner = os.path.join(outer, 'inner')
+        os.mkdir(inner)
+        write_text(os.path.join(inner, 'f'), 'x')
+        os.chmod(outer, 0o500)
+        try:
+            err, _ = scratch_rmtree(inner, attempts=2, delay=0.01)
+        finally:
+            os.chmod(outer, 0o700)
+        check(err is not None,
+              'scratch: real permission error reported (%s)' % err)
+        real_rmtree(outer)
+    else:
+        print('SKIP scratch permission case (needs a non-root POSIX host)')
+
+
+def inject_one_shot_busy():
+    """Arm a one-shot OSError(16) at the first fakelogic scratch rmtree.
+
+    Pre-fix (TemporaryDirectory, no retries) this reproduces the PC
+    failure exactly: the stage died with 'Device or resource busy'.
+    With the explicit scratch lifecycle it must be absorbed by the
+    bounded retries, and the stage must still end ALL PASS.
+    """
+    real = shutil.rmtree
+    state = {'fired': False}
+
+    def one_shot(path, *a, **kw):
+        if not state['fired'] and 'fakelogic-' in str(path):
+            state['fired'] = True
+            raise OSError(16, 'Device or resource busy')
+        return real(path, *a, **kw)
+
+    def restore():
+        shutil.rmtree = real
+
+    shutil.rmtree = one_shot
+    return state, restore
+
+
+def run_stage(name, fn, *args):
+    """An unexpected exception must surface as a FAIL, never kill the stage."""
+    try:
+        fn(*args)
+    except Exception:  # noqa: BLE001 -- report loudly, never hide
+        for ln in traceback.format_exc().rstrip().splitlines():
+            print('| ' + ln)
+        check(False, '%s: no unexpected exception' % name)
 
 
 def main():
     ctx = tripscan_static()
+    scratch_selftest()
     gcc = shutil.which('gcc')
     if gcc is None:
         print('SKIP tripscan behavioural (no gcc)')
@@ -401,9 +616,16 @@ def main():
         print('SKIP stubtarget (no gcc)')
     else:
         if ctx is not None:
-            tripscan_run(gcc, ctx)
-        fakelogic(gcc)
-        stubtarget(gcc)
+            run_stage('tripscan', tripscan_run, gcc, ctx)
+        state, restore = inject_one_shot_busy()
+        try:
+            run_stage('fakelogic', fakelogic, gcc)
+        finally:
+            restore()
+        check(state['fired'],
+              'scratch: one-shot EBUSY injected into fakelogic cleanup '
+              '(the PC failure class, survived)')
+        run_stage('stubtarget', stubtarget, gcc)
     print(f'{len(fails)} failures' if fails else 'ALL PASS')
     return 1 if fails else 0
 

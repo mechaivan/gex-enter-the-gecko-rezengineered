@@ -88,9 +88,10 @@
   F-3 H4a verificado PC (mismatch-alias + sin dllexport = 38);
   integrado en árbol, V-1 H4a superado PC (38/38, log/sha
   pendientes de archivar); V-1b superado PC 2026-10-10
-  (cruce vs DLL real 38/38); V-2: harness PC 14/14 en `85d72d2`,
-  suite bloqueada solo por el aux fakelogic (vehículo POSIX +
-  `__stdcall` redefinido; fix en árbol, re-run pendiente)).
+  (cruce vs DLL real 38/38); V-2: harness PC 14/14; suite bloqueada
+  solo por el aux fakelogic (vehículo POSIX + `__stdcall`
+  redefinido en `85d72d2`; limpieza EBUSY en `2a8e6da`; fix en
+  árbol, re-run pendiente)).
 
 ## Limitaciones actuales
 

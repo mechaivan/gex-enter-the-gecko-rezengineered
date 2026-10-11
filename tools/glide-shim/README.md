@@ -134,7 +134,10 @@ Re-run V-2 (002fd6a): 11/14 — W03 off-by-one 38/37 en scan,
 W05/W10 STRICT-99 con IO bloqueada (finalize sí corrió); fix
 en árbol. Re-run V-2 (85d72d2): harness 14/14 ALL PASS, suite
 FAIL única por fakelogic (vehículo Linux-only <dlfcn.h>/-ldl +
-stub redefiniendo __stdcall); fix en árbol, re-run pendiente.
+stub redefiniendo __stdcall); fix en árbol. Re-run V-2 (2a8e6da):
+harness 14/14; suite roja por OSError EBUSY al limpiar el scratch
+de fakelogic (TemporaryDirectory en MSYS2); fix en árbol,
+re-run pendiente.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
