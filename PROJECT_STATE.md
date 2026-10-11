@@ -106,6 +106,12 @@
   menú, copia aislada, salida 0; registro restaurado). Pendiente:
   tanda instrumentada in-game (60 s; footer/overflow) y estabilidad
   en partida.)
+- [x] Referencia externa documentada (2026-10-11): reconstrucción de
+  Soul Reaver PS1 (`fmil95/soul-re`, MIT, commit `59d1ee8…`)
+  analizada como referencia comparativa del motor (candidato de
+  linaje «Gex 2»); informe en
+  `docs/research/SOUL_RE_ENGINE_REFERENCE.md` (solo documentación;
+  sin verificación en el exe PC; sin cambios de código ni binarios).
 
 ## Limitaciones actuales
 

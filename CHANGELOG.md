@@ -2,6 +2,33 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — Investigación documental: referencia externa `soul-re` (motor «Gex 2» en Soul Reaver PS1)
+
+- **Nuevo informe:** `docs/research/SOUL_RE_ENGINE_REFERENCE.md` — análisis
+  estático de `fmil95/soul-re` (MIT; commit
+  `59d1ee87749da95b6ced413a9f60b30a6fb91d45`, verificado como el que mide el
+  85,05 % publicado en decomp.dev; ejecutable principal 90,04 %; Code
+  751,84 kB / Data 156,62 kB; 232 funciones aún en `INCLUDE_ASM`, mayoría en
+  overlays).
+- **Hallazgos clave (como REFERENCIA, no como hecho sobre Gex PC):** modelo de
+  tiempo del motor (`timeMult` en punto fijo 4.12 con 4096 = frame de 33 ms,
+  `frameRateLock` 30/20 fps, modo 24 fps, acumulador de frames lógicos) sobre
+  `GAMELOOP_DoTimeProcess`; integración física `PhysicsMove` escalada por
+  `timeMult`; orden de actualización por frame documentado en `GAMELOOP_Process`;
+  modelo de objetos `Instance` con mensajería/consultas y desactivación por
+  distancia en 1/8 por frame; streaming (cola de 40 entradas + `MEMPACK` con
+  compactación) y overlays con tabla de reubicación + tabla de funciones
+  versionada (`cinemax`); cámara por modos con amortiguación crítica; animación
+  G2 con controladores procedurales y descompresión ADPCM de canales.
+- **Límites explícitos:** sin ejecutar Soul Reaver ni Gex; sin modificar
+  ejecutable/DLL/shim/Registro/instalación; ninguna afirmación se ha verificado
+  contra `GEX3D.EXE` (la etiqueta «Gex 2 engine + game code» es del repositorio
+  externo); hipótesis sobre los 25 FPS de Gex PC marcadas como tales, con método
+  de verificación pendiente.
+- **Panel/SVG sin cambios:** investigación documental no es un hito verificado
+  del panel (regla §6); porcentajes intactos. Ficheros modificados esta ronda:
+  el informe nuevo + `CHANGELOG.md` + `PROJECT_STATE.md`.
+
 ## 2026-10-11 — 0.0.0 — Smoke test in-game H4a OK (arranque real a menú, PC); panel v3.6 (solo estado verificado)
 
 - **Smoke in-game H4a (PC mantenedor, Windows 11, reportado
