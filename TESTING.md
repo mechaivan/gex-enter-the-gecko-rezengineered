@@ -937,14 +937,32 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   las 38; implica (inferencia etiquetada, no medida directa) que
   la copia real cargó bajo el nombre renombrado en ese entorno y
   que los 35 no re-dirigen a un segundo salto en esa ruta
-  (coincide con V-1b). NO cubre: conducta en llamada de los 35
-  (el verificador no invoca; la ejerce funcionalmente la fase
-  in-game), in-game, rendimiento ni el camino del IAT del exe
-  (AC4 del plan; cobertura extra no exigida). **Procedencia:**
-  resultado reportado por el mantenedor; binario, fuente y log
-  NO están en el repo (pendientes de archivar en
-  `REZengineered/Reports/`); el commit exacto del árbol del probe
-  no consta (rama en `551fae1`).
+  (coincide con V-1b). **NO valida el comportamiento de las
+  funciones al invocarlas ni el arranque/funcionamiento de Gex**
+  (el verificador no invoca export alguno); tampoco cubre
+  rendimiento ni el camino del IAT del exe (AC4 del plan;
+  cobertura extra no exigida).
+- **Evidencias archivadas (2026-10-11) en Drive
+  `REZengineered/Reports/`** — subida manual del mantenedor;
+  presencia, tamaños y contenido cotejados vía API de Drive desde
+  el sandbox: `p-w5-forwarder-probe.log` (2286 B; SHA-256
+  *aportado* por el mantenedor
+  `c630759a0782f5e174675202b65c0df42c66c63ee641eb7750139edec43e8b47`;
+  contiene las 38 líneas `PASS:` + `PROBE SUMMARY: hooks=3/3
+  forwarders=35/35 failed=0` + `PROBE: ALL PASS` +
+  `PROBE_EXIT_CODE=0`); `forwarder_probe.c` (3719 B; mecanismo
+  cotejado: solo `LoadLibrary`/`GetProcAddress` + `VirtualQuery`
+  contra la base de cada módulo, ningún export se invoca);
+  `forwarder_probe.exe` (268240 B); `expected_iat.txt` (1019 B,
+  idéntico por contenido al `tests/expected_iat.txt` del repo);
+  informe P-W5.
+- **Procedencia:** resultado reportado por el mantenedor (el
+  SHA-256 del log no se recomputó desde el sandbox; es el
+  aportado); binario, fuente y log siguen NO estando en el repo;
+  el commit exacto del árbol del probe no consta (rama en
+  `551fae1`). El probe comprueba la propiedad por base del módulo
+  cargado como `glide2x_gex_real.dll`; la identidad de esa copia
+  (hashes) está cubierta por V-0/V-1b.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

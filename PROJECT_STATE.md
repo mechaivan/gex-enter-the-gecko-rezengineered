@@ -93,11 +93,12 @@
   `SUITE: ALL PASS` + `V2_RC=0`; log SHA-256 `3ff4672a…`);
   P-W5 SUPERADO PC 2026-10-11 (probe aislado de resolución de
   exports: 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`,
-  exit 0; sin llamadas y sin Gex). Pendiente: procedimiento in-game
+  exit 0; sin llamadas y sin Gex); evidencias P-W5 ya archivadas en
+  `REZengineered/Reports/` (log SHA-256 aportado `c630759a…`, +
+  binario/fuente/lista/informe). Pendiente: procedimiento in-game
   (smoke NOLOG + tanda real en copia de trabajo) y archivo de
-  evidencias (v1b.log / exports_*.txt, log+SHA de V-1 H4a, resto de
-  matrix2.log, probe P-W5: binario/fuente/log) en Drive
-  `REZengineered/Reports/`).
+  evidencias restantes (v1b.log / exports_*.txt, log+SHA de V-1 H4a,
+  resto de matrix2.log) en Drive `REZengineered/Reports/`).
 
 ## Limitaciones actuales
 

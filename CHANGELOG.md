@@ -2,6 +2,28 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — P-W5: cierre documental — log SHA-256 + evidencias archivadas en Drive (`Reports/`)
+
+- Evidencias P-W5 archivadas (subida manual del mantenedor) en
+  `REZengineered/Reports/`; presencia, tamaños y contenido
+  cotejados vía API de Drive desde el sandbox: log íntegro
+  `p-w5-forwarder-probe.log` (2286 B; SHA-256 *aportado*
+  `c630759a0782f5e174675202b65c0df42c66c63ee641eb7750139edec43e8b47`;
+  contiene las 38 líneas `PASS:` + `PROBE SUMMARY: hooks=3/3
+  forwarders=35/35 failed=0` + `PROBE: ALL PASS` +
+  `PROBE_EXIT_CODE=0`), `forwarder_probe.c` (3719 B; mecanismo
+  cotejado: solo resolución — ningún export invocado),
+  `forwarder_probe.exe` (268240 B), `expected_iat.txt` (1019 B,
+  idéntico por contenido al del repo) + informe P-W5.
+- Alcance sin cambios: la prueba acredita resolución y propiedad
+  de los 38 exports; **no** valida comportamiento en llamada ni
+  arranque/funcionamiento de Gex. El SHA-256 del log es el
+  aportado por el mantenedor (no recomputado desde el sandbox).
+- Panel: sin cambio visible → SVG intacto (v3.5, métricas
+  iguales); corrección puntual en la fila v3.5 de PROJECT_STATUS
+  §5 («pendientes de archivar» → archivadas, log SHA-256);
+  TESTING/README/PROJECT_STATE sincronizados.
+
 ## 2026-10-11 — 0.0.0 — P-W5 SUPERADO (resolución dinámica de exports, probe PC); registro en Reports + panel v3.5 (solo dato de estado)
 
 - **P-W5 (resolución de los 38 exports con el cargador de Windows)

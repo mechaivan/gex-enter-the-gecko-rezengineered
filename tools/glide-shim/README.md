@@ -123,8 +123,8 @@ Límite: estático; la ruta dinámica del arnés quedó cubierta por
 V-2 (contra fake staged); contra la DLL real, la resolución quedó
 cubierta por P-W5 (probe PC 2026-10-11: 3/3 hooks → shim + 35/35
 forwarders → `glide2x_gex_real.dll`, sin llamadas ni Gex;
-artefactos del probe pendientes de archivar); la conducta en
-llamada / in-game sigue pendiente.
+evidencias archivadas en `REZengineered/Reports/`, log SHA-256
+`c630759a…`); la conducta en llamada / in-game sigue pendiente.
 
 F-3 (2026-10-11, H4a VERIFICADO en PC): `.def` mismatch-alias
 `"dec"=X@N` + C SIN dllexport = 38 exactas, 0 extras
@@ -152,8 +152,10 @@ el cargador de Windows: `PROBE SUMMARY: hooks=3/3 forwarders=35/35
 failed=0` + `PROBE: ALL PASS`, exit 0; los 3 hooks resuelven en el
 shim y los 35 forwarders en `glide2x_gex_real.dll` (copia real
 renombrada); sin llamadas a funciones exportadas y sin Gex.
-Evidencia aportada por el mantenedor (binario/fuente/log del probe
-pendientes de archivar en `REZengineered/Reports/`).
+Evidencia aportada por el mantenedor y **archivada (2026-10-11) en
+`REZengineered/Reports/`**: `p-w5-forwarder-probe.log` (SHA-256
+*aportado* `c630759a…3e8b47`), `forwarder_probe.c`/`.exe`,
+`expected_iat.txt` (idéntico al del repo) + informe.
 
 W00–W11. Arnés nativo Win32 (conducta SIN Gex ni DLL real, tras
 V-1): `./tests/win32/run-harness.sh` carga la DLL compilada en
