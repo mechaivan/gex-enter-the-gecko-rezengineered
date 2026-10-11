@@ -102,18 +102,44 @@ static int file_line_count(const char *path)
     return n;
 }
 
+/* Substring search (degraded-finalize proof lives in the error file). */
+static int file_contains(const char *path, const char *want)
+{
+    FILE *f = fopen(path, "r");
+    char line[512];
+    int hit = 0;
+    if (!f)
+        return 0;
+    while (read_line(f, line, sizeof(line))) {
+        if (strstr(line, want)) {
+            hit = 1;
+            break;
+        }
+    }
+    fclose(f);
+    return hit;
+}
+
 void __stdcall grGlideShutdown(void)
 {
     FILE *f;
     char nolog[8];
     f_shutdown++;
-    /* STRICT: the shim must finalize BEFORE forwarding shutdown. */
+    /* STRICT: the shim must finalize BEFORE forwarding shutdown.
+     * Ordering proof is the primary artifact — or, when IO is
+     * blocked, finalize's own loud failure note (only finalize
+     * writes it, only before this forward). A skipped finalize
+     * still exits 99: then NEITHER proof exists.
+     * TWINSHIP: keep this block in sync with the STRICT block in
+     * tests/behavior/harness_impl.c — same proofs, same 99s. */
     if (GetEnvironmentVariableA("GSHIM_NOLOG", nolog, sizeof(nolog)) > 0
         && nolog[0] == '1') {
-        if (file_line_count("gshim_nolog.marker") != 2)
+        if (file_line_count("gshim_nolog.marker") != 2 &&
+            !file_contains("gshim_error.txt", "nolog marker end failed"))
             ExitProcess(99);
     } else {
-        if (!file_last_line_is("gshim_log.csv", "# end"))
+        if (!file_last_line_is("gshim_log.csv", "# end") &&
+            !file_contains("gshim_error.txt", "finalize: log unavailable"))
             ExitProcess(99);
     }
     f = fopen("forwarded.counts", "w");

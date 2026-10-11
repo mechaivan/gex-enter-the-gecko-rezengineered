@@ -159,5 +159,21 @@ grep -qF 'loadlib:C:\game\glide2x_gex_real.dll' "$d/bind_log.txt"; ok $? "B15c f
 [ "$(wc -l < "$d/bind_log.txt")" = "2" ]; ok $? "B15c exactly two bind attempts"
 grep -q '^swap=1 pending=0 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B15c forwarded via fallback"
 
+# B16: STRICT finalize-before-forward under BLOCKED IO (W05/W10
+# mirrors): the error note written by finalize is the ordering proof
+# when the primary artifact cannot exist. Must exit 0, NOT 99.
+d=$(T); mkdir "$d/gshim_nolog.marker"
+( cd "$d" && GSHIM_NOLOG=1 GSHIM_TEST_NULL_MODULE=1 GSHIM_TEST_STRICT=1 \
+  "$BIN" 100 50 1 0 0 >/dev/null 2>&1 ); ok $? "B16a exit 0 (strict, marker blocked)"
+grep -q '^swap=100 pending=50 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B16a forwarded via degraded finalize"
+grep -q 'marker init failed' "$d/gshim_error.txt"; ok $? "B16a error: init failed"
+grep -q 'marker end failed' "$d/gshim_error.txt"; ok $? "B16a error: end failed (ordering proof)"
+d=$(T); mkdir "$d/gshim_log.csv"
+( cd "$d" && GSHIM_TEST_NULL_MODULE=1 GSHIM_TEST_STRICT=1 \
+  "$BIN" 200 0 1 0 0 >/dev/null 2>&1 ); ok $? "B16b exit 0 (strict, log blocked)"
+grep -q '^swap=200 pending=0 shutdown=1 last_arg=3$' "$d/forwarded.counts"; ok $? "B16b forwarded via degraded finalize"
+grep -q 'cannot open log' "$d/gshim_error.txt"; ok $? "B16b error: cannot open"
+grep -q 'rows lost' "$d/gshim_error.txt"; ok $? "B16b error: rows lost (ordering proof)"
+
 echo "BEHAVIOUR: $pass passed, $fails failed"
 [ "$fails" -eq 0 ]

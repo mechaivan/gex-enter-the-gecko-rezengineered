@@ -2,6 +2,25 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-11 — 0.0.0 — V-2 re-run 11/14: W03 off-by-one + W05/W10 strict-99 (fix en árbol)
+
+- PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `002fd6a`):
+  11/14. W03 `want 1 trip marker, got 0`; W05/W10 código 99
+  (`finalize-before-forward violated`). Build, 38 exportaciones
+  e integridad repo OK.
+- W03: aserción off-by-one (38 vs prefijo de 37; único
+  `strncmp` erróneo auditado mecánicamente). Fix: longitud
+  vía `sizeof`. La shim sí emite el marcador (B2).
+- W05/W10: finalize SÍ corre con IO bloqueada (notas loud);
+  el STRICT exigía el artefacto imposible → 99. Fix: el fake
+  acepta la nota de finalize como prueba de orden (solo
+  finalize la escribe, solo antes del forward); el 99 sigue
+  vivo sin finalize. Espejo en el fake Linux (B16a/b).
+- Regresiones: TRIPSCAN (scan REAL, 1 trip), FAKELOGIC
+  (`fakereal.c` REAL, 6 estados incl. 2×99), B16a/b. Cero
+  cambios en `gshim.c`/`.def`. Panel intacto (V-2 aún no
+  pasa). Re-run PC pendiente.
+
 ## 2026-10-11 — 0.0.0 — V-2 re-run 6/14: causa bind perezoso vs check temprano (fix en árbol)
 
 - PC MSYS2 MINGW32 (reportado 2026-10-11, sobre `a827647`):

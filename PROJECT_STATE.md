@@ -88,8 +88,8 @@
   F-3 H4a verificado PC (mismatch-alias + sin dllexport = 38);
   integrado en árbol, V-1 H4a superado PC (38/38, log/sha
   pendientes de archivar); V-1b superado PC 2026-10-10
-  (cruce vs DLL real 38/38); V-2 re-run 6/14 (check-bind
-  temprano vs lazy-init; fix en árbol, re-run pendiente)).
+  (cruce vs DLL real 38/38); V-2 re-run 11/14 (W03 scan-38 +
+  W05/W10 strict-99; fix en árbol, re-run pendiente)).
 
 ## Limitaciones actuales
 

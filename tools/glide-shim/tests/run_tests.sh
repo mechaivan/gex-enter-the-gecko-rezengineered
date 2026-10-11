@@ -25,7 +25,7 @@ if [ -z "$PYBIN" ]; then
   echo "BLOCKED: no working python (tried python3/python/py >= 3.8; the Microsoft Store alias does not count)"
   fail=1
 else
-  for t in test_def test_api test_init test_docs test_docs_encoding test_exports test_env test_harness; do
+  for t in test_def test_api test_init test_docs test_docs_encoding test_exports test_env test_harness test_win32logic; do
     echo "=== $t ==="
     "$PYBIN" "tests/$t.py" || fail=1
   done

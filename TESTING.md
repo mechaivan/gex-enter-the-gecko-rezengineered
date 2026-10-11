@@ -804,6 +804,29 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   ATTACH no enlaza, 1.ª llamada sí, orden handle→path) + pin
   de orden en `test_harness`. `gshim.c`/`.def` intactos.
   Re-run PC pendiente (única validación V-2 válida).
+- **V-2 re-run (PC sobre `002fd6a`, reportado 2026-10-11):
+  11 PASS / 3 FAIL.** Fallan W03 (`want 1 trip marker, got 0`),
+  W05 y W10 (código 99, `finalize-before-forward violated`).
+  Build + 38 exportaciones + integridad repo OK.
+- **V-2 CAUSA W03 (aserción off-by-one, NO la shim):** el scan
+  comparaba 38 chars contra un prefijo de 37 (`# overflow at
+  seq=262144: RUN INVALID`, `,` en el 38.º) → 0 trips siempre.
+  Auditoría mecánica: único `strncmp` con longitud errónea en
+  todo el código Win32. Fix: `sizeof(want)-1` (la clase de bug
+  desaparece). La shim SÍ escribe el marcador (B2 lo prueba).
+- **V-2 CAUSA W05/W10 (prueba incompleta, NO orden violado):**
+  con IO bloqueada, finalize SÍ corre (notas `nolog marker end
+  failed` / `finalize: log unavailable`, solo escritas por
+  finalize, solo antes del forward) pero el artefacto primario
+  no puede existir → el fake 99. Ningún fix lado-shim puede
+  satisfacer el check actual (imposible por construcción);
+  borrarlo está prohibido. Fix: el STRICT acepta la nota de
+  finalize como prueba de orden (el 99 sigue vivo: sin
+  finalize no hay NI artefacto NI nota). Regresiones: B16a/b
+  (STRICT+bloqueo → exit 0, fallan 99 pre-fix), FAKELOGIC
+  (`fakereal.c` REAL: 6 estados incl. 2×99 genuino),
+  TRIPSCAN (scan REAL: 1 trip; 0 pre-fix). `gshim.c`/`.def`
+  intactos (cero cambios). Re-run PC pendiente.
 
 ## Diagnóstico suite en PC Windows (2026-10-10, sin tocar producción)
 

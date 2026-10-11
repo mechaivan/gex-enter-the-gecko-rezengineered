@@ -565,9 +565,12 @@ static int child_run(const char *id, const char *dir)
         f = fopen("gshim_log.csv", "r");
         CHECK(f != NULL, "W03: csv missing for marker scan");
         if (f) {
+            /* Length from the literal (sizeof), never a hand count:
+             * 38 vs the 37-char prefix silently matched nothing. */
+            static const char want[] =
+                "# overflow at seq=262144: RUN INVALID";
             while (read_line(f, line, sizeof(line))) {
-                if (strncmp(line, "# overflow at seq=262144: RUN INVALID",
-                             38) == 0)
+                if (strncmp(line, want, sizeof(want) - 1) == 0)
                     trips++;
             }
             fclose(f);

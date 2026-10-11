@@ -141,17 +141,45 @@ static int file_line_count(const char *path)
     return n;
 }
 
+/* Substring search (degraded-finalize proof lives in the error file).
+ * TWINSHIP: keep the STRICT block below in sync with fakereal.c —
+ * same proofs, same 99s (Linux runs it only under
+ * GSHIM_TEST_STRICT). */
+static int file_contains(const char *path, const char *want)
+{
+    FILE *f = fopen(path, "r");
+    char line[512];
+    int hit = 0;
+    if (!f)
+        return 0;
+    while (fgets(line, sizeof(line), f)) {
+        if (strstr(line, want)) {
+            hit = 1;
+            break;
+        }
+    }
+    fclose(f);
+    return hit;
+}
+
 static void fake_shutdown(void)
 {
     FILE *f;
     h_shutdown_calls++;
     if (getenv("GSHIM_TEST_STRICT")) {
-        /* finalize MUST have completed before the real call is made. */
+        /* finalize MUST have completed before the real call is made.
+         * Ordering proof is the primary artifact — or, when IO is
+         * blocked, finalize's own loud failure note (only finalize
+         * writes it, only before this forward). */
         if (getenv("GSHIM_NOLOG")) {
-            if (file_line_count("gshim_nolog.marker") != 2)
+            if (file_line_count("gshim_nolog.marker") != 2 &&
+                !file_contains("gshim_error.txt",
+                               "nolog marker end failed"))
                 _exit(99);
         } else {
-            if (!file_last_line_is("gshim_log.csv", "# end"))
+            if (!file_last_line_is("gshim_log.csv", "# end") &&
+                !file_contains("gshim_error.txt",
+                               "finalize: log unavailable"))
                 _exit(99);
         }
     }
