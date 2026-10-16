@@ -10,11 +10,18 @@
 - REA (`morluto/rea`, MIT, TypeScript/Node; web `rea.tools`, paquete npm
   `rea-agents`) es una **capa de orquestación y evidencia** (CLI + servidor
   MCP), **no** un decompilador. Para análisis **nativo** necesita un
-  **proveedor externo**: Ghidra, IDA, Hopper, Cutter, Rizin, o `objdump`
-  GNU aportado por el usuario. Cita literal de `README.md`: «Native analysis
-  can use an existing Hopper, Ghidra, or IDA installation».
-- El carril nativo soportado en Windows para PE nativos es **Ghidra**
-  («Windows Ghidra P0 admits native PE applications/DLLs», `docs/raw-binary.md`).
+  **proveedor externo**: Hopper, Ghidra o IDA (cita literal de `README.md`:
+  «Native analysis can use an existing Hopper, Ghidra, or IDA installation»).
+  Para inspección offline acepta además GNU `objdump` y Rizin **aportados por
+  el usuario** (no los instala); existen otros puentes (p. ej. Cutter, Kuna).
+- El único carril nativo para PE en Windows es **Ghidra experimental (P0)**:
+  solo PE x86/x86-64/ARMNT/ARM64, **solo lectura** y sobre volumen **local fijo
+  NTFS**, en Windows 10+ x64 («Windows Ghidra P0 admits native PE
+  applications/DLLs», `docs/raw-binary.md`; `docs/windows-ghidra-p0.md`).
+- **Aviso de versión (importante para GEX):** los npm publicados hasta 5.0.0
+  admiten en Windows solo PE **x86-64**; el soporte **x86 (32-bit)** figura en
+  `main`. `GEX3D.EXE` es PE32 **x86**: la versión fijada debe admitir x86 en
+  Windows (ver §5.1) o el objetivo sería rechazado.
 - REA aporta, cuando hay proveedor: `function`/`instructions`/`decompile`,
   **`xrefs`**, `procedure_references`, **`trace`** (trazas estáticas
   acotadas), tipado de estructuras, **snapshots Ghidra inmutables**
@@ -29,25 +36,26 @@
 - **No existe evidencia de que REA haya analizado ningún binario de GEX.**
   Lo registrado es: instalación del CLI en el sandbox Linux y un
   `rea doctor` **negativo** (`healthy:false`; host no soportado, sin
-  Ghidra/Hopper) — `docs/TOOLKIT.md`:35-40, `CHANGELOG.md`:1321-1328.
+  Ghidra/Hopper) — `docs/TOOLKIT.md` §3 y `CHANGELOG.md` (2026-10-08,
+  «Entorno RE sandbox operativo»).
 
 ## 3. Estado verificado del host Windows (2026-10-16)
 
 | Componente | Estado | Evidencia |
 |---|---|---|
-| Node.js | ✅ v26.7.0 | REA requiere Node 22+ |
+| Node.js | ✅ v26.7.0 | REA requiere 22.x (≥22.19), 24.x (≥24.11) o 26+ |
 | npm | ✅ 12.1.0 | |
 | `rea` CLI | ❌ **ausente** | ni global en npm (solo `codex`, `npm`, `pnpm`) |
 | Registro MCP de REA | ❌ ausente | sin recurso MCP registrado |
 | Ghidra / IDA / Hopper / Rizin | ❌ **ausentes** | no hallados en ubicaciones habituales |
-| Java | ⚠️ **1.8.0_503** | insuficiente: Ghidra 12.1.x exige JDK 21 |
+| Java | ⚠️ **1.8.0_503** | insuficiente: Ghidra 12.1.x exige JDK 21 o superior |
 | GNU `objdump.exe` | ❌ ausente | solo LLVM 22.1.8; `…\cmake-clang-v1\latest\bin\objdump` es un *wrapper* `.sh` de 2001 B |
 | `gh` / token en entorno | ❌ ausentes | **no** bloquean un `push` con Git Credential Manager |
 
 ### 3.1 `tools/setup-re-env.sh`: pendiente y **Linux-only**
 
 El script existe pero (a) está marcado «pendiente de probar»
-(`tools/README.md`:6-10) y (b) usa un procedimiento **Linux**: descarga un
+(`tools/README.md`:9-11) y (b) usa un procedimiento **Linux**: descarga un
 JDK **linux-x64** `.tar.gz` de Adoptium y descomprime Ghidra en
 `/opt/rea-toolkit`. **No debe asumirse que sirva en Windows.** Se requiere un
 equivalente `.ps1` (ver §5).
@@ -67,16 +75,21 @@ de timing/cámara.
 
 ## 5. Oportunidad y plan de habilitación en Windows (PENDIENTE DE AUTORIZACIÓN)
 
-**Oportunidad:** con Ghidra como proveedor, REA puede producir el grafo de
-llamadas y tipar el objeto de frame en torno a la función de frame
-**`0x43EB76`** (dirección virtual ya identificada en GEX), justo lo que falta
-para preparar una intervención mínima y reversible.
+**Oportunidad:** con Ghidra como proveedor, REA puede completar el **grafo de
+llamadas/xrefs** y el tipado del objeto de frame en torno a las direcciones ya
+documentadas del path temporal de gameplay (exe EU original): update por frame
+**`0x43E1BA`**, sello `elapsed/16.666`→`+0x10C` en **`0x43E5DD`** y cola de
+swap **`0x43EA51`** (`REVERSE_ENGINEERING.md` §3, `TESTING.md`). Es justo el
+hueco abierto para preparar una intervención mínima y reversible.
 
 ### 5.1 Dependencias
 1. Node ≥22 + npm (presente).
 2. **JDK 21** (Temurin) — instalación **local al prefijo**, sin tocar el Java 8 del sistema.
 3. **Ghidra 12.1.x** (el proyecto fija `Ghidra_12.1.4_build`).
-4. `rea-agents` (npm), versión **fijada** (no `@latest`).
+4. `rea-agents` (npm), versión **fijada** (no `@latest`) **que admita PE x86
+   (32-bit) en Windows**; los publicados hasta 5.0.0 solo admiten x86-64. Si
+   ninguna publicada lo admite aún, la alternativa es ejecutar REA desde
+   `main` (decisión aparte, a autorizar).
 5. (Opcional) GNU `objdump` si se quiere el carril `inspect_with_objdump`.
 
 ### 5.2 Descargas necesarias (a autorizar)
@@ -93,7 +106,7 @@ para preparar una intervención mínima y reversible.
 
 ### 5.4 Ubicaciones de instalación (fuera del repo)
 - Prefijo: `%LOCALAPPDATA%\rezengineered-rea\` con `jdk21\`, `ghidra\`,
-  `env.ps1`, `evidence\`.
+  `env.ps1`, `evidence\` (volumen local fijo NTFS, como exige P0).
 - Variables **solo de sesión** (en `env.ps1`): `JAVA_HOME`, `GHIDRA_INSTALL_DIR`
   (lo lee REA), `PATH`. **No** `setx`/sistema; **no** tocar el Java 8.
 - Evidencia/snapshots (proyectos Ghidra) → Drive `REZengineered/analysis/`
@@ -103,9 +116,11 @@ para preparar una intervención mínima y reversible.
 1. `java -version` → 21.x.
 2. `& "$env:GHIDRA_INSTALL_DIR\support\analyzeHeadless.bat"` imprime ayuda.
 3. `npx -y rea-agents@<pin> doctor --provider ghidra --json` → `healthy:true`.
-4. `rea inspect <copia>\GEX3D.EXE --provider ghidra --json` → PE32 x86.
-5. Trabajo acotado: `rea xrefs <copia>\GEX3D.EXE 0x43EB76 --provider ghidra --json`
-   y `rea function`/`rea trace` sobre `0x43EB76`.
+4. `rea inspect <copia>\GEX3D.EXE --provider ghidra --json` → PE32 x86
+   (si la versión no admite x86 en Windows, falla aquí: ver §5.1).
+5. Trabajo acotado: `rea xrefs <copia>\GEX3D.EXE 0x43E1BA --provider ghidra --json`
+   y `rea function <copia>\GEX3D.EXE 0x43E1BA --provider ghidra --json`
+   (opcional: `rea decompile` o `rea trace <copia>\GEX3D.EXE "<consulta>"`).
 
 ### 5.6 Reversión
 - Borrar el prefijo `%LOCALAPPDATA%\rezengineered-rea\`.
@@ -115,7 +130,8 @@ para preparar una intervención mínima y reversible.
 
 ## 6. Referencias
 - `RESEARCH.md` §S-18 · `docs/TOOLKIT.md` §3–§6 · `PROJECT_STATE.md` ·
-  `REVERSE_ENGINEERING.md` §1,§4 · `CHANGELOG.md`:1321-1328 ·
-  `tools/setup-re-env.sh` · `tools/setup-sandbox-re.sh`.
+  `REVERSE_ENGINEERING.md` §1,§4 · `CHANGELOG.md` (2026-10-08, «Entorno RE
+  sandbox operativo») · `tools/setup-re-env.sh` · `tools/setup-sandbox-re.sh`.
 - REA: `github.com/morluto/rea` — `README.md`, `docs/native-investigation.md`,
-  `docs/raw-binary.md`, `docs/reverse-engineering-tools.md`, `docs/cli.md`.
+  `docs/raw-binary.md`, `docs/windows-ghidra-p0.md`, `docs/cli.md`,
+  `docs/installation.md`, `docs/reverse-engineering-tools.md`.

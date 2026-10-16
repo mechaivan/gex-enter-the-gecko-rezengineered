@@ -5,12 +5,22 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 ## 2026-10-16 — 0.0.0 — REA: diagnóstico de habilitación en Windows (documentado, sin ejecutar)
 
 - **Nuevo:** `docs/REA_WINDOWS_ENABLEMENT.md` — REA como capa de
-  orquestación/evidencia que necesita proveedor externo (Ghidra/IDA/Hopper);
+  orquestación/evidencia que necesita proveedor externo (Hopper/Ghidra/IDA);
   adoptada en el proyecto pero **sin demostración sobre ningún binario de
   GEX**; estado verificado del host Windows; `tools/setup-re-env.sh` pendiente
-  y Linux-only; binarios GEX identificados; oportunidad de usar Ghidra con REA
-  para xrefs/call-graph de `0x43EB76`; y plan de habilitación (dependencias,
-  descargas, integridad, ubicaciones, reversión) **pendiente de autorización**.
+  y Linux-only; binarios GEX identificados (`GEX3D.EXE` = PE32 x86); límites
+  reales del carril Windows (Ghidra **P0 experimental, solo lectura**, NTFS
+  local) y aviso de versión (**x86 32-bit** solo en `main`, no en npm ≤5.0.0);
+  oportunidad de usar Ghidra+REA para el xrefs/call-graph del path temporal
+  documentado (`0x43E1BA`/`0x43E5DD`/`0x43EA51`); y plan de habilitación
+  (dependencias, descargas, integridad, ubicaciones, reversión) **pendiente de
+  autorización**.
+- **Revisión posterior (2026-10-16, auditoría del contenido publicado):**
+  corregidas referencias cruzadas frágiles (se eliminaron números de línea del
+  `CHANGELOG.md` que nuestra propia inserción desplazaba) y retirada la
+  dirección `0x43EB76` (no documentada en el repo; provenía del análisis F-03 de
+  la sesión) en favor de las direcciones ya documentadas del exe EU; añadidos
+  los límites reales del proveedor Windows P0 y el aviso de versión x86.
 - **Sin cambios de fase ni de ejecutable:** no se descargó, instaló, ejecutó ni
   modificó nada del juego; `docs/PROJECT_STATUS.svg` intacto (sin avance real).
 - Actualizados por coherencia: `docs/TOOLKIT.md` §3/§5, `RESEARCH.md` §S-18,
