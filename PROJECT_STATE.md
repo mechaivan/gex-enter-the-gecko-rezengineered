@@ -130,8 +130,11 @@
   (egress restringido: sin apt, sin release-assets de GitHub, sin headers
   `-dev`). Documentado y verificado en `docs/TOOLKIT.md`. Ghidra se usará en
   una máquina sin restricciones (`tools/setup-re-env.sh` listo, sin probar).
-- **REA sin backend nativo aquí:** CLI instalado pero `rea doctor` indica
-  host no soportado y falta de Ghidra/Hopper.
+- **REA sin backend nativo:** REA es capa de orquestación/evidencia y necesita
+  un proveedor externo (Ghidra/IDA/Hopper) para análisis nativo. En el sandbox
+  el CLI se instaló pero `rea doctor` da `healthy:false`. **Ningún binario de
+  GEX ha sido analizado con REA.** Estado del host Windows y plan de
+  habilitación (pendiente de autorización): `docs/REA_WINDOWS_ENABLEMENT.md`.
 
 ## Criterio de salida de la Fase 0 (cumplido 2026-10-08, histórico)
 

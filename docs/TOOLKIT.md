@@ -39,6 +39,17 @@ Ver [tools/README.md](../tools/README.md).
   haya un backend (Ghidra aportado en una máquina adecuada). En este sandbox
   **no** puede analizar binarios nativos. No fingir lo contrario.
 
+### 3.1 Estado en el host Windows (2026-10-16)
+
+- Verificado **aquí**: `rea` ausente; **Ghidra/IDA/Hopper/Rizin** ausentes;
+  **Java 1.8.0_503** (Ghidra 12.1.x exige JDK 21); **sin GNU `objdump.exe`**
+  (solo LLVM 22.1.8); Node v26.7.0 / npm 12.1.0 OK; sin MCP REA registrado.
+- `tools/setup-re-env.sh` sigue **pendiente de probar** y es **Linux-x64**
+  (JDK linux `.tar.gz` + `/opt/rea-toolkit`): **no asumir validez en Windows**.
+- **Ningún binario de GEX se ha analizado con REA.** Plan de habilitación en
+  Windows y requisitos: `docs/REA_WINDOWS_ENABLEMENT.md` (pendiente de
+  autorización; no se ha instalado nada).
+
 ## 4. Kit de análisis estático viable hoy (Etapa A del plan)
 
 Con `pefile` + `capstone` + `objdump` + `strings` se puede hacer, sin Ghidra:
@@ -63,6 +74,9 @@ de fase (Etapas B+ bloqueadas).
    (2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
    specs pendientes).
 3. [x] Carpetas en Drive: `REZengineered/{originals,backups,analysis,builds,research}`.
+4. [ ] Decidir sobre la habilitación de REA en Windows (¿JDK 21 + Ghidra
+   12.1.4 local al prefijo?): ver `docs/REA_WINDOWS_ENABLEMENT.md`. Requiere
+   autorización expresa; **no** hacerlo durante documentación.
 
 ## 6. Convenciones de almacenamiento
 

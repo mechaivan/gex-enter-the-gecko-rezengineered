@@ -219,9 +219,10 @@
 ## 4. Herramientas
 
 Ver [docs/TOOLKIT.md](docs/TOOLKIT.md). Resumen: binutils disponibles en este
-entorno; Ghidra + Java pendientes de instalar; REA (CLI/MCP, trae su propio
-backend vía Hopper o Ghidra aportado) pendiente de evaluar; testing dinámico
-requiere Windows (limitación actual).
+entorno; Ghidra + Java 21 pendientes de instalar (el host Windows tiene Java 8
+y ningún proveedor nativo); REA (CLI/MCP) adopta un proveedor **aportado**
+(Hopper o Ghidra) y **no** se ha demostrado aún sobre binarios de GEX — ver
+`docs/REA_WINDOWS_ENABLEMENT.md`; testing dinámico requiere Windows.
 
 ## 5. Registro
 

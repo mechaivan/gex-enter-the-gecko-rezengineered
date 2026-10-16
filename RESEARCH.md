@@ -290,6 +290,11 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Uso en el proyecto: capa de orquestación/evidencia del RE; Ghidra como motor
   profundo. CLI 5.0.0 ya instalado en sandbox, sin backend nativo (ver TOOLKIT).
 - Estado: adoptado como herramienta oficial del proyecto.
+- Actualización 2026-10-16: REA **no** se ha demostrado sobre binarios de GEX
+  (solo `rea doctor` negativo en sandbox). En el host Windows: `rea` ausente,
+  sin proveedores nativos, Java 8 y sin `objdump.exe` GNU. Diagnóstico y plan
+  de habilitación: `docs/REA_WINDOWS_ENABLEMENT.md` (pendiente de autorización;
+  `tools/setup-re-env.sh` sin probar y Linux-only).
 
 ## S-19 — Wrappers/herramientas genéricas, ronda 2 (2026-10-08)
 

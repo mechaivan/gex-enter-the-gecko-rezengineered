@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-16 — 0.0.0 — REA: diagnóstico de habilitación en Windows (documentado, sin ejecutar)
+
+- **Nuevo:** `docs/REA_WINDOWS_ENABLEMENT.md` — REA como capa de
+  orquestación/evidencia que necesita proveedor externo (Ghidra/IDA/Hopper);
+  adoptada en el proyecto pero **sin demostración sobre ningún binario de
+  GEX**; estado verificado del host Windows; `tools/setup-re-env.sh` pendiente
+  y Linux-only; binarios GEX identificados; oportunidad de usar Ghidra con REA
+  para xrefs/call-graph de `0x43EB76`; y plan de habilitación (dependencias,
+  descargas, integridad, ubicaciones, reversión) **pendiente de autorización**.
+- **Sin cambios de fase ni de ejecutable:** no se descargó, instaló, ejecutó ni
+  modificó nada del juego; `docs/PROJECT_STATUS.svg` intacto (sin avance real).
+- Actualizados por coherencia: `docs/TOOLKIT.md` §3/§5, `RESEARCH.md` §S-18,
+  `PROJECT_STATE.md`, `REVERSE_ENGINEERING.md` §4.
+
 ## 2026-10-11 — 0.0.0 — Investigación documental: referencia externa `soul-re` (motor «Gex 2» en Soul Reaver PS1)
 
 - **Nuevo informe:** `docs/research/SOUL_RE_ENGINE_REFERENCE.md` — análisis
