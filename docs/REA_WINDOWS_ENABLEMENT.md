@@ -55,13 +55,15 @@
 | GNU `objdump.exe` | ❌ ausente | solo LLVM 22.1.8; `…\cmake-clang-v1\latest\bin\objdump` es un *wrapper* `.sh` de 2001 B |
 | `gh` / token en entorno | ❌ ausentes | **no** bloquean un `push` con Git Credential Manager |
 
-### 3.1 `tools/setup-re-env.sh`: pendiente y **Linux-only**
+### 3.1 `tools/setup-re-env.sh` / `setup-re-env.ps1`: pendiente de probar
 
-El script existe pero (a) está marcado «pendiente de probar»
-(`tools/README.md`:9-11) y (b) usa un procedimiento **Linux**: descarga un
-JDK **linux-x64** `.tar.gz` de Adoptium y descomprime Ghidra en
-`/opt/rea-toolkit`. **No debe asumirse que sirva en Windows.** Se requiere un
-equivalente `.ps1` (ver §5).
+- `setup-re-env.sh` sigue marcado «pendiente de probar» (`tools/README.md`:9-11)
+  y es **Linux-x64** (JDK linux `.tar.gz` + `/opt/rea-toolkit`): **no asumir
+  validez en Windows.**
+- Existe ahora un borrador Windows **`tools/setup-re-env.ps1`** (pendiente de
+  probar): prefijo `%LOCALAPPDATA%\rezengineered-rea\`, JDK 21 + Ghidra 12.1.4 +
+  REA, variables solo de sesión, verificación SHA-256 y reversión. No ejecutar
+  sin autorización.
 
 ## 4. Binarios de GEX identificados (para cuando haya proveedor)
 

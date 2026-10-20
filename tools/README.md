@@ -7,8 +7,12 @@
   `yara-python` (PyPI) y REA CLI (npm) en `/opt/rea-toolkit`. Idempotente.
   Uso: `sudo ./tools/setup-sandbox-re.sh`. Verificado 2026-10-08.
 - **`setup-re-env.sh`** — Entorno completo (JDK Temurin 21 + Ghidra 12.1.4 +
-  REA CLI) para máquinas con internet sin restricciones. **Pendiente de
+  REA CLI) para máquinas con internet sin restricciones (Linux). **Pendiente de
   probar.** Uso: `sudo ./tools/setup-re-env.sh [PREFIX]`.
+- **`setup-re-env.ps1`** — Equivalente para Windows (JDK 21 + Ghidra 12.1.4 +
+  REA CLI, prefijo `%LOCALAPPDATA%\rezengineered-rea\`, variables solo de
+  sesión). **Borrador, pendiente de probar.** Uso (cuando se autorice):
+  `powershell -ExecutionPolicy Bypass -File .\tools\setup-re-env.ps1`.
 
 ## Uso del kit sandbox
 
