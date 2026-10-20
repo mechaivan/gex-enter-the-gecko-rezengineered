@@ -18,10 +18,13 @@
   solo PE x86/x86-64/ARMNT/ARM64, **solo lectura** y sobre volumen **local fijo
   NTFS**, en Windows 10+ x64 («Windows Ghidra P0 admits native PE
   applications/DLLs», `docs/raw-binary.md`; `docs/windows-ghidra-p0.md`).
-- **Aviso de versión (importante para GEX):** los npm publicados hasta 5.0.0
-  admiten en Windows solo PE **x86-64**; el soporte **x86 (32-bit)** figura en
-  `main`. `GEX3D.EXE` es PE32 **x86**: la versión fijada debe admitir x86 en
-  Windows (ver §5.1) o el objetivo sería rechazado.
+- **Aviso de versión (crítico para GEX):** las *releases* publicadas (incluida la
+  más reciente, **6.7.0**) admiten en Windows solo PE **x86-64**; el soporte
+  **x86 (32-bit)** está solo en `main` (build desde fuente). `GEX3D.EXE` es
+  PE32 **x86**, así que con una release publicada en Windows se **rechazaría**.
+  Alternativas: (a) ejecutar REA desde `main` en Windows, (b) analizar en un host
+  Linux/macOS con Ghidra (que admite PE x86), (c) usar IDA en Windows. Decisión
+  a autorizar (ver §5.1).
 - REA aporta, cuando hay proveedor: `function`/`instructions`/`decompile`,
   **`xrefs`**, `procedure_references`, **`trace`** (trazas estáticas
   acotadas), tipado de estructuras, **snapshots Ghidra inmutables**
@@ -86,10 +89,11 @@ hueco abierto para preparar una intervención mínima y reversible.
 1. Node ≥22 + npm (presente).
 2. **JDK 21** (Temurin) — instalación **local al prefijo**, sin tocar el Java 8 del sistema.
 3. **Ghidra 12.1.x** (el proyecto fija `Ghidra_12.1.4_build`).
-4. `rea-agents` (npm), versión **fijada** (no `@latest`) **que admita PE x86
-   (32-bit) en Windows**; los publicados hasta 5.0.0 solo admiten x86-64. Si
-   ninguna publicada lo admite aún, la alternativa es ejecutar REA desde
-   `main` (decisión aparte, a autorizar).
+4. `rea-agents` (npm): **ninguna release publicada (incl. 6.7.0) admite PE x86
+   (32-bit) en Windows**; solo x86-64. Para `GEX3D.EXE` (PE32 x86) hay que
+   decidir: (a) ejecutar REA desde `main` (build desde fuente, más complejo),
+   (b) analizar en host Linux/macOS con Ghidra, o (c) usar IDA en Windows.
+   Versión **fijada** si se usa npm, **no** `@latest`.
 5. (Opcional) GNU `objdump` si se quiere el carril `inspect_with_objdump`.
 
 ### 5.2 Descargas necesarias (a autorizar)
@@ -117,7 +121,7 @@ hueco abierto para preparar una intervención mínima y reversible.
 2. `& "$env:GHIDRA_INSTALL_DIR\support\analyzeHeadless.bat"` imprime ayuda.
 3. `npx -y rea-agents@<pin> doctor --provider ghidra --json` → `healthy:true`.
 4. `rea inspect <copia>\GEX3D.EXE --provider ghidra --json` → PE32 x86
-   (si la versión no admite x86 en Windows, falla aquí: ver §5.1).
+   (con una release publicada en Windows se rechazará: ver §1/§5.1).
 5. Trabajo acotado: `rea xrefs <copia>\GEX3D.EXE 0x43E1BA --provider ghidra --json`
    y `rea function <copia>\GEX3D.EXE 0x43E1BA --provider ghidra --json`
    (opcional: `rea decompile` o `rea trace <copia>\GEX3D.EXE "<consulta>"`).

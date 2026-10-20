@@ -10,7 +10,8 @@ Formato: `YYYY-MM-DD — versión — descripción`.
   GEX**; estado verificado del host Windows; `tools/setup-re-env.sh` pendiente
   y Linux-only; binarios GEX identificados (`GEX3D.EXE` = PE32 x86); límites
   reales del carril Windows (Ghidra **P0 experimental, solo lectura**, NTFS
-  local) y aviso de versión (**x86 32-bit** solo en `main`, no en npm ≤5.0.0);
+  local) y aviso de versión (**x86 32-bit** solo en `main`; las releases
+  publicadas, incl. 6.7.0, admiten solo x86-64):
   oportunidad de usar Ghidra+REA para el xrefs/call-graph del path temporal
   documentado (`0x43E1BA`/`0x43E5DD`/`0x43EA51`); y plan de habilitación
   (dependencias, descargas, integridad, ubicaciones, reversión) **pendiente de
