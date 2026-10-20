@@ -19,6 +19,8 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 
 ### I-01 — La velocidad del juego depende del framerate
 
+> Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
+
 - **Descripción:** en sistemas rápidos el juego corre demasiado deprisa; se
   considera necesario un límite de 30 FPS para que sea jugable. Incluso a
   60 FPS iría demasiado rápido (afirmación del autor de nGlide).

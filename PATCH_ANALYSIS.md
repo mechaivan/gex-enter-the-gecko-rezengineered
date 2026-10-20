@@ -111,6 +111,8 @@ Reglas:
 
 ## F-03 — 3DFX FPS Limiter (EU/US) — tgames.fr
 
+> Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
+
 - **Fuente verificada (leída íntegra Lote 1; re-verificada 2026-10-09):**
   canónica <https://www.tgames.fr/pc/progs-pc/patch-patch-3dfx-fps-limiter-gex-3d-enter-the-gecko-t12190.html>
   (nótese `patch-patch` duplicado, verificado vivo); PCGW enlaza la

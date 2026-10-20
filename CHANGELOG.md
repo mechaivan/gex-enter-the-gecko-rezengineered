@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-21 — 0.0.0 — Comparativa F-03 vs original EU (documental, sin ejecutar)
+
+- **Nuevo:** `docs/F03_VS_ORIGINAL.md` — consolidación de toda la evidencia
+  estática y observacional sobre F-03 (build 1998-06-29, no parche quirúrgico)
+  vs el original EU: identidad de binarios, diff estático (82.9% bytes ≠),
+  comportamiento observado (42–44 FPS vs ~25), análisis de timing (direcciones
+  documentadas), mecanismo inferido, anomalía 34 ms vs 42–44 FPS (ABIERTA),
+  hipótesis abiertas y gaps pendientes. Sin ejecutar nada ni modificar binarios.
+- Referencias cruzadas añadidas en `KNOWN_ISSUES.md` (I-01), `PATCH_ANALYSIS.md`
+  (F-03) y `REVERSE_ENGINEERING.md` (§3).
+
 ## 2026-10-16 — 0.0.0 — REA: diagnóstico de habilitación en Windows (documentado, sin ejecutar)
 
 - **Nuevo:** `docs/REA_WINDOWS_ENABLEMENT.md` — REA como capa de
