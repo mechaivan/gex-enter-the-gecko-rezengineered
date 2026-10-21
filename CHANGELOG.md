@@ -2,6 +2,28 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
+
+- **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de
+  informe objdiff v2) leyendo el `GEX3D.EXE` original y verificando tamaño, MD5 y SHA-256.
+  Registra lo único demostrable: `total_code` = `VirtualSize` de `.text` (1 354 462 B),
+  `total_data` = `.rdata`+`.data`+`.idata` (1 126 193 B) y 0 bytes emparejados.
+  `--check` valida el fichero comprometido sin el binario (lo que corre el CI).
+- **Nuevo:** `docs/BYTEMATCH.md` — cómo lee ByteMatch, por qué el informe marca 0,00 %
+  (verdadero), qué falta para un informe real de objdiff y tabla de datos PE verificados.
+- **Corregido:** `.github/workflows/byte-match.yml` — se elimina la descarga del binario
+  `objdiff` y la invocación inválida `report generate --config --units --version`
+  (objdiff 3.8.3 usa `[-p] [-o] [-f] [-c]`); ese era el motivo de las ~20 ejecuciones
+  fallidas. Ahora valida el informe y lo sube como artefacto `EU_report`.
+- **Eliminado:** `objdiff.yml`, `config/target.toml`, `config/match-units.toml` y
+  `config/README.md` — esquema TOML inexistente en objdiff, punto de entrada erróneo
+  (`0x00463278` frente al real `0x00541B20`), sección `.reloc` inexistente, reubicaciones
+  y unidad `0x0043E1BA` nunca verificadas, y `pip install objdiff-cli` (no publicado).
+- Verificado con el parser real de ByteMatch (`src/report/parse.ts`): el informe parsea,
+  se codifica a protobuf y vuelve idéntico. `matched_functions_percent` se fuerza a 0 para
+  no heredar la convención de objdiff «total 0 = 100 %».
+- Sin ejecutar Gex; sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.
+
 ## 2026-10-21 — 0.0.0 — Análisis motor timing/game loop con Ghidra (REA+WSL) + WSL/Linux flow
 
 - **Nuevo:** `docs/TIMING_GAME_LOOP_ANALYSIS.md` — consolidación de todos los

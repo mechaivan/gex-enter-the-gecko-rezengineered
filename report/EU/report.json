@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "measures": {
+    "fuzzy_match_percent": 0,
+    "total_code": 1354462,
+    "matched_code": 0,
+    "matched_code_percent": 0,
+    "total_data": 1126193,
+    "matched_data": 0,
+    "matched_data_percent": 0,
+    "total_functions": 0,
+    "matched_functions": 0,
+    "matched_functions_percent": 0,
+    "complete_code": 0,
+    "complete_code_percent": 0,
+    "complete_data": 0,
+    "complete_data_percent": 0,
+    "total_units": 1,
+    "complete_units": 0
+  },
+  "units": [
+    {
+      "name": "game",
+      "measures": {
+        "fuzzy_match_percent": 0,
+        "total_code": 1354462,
+        "matched_code": 0,
+        "matched_code_percent": 0,
+        "total_data": 1126193,
+        "matched_data": 0,
+        "matched_data_percent": 0,
+        "total_functions": 0,
+        "matched_functions": 0,
+        "matched_functions_percent": 0,
+        "complete_code": 0,
+        "complete_code_percent": 0,
+        "complete_data": 0,
+        "complete_data_percent": 0,
+        "total_units": 1,
+        "complete_units": 0
+      },
+      "sections": [],
+      "functions": [],
+      "metadata": {
+        "progress_categories": []
+      }
+    }
+  ],
+  "categories": []
+}

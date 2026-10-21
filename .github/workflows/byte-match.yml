@@ -13,57 +13,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  byte-match:
-    name: Generate objdiff report
+  report:
+    name: Publish EU progress report
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Download objdiff v3.8.3 CLI Linux x86_64 (verified)
-        run: |
-          set -e
-          # Latest release v3.8.3 - CLI Linux x86_64 binary (verified asset name)
-          URL="https://github.com/encounter/objdiff/releases/download/v3.8.3/objdiff-cli-linux-x86_64"
-          echo "Downloading from: $URL"
-          curl -L -f -o objdiff "$URL"
-          ls -la objdiff
-          chmod +x objdiff
-          ./objdiff --version
-
-      - name: Generate objdiff report (EU version)
-        run: |
-          mkdir -p build
-          ./objdiff report generate \
-            --config config/target.toml \
-            --units config/match-units.toml \
-            --output build/EU_report.json \
-            --version EU
+      # The report is generated from the original executable, which is never committed
+      # (it is proprietary). Generation happens locally; this job validates the committed
+      # file and hands it to ByteMatch, so the run cannot fail on a download or a build.
+      - name: Validate report
+        run: node tools/bytematch-report.mjs --check
 
       - name: Upload progress report
         uses: actions/upload-artifact@v4
         with:
           name: EU_report
-          path: build/EU_report.json
+          path: report/EU/report.json
+          if-no-files-found: error
           retention-days: 90
-
-      - name: Validate report
-        run: |
-          python -c "
-import json
-with open('build/EU_report.json') as f:
-    r = json.load(f)
-print('Report keys:', list(r.keys()))
-if 'functions' in r:
-    print(f'Functions: {len(r[\"functions\"])}')
-if 'matched_functions' in r:
-    print(f'Matched: {r[\"matched_functions\"]}')
-if 'total_functions' in r:
-    print(f'Total: {r[\"total_functions\"]}')
-if 'matched_code_percent' in r:
-    print(f'Code %: {r[\"matched_code_percent\"]}%')
-"
