@@ -245,6 +245,7 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
 > (exe/DLL/registro/instalación intactos). E-2 listo para ejecutar
 > (método E-2.3; ver I-23).
 > Flujo temporal gameplay (M-13): REVERSE_ENGINEERING.md Etapa C.
+> **Análisis Ghidra/REA (2026-10-21): `docs/TIMING_GAME_LOOP_ANALYSIS.md`.**
 
 - **Superficie timing (hechos):** únicas APIs = `Sleep`+`GetTickCount`
   (1 call real `Sleep(10)` en `0x4631C1`, loop idle; 7 calls

@@ -21,6 +21,7 @@ Formato por problema: identificador, descripción, fuente(s), estado.
 
 > Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
 > Comparativa consolidada F-02 (2013 NTSC-D3D) vs original EU: `docs/F02_VS_ORIGINAL.md`.
+> **Análisis motor timing/game loop (Ghidra/REA): `docs/TIMING_GAME_LOOP_ANALYSIS.md`.**
 
 - **Descripción:** en sistemas rápidos el juego corre demasiado deprisa; se
   considera necesario un límite de 30 FPS para que sea jugable. Incluso a

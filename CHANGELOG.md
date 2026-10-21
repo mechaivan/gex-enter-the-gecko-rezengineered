@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-21 — 0.0.0 — Análisis motor timing/game loop con Ghidra (REA+WSL) + WSL/Linux flow
+
+- **Nuevo:** `docs/TIMING_GAME_LOOP_ANALYSIS.md` — consolidación de todos los
+  hallazgos RE sobre el motor de timing/game loop (exe EU original):
+  flujo temporal reconstruido, tabla de direcciones clave (`0x43B36D`,
+  `0x43E5DD`, `0x43E1BA`, `0x43EA51`, `0x43F80D`, `0x43DC3A`, `0x46324D`),
+  análisis completo de `0x43E1BA` (update por frame: 25 callees, 1 caller),
+  sello temporal `elapsed/16.666` verificado, PDB `gex3d.pdb`, anomalía
+  34 ms vs 42–44 FPS (ABIERTA), hipótesis abiertas y gaps pendientes.
+  **Primer análisis profundo con Ghidra sobre binario Gex.**
+- **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` §7 — flujo WSL/Linux/macOS
+  con Ghidra (recomendado); `tools/setup-re-env.ps1` hash SHA-256 real;
+  `tools/README.md` nota sobre restricción x86 en Windows.
+- Sin ejecutar Gex; sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.
+
 ## 2026-10-21 — 0.0.0 — WSL/Linux/macOS con Ghidra (alternativa recomendada) + hash real
 
 - **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` — nueva §7 con flujo completo
