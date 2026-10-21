@@ -26,10 +26,22 @@ jobs:
 
       - name: Download objdiff CLI
         run: |
-          # Download objdiff v0.14.0 (latest stable) for Linux x86_64
-          curl -L -o objdiff.tar.gz \
-            https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz
+          # Try multiple possible URLs for objdiff v0.14.0
+          set -e
+          URLs=(
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz"
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux.tar.gz"
+          )
+          for url in "${URLs[@]}"; do
+            echo "Trying: $url"
+            if curl -L -f -o objdiff.tar.gz "$url"; then
+              echo "Downloaded from: $url"
+              break
+            fi
+          done
           tar -xzf objdiff.tar.gz
+          ls -la
           chmod +x objdiff
           ./objdiff --version
 
