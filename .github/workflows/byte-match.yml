@@ -24,11 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download objdiff v3.8.3 Linux x86_64 (verified URL)
+      - name: Download objdiff v3.8.3 CLI Linux x86_64 (verified)
         run: |
           set -e
-          # Latest release v3.8.3 - Linux x86_64 binary (verified asset name)
-          URL="https://github.com/encounter/objdiff/releases/download/v3.8.3/objdiff-linux-x86_64"
+          # Latest release v3.8.3 - CLI Linux x86_64 binary (verified asset name)
+          URL="https://github.com/encounter/objdiff/releases/download/v3.8.3/objdiff-cli-linux-x86_64"
           echo "Downloading from: $URL"
           curl -L -f -o objdiff "$URL"
           ls -la objdiff
