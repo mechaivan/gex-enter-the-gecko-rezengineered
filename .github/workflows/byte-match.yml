@@ -16,7 +16,7 @@ jobs:
   byte-match:
     name: Generate objdiff report
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -28,7 +28,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install objdiff via cargo
-        run: cargo install objdiff --locked
+        run: |
+          cargo install objdiff --locked --verbose
+          objdiff --version
+
+      - name: Test objdiff help
+        run: objdiff --help
+
+      - name: Validate config files
+        run: |
+          echo "=== target.toml ==="
+          head -30 config/target.toml
+          echo "=== match-units.toml ==="
+          head -50 config/match-units.toml
 
       - name: Generate objdiff report (EU version)
         run: |
