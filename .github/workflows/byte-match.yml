@@ -24,21 +24,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get objdiff v0.14.0 Linux asset URL
-        id: get-objdiff-url
+      - name: Download objdiff v0.14.0 Linux x86_64
         run: |
-          RELEASE_INFO=$(curl -s https://api.github.com/repos/encounter/objdiff/releases/tags/v0.14.0)
-          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*linux[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
-          if [ -z "$ASSET_URL" ]; then
-            echo "No Linux asset found, using fallback"
-            ASSET_URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
-          fi
-          echo "ASSET_URL=$ASSET_URL" >> $GITHUB_OUTPUT
-          echo "Using URL: $ASSET_URL"
-
-      - name: Download objdiff
-        run: |
-          curl -L -f -o objdiff.tar.gz "${{ steps.get-objdiff-url.outputs.ASSET_URL }}"
+          set -e
+          URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
+          echo "Downloading from: $URL"
+          curl -L -f -o objdiff.tar.gz "$URL"
           tar -xzf objdiff.tar.gz
           ls -la
           chmod +x objdiff
