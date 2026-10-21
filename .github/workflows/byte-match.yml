@@ -49,7 +49,15 @@ jobs:
           fi
           tar -xzf objdiff.tar.gz
           ls -la
-          chmod +x objdiff
+          # Find the objdiff binary (might be in a subdirectory)
+          OBJDIFF_BIN=$(find . -name "objdiff" -type f -executable | head -1)
+          if [ -z "$OBJDIFF_BIN" ]; then
+            echo "objdiff binary not found in archive"
+            exit 1
+          fi
+          echo "Found objdiff at: $OBJDIFF_BIN"
+          cp "$OBJDIFF_BIN" ./objdiff
+          chmod +x ./objdiff
           ./objdiff --version
 
       - name: Generate objdiff report (EU version)
