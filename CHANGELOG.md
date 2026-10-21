@@ -17,9 +17,14 @@ Formato: `YYYY-MM-DD — versión — descripción`.
   `tools/README.md` nota sobre restricción x86 en Windows.
 - Sin ejecutar Gex; sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.
 
-## 2026-10-21 — 0.0.0 — WSL/Linux/macOS con Ghidra (alternativa recomendada) + hash real
+## 2026-10-21 — 0.0.0 — E-2.3 A/B test ejecutado + Análisis motor timing/game loop con Ghidra (REA+WSL) + WSL/Linux flow
 
-- **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` — nueva §7 con flujo completo
+- **E-2.3 A/B test EJECUTADO (2026-10-21, PC mantenedor):** Original EU vs F-03 EU con glide-shim (QPC 10MHz). nGlide 2.10, VSync OFF. **Resultados:** Original EU = 21.2 FPS promedio (p50=40ms, alta varianza); F-03 EU = 43.2 FPS (p50=13ms, frame pacing consistente). **Conclusión:** F-03 ~2× más rápido, frame pacing 2x más consistente. Original EU ~21 FPS real (no 25), F-03 ~43 FPS (confirmado 42–44). Anomalía 34ms vs 42-44 FPS: límite 34ms en F-03 no es cuello de botella. Artefactos: `glide-shim_original.csv`, `glide-shim_F03.csv` en Drive.
+- **Nuevo:** `docs/TIMING_GAME_LOOP_ANALYSIS.md` — consolidación completa hallazgos RE timing/game loop (exe EU): flujo temporal, direcciones clave, análisis `0x43E1BA` (25 callees, 1 caller), sello temporal, PDB `gex3d.pdb`, anomalía 34ms, hipótesis, gaps.
+- **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` §7 — flujo WSL/Linux/macOS con Ghidra (recomendado); `tools/setup-re-env.ps1` hash SHA-256 real; `tools/README.md` nota restricción x86.
+- Sin ejecutar Gex (salvo test A/B); sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.
+
+## 2026-10-21 — 0.0.0 — WSL/Linux/macOS con Ghidra (alternativa recomendada) + hash real — nueva §7 con flujo completo
   para WSL/Linux/macOS con Ghidra 12.1.4 (activación WSL, JDK 21, descarga +
   verificación SHA-256 `ddac49f…`, instalación REA, variables de sesión,
   verificación y trabajo acotado). Esta es la **vía recomendada** para analizar

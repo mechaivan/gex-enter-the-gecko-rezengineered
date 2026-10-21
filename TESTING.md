@@ -237,7 +237,33 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
   registrada); DESCARTAR: cualquier arranque fuera de su InstallDir
   registrado. Micro-item: 1 dir listing (`font.3df` vs `font3.dff`).
 
-## E-3 — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura)
+## E-2.3.1 — Resultados E-2.3 A/B test (2026-10-21, EJECUTADO, PC mantenedor)
+
+> **Test A/B completado con glide-shim (QPC 10MHz):** Original EU (MD5 `692b1282`) vs F-03 EU (sha256 `7a9b6851…`). nGlide 2.10, VSync OFF, 512×384. A/B con `InstallDir` conmutado por registro (`C:\GEX_TEST\original` / `C:\GEX_TEST\F03`). Captura ~2 min menú + nivel. glide-shim v6 (QPC 10MHz, buf=2048).
+>
+> **Resultados (frames filtrados >0ms <1000ms):**
+>
+> | Métrica | Original EU | F-03 EU |
+> |---|---|---|
+> | Frames válidos | 8,306 | 7,361 |
+> | **FPS promedio** | **21.2** | **43.2** |
+> | Mediana (p50) | 40.25 ms (~25 FPS) | **13.17 ms (~76 FPS)** |
+> | p90 | 63.16 ms (16 FPS) | 43.01 ms (23 FPS) |
+> | p95 | 77.89 ms (13 FPS) | 44.11 ms (23 FPS) |
+> | p99 | 78.75 ms (13 FPS) | 63 ms (16 FPS) |
+> | Variabilidad (p95-p50) | 37.6 ms | 31 ms |
+>
+> **Conclusión:** F-03 corre **~2× más rápido** (43 vs 21 FPS promedio) con frame pacing **mucho más consistente** (p95-p50 = 31ms vs 38ms). Original EU tiene alta variabilidad (p50=40ms, p95=78ms); F-03 es muy consistente (p50=13ms, p95=44ms). F-03 corre a ~43 FPS reales (consistente con observación 42–44 FPS). Original EU corre a ~21 FPS reales.
+>
+> **Interpretación:** El límite de 34ms en F-03 no es el cuello de botella (corre a 23ms/frame). Original EU: límite 34ms + 3 retraces @75Hz = 25 FPS teórico, pero variabilidad del `Sleep(10)` + lógica frame-acoplada lo baja a ~21 FPS real con alta varianza. F-03 elimina/reduce el límite → swap más frecuente (~43 FPS), frame pacing muy estable.
+>
+> **Artefactos:** `C:\GEX_TEST\original\glide-shim_original.csv` (8,318 swaps), `C:\GEX_TEST\F03\glide-shim_F03.csv` (7,363 swaps). Hashes verificados contra inventario.
+>
+> **Decisión E-2:** t_B/t_A ≈ 43/21 ≈ 2.0 ⇒ sim frame-acoplada (H1/H2 ✓); FPS B varía con escena → confirmar en siguiente tanda; VSync OFF en ambos ⇒ acoplado a presentación, no a VSync.
+>
+> **Artefactos guardados:** `glide-shim_original.csv`, `glide-shim_F03.csv` en Drive `REZengineered/analysis/`.
+
+## E-3 — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura) — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura)
 
 > Análisis estático acotado del exe EU original en Arena (descarga
 > Drive→sandbox verificada md5 `692b1282…`, objdump/binutils;
