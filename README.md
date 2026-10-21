@@ -2,6 +2,8 @@
 
 # Gex: Enter the Gecko — REZengineered
 
+[![Progreso en ByteMatch](https://bytematch.dev/mechaivan/gex-enter-the-gecko-rezengineered.svg?label=Code&measure=matched_code_percent)](https://bytematch.dev/mechaivan/gex-enter-the-gecko-rezengineered)
+
 > **English summary:** *Gex: Enter the Gecko* — REZengineered is a
 > reverse-engineering, preservation and modernization project for the
 > original 1998 PC port.

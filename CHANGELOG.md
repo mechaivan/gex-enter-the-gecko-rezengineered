@@ -6,11 +6,15 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 
 - **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de
   informe objdiff v2) leyendo el `GEX3D.EXE` original y verificando tamaño, MD5 y SHA-256.
-  Registra lo único demostrable: `total_code` = `VirtualSize` de `.text` (1 354 462 B),
-  `total_data` = `.rdata`+`.data`+`.idata` (1 126 193 B) y 0 bytes emparejados.
+  Registra lo demostrable: `total_code` = `VirtualSize` de `.text` (1 354 462 B),
+  `total_data` = `.rdata`+`.data`+`.idata` (1 126 193 B), `total_functions` = **1 647**
+  puntos de entrada con llamada directa (`E8 rel32`) dentro de `.text` (cota inferior
+  medida; el .EXE está stripped y no hay PDB) y 0 bytes emparejados.
   `--check` valida el fichero comprometido sin el binario (lo que corre el CI).
 - **Nuevo:** `docs/BYTEMATCH.md` — cómo lee ByteMatch, por qué el informe marca 0,00 %
-  (verdadero), qué falta para un informe real de objdiff y tabla de datos PE verificados.
+  (verdadero), el método de recuento de funciones, qué falta para un informe real de
+  objdiff y tabla de datos PE verificados.
+- **Nuevo:** badge de progreso de ByteMatch en `README.md`.
 - **Corregido:** `.github/workflows/byte-match.yml` — se elimina la descarga del binario
   `objdiff` y la invocación inválida `report generate --config --units --version`
   (objdiff 3.8.3 usa `[-p] [-o] [-f] [-c]`); ese era el motivo de las ~20 ejecuciones
@@ -19,6 +23,9 @@ Formato: `YYYY-MM-DD — versión — descripción`.
   `config/README.md` — esquema TOML inexistente en objdiff, punto de entrada erróneo
   (`0x00463278` frente al real `0x00541B20`), sección `.reloc` inexistente, reubicaciones
   y unidad `0x0043E1BA` nunca verificadas, y `pip install objdiff-cli` (no publicado).
+- **Corregido:** `TESTING.md` §E-2.3 y `CHANGELOG` — los CSV del A/B **no** están en
+  Drive `REZengineered/analysis/`; solo en el PC del mantenedor, con su sha-256. La copia
+  a Drive sigue pendiente.
 - Verificado con el parser real de ByteMatch (`src/report/parse.ts`): el informe parsea,
   se codifica a protobuf y vuelve idéntico. `matched_functions_percent` se fuerza a 0 para
   no heredar la convención de objdiff «total 0 = 100 %».
@@ -41,7 +48,7 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 
 ## 2026-10-21 — 0.0.0 — E-2.3 A/B test ejecutado + Análisis motor timing/game loop con Ghidra (REA+WSL) + WSL/Linux flow
 
-- **E-2.3 A/B test EJECUTADO (2026-10-21, PC mantenedor):** Original EU vs F-03 EU con glide-shim (QPC 10MHz). nGlide 2.10, VSync OFF. **Resultados:** Original EU = 21.2 FPS promedio (p50=40ms, alta varianza); F-03 EU = 43.2 FPS (p50=13ms, frame pacing consistente). **Conclusión:** F-03 ~2× más rápido, frame pacing 2x más consistente. Original EU ~21 FPS real (no 25), F-03 ~43 FPS (confirmado 42–44). Anomalía 34ms vs 42-44 FPS: límite 34ms en F-03 no es cuello de botella. Artefactos: `glide-shim_original.csv`, `glide-shim_F03.csv` en Drive.
+- **E-2.3 A/B test EJECUTADO (2026-10-21, PC mantenedor):** Original EU vs F-03 EU con glide-shim (QPC 10MHz). nGlide 2.10, VSync OFF. **Resultados:** Original EU = 21.2 FPS promedio (p50=40ms, alta varianza); F-03 EU = 43.2 FPS (p50=13ms, frame pacing consistente). **Conclusión:** F-03 ~2× más rápido, frame pacing 2x más consistente. Original EU ~21 FPS real (no 25), F-03 ~43 FPS (confirmado 42–44). Anomalía 34ms vs 42-44 FPS: límite 34ms en F-03 no es cuello de botella. Artefactos: `glide-shim_original.csv` (sha256 `f15b9b14…4a3f8`), `glide-shim_F03.csv` (sha256 `45f2e612…87845`) — **solo en el PC del mantenedor**; la copia en Drive `REZengineered/analysis/` sigue pendiente (no verificada).
 - **Nuevo:** `docs/TIMING_GAME_LOOP_ANALYSIS.md` — consolidación completa hallazgos RE timing/game loop (exe EU): flujo temporal, direcciones clave, análisis `0x43E1BA` (25 callees, 1 caller), sello temporal, PDB `gex3d.pdb`, anomalía 34ms, hipótesis, gaps.
 - **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` §7 — flujo WSL/Linux/macOS con Ghidra (recomendado); `tools/setup-re-env.ps1` hash SHA-256 real; `tools/README.md` nota restricción x86.
 - Sin ejecutar Gex (salvo test A/B); sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.

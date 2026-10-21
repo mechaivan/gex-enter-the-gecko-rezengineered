@@ -261,7 +261,11 @@ for($i=0;$i-lt$n;$i++){if($a[$i]-ne$b[$i]){$d++;if($first-lt0){$first=$i}$last=$
 >
 > **Decisión E-2:** t_B/t_A ≈ 43/21 ≈ 2.0 ⇒ sim frame-acoplada (H1/H2 ✓); FPS B varía con escena → confirmar en siguiente tanda; VSync OFF en ambos ⇒ acoplado a presentación, no a VSync.
 >
-> **Artefactos guardados:** `glide-shim_original.csv`, `glide-shim_F03.csv` en Drive `REZengineered/analysis/`.
+> **Custodia de artefactos (PENDIENTE):** `glide-shim_original.csv` (180 003 B, sha256
+> `f15b9b14…4a3f8`) y `glide-shim_F03.csv` (161 097 B, sha256 `45f2e612…87845`) están
+> **solo en el PC del mantenedor** (`C:\GEX_TEST\original\` y `C:\GEX_TEST\F03\`).
+> **No** están subidos a Drive `REZengineered/analysis/`: esa copia sigue pendiente y no
+> se ha verificado.
 
 ## E-3 — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura) — Superficie timing + contexto candidato 1 (EJECUTADO 2026-10-10, solo lectura)
 

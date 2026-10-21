@@ -31,16 +31,31 @@ original. Todas sus cifras son medibles en el binario:
 | `total_data` | **1 126 193 B** | `VirtualSize` de `.rdata` + `.data` + `.idata` |
 | `matched_code` | 0 B | nada reimplementado todavía |
 | `matched_functions` | 0 | ídem |
-| `total_functions` | **0 (no medido)** | el .EXE no tiene tabla de símbolos COFF |
+| `total_functions` | **1 647** | puntos de entrada con llamada directa (`E8 rel32`) dentro de `.text` |
 | `total_units` | 1 (`game`) | el código completo, sin dividir aún |
 
-En la página se verá **Code 0.00 %**, **Data 0.00 %**, **Functions 0 / 0** y
+En la página se verá **Code 0.00 %**, **Data 0.00 %**, **Functions 0 / 1 647** y
 **Units 0 / 1**. Es la verdad: el proyecto no ha emparejado ni una función.
 
-`total_functions` se deja a **0 a propósito**. El ejecutable está *stripped*
-(`PointerToSymbolTable = 0`) y no hay PDB, así que cualquier recuento de funciones sería una
-estimación, no un dato. Publicar una estimación como «total de funciones» inflaría después
-el porcentaje de emparejamiento. Se rellenará cuando exista un informe real de objdiff.
+### Cómo se cuentan las 1 647 funciones
+
+El ejecutable está *stripped* (`PointerToSymbolTable = 0`) y no hay PDB, así que no existe
+una tabla de símbolos que leer. Lo único localizable sin adivinar son los **puntos de entrada
+con llamada directa**: cada `E8 rel32` de `.text` cuyo destino cae dentro de `.text` es un
+punto de entrada al que el código original llama.
+
+Son **1 647** direcciones distintas. El método solo puede *dejar fuera* funciones (las que
+solo se alcanzan por caída o por un salto, o las que solo se referencian desde una tabla de
+saltos), nunca inventar una: cada entrada listada es llamada de verdad por el binario. Por
+eso la cifra es una **cota inferior** del total real, y no un total exacto.
+
+El tamaño de cada función es la **distancia hasta la siguiente entrada identificada** (la
+última llega hasta el final de `.text`). Es una **cota superior**: el relleno y las tablas de
+saltos entre dos funciones se atribuyen a la anterior. Solo afecta al tamaño de los
+recuadros del mapa, no a los porcentajes.
+
+Cuando exista un informe real de objdiff, estos dos valores quedarán sustituidos por los que
+calcule objdiff y dejarán de ser cotas.
 
 ## 3. Por qué todavía no hay un informe de objdiff
 

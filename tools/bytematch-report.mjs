@@ -20,9 +20,11 @@
  *   total_data  = virtual size of .rdata/.data/.idata
  *   matched_*   = 0                              (nothing reimplemented yet)
  *
- * Every number comes from the binary itself. Nothing is estimated: function totals are left
- * at 0 ("not enumerated yet") rather than guessed, because the executable is stripped
- * (no COFF symbol table, no PDB available).
+ * Every number comes from the binary itself. The function list is *measured*, not guessed:
+ * the executable is stripped (no COFF symbol table, no PDB), so the only code entry points
+ * that can be located without guessing are the direct call targets (E8 rel32) inside .text.
+ * Those are real entry points the original code calls, so the list is a lower bound on the
+ * number of functions - never an overcount of code.
  *
  * The output uses objdiff's report schema version 2, which ByteMatch parses directly
  * (src/report/parse.ts: fromObject + migrate).
@@ -154,7 +156,46 @@ function measures({
   return m;
 }
 
-function buildReport(pe) {
+/**
+ * The direct call targets (E8 rel32) inside .text: the code entry points the original
+ * binary calls. Each one is a real entry point, so the set is a lower bound on the number
+ * of functions - it can miss functions that are only reached by fall-through or by a
+ * jump, but it cannot invent one.
+ */
+function findCallTargets(buffer, text) {
+  const start = text.rawOffset;
+  const end = start + text.rawSize;
+  const targets = new Set();
+  for (let i = start; i + 5 <= end; i++) {
+    if (buffer[i] !== 0xe8) continue; // call rel32
+    const rel = buffer.readInt32LE(i + 1);
+    const rva = text.virtualAddress + (i - start) + 5 + rel;
+    if (rva >= text.virtualAddress && rva < text.virtualAddress + text.virtualSize) targets.add(rva);
+  }
+  return [...targets].sort((a, b) => a - b);
+}
+
+/**
+ * One entry per identified code entry point. The size is the distance to the next one
+ * (the last one runs to the end of .text): an upper bound on the real function size, since
+ * padding and jump tables between two functions are attributed to the earlier one.
+ */
+function buildFunctions(buffer, text, imageBase) {
+  const starts = findCallTargets(buffer, text);
+  const textEnd = text.virtualAddress + text.virtualSize;
+  return starts.map((rva, index) => {
+    const next = index + 1 < starts.length ? starts[index + 1] : textEnd;
+    return {
+      name: `FUN_${(imageBase + rva).toString(16).toUpperCase().padStart(8, "0")}`,
+      size: next - rva,
+      fuzzy_match_percent: 0,
+      address: rva - text.virtualAddress,
+      metadata: { virtual_address: imageBase + rva },
+    };
+  });
+}
+
+function buildReport(pe, buffer) {
   const byName = new Map(pe.sections.map((s) => [s.name, s]));
   for (const name of [...CODE_SECTIONS, ...DATA_SECTIONS]) {
     if (!byName.has(name)) fail(`section ${name} not found in the executable`);
@@ -163,23 +204,23 @@ function buildReport(pe) {
   const totalData = DATA_SECTIONS.reduce((sum, n) => sum + byName.get(n).virtualSize, 0);
 
   const text = byName.get(".text");
+  const functions = buildFunctions(buffer, text, pe.imageBase);
+
   // One unit for now: the whole game code. Units become finer as translation units are
   // defined; each one will then carry its real target/base objects.
   const unit = {
     name: "game",
-    measures: measures({ totalCode, totalData, totalUnits: 1 }),
+    measures: measures({ totalCode, totalData, totalUnits: 1, totalFunctions: functions.length }),
     sections: [],
-    functions: [],
+    functions,
     metadata: { progress_categories: [] },
   };
 
   return {
     version: 2,
-    measures: measures({ totalCode, totalData, totalUnits: 1 }),
+    measures: measures({ totalCode, totalData, totalUnits: 1, totalFunctions: functions.length }),
     units: [unit],
     categories: [],
-    // Not part of the schema: kept out of the JSON, printed by the script instead.
-    _debug: { text },
   };
 }
 
@@ -197,8 +238,7 @@ function generate(exePath, outPath) {
   }
 
   const pe = readPE(buffer);
-  const report = buildReport(pe);
-  delete report._debug;
+  const report = buildReport(pe, buffer);
 
   mkdirSync(dirname(resolve(outPath)), { recursive: true });
   writeFileSync(resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
@@ -216,6 +256,7 @@ function generate(exePath, outPath) {
   console.log(`wrote   ${resolve(outPath)}`);
   console.log(`        total_code ${report.measures.total_code} bytes (.text virtual size ${text.virtualSize})`);
   console.log(`        total_data ${report.measures.total_data} bytes (${DATA_SECTIONS.join(" + ")})`);
+  console.log(`        functions  ${report.measures.total_functions} (direct call targets; lower bound)`);
   console.log(`        matched    ${report.measures.matched_code} bytes, ${report.measures.matched_functions} functions (baseline)`);
 }
 
@@ -273,12 +314,30 @@ function check(reportPath) {
     if (sum[key] !== top[key]) problems.push(`sum of units' ${key} is ${sum[key]} but the report says ${top[key]}`);
   }
 
+  // The function list is what backs total_functions: it must be there and add up.
+  const functions = Array.isArray(at(units[0], "functions")) ? units[0].functions : [];
+  if (top.total_functions !== functions.length) {
+    problems.push(`measures.total_functions is ${top.total_functions} but the unit lists ${functions.length} functions`);
+  }
+  let functionBytes = 0;
+  for (const [i, fn] of functions.entries()) {
+    if (typeof at(fn, "name") !== "string" || !at(fn, "name")) problems.push(`functions[${i}] has no name`);
+    if (typeof at(fn, "size") !== "number" || at(fn, "size") <= 0) problems.push(`functions[${i}] has no positive size`);
+    functionBytes += at(fn, "size") ?? 0;
+  }
+  if (functionBytes > top.total_code) {
+    problems.push(`the function sizes add up to ${functionBytes} bytes, more than the ${top.total_code} bytes of code`);
+  }
+
   if (problems.length) {
     console.error(`${path}: ${problems.length} problem(s)`);
     for (const p of problems) console.error(`  - ${p}`);
     process.exit(1);
   }
-  console.log(`${path}: ok (schema v2, ${top.total_code} code bytes, ${top.total_data} data bytes, 0 matched)`);
+  console.log(
+    `${path}: ok (schema v2, ${top.total_code} code bytes, ${top.total_data} data bytes, ` +
+      `${top.total_functions} functions identified, 0 matched)`,
+  );
 }
 
 const args = process.argv.slice(2);
