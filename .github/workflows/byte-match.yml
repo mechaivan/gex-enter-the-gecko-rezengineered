@@ -24,14 +24,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download objdiff v0.14.0 Linux x86_64 (verified URL)
+      - name: Download objdiff v0.14.0 Linux x86_64 (try multiple asset names)
         run: |
           set -e
-          # Verified URL from GitHub releases: https://github.com/encounter/objdiff/releases/tag/v0.14.0
-          # Asset: objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz
-          URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
-          echo "Downloading from: $URL"
-          curl -L -f -o objdiff.tar.gz "$URL"
+          # Try multiple possible asset names for objdiff v0.14.0 Linux x86_64
+          URLS=(
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz"
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz"
+            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-linux-x86_64.tar.gz"
+          )
+          SUCCESS=false
+          for URL in "${URLS[@]}"; do
+            echo "Trying: $URL"
+            if curl -L -f -o objdiff.tar.gz "$URL"; then
+              echo "Success with: $URL"
+              SUCCESS=true
+              break
+            fi
+          done
+          if [ "$SUCCESS" = false ]; then
+            echo "All URLs failed"
+            exit 1
+          fi
           tar -xzf objdiff.tar.gz
           ls -la
           chmod +x objdiff
