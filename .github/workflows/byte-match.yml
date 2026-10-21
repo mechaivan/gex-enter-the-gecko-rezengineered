@@ -29,15 +29,15 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install dependencies
+      - name: Install objdiff
         run: |
           python -m pip install --upgrade pip
-          pip install objdiff-cli
+          pip install objdiff
 
       - name: Generate objdiff report (EU version)
         run: |
           mkdir -p build
-          objdiff-cli report generate \
+          objdiff report generate \
             --config config/target.toml \
             --units config/match-units.toml \
             --output build/EU_report.json \
