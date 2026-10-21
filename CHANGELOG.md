@@ -2,6 +2,19 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-21 — 0.0.0 — WSL/Linux/macOS con Ghidra (alternativa recomendada) + hash real
+
+- **Actualizado:** `docs/REA_WINDOWS_ENABLEMENT.md` — nueva §7 con flujo completo
+  para WSL/Linux/macOS con Ghidra 12.1.4 (activación WSL, JDK 21, descarga +
+  verificación SHA-256 `ddac49f…`, instalación REA, variables de sesión,
+  verificación y trabajo acotado). Esta es la **vía recomendada** para analizar
+  `GEX3D.EXE` (PE32 x86), ya que las releases publicadas de REA en Windows
+  solo admiten x86-64.
+- **Actualizado:** `tools/setup-re-env.ps1` — hash SHA-256 real de Ghidra 12.1.4
+  completado (antes era placeholder). `tools/README.md` actualizado con nota
+  sobre restricción x86 en Windows.
+- Sin ejecutar ni instalar nada; sin modificar `main` ni `PROJECT_STATUS.svg`.
+
 ## 2026-10-21 — 0.0.0 — Comparativa F-02 (2013 NTSC-D3D) vs original EU (documental, sin ejecutar)
 
 - **Nuevo:** `docs/F02_VS_ORIGINAL.md` — consolidación de toda la evidencia

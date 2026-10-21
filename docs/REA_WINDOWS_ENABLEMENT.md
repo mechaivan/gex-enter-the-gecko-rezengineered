@@ -62,8 +62,10 @@
   validez en Windows.**
 - Existe ahora un borrador Windows **`tools/setup-re-env.ps1`** (pendiente de
   probar): prefijo `%LOCALAPPDATA%\rezengineered-rea\`, JDK 21 + Ghidra 12.1.4 +
-  REA, variables solo de sesión, verificación SHA-256 y reversión. No ejecutar
-  sin autorización.
+  REA, variables solo de sesión, verificación SHA-256 (hash real completado) y
+  reversión. No ejecutar sin autorización.
+- **Recomendado:** usar **WSL/Linux/macOS** (§7) para analizar GEX3D.EXE (PE32
+  x86), ya que las releases publicadas de REA en Windows solo admiten x86-64.
 
 ## 4. Binarios de GEX identificados (para cuando haya proveedor)
 
@@ -133,6 +135,84 @@ hueco abierto para preparar una intervención mínima y reversible.
 - `npm uninstall -g rea-agents`.
 - Quitar las variables (están solo en `env.ps1` de sesión).
 - Sin cambios de sistema/registro/repo; originales verificados por hash intactos.
+
+## 7. Alternativa recomendada: WSL / Linux / macOS con Ghidra
+
+Dado que las *releases* publicadas de REA admiten en Windows solo PE x86-64
+y `GEX3D.EXE` es PE32 x86, la vía más directa y sin coste para analizar Gex
+es usar **Ghidra en Linux o macOS** (que admite PE x86 sin la restricción P0).
+
+### 7.1 WSL (Windows Subsystem for Linux) — recomendado para el mantenedor
+
+WSL viene incluido en Windows 10/11 y proporciona un entorno Linux completo
+sin salir del PC.
+
+1. **Activar WSL** (si no está activo):
+   ```
+   wsl --install
+   ```
+   (Requiere reinicio. Instala Ubuntu por defecto.)
+
+2. **Instalar dependencias en WSL:**
+   ```
+   sudo apt update
+   sudo apt install -y openjdk-21-jdk unzip curl
+   ```
+
+3. **Descargar e instalar Ghidra 12.1.4:**
+   ```
+   mkdir -p ~/.rezengineered-rea
+   cd ~/.rezengineered-rea
+   curl -L -o ghidra.zip https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/ghidra_12.1.4_PUBLIC_20250620.zip
+   # Verificar SHA-256:
+   echo "ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db  ghidra.zip" | sha256sum -c
+   unzip ghidra.zip -d ghidra
+   ```
+
+4. **Instalar REA:**
+   ```
+   npm install -g rea-agents@6.7.0
+   ```
+
+5. **Configurar variables de sesión** (en `~/.bashrc` o `env.sh`):
+   ```
+   export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+   export GHIDRA_INSTALL_DIR=$HOME/.rezengineered-rea/ghidra/ghidra_12.1.4_PUBLIC
+   export PATH=$JAVA_HOME/bin:$PATH
+   ```
+
+6. **Verificar:**
+   ```
+   java -version          # debe mostrar 21.x
+   $GHIDRA_INSTALL_DIR/support/analyzeHeadless  # debe imprimir ayuda
+   rea doctor --provider ghidra --json  # debe dar healthy:true
+   ```
+
+7. **Trabajo acotado** (sobre copia de `GEX3D.EXE`):
+   ```
+   rea inspect /path/to/copy/GEX3D.EXE --provider ghidra --json
+   rea xrefs /path/to/copy/GEX3D.EXE 0x43E1BA --provider ghidra --json
+   rea function /path/to/copy/GEX3D.EXE 0x43E1BA --provider ghidra --json
+   ```
+
+### 7.2 Notas
+- En WSL/Linux, Ghidra admite PE x86 (32-bit) sin restricción P0.
+- Los originales del juego deben estar en el filesystem de Windows accesible
+  desde WSL (`/mnt/c/...`) o copiados al filesystem de WSL.
+- Trabajar siempre sobre **copias**; originales intactos por hash.
+- REA no instala ni actualiza Ghidra/Java; el usuario los instala manualmente.
+- Reversión: borrar `~/.rezengineered-rea/`, `npm uninstall -g rea-agents`,
+  quitar variables de `~/.bashrc`.
+
+### 7.3 Comparación de vías
+
+| Vía | Coste | Complejidad | Admite PE x86 (32-bit) |
+|---|---|---|---|
+| WSL + Ghidra (recomendado) | Gratuito | Media | Sí |
+| Linux/macOS nativo + Ghidra | Gratuito | Media | Sí |
+| IDA en Windows | Licencia de pago | Baja | Sí |
+| Build REA desde `main` en Windows | Gratuito | Alta | Sí (sin P0) |
+| REA published en Windows (6.7.0) | Gratuito | Baja | **No** (solo x86-64) |
 
 ## 6. Referencias
 - `RESEARCH.md` §S-18 · `docs/TOOLKIT.md` §3–§6 · `PROJECT_STATE.md` ·

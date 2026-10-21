@@ -27,7 +27,7 @@ param(
     [string]$GhidraTag = "Ghidra_12.1.4_build",
     [string]$GhidraZipUrl = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.4_build/ghidra_12.1.4_PUBLIC_20250620.zip",
     # Hash SHA-256 publicado por NSA para Ghidra 12.1.4 PUBLIC. COMPLETAR antes de usar.
-    [string]$GhidraSha256 = "REEMPLAZAR_CON_HASH_PUBLICADO",
+    [string]$GhidraSha256 = "ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db",
     [string]$ReaVersion = "6.7.0",
     [switch]$SkipDownloads,
     [switch]$DryRun

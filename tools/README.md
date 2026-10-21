@@ -13,6 +13,9 @@
   REA CLI, prefijo `%LOCALAPPDATA%\rezengineered-rea\`, variables solo de
   sesión). **Borrador, pendiente de probar.** Uso (cuando se autorice):
   `powershell -ExecutionPolicy Bypass -File .\tools\setup-re-env.ps1`.
+  Nota: las releases publicadas de REA solo admiten PE x86-64 en Windows;
+  para PE32 x86 (GEX3D.EXE) usar WSL/Linux/macOS (ver
+  `docs/REA_WINDOWS_ENABLEMENT.md` §7).
 
 ## Uso del kit sandbox
 
