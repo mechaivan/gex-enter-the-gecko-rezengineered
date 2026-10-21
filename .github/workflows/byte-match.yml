@@ -16,7 +16,7 @@ jobs:
   byte-match:
     name: Generate objdiff report
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -24,28 +24,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install objdiff via cargo
+      - name: Download objdiff v0.14.0 (Linux x86_64)
         run: |
-          cargo install objdiff --locked --verbose
-          objdiff --version
-
-      - name: Test objdiff help
-        run: objdiff --help
-
-      - name: Validate config files
-        run: |
-          echo "=== target.toml ==="
-          head -30 config/target.toml
-          echo "=== match-units.toml ==="
-          head -50 config/match-units.toml
+          set -e
+          URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
+          echo "Downloading from: $URL"
+          curl -L -f -o objdiff.tar.gz "$URL"
+          tar -xzf objdiff.tar.gz
+          ls -la
+          chmod +x objdiff
+          ./objdiff --version
 
       - name: Generate objdiff report (EU version)
         run: |
           mkdir -p build
-          objdiff report generate \
+          ./objdiff report generate \
             --config config/target.toml \
             --units config/match-units.toml \
             --output build/EU_report.json \
