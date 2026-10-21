@@ -24,20 +24,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Install objdiff
+      - name: Download objdiff CLI
         run: |
-          python -m pip install --upgrade pip
-          pip install objdiff
+          # Download objdiff v0.14.0 (latest stable) for Linux x86_64
+          curl -L -o objdiff.tar.gz \
+            https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz
+          tar -xzf objdiff.tar.gz
+          chmod +x objdiff
+          ./objdiff --version
 
       - name: Generate objdiff report (EU version)
         run: |
           mkdir -p build
-          objdiff report generate \
+          ./objdiff report generate \
             --config config/target.toml \
             --units config/match-units.toml \
             --output build/EU_report.json \
