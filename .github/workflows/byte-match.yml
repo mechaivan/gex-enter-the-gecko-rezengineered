@@ -24,9 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download objdiff v0.14.0 Linux x86_64
+      - name: Download objdiff v0.14.0 Linux x86_64 (verified URL)
         run: |
           set -e
+          # Verified URL from GitHub releases: https://github.com/encounter/objdiff/releases/tag/v0.14.0
+          # Asset: objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz
           URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
           echo "Downloading from: $URL"
           curl -L -f -o objdiff.tar.gz "$URL"
