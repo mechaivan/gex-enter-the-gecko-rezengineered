@@ -6,14 +6,19 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 
 - **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de
   informe objdiff v2) leyendo el `GEX3D.EXE` original y verificando tamaño, MD5 y SHA-256.
-  Registra lo demostrable: `total_code` = **1 354 752 B** de `.text` en el fichero,
-  `total_data` = **196 096 B** de `.rdata`+`.data`+`.idata` en el fichero,
+  Registra lo demostrable: `total_code` = **1 354 413 B** (suma de las 1 647 funciones
+  identificadas), `total_data` = **196 096 B** de `.rdata`+`.data`+`.idata` en el fichero,
   `total_functions` = **1 647** puntos de entrada con llamada directa (`E8 rel32`) dentro de
   `.text` (cota inferior medida; el .EXE está stripped y no hay PDB) y 0 bytes emparejados.
   `--check` valida el fichero comprometido sin el binario (lo que corre el CI).
-- **Nuevo:** `docs/BYTEMATCH.md` — cómo lee ByteMatch, por qué el informe marca 0,00 %
-  (verdadero), el método de recuento de funciones, qué falta para un informe real de
-  objdiff y tabla de datos PE verificados.
+- **Nuevo:** el informe se divide en **2 unidades** medidas sobre el binario:
+  `game/code` (1 607 funciones, 1 354 117 B) y `game/imports` (40 *thunks* `jmp [IAT]`
+  nombrados con su importación real: `_grBufferSwap@4`, `_gu3dfLoad@8`, `RtlUnwind`…).
+- **Nuevo:** `docs/BYTEMATCH.md` — cómo lee ByteMatch, cómo se construye su mapa de
+  unidades, por qué el informe marca 0,00 % (verdadero), el método de recuento de funciones,
+  por qué el binario **no** se puede trocear en subsistemas automáticamente (grafo de
+  llamadas en un solo bloque, sin separadores de `.obj` recuperables) y qué falta para un
+  informe real de objdiff.
 - **Nuevo:** badge de progreso de ByteMatch en `README.md`.
 - **Corregido:** `.github/workflows/byte-match.yml` — se elimina la descarga del binario
   `objdiff` y la invocación inválida `report generate --config --units --version`
@@ -31,6 +36,12 @@ Formato: `YYYY-MM-DD — versión — descripción`.
   fichero: los ~930 KB restantes son memoria sin inicializar (buffer de runtime) que nunca
   existió en disco. Ahora se cuentan los bytes presentes en el fichero (`raw`), con lo que
   el reparto del .EXE queda en 87 % código / 12,6 % datos / 0,4 % resto.
+- **Medido (2026-10-21):** estructura interna del binario, registrada en `docs/BYTEMATCH.md`:
+  132 importaciones de 7 DLL; 1 643 de 1 647 funciones conectadas entre sí (un solo bloque);
+  los 122 únicos puntos de contacto con el sistema son *thunks* de importación (el juego no
+  tiene capa de envoltura propia); los huecos de relleno entre funciones (8–15 B) no
+  permiten recuperar los `.obj` originales. Por tanto el troceado en subsistemas es trabajo
+  de RE, no una medida, y el mapa de unidades real llegará con las unidades reimplementadas.
 - Verificado con el parser real de ByteMatch (`src/report/parse.ts`): el informe parsea,
   se codifica a protobuf y vuelve idéntico. `matched_functions_percent` se fuerza a 0 para
   no heredar la convención de objdiff «total 0 = 100 %».

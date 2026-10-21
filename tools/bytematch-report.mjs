@@ -63,6 +63,18 @@ const EXPECTED = {
 const CODE_SECTIONS = [".text"];
 const DATA_SECTIONS = [".rdata", ".data", ".idata"];
 
+/**
+ * How the game code is split into the units the report shows.
+ *
+ * `game/code`    the game's own code.
+ * `game/imports` the import thunk table the linker appends at the end of .text: 134 stubs
+ *                of the form `jmp dword ptr [IAT]`, one per imported function. They are
+ *                platform glue, not code to reimplement, and they are named after the
+ *                function they import.
+ */
+const UNIT_CODE = "game/code";
+const UNIT_IMPORTS = "game/imports";
+
 const DEFAULT_OUT = "report/EU/report.json";
 
 const MEASURE_KEYS = [
@@ -110,6 +122,12 @@ function readPE(buffer) {
   if (magic !== 0x010b) fail(`expected PE32 optional header (0x10b), found 0x${magic.toString(16)}`);
   const entryPointRva = buffer.readUInt32LE(opt + 16);
   const imageBase = buffer.readUInt32LE(opt + 28);
+  const numberOfRvaAndSizes = buffer.readUInt32LE(opt + 92);
+  const dataDirectories = [];
+  for (let i = 0; i < numberOfRvaAndSizes; i++) {
+    const at = opt + 96 + i * 8;
+    dataDirectories.push({ rva: buffer.readUInt32LE(at), size: buffer.readUInt32LE(at + 4) });
+  }
   const sections = [];
   const table = opt + optionalSize;
   for (let i = 0; i < sectionCount; i++) {
@@ -123,7 +141,7 @@ function readPE(buffer) {
       characteristics: buffer.readUInt32LE(at + 36),
     });
   }
-  return { machine, entryPointRva, imageBase, sections };
+  return { machine, entryPointRva, imageBase, dataDirectories, sections };
 }
 
 function measures({
@@ -162,6 +180,46 @@ function measures({
 }
 
 /**
+ * The import table: maps each IAT slot to the function it holds, so a thunk can be named
+ * after the function it imports. Returns Map<IAT virtual address, {dll, func}>.
+ */
+function readImports(buffer, pe) {
+  const raw = (rva) => {
+    for (const s of pe.sections) {
+      if (rva >= s.virtualAddress && rva < s.virtualAddress + Math.max(s.virtualSize, s.rawSize)) {
+        return s.rawOffset + (rva - s.virtualAddress);
+      }
+    }
+    return null;
+  };
+  const directory = pe.dataDirectories[1];
+  if (!directory || !directory.rva) return new Map();
+  const imports = new Map();
+  let descriptor = raw(directory.rva);
+  for (let i = 0; descriptor !== null; i++) {
+    const nameRva = buffer.readUInt32LE(descriptor + 12);
+    if (!nameRva) break;
+    const firstThunk = buffer.readUInt32LE(descriptor + 16);
+    const nameRaw = raw(nameRva);
+    let dll = "";
+    for (let p = nameRaw; p !== null && buffer[p] !== 0; p++) dll += String.fromCharCode(buffer[p]);
+    let thunk = raw(buffer.readUInt32LE(descriptor));
+    for (let k = 0; thunk !== null && buffer.readUInt32LE(thunk) !== 0; k++) {
+      const value = buffer.readUInt32LE(thunk);
+      if (!(value & 0x80000000)) {
+        let q = raw(value + 2);
+        let func = "";
+        for (; q !== null && buffer[q] !== 0; q++) func += String.fromCharCode(buffer[q]);
+        imports.set(pe.imageBase + firstThunk + k * 4, { dll, func });
+      }
+      thunk += 4;
+    }
+    descriptor += 20;
+  }
+  return imports;
+}
+
+/**
  * The direct call targets (E8 rel32) inside .text: the code entry points the original
  * binary calls. Each one is a real entry point, so the set is a lower bound on the number
  * of functions - it can miss functions that are only reached by fall-through or by a
@@ -184,18 +242,30 @@ function findCallTargets(buffer, text) {
  * One entry per identified code entry point. The size is the distance to the next one
  * (the last one runs to the end of .text): an upper bound on the real function size, since
  * padding and jump tables between two functions are attributed to the earlier one.
+ *
+ * A start whose first instruction is `jmp dword ptr [IAT]` is an import thunk: it is named
+ * after the function it imports and counted in the platform unit.
  */
-function buildFunctions(buffer, text, imageBase) {
+function buildFunctions(buffer, text, imageBase, imports) {
   const starts = findCallTargets(buffer, text);
   const textEnd = text.virtualAddress + text.virtualSize;
   return starts.map((rva, index) => {
     const next = index + 1 < starts.length ? starts[index + 1] : textEnd;
+    const at = text.rawOffset + (rva - text.virtualAddress);
+    let thunk = null;
+    if (buffer[at] === 0xff && buffer[at + 1] === 0x25) {
+      thunk = imports.get(buffer.readUInt32LE(at + 2)) ?? null;
+    }
     return {
-      name: `FUN_${(imageBase + rva).toString(16).toUpperCase().padStart(8, "0")}`,
+      name: thunk
+        ? thunk.func
+        : `FUN_${(imageBase + rva).toString(16).toUpperCase().padStart(8, "0")}`,
       size: next - rva,
       fuzzy_match_percent: 0,
       address: rva - text.virtualAddress,
       metadata: { virtual_address: imageBase + rva },
+      unit: thunk ? UNIT_IMPORTS : UNIT_CODE,
+      thunk: thunk ? `${thunk.dll}!${thunk.func}` : null,
     };
   });
 }
@@ -207,26 +277,40 @@ function buildReport(pe, buffer) {
   }
   // Raw size: the bytes the section actually stores in the file. The virtual size of .data is
   // 1 120 528 B but only 189 952 B are on disk; the difference is uninitialised memory.
-  const totalCode = CODE_SECTIONS.reduce((sum, n) => sum + byName.get(n).rawSize, 0);
   const totalData = DATA_SECTIONS.reduce((sum, n) => sum + byName.get(n).rawSize, 0);
 
   const text = byName.get(".text");
-  const functions = buildFunctions(buffer, text, pe.imageBase);
+  const imports = readImports(buffer, pe);
+  const functions = buildFunctions(buffer, text, pe.imageBase, imports);
 
-  // One unit for now: the whole game code. Units become finer as translation units are
-  // defined; each one will then carry its real target/base objects.
-  const unit = {
-    name: "game",
-    measures: measures({ totalCode, totalData, totalUnits: 1, totalFunctions: functions.length }),
-    sections: [],
-    functions,
-    metadata: { progress_categories: [] },
-  };
+  // The units the report shows: the game's own code and the linker's import layer.
+  const units = [UNIT_CODE, UNIT_IMPORTS].map((name) => {
+    const own = functions.filter((f) => f.unit === name);
+    return {
+      name,
+      measures: measures({
+        totalCode: own.reduce((sum, f) => sum + f.size, 0),
+        totalFunctions: own.length,
+        totalUnits: 1,
+      }),
+      sections: [],
+      functions: own.map(({ unit, thunk, ...f }) => f),
+      metadata: { progress_categories: [] },
+    };
+  });
+
+  const totalCode = units.reduce((sum, u) => sum + u.measures.total_code, 0);
+  const totalFunctions = units.reduce((sum, u) => sum + u.measures.total_functions, 0);
 
   return {
     version: 2,
-    measures: measures({ totalCode, totalData, totalUnits: 1, totalFunctions: functions.length }),
-    units: [unit],
+    measures: measures({
+      totalCode,
+      totalData,
+      totalUnits: units.length,
+      totalFunctions,
+    }),
+    units,
     categories: [],
   };
 }
@@ -263,9 +347,12 @@ function generate(exePath, outPath) {
     );
   }
   console.log(`wrote   ${resolve(outPath)}`);
-  console.log(`        total_code ${report.measures.total_code} bytes (.text en el fichero)`);
+  console.log(`        total_code ${report.measures.total_code} bytes (suma de las funciones identificadas)`);
   console.log(`        total_data ${report.measures.total_data} bytes (${DATA_SECTIONS.join(" + ")} en el fichero)`);
-  console.log(`        funciones  ${report.measures.total_functions} (llamadas directas; cota inferior)`);
+  console.log(`        funciones  ${report.measures.total_functions} (${report.units.length} unidades)`);
+  for (const u of report.units) {
+    console.log(`          ${u.name.padEnd(14)} ${String(u.measures.total_functions).padStart(5)} fns  ${u.measures.total_code} B`);
+  }
   console.log(`        matched    ${report.measures.matched_code} bytes, ${report.measures.matched_functions} functions (baseline)`);
 }
 
@@ -311,6 +398,7 @@ function check(reportPath) {
 
   const sum = {};
   for (const key of MEASURE_KEYS) sum[key] = 0;
+  const functions = [];
   for (const [i, unit] of units.entries()) {
     const um = at(unit, "measures");
     if (!um) {
@@ -318,15 +406,19 @@ function check(reportPath) {
       continue;
     }
     for (const key of MEASURE_KEYS) sum[key] += um[key] ?? 0;
+    for (const fn of at(unit, "functions") ?? []) functions.push(fn);
   }
-  for (const key of ["total_code", "total_data", "matched_code", "matched_data", "total_functions", "total_units", "complete_units"]) {
+  // Code, functions and units are owned by the units; the data sections are not split into
+  // units yet, so they only exist at the project level.
+  for (const key of ["total_code", "matched_code", "total_functions", "matched_functions", "total_units", "complete_units", "complete_code"]) {
     if (sum[key] !== top[key]) problems.push(`sum of units' ${key} is ${sum[key]} but the report says ${top[key]}`);
   }
+  if (sum.total_data !== 0) problems.push(`sum of units' total_data is ${sum.total_data}; the data sections belong to the project, not to a unit`);
+  if (top.total_data <= 0) problems.push("measures.total_data must be positive");
 
   // The function list is what backs total_functions: it must be there and add up.
-  const functions = Array.isArray(at(units[0], "functions")) ? units[0].functions : [];
   if (top.total_functions !== functions.length) {
-    problems.push(`measures.total_functions is ${top.total_functions} but the unit lists ${functions.length} functions`);
+    problems.push(`measures.total_functions is ${top.total_functions} but the units list ${functions.length} functions`);
   }
   let functionBytes = 0;
   for (const [i, fn] of functions.entries()) {
@@ -334,8 +426,8 @@ function check(reportPath) {
     if (typeof at(fn, "size") !== "number" || at(fn, "size") <= 0) problems.push(`functions[${i}] has no positive size`);
     functionBytes += at(fn, "size") ?? 0;
   }
-  if (functionBytes > top.total_code) {
-    problems.push(`the function sizes add up to ${functionBytes} bytes, more than the ${top.total_code} bytes of code`);
+  if (functionBytes !== sum.total_code) {
+    problems.push(`the function sizes add up to ${functionBytes} bytes but the units claim ${sum.total_code}`);
   }
 
   if (problems.length) {
