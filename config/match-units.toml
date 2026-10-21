@@ -1,0 +1,48 @@
+# Gex: Enter the Gecko — objdiff matching units
+# First unit: timing update function (0x43E1BA) — core game loop update
+
+[builds.timing]
+source = "src/timing.c"
+object = "build/exact/timing.obj"
+flags = ["/nologo", "/c", "/Od", "/Ob0", "/Oi-", "/Oy-", "/Gd", "/MT", "/Gy"]
+
+[units.timing_update]
+build = "timing"
+symbol = "FUN_0043E1BA"
+target_address = 0x0043E1BA
+size = 1090
+boundary_evidence = "docs/TIMING_GAME_LOOP_ANALYSIS.md"
+relocations = [
+  { offset = 15, type = "REL32", symbol = "GetTickCount", target = 0x0046F32C },
+  { offset = 42, type = "REL32", symbol = "__ftol", target = 0x00540950 },
+  { offset = 78, type = "DIR32", symbol = "__fltused", target = 0x0054C060 },
+  { offset = 124, type = "REL32", symbol = "__ftol", target = 0x00540950 },
+  { offset = 212, type = "DIR32", symbol = "__fltused", target = 0x0054C060 },
+  { offset = 345, type = "REL32", symbol = "grBufferNumPending", target = 0x0065F330 },
+  { offset = 398, type = "REL32", symbol = "grBufferSwap", target = 0x0065F334 },
+]
+
+# Additional builds for other subsystems (placeholders for future units)
+[builds.render]
+source = "src/render.c"
+object = "build/exact/render.obj"
+flags = ["/nologo", "/c", "/Od", "/Ob0", "/Oi-", "/Oy-", "/Gd", "/MT", "/Gy"]
+
+[builds.audio]
+source = "src/audio.c"
+object = "build/exact/audio.obj"
+flags = ["/nologo", "/c", "/Od", "/Ob0", "/Oi-", "/Oy-", "/Gd", "/MT", "/Gy"]
+
+[builds.input]
+source = "src/input.c"
+object = "build/exact/input.obj"
+flags = ["/nologo", "/c", "/Od", "/Ob0", "/Oi-", "/Oy-", "/Gd", "/MT", "/Gy"]
+
+# Additional units to be added as we analyze them
+# [units.render_3d]
+# build = "render"
+# symbol = "FUN_004..."
+# target_address = 0x004...
+# size = ...
+# boundary_evidence = "docs/TIMING_GAME_LOOP_ANALYSIS.md"
+# relocations = [...]

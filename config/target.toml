@@ -1,0 +1,73 @@
+[target]
+title = "Gex: Enter the Gecko"
+version = "1.00.000"
+region = "EU"
+filename = "GEX3D.EXE"
+size = 1557504
+sha256 = "d0932549613f9c08fb895c5f8a6461ce044e1863b4cba42da4715c2b41e73886"
+md5 = "692b12825003417cc4a5a9d4db13eebe"
+
+[provenance]
+archive = "Gex_Enter_the_Gecko_EU_CD.iso"
+evidence = "Original EU CD (CloneCD dump); installer GEX2/ folder; EXE timestamp 1998-05-19; Glide renderer."
+
+[pe]
+machine = "i386"
+image_base = "0x00400000"
+entry_point = "0x00463278"
+timestamp_utc = "1998-05-19T12:49:46+00:00"
+linker_version = "5.00"
+size_of_image = 2031616
+headers_raw_size = 1024
+text_start = "0x00401000"
+text_end = "0x0054BC00"
+text_virtual_size = 1354752
+text_raw_offset = "0x00000400"
+text_raw_size = 1355776
+relocations_stripped = false
+
+[[pe.sections]]
+name = ".text"
+rva = "0x00001000"
+virtual_size = 1354752
+raw_offset = "0x00000400"
+raw_size = 1355776
+
+[[pe.sections]]
+name = ".rdata"
+rva = "0x0014C000"
+virtual_size = 2048
+raw_offset = "0x0014C000"
+raw_size = 2048
+
+[[pe.sections]]
+name = ".data"
+rva = "0x0014D000"
+virtual_size = 1120528
+raw_offset = "0x0014D000"
+raw_size = 1120256
+
+[[pe.sections]]
+name = ".idata"
+rva = "0x0015F000"
+virtual_size = 4096
+raw_offset = "0x0015F000"
+raw_size = 4096
+
+[[pe.sections]]
+name = ".rsrc"
+rva = "0x00160000"
+virtual_size = 1536
+raw_offset = "0x00160000"
+raw_size = 1536
+
+[[pe.sections]]
+name = ".reloc"
+rva = "0x00161000"
+virtual_size = 10426
+raw_offset = "0x00161000"
+raw_size = 10752
+
+[toolchain]
+family = "msvc"
+evidence = "PE linker 5.00; Visual C++ 5.0/6.0 era; Glide API imports; no Rich header observed."
