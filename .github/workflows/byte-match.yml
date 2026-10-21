@@ -24,30 +24,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get objdiff v0.14.0 Linux asset URL
-        id: get-objdiff-url
+      - name: Download objdiff v3.8.3 Linux x86_64 (verified URL)
         run: |
-          RELEASE_INFO=$(curl -s https://api.github.com/repos/encounter/objdiff/releases/tags/v0.14.0)
-          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*linux[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
-          if [ -z "$ASSET_URL" ]; then
-            echo "No Linux asset found in release"
-            exit 1
-          fi
-          echo "ASSET_URL=$ASSET_URL" >> $GITHUB_OUTPUT
-          echo "Using URL: $ASSET_URL"
-
-      - name: Download objdiff
-        run: |
-          curl -L -f -o objdiff.tar.gz "${{ steps.get-objdiff-url.outputs.ASSET_URL }}"
-          tar -xzf objdiff.tar.gz
-          ls -la
-          OBJDIFF_BIN=$(find . -name "objdiff" -type f -executable | head -1)
-          if [ -z "$OBJDIFF_BIN" ]; then
-            echo "objdiff binary not found in archive"
-            exit 1
-          fi
-          cp "$OBJDIFF_BIN" ./objdiff
-          chmod +x ./objdiff
+          set -e
+          # Latest release v3.8.3 - Linux x86_64 binary (verified asset name)
+          URL="https://github.com/encounter/objdiff/releases/download/v3.8.3/objdiff-linux-x86_64"
+          echo "Downloading from: $URL"
+          curl -L -f -o objdiff "$URL"
+          ls -la objdiff
+          chmod +x objdiff
           ./objdiff --version
 
       - name: Generate objdiff report (EU version)
