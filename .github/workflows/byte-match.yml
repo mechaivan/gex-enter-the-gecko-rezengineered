@@ -24,22 +24,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download objdiff CLI
+      - name: Find and download objdiff CLI
         run: |
-          # Try multiple possible URLs for objdiff v0.14.0
           set -e
-          URLs=(
-            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
-            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux-x86_64.tar.gz"
-            "https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-linux.tar.gz"
-          )
-          for url in "${URLs[@]}"; do
-            echo "Trying: $url"
-            if curl -L -f -o objdiff.tar.gz "$url"; then
-              echo "Downloaded from: $url"
-              break
-            fi
-          done
+          # Get latest release info from GitHub API
+          RELEASE_INFO=$(curl -s https://api.github.com/repos/encounter/objdiff/releases/latest)
+          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*linux[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
+          if [ -z "$ASSET_URL" ]; then
+            echo "No Linux asset found in latest release"
+            # Try specific version
+            ASSET_URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
+          fi
+          echo "Downloading from: $ASSET_URL"
+          curl -L -f -o objdiff.tar.gz "$ASSET_URL"
           tar -xzf objdiff.tar.gz
           ls -la
           chmod +x objdiff
