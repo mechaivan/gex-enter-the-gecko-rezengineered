@@ -24,28 +24,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Find and download objdiff CLI
-        run: |
-          set -e
-          # Get latest release info from GitHub API
-          RELEASE_INFO=$(curl -s https://api.github.com/repos/encounter/objdiff/releases/latest)
-          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*linux[^"]*\.tar\.gz"' | head -1 | cut -d'"' -f4)
-          if [ -z "$ASSET_URL" ]; then
-            echo "No Linux asset found in latest release"
-            # Try specific version
-            ASSET_URL="https://github.com/encounter/objdiff/releases/download/v0.14.0/objdiff-v0.14.0-x86_64-unknown-linux-gnu.tar.gz"
-          fi
-          echo "Downloading from: $ASSET_URL"
-          curl -L -f -o objdiff.tar.gz "$ASSET_URL"
-          tar -xzf objdiff.tar.gz
-          ls -la
-          chmod +x objdiff
-          ./objdiff --version
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install objdiff via cargo
+        run: cargo install objdiff --locked
 
       - name: Generate objdiff report (EU version)
         run: |
           mkdir -p build
-          ./objdiff report generate \
+          objdiff report generate \
             --config config/target.toml \
             --units config/match-units.toml \
             --output build/EU_report.json \
