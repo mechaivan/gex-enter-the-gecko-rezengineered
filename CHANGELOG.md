@@ -2,6 +2,16 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-21 — 0.0.0 — Comparativa F-02 (2013 NTSC-D3D) vs original EU (documental, sin ejecutar)
+
+- **Nuevo:** `docs/F02_VS_ORIGINAL.md` — consolidación de toda la evidencia
+  documental sobre F-02 (exe 2013 NTSC-D3D, S-14): identidad, relación con
+  otros fixes, inventario S-14, diferencias conocidas con EU (renderer, región,
+  CD-check, música), aplicabilidad a EU (hipótesis: no aplicable), gaps
+  pendientes. Sin ejecutar nada ni modificar binarios.
+- Referencias cruzadas añadidas en `PATCH_ANALYSIS.md` (F-02), `KNOWN_ISSUES.md`
+  (I-01, I-03, I-11) y `REVERSE_ENGINEERING.md` (§3).
+
 ## 2026-10-21 — 0.0.0 — Comparativa F-03 vs original EU (documental, sin ejecutar)
 
 - **Nuevo:** `docs/F03_VS_ORIGINAL.md` — consolidación de toda la evidencia

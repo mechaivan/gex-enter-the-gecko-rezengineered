@@ -51,6 +51,7 @@
 ### Etapa C — Sistemas (uno por uno, con engineering log)
 
 > Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
+> Comparativa consolidada F-02 (2013 NTSC-D3D) vs original EU: `docs/F02_VS_ORIGINAL.md`.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

@@ -84,6 +84,8 @@ Reglas:
 
 ## F-02 — nGlide + `gex2_patch.zip` — Zeus Software
 
+> Comparativa consolidada F-02 vs original EU: `docs/F02_VS_ORIGINAL.md`.
+
 - **Fuente verificada (leída 2026-10-09):**
   <https://www.zeus-software.com/downloads/nglide/compatibility> — fila
   «Gex 2: Enter The Gecko»: «To play you must replace 'gex3d.exe' and
