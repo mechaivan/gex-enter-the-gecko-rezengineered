@@ -6,10 +6,10 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 
 - **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de
   informe objdiff v2) leyendo el `GEX3D.EXE` original y verificando tamaño, MD5 y SHA-256.
-  Registra lo demostrable: `total_code` = `VirtualSize` de `.text` (1 354 462 B),
-  `total_data` = `.rdata`+`.data`+`.idata` (1 126 193 B), `total_functions` = **1 647**
-  puntos de entrada con llamada directa (`E8 rel32`) dentro de `.text` (cota inferior
-  medida; el .EXE está stripped y no hay PDB) y 0 bytes emparejados.
+  Registra lo demostrable: `total_code` = **1 354 752 B** de `.text` en el fichero,
+  `total_data` = **196 096 B** de `.rdata`+`.data`+`.idata` en el fichero,
+  `total_functions` = **1 647** puntos de entrada con llamada directa (`E8 rel32`) dentro de
+  `.text` (cota inferior medida; el .EXE está stripped y no hay PDB) y 0 bytes emparejados.
   `--check` valida el fichero comprometido sin el binario (lo que corre el CI).
 - **Nuevo:** `docs/BYTEMATCH.md` — cómo lee ByteMatch, por qué el informe marca 0,00 %
   (verdadero), el método de recuento de funciones, qué falta para un informe real de
@@ -26,6 +26,11 @@ Formato: `YYYY-MM-DD — versión — descripción`.
 - **Corregido:** `TESTING.md` §E-2.3 y `CHANGELOG` — los CSV del A/B **no** están en
   Drive `REZengineered/analysis/`; solo en el PC del mantenedor, con su sha-256. La copia
   a Drive sigue pendiente.
+- **Corregido:** contabilidad de `total_code`/`total_data` — se usaba el tamaño **virtual**
+  de las secciones. En `.data` eso son 1 120 528 B, de los que solo **189 952 B** están en el
+  fichero: los ~930 KB restantes son memoria sin inicializar (buffer de runtime) que nunca
+  existió en disco. Ahora se cuentan los bytes presentes en el fichero (`raw`), con lo que
+  el reparto del .EXE queda en 87 % código / 12,6 % datos / 0,4 % resto.
 - Verificado con el parser real de ByteMatch (`src/report/parse.ts`): el informe parsea,
   se codifica a protobuf y vuelve idéntico. `matched_functions_percent` se fuerza a 0 para
   no heredar la convención de objdiff «total 0 = 100 %».

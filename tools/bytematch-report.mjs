@@ -16,9 +16,14 @@
  * This script writes the honest starting point instead. It reads the original executable
  * and records what the project has to account for:
  *
- *   total_code  = virtual size of .text          (the code to reimplement)
- *   total_data  = virtual size of .rdata/.data/.idata
+ *   total_code  = bytes of .text present in the file
+ *   total_data  = bytes of .rdata/.data/.idata present in the file
  *   matched_*   = 0                              (nothing reimplemented yet)
+ *
+ * "Present in the file" means the section's raw size, not its virtual size. A PE section can
+ * declare a virtual size far bigger than what the file stores: .data declares 1 120 528 B but
+ * only stores 189 952 B, the rest being uninitialised memory (a big runtime buffer) that never
+ * existed on disk. Counting that as "game data" would inflate the figure by ~930 KB.
  *
  * Every number comes from the binary itself. The function list is *measured*, not guessed:
  * the executable is stripped (no COFF symbol table, no PDB), so the only code entry points
@@ -200,8 +205,10 @@ function buildReport(pe, buffer) {
   for (const name of [...CODE_SECTIONS, ...DATA_SECTIONS]) {
     if (!byName.has(name)) fail(`section ${name} not found in the executable`);
   }
-  const totalCode = CODE_SECTIONS.reduce((sum, n) => sum + byName.get(n).virtualSize, 0);
-  const totalData = DATA_SECTIONS.reduce((sum, n) => sum + byName.get(n).virtualSize, 0);
+  // Raw size: the bytes the section actually stores in the file. The virtual size of .data is
+  // 1 120 528 B but only 189 952 B are on disk; the difference is uninitialised memory.
+  const totalCode = CODE_SECTIONS.reduce((sum, n) => sum + byName.get(n).rawSize, 0);
+  const totalData = DATA_SECTIONS.reduce((sum, n) => sum + byName.get(n).rawSize, 0);
 
   const text = byName.get(".text");
   const functions = buildFunctions(buffer, text, pe.imageBase);
@@ -243,20 +250,22 @@ function generate(exePath, outPath) {
   mkdirSync(dirname(resolve(outPath)), { recursive: true });
   writeFileSync(resolve(outPath), `${JSON.stringify(report, null, 2)}\n`);
 
-  const text = pe.sections.find((s) => s.name === ".text");
   console.log(`read    ${path}`);
   console.log(`        sha256 ${sha256}`);
   console.log(`        entry  0x${(pe.imageBase + pe.entryPointRva).toString(16)} (RVA 0x${pe.entryPointRva.toString(16)})`);
   for (const s of pe.sections) {
     const kind = CODE_SECTIONS.includes(s.name) ? "code" : DATA_SECTIONS.includes(s.name) ? "data" : "-";
+    let nonZero = 0;
+    for (let i = 0; i < s.rawSize; i++) if (buffer[s.rawOffset + i] !== 0) nonZero++;
     console.log(
-      `        ${s.name.padEnd(8)} ${kind.padEnd(4)} vsize ${String(s.virtualSize).padStart(8)}  raw ${String(s.rawSize).padStart(8)}`,
+      `        ${s.name.padEnd(8)} ${kind.padEnd(4)} raw ${String(s.rawSize).padStart(8)} (en el fichero)  ` +
+        `virtual ${String(s.virtualSize).padStart(8)}  no-nulos ${String(nonZero).padStart(8)}`,
     );
   }
   console.log(`wrote   ${resolve(outPath)}`);
-  console.log(`        total_code ${report.measures.total_code} bytes (.text virtual size ${text.virtualSize})`);
-  console.log(`        total_data ${report.measures.total_data} bytes (${DATA_SECTIONS.join(" + ")})`);
-  console.log(`        functions  ${report.measures.total_functions} (direct call targets; lower bound)`);
+  console.log(`        total_code ${report.measures.total_code} bytes (.text en el fichero)`);
+  console.log(`        total_data ${report.measures.total_data} bytes (${DATA_SECTIONS.join(" + ")} en el fichero)`);
+  console.log(`        funciones  ${report.measures.total_functions} (llamadas directas; cota inferior)`);
   console.log(`        matched    ${report.measures.matched_code} bytes, ${report.measures.matched_functions} functions (baseline)`);
 }
 

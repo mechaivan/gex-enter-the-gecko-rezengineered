@@ -27,15 +27,43 @@ original. Todas sus cifras son medibles en el binario:
 
 | Medida | Valor | Origen |
 |---|---|---|
-| `total_code` | **1 354 462 B** | `VirtualSize` de `.text` |
-| `total_data` | **1 126 193 B** | `VirtualSize` de `.rdata` + `.data` + `.idata` |
+| `total_code` | **1 354 752 B** | bytes de `.text` presentes en el fichero |
+| `total_data` | **196 096 B** | bytes de `.rdata` + `.data` + `.idata` presentes en el fichero |
 | `matched_code` | 0 B | nada reimplementado todavía |
 | `matched_functions` | 0 | ídem |
 | `total_functions` | **1 647** | puntos de entrada con llamada directa (`E8 rel32`) dentro de `.text` |
 | `total_units` | 1 (`game`) | el código completo, sin dividir aún |
 
-En la página se verá **Code 0.00 %**, **Data 0.00 %**, **Functions 0 / 1 647** y
-**Units 0 / 1**. Es la verdad: el proyecto no ha emparejado ni una función.
+En la página se verá **Code 1.29 MiB (0.00 %)**, **Data 191.5 KiB (0.00 %)**,
+**Functions 0 / 1 647** y **Units 0 / 1**. Es la verdad: el proyecto no ha emparejado ni
+una función.
+
+### Por qué se cuentan los bytes del fichero y no el tamaño virtual
+
+Una sección PE declara dos tamaños: el **raw** (lo que ocupa en el fichero) y el **virtual**
+(lo que reserva en memoria). En este binario la diferencia es enorme en `.data`:
+
+| Sección | raw (fichero) | virtual (memoria) | diferencia |
+|---|---:|---:|---:|
+| `.text` | 1 354 752 | 1 354 462 | 290 B (relleno) |
+| `.rdata` | 2 048 | 1 879 | 169 B |
+| `.data` | **189 952** | **1 120 528** | **930 576 B** |
+| `.idata` | 4 096 | 3 786 | 310 B |
+
+Los ~930 KB de diferencia en `.data` **nunca estuvieron en el disco**: son memoria sin
+inicializar (un buffer grande de runtime). Contarlos como «datos del juego» inflaba la cifra
+en casi 1 MB. Por eso `total_code` y `total_data` usan el tamaño **raw**: lo que el
+ejecutable ocupa de verdad.
+
+Con eso, el reparto del fichero de 1 557 504 B queda así:
+
+- `.text` (código) — 1 354 752 B — **87 %**
+- `.data` + `.rdata` + `.idata` (datos) — 196 096 B — **12,6 %**
+- `.rsrc` (recursos) + cabeceras PE + overlay — 6 656 B — 0,4 %
+
+Aun así, dentro de esos 196 096 B de datos solo **82 492 B** son distintos de cero: el resto
+es relleno. La cifra cuenta los datos tal y como están en el fichero, sin filtrar los ceros,
+porque un bloque con parte nula sigue siendo un bloque de datos que habría que reconstruir.
 
 ### Cómo se cuentan las 1 647 funciones
 
