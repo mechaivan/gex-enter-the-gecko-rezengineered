@@ -22,30 +22,38 @@ jobs:
         uses: actions/checkout@v4
 
       - name: List VS installations via vswhere
+        id: vswhere
         shell: pwsh
         run: |
           $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          $out = @()
           if (Test-Path $vswhere) {
-            Write-Host "=== vswhere output ==="
-            & $vswhere -legacy -format json | ConvertFrom-Json | ForEach-Object {
-              Write-Host "  Version: $($_.version), Path: $($_.installationPath), Product: $($_.productName)"
+            $out += "=== vswhere output ==="
+            $installations = & $vswhere -legacy -format json | ConvertFrom-Json
+            foreach ($inst in $installations) {
+              $out += "  Version: $($inst.version), Path: $($inst.installationPath), Product: $($inst.productName)"
             }
-            Write-Host ""
-            Write-Host "=== Latest with C++ tools ==="
+            $out += ""
+            $out += "=== Latest with C++ tools ==="
             $vcvars = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
             if ($vcvars) {
-              Write-Host "Installation path: $vcvars"
-              $vcvars = Join-Path $vcvars "VC\Auxiliary\Build\vcvarsall.bat"
-              if (Test-Path $vcvars) { Write-Host "vcvarsall: $vcvars" }
+              $out += "Installation path: $vcvars"
+              $vcvarsPath = Join-Path $vcvars "VC\Auxiliary\Build\vcvarsall.bat"
+              if (Test-Path $vcvarsPath) { $out += "vcvarsall: $vcvarsPath" }
             }
           } else {
-            Write-Warning "vswhere not found"
+            $out += "vswhere not found"
           }
+          $outContent = $out -join "`n"
+          Write-Host $outContent
+          $outContent | Out-File -FilePath "vswhere-diagnostic.txt" -Encoding utf8
 
       - name: Check standard VS locations
+        id: locations
         shell: pwsh
         run: |
-          Write-Host "=== Checking standard locations ==="
+          $out = @()
+          $out += "=== Checking standard locations ==="
           $candidates = @(
             "C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
             "C:\Program Files\Microsoft Visual Studio\2022\Professional",
@@ -58,18 +66,37 @@ jobs:
           foreach ($base in $candidates) {
             $vcvars = Join-Path $base "VC\Auxiliary\Build\vcvarsall.bat"
             if (Test-Path $vcvars) {
-              Write-Host "FOUND: $vcvars"
+              $out += "FOUND: $vcvars"
             } else {
-              Write-Host "missing: $vcvars"
+              $out += "missing: $vcvars"
             }
           }
+          $outContent = $out -join "`n"
+          Write-Host $outContent
+          $outContent | Out-File -FilePath "locations-diagnostic.txt" -Encoding utf8
 
       - name: Check PATH for cl.exe
+        id: pathcheck
         shell: pwsh
         run: |
-          Write-Host "=== PATH entries containing Visual Studio ==="
-          $env:PATH -split ';' | Where-Object { $_ -like '*Visual Studio*' -or $_ -like '*VC*' } | ForEach-Object { Write-Host "  $_" }
-          Write-Host ""
-          Write-Host "=== cl.exe in PATH? ==="
+          $out = @()
+          $out += "=== PATH entries containing Visual Studio ==="
+          $env:PATH -split ';' | Where-Object { $_ -like '*Visual Studio*' -or $_ -like '*VC*' } | ForEach-Object { $out += "  $_" }
+          $out += ""
+          $out += "=== cl.exe in PATH? ==="
           $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
-          if ($cl) { Write-Host "FOUND: $($cl.Source)" } else { Write-Host "NOT in PATH" }
+          if ($cl) { $out += "FOUND: $($cl.Source)" } else { $out += "NOT in PATH" }
+          $outContent = $out -join "`n"
+          Write-Host $outContent
+          $outContent | Out-File -FilePath "path-diagnostic.txt" -Encoding utf8
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs-diagnostics
+          path: |
+            vswhere-diagnostic.txt
+            locations-diagnostic.txt
+            path-diagnostic.txt
+          retention-days: 7
