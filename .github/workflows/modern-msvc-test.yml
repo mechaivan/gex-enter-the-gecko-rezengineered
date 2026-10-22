@@ -24,20 +24,37 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile test .obj (flags compatibles matching)
+      - name: Compile test .obj (with full diagnostics)
         run: |
+          echo === Diagnostics ===
+          echo VS dirs:
+          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\"
+          echo.
+          echo Calling vcvarsall...
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          echo vcvarsall returned %ERRORLEVEL%
+          echo.
+          echo PATH now:
+          echo %PATH%
+          echo.
           echo === Compiler version ===
-          cl.exe 2>&1 | findstr /R "Version"
+          cl.exe 2>&1
+          echo cl.exe returned %ERRORLEVEL%
+          echo.
           echo === Linker version ===
-          link.exe 2>&1 | findstr /R "Version"
+          link.exe 2>&1
+          echo link.exe returned %ERRORLEVEL%
+          echo.
           echo === Compiling ===
           cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo msvc-test.obj tools/msvc-test.c
+          echo cl.exe returned %ERRORLEVEL%
+          echo.
           echo === Verifying .obj ===
           dir msvc-test.obj
           powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
 
       - name: Upload test object
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modern-msvc-test-obj
