@@ -21,41 +21,59 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find VS 2022 vcvarsall
-        id: find_vcvars
+      - name: Setup VS 2022 build environment
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '17.0'
+
+      - name: Find cl.exe and compile
         shell: pwsh
         run: |
-          $candidates = @(
-            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
-            "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat",
-            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat",
-            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-          )
-          $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $found) {
-            Write-Error "vcvarsall.bat not found in standard locations"
-            exit 1
-          }
-          Write-Host "Found: $found"
-          "vcvarsall=$found" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Compile, verify, copy and upload test .obj
-        env:
-          VCVARSALL: ${{ steps.find_vcvars.outputs.vcvarsall }}
-        shell: pwsh
-        run: |
-          $vcvars = $env:VCVARSALL
-          Write-Host "=== Diagnostics ==="
-          Write-Host "VCVARSALL: $vcvars"
-
-          # Call vcvarsall and capture environment
-          Write-Host "=== Calling vcvarsall x86 ==="
-          & cmd /c "`"$vcvars`" x86 && set" | ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') {
-              $env:$matches[1] = $matches[2]
+          Write-Host "=== Finding cl.exe ==="
+          # setup-msbuild should have added VS to PATH, but let's verify
+          $clPath = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
+          if (-not $clPath) {
+            Write-Host "cl.exe not in PATH, searching..."
+            $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+            if (Test-Path $vswhere) {
+              $vcvars = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+              if ($vcvars) {
+                $vcvars = Join-Path $vcvars "VC\Auxiliary\Build\vcvarsall.bat"
+                Write-Host "Found vcvarsall via vswhere: $vcvars"
+              }
             }
           }
-          Write-Host "vcvarsall applied"
+
+          # If still not found, try standard locations
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
+            $candidates = @(
+              "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat",
+              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
+            )
+            $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+            if ($found) {
+              Write-Host "Found vcvarsall at: $found"
+              $env:VCVARSALL = $found
+            }
+          }
+
+          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue) -and -not $env:VCVARSALL) {
+            Write-Error "Could not find cl.exe or vcvarsall.bat"
+            exit 1
+          }
+
+          # Apply vcvarsall if needed
+          if ($env:VCVARSALL) {
+            Write-Host "Applying vcvarsall: $env:VCVARSALL"
+            & cmd /c "`"$env:VCVARSALL`" x86 && set" | ForEach-Object {
+              if ($_ -match '^([^=]+)=(.*)$') { $env:$matches[1] = $matches[2] }
+            }
+          }
 
           # Verify compiler
           Write-Host "=== Compiler version ==="
@@ -87,7 +105,6 @@ jobs:
           Write-Host "File size: $($bytes.Length) bytes"
 
           # Copy to runner.temp
-          Write-Host "=== Copy to runner.temp ==="
           $tempObj = Join-Path $env:RUNNER_TEMP "msvc-test.obj"
           Copy-Item $objPath $tempObj -Force
           if (-not (Test-Path $tempObj)) { Write-Error "Copy failed"; exit 1 }
