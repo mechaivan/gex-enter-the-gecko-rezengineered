@@ -24,27 +24,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Diagnose workspace
+      - name: Find VS 2022 vcvarsall
+        id: find_vcvars
         run: |
-          echo === Workspace diagnosis ===
-          echo Current dir: %CD%
-          echo GITHUB_WORKSPACE: %GITHUB_WORKSPACE%
-          dir /b
-          echo.
-          echo Checking tools/msvc-test.c:
-          if exist tools\msvc-test.c (echo FOUND) else (echo NOT FOUND)
-          echo.
-          echo Checking VS installation:
-          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+          echo === Finding VS 2022 vcvarsall ===
+          for /d %%d in ("C:\Program Files\Microsoft Visual Studio\2022\*") do (
+            if exist "%%d\VC\Auxiliary\Build\vcvarsall.bat" (
+              echo Found: %%d\VC\Auxiliary\Build\vcvarsall.bat
+              echo "vcvarsall=%%d\VC\Auxiliary\Build\vcvarsall.bat" >> %GITHUB_OUTPUT%
+              goto :found
+            )
+          )
+          echo vcvarsall not found
+          exit 1
+          :found
 
       - name: Compile, verify, copy and upload test .obj
+        env:
+          VCVARSALL: ${{ steps.find_vcvars.outputs.vcvarsall }}
         run: |
           echo === Diagnostics ===
-          echo VS dirs:
-          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\"
+          echo VCVARSALL: %VCVARSALL%
           echo.
           echo Calling vcvarsall...
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          call "%VCVARSALL%" x86
           echo vcvarsall returned %ERRORLEVEL%
           echo.
           echo PATH now:
