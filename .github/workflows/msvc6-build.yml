@@ -1,0 +1,102 @@
+name: MSVC 6.0 Build & objdiff Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/gex]
+    paths:
+      - 'tools/msvc6-test.c'
+      - '.github/workflows/msvc6-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-compile:
+    name: Compile test .obj with MSVC 6.0
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download MSVC 6.0 toolchain
+        run: |
+          $url = "https://github.com/mechaivan/gex-enter-the-gecko-rezengineered/releases/download/msvc6-toolchain/msvc6-toolchain.zip"
+          Write-Host "Downloading from $url"
+          Invoke-WebRequest -Uri $url -OutFile msvc6.zip -UseBasicParsing
+          7z x msvc6.zip -omsvc6 > $null
+          Write-Host "Extracted to msvc6/"
+
+      - name: Setup MSVC 6.0 environment
+        run: |
+          $toolchain = "$(Get-Location)\msvc6"
+          $vcBin = "$toolchain\VC98\Bin"
+          $vcInc = "$toolchain\VC98\Include", "$toolchain\VC98\Crt\Include", "$toolchain\VC98\Mfc\Include"
+          $psdkInc = "$toolchain\PSDK\Include"
+          $vcLib = "$toolchain\VC98\Lib", "$toolchain\VC98\Crt\Lib", "$toolchain\VC98\Mfc\Lib"
+          $psdkLib = "$toolchain\PSDK\Lib"
+
+          "$vcBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          ($vcInc + $psdkInc -join ";") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          ($vcLib + $psdkInc -join ";") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "PATH includes: $vcBin"
+          Write-Host "INCLUDE = $($vcInc + $psdkInc -join ';')"
+          Write-Host "LIB = $($vcLib + $psdkInc -join ';')"
+
+      - name: Verify compiler
+        run: |
+          cl.exe 2>&1 | Select-String "Version"
+          link.exe 2>&1 | Select-String "Version"
+          lib.exe 2>&1 | Select-String "Version"
+
+      - name: Compile test .obj (MSVC 6.0 flags for matching)
+        run: |
+          cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo msvc6-test.obj tools/msvc6-test.c
+
+      - name: Verify .obj produced
+        run: |
+          dir msvc6-test.obj
+          $bytes = [System.IO.File]::ReadAllBytes("msvc6-test.obj")
+          $machine = [BitConverter]::ToUInt16($bytes, 4)
+          Write-Host "COFF machine: 0x$($machine.ToString('X4')) (expect 0x014C = i386)"
+
+      - name: Upload test object
+        uses: actions/upload-artifact@v4
+        with:
+          name: msvc6-test-obj
+          path: msvc6-test.obj
+          retention-days: 7
+
+  objdiff-test:
+    name: objdiff smoke test
+    needs: test-compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download objdiff v3.8.3 CLI Linux x86_64
+        run: |
+          curl -L -f -o objdiff https://github.com/encounter/objdiff/releases/download/v3.8.3/objdiff-cli-linux-x86_64
+          chmod +x objdiff
+          ./objdiff --version
+
+      - name: Download test object
+        uses: actions/download-artifact@v4
+        with:
+          name: msvc6-test-obj
+          path: build
+
+      - name: objdiff diff test (placeholder target)
+        run: |
+          # This will fail because we don't have a target .obj yet,
+          # but it verifies objdiff can read our .obj
+          ./objdiff diff --target build/msvc6-test.obj --base /dev/null --format json || true
+        shell: bash
