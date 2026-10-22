@@ -24,7 +24,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Compile test .obj (with full diagnostics)
+      - name: Compile, verify, copy and upload test .obj
         run: |
           echo === Diagnostics ===
           echo VS dirs:
@@ -52,21 +52,14 @@ jobs:
           echo === Verifying .obj ===
           dir msvc-test.obj
           powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
-
-      - name: List workspace (debug)
-        if: always()
-        run: |
-          echo Current dir: %CD%
-          dir /b *.obj 2>&1 || echo "No .obj files found"
-          dir /s /b msvc-test.obj 2>&1 || echo "Recursive search failed"
-        shell: cmd
-
-      - name: Copy .obj to known location
-        if: always()
-        run: |
-          if exist msvc-test.obj copy msvc-test.obj %RUNNER_TEMP%\msvc-test.obj
-          if exist %RUNNER_TEMP%\msvc-test.obj echo "Copied to %RUNNER_TEMP%\msvc-test.obj"
-        shell: cmd
+          echo.
+          echo === Copy to runner.temp ===
+          copy msvc-test.obj "%RUNNER_TEMP%\msvc-test.obj"
+          echo copy returned %ERRORLEVEL%
+          dir "%RUNNER_TEMP%\msvc-test.obj"
+          echo.
+          echo === Upload will be next step ===
+          echo File ready at: "%RUNNER_TEMP%\msvc-test.obj"
 
       - name: Upload test object
         if: always()
