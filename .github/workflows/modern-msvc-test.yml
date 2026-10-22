@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test-compile:
-    name: Compile test .obj with modern cl.exe
+    name: Diagnose VS installation
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -21,100 +21,55 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup VS 2022 build environment
-        uses: microsoft/setup-msbuild@v2
-        with:
-          vs-version: '17.0'
-
-      - name: Find cl.exe and compile
+      - name: List VS installations via vswhere
         shell: pwsh
         run: |
-          Write-Host "=== Finding cl.exe ==="
-          # setup-msbuild should have added VS to PATH, but let's verify
-          $clPath = (Get-Command cl.exe -ErrorAction SilentlyContinue).Source
-          if (-not $clPath) {
-            Write-Host "cl.exe not in PATH, searching..."
-            $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-            if (Test-Path $vswhere) {
-              $vcvars = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-              if ($vcvars) {
-                $vcvars = Join-Path $vcvars "VC\Auxiliary\Build\vcvarsall.bat"
-                Write-Host "Found vcvarsall via vswhere: $vcvars"
-              }
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            Write-Host "=== vswhere output ==="
+            & $vswhere -legacy -format json | ConvertFrom-Json | ForEach-Object {
+              Write-Host "  Version: $($_.version), Path: $($_.installationPath), Product: $($_.productName)"
+            }
+            Write-Host ""
+            Write-Host "=== Latest with C++ tools ==="
+            $vcvars = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if ($vcvars) {
+              Write-Host "Installation path: $vcvars"
+              $vcvars = Join-Path $vcvars "VC\Auxiliary\Build\vcvarsall.bat"
+              if (Test-Path $vcvars) { Write-Host "vcvarsall: $vcvars" }
+            }
+          } else {
+            Write-Warning "vswhere not found"
+          }
+
+      - name: Check standard VS locations
+        shell: pwsh
+        run: |
+          Write-Host "=== Checking standard locations ==="
+          $candidates = @(
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community",
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community"
+          )
+          foreach ($base in $candidates) {
+            $vcvars = Join-Path $base "VC\Auxiliary\Build\vcvarsall.bat"
+            if (Test-Path $vcvars) {
+              Write-Host "FOUND: $vcvars"
+            } else {
+              Write-Host "missing: $vcvars"
             }
           }
 
-          # If still not found, try standard locations
-          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
-            $candidates = @(
-              "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\VC\Auxiliary\Build\vcvarsall.bat",
-              "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat"
-            )
-            $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-            if ($found) {
-              Write-Host "Found vcvarsall at: $found"
-              $env:VCVARSALL = $found
-            }
-          }
-
-          if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue) -and -not $env:VCVARSALL) {
-            Write-Error "Could not find cl.exe or vcvarsall.bat"
-            exit 1
-          }
-
-          # Apply vcvarsall if needed
-          if ($env:VCVARSALL) {
-            Write-Host "Applying vcvarsall: $env:VCVARSALL"
-            & cmd /c "`"$env:VCVARSALL`" x86 && set" | ForEach-Object {
-              if ($_ -match '^([^=]+)=(.*)$') { $env:$matches[1] = $matches[2] }
-            }
-          }
-
-          # Verify compiler
-          Write-Host "=== Compiler version ==="
-          $clOut = & cl.exe 2>&1
-          $clOut | Select-String "Version" | ForEach-Object { Write-Host $_ }
-          if ($LASTEXITCODE -ne 0) { Write-Warning "cl.exe returned $LASTEXITCODE" }
-
-          Write-Host "=== Linker version ==="
-          $linkOut = & link.exe 2>&1
-          $linkOut | Select-String "Version" | ForEach-Object { Write-Host $_ }
-
-          # Compile
-          Write-Host "=== Compiling ==="
-          $repoRoot = (Get-Location).Path
-          $src = Join-Path $repoRoot "tools\msvc-test.c"
-          $objPath = Join-Path $repoRoot "msvc-test.obj"
-          & cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo $objPath $src
-          if ($LASTEXITCODE -ne 0) { Write-Error "cl.exe failed with $LASTEXITCODE"; exit $LASTEXITCODE }
-          Write-Host "cl.exe succeeded"
-
-          # Verify .obj
-          Write-Host "=== Verifying .obj ==="
-          if (-not (Test-Path $objPath)) { Write-Error "Object file not found at $objPath"; exit 1 }
-          $bytes = [System.IO.File]::ReadAllBytes($objPath)
-          $machine = [BitConverter]::ToUInt16($bytes, 4)
-          $sections = [BitConverter]::ToUInt16($bytes, 6)
-          Write-Host "COFF machine: 0x$($machine.ToString('X4')) (expect 0x014C = i386)"
-          Write-Host "Number of sections: $sections"
-          Write-Host "File size: $($bytes.Length) bytes"
-
-          # Copy to runner.temp
-          $tempObj = Join-Path $env:RUNNER_TEMP "msvc-test.obj"
-          Copy-Item $objPath $tempObj -Force
-          if (-not (Test-Path $tempObj)) { Write-Error "Copy failed"; exit 1 }
-          Write-Host "Copied to $tempObj"
-
-      - name: Upload test object
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: modern-msvc-test-obj
-          path: ${{ runner.temp }}/msvc-test.obj
-          if-no-files-found: error
-          retention-days: 7
+      - name: Check PATH for cl.exe
+        shell: pwsh
+        run: |
+          Write-Host "=== PATH entries containing Visual Studio ==="
+          $env:PATH -split ';' | Where-Object { $_ -like '*Visual Studio*' -or $_ -like '*VC*' } | ForEach-Object { Write-Host "  $_" }
+          Write-Host ""
+          Write-Host "=== cl.exe in PATH? ==="
+          $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
+          if ($cl) { Write-Host "FOUND: $($cl.Source)" } else { Write-Host "NOT in PATH" }
