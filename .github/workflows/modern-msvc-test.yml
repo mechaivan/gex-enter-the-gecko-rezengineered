@@ -53,10 +53,15 @@ jobs:
           dir msvc-test.obj
           powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
 
+      - name: List workspace (debug)
+        if: always()
+        run: dir /s /b *.obj
+        shell: cmd
+
       - name: Upload test object
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modern-msvc-test-obj
-          path: msvc-test.obj
+          path: '**/msvc-test.obj'
           retention-days: 7
