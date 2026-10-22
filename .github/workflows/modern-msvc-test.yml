@@ -61,11 +61,18 @@ jobs:
           dir /s /b msvc-test.obj 2>&1 || echo "Recursive search failed"
         shell: cmd
 
+      - name: Copy .obj to known location
+        if: always()
+        run: |
+          if exist msvc-test.obj copy msvc-test.obj %RUNNER_TEMP%\msvc-test.obj
+          if exist %RUNNER_TEMP%\msvc-test.obj echo "Copied to %RUNNER_TEMP%\msvc-test.obj"
+        shell: cmd
+
       - name: Upload test object
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modern-msvc-test-obj
-          path: msvc-test.obj
-          if-no-files-found: warn
+          path: ${{ runner.temp }}/msvc-test.obj
+          if-no-files-found: error
           retention-days: 7
