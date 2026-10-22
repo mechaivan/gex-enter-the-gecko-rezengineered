@@ -24,19 +24,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup VS 2022 x86 environment
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          cl.exe 2>&1 | findstr /R "Version"
-          link.exe 2>&1 | findstr /R "Version"
-
       - name: Compile test .obj (flags compatibles matching)
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          echo === Compiler version ===
+          cl.exe 2>&1 | findstr /R "Version"
+          echo === Linker version ===
+          link.exe 2>&1 | findstr /R "Version"
+          echo === Compiling ===
           cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo msvc-test.obj tools/msvc-test.c
-
-      - name: Verify .obj produced
-        run: |
+          echo === Verifying .obj ===
           dir msvc-test.obj
           powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
 
