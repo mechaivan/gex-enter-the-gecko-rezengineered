@@ -1,0 +1,78 @@
+name: MSVC 6.0 Toolchain Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/gex]
+    paths:
+      - 'tools/msvc6-test.c'
+      - '.github/workflows/msvc6-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test-compile:
+    name: Compile test .obj with MSVC 6.0
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download MSVC 6.0 toolchain
+        run: |
+          $url = "https://github.com/mechaivan/gex-enter-the-gecko-rezengineered/releases/download/msvc6-toolchain/msvc6-toolchain.zip"
+          Write-Host "Downloading from $url"
+          Invoke-WebRequest -Uri $url -OutFile msvc6.zip -UseBasicParsing
+          7z x msvc6.zip -omsvc6 > $null
+          Write-Host "Extracted to msvc6/"
+        shell: pwsh
+
+      - name: Setup MSVC 6.0 environment
+        run: |
+          $toolchain = "$(Get-Location)\msvc6"
+          $vcBin = "$toolchain\VC98\Bin"
+          $psdkBin = "$toolchain\PSDK\Bin"
+          $vcInc = "$toolchain\VC98\Include", "$toolchain\VC98\Crt\Include", "$toolchain\VC98\Mfc\Include"
+          $psdkInc = "$toolchain\PSDK\Include"
+          $vcLib = "$toolchain\VC98\Lib", "$toolchain\VC98\Crt\Lib", "$toolchain\VC98\Mfc\Lib"
+          $psdkLib = "$toolchain\PSDK\Lib"
+
+          "$vcBin;$psdkBin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          ($vcInc + $psdkInc -join ";") | ForEach-Object { "INCLUDE=$_"; $_ } | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          ($vcLib + $psdkLib -join ";") | ForEach-Object { "LIB=$_"; $_ } | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          Write-Host "PATH includes: $vcBin"
+          Write-Host "INCLUDE = $($vcInc + $psdkInc -join ';')"
+          Write-Host "LIB = $($vcLib + $psdkLib -join ';')"
+        shell: pwsh
+
+      - name: Verify compiler
+        run: |
+          cl.exe 2>&1 | Select-String "Version"
+          link.exe 2>&1 | Select-String "Version"
+          lib.exe 2>&1 | Select-String "Version"
+        shell: cmd
+
+      - name: Compile test .obj (MSVC 6.0 flags for matching)
+        run: |
+          cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Fo msvc6-test.obj tools/msvc6-test.c
+        shell: cmd
+
+      - name: Verify .obj produced
+        run: |
+          dir msvc6-test.obj
+          # Check it's COFF i386
+          $bytes = [System.IO.File]::ReadAllBytes("msvc6-test.obj")
+          $machine = [BitConverter]::ToUInt16($bytes, 0x4)
+          Write-Host "COFF machine: 0x$($machine.ToString('X4')) (expect 0x014C = i386)"
+        shell: pwsh
+
+      - name: Upload test object
+        uses: actions/upload-artifact@v4
+        with:
+          name: msvc6-test-obj
+          path: msvc6-test.obj
+          retention-days: 7
