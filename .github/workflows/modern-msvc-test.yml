@@ -55,7 +55,10 @@ jobs:
 
       - name: List workspace (debug)
         if: always()
-        run: dir /s /b *.obj
+        run: |
+          echo Current dir: %CD%
+          dir /b *.obj 2>&1 || echo "No .obj files found"
+          dir /s /b msvc-test.obj 2>&1 || echo "Recursive search failed"
         shell: cmd
 
       - name: Upload test object
@@ -63,5 +66,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modern-msvc-test-obj
-          path: '**/msvc-test.obj'
+          path: msvc-test.obj
+          if-no-files-found: warn
           retention-days: 7
