@@ -16,9 +16,6 @@ jobs:
     name: Compile test .obj with modern cl.exe
     runs-on: windows-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        shell: cmd
 
     steps:
       - name: Checkout repository
@@ -26,61 +23,81 @@ jobs:
 
       - name: Find VS 2022 vcvarsall
         id: find_vcvars
+        shell: pwsh
         run: |
-          echo === Finding VS 2022 vcvarsall ===
-          for /d %%d in ("C:\Program Files\Microsoft Visual Studio\2022\*") do (
-            if exist "%%d\VC\Auxiliary\Build\vcvarsall.bat" (
-              echo Found: %%d\VC\Auxiliary\Build\vcvarsall.bat
-              echo "vcvarsall=%%d\VC\Auxiliary\Build\vcvarsall.bat" >> %GITHUB_OUTPUT%
-              goto :found
-            )
+          $candidates = @(
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat",
+            "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
           )
-          echo vcvarsall not found
-          exit 1
-          :found
+          $found = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $found) {
+            Write-Error "vcvarsall.bat not found in standard locations"
+            exit 1
+          }
+          Write-Host "Found: $found"
+          "vcvarsall=$found" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Compile, verify, copy and upload test .obj
         env:
           VCVARSALL: ${{ steps.find_vcvars.outputs.vcvarsall }}
+        shell: pwsh
         run: |
-          echo === Diagnostics ===
-          echo VCVARSALL: %VCVARSALL%
-          echo.
-          echo Calling vcvarsall...
-          call "%VCVARSALL%" x86
-          echo vcvarsall returned %ERRORLEVEL%
-          echo.
-          echo PATH now:
-          echo %PATH%
-          echo.
-          echo === Compiler version ===
-          cl.exe 2>&1
-          echo cl.exe returned %ERRORLEVEL%
-          echo.
-          echo === Linker version ===
-          link.exe 2>&1
-          echo link.exe returned %ERRORLEVEL%
-          echo.
-          echo === Compiling ===
-          cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo msvc-test.obj tools/msvc-test.c
-          echo cl.exe returned %ERRORLEVEL%
-          echo.
-          echo === Verifying .obj ===
-          dir msvc-test.obj
-          powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
-          echo.
-          echo === Copy to runner.temp ===
-          copy msvc-test.obj "%RUNNER_TEMP%\msvc-test.obj"
-          echo copy returned %ERRORLEVEL%
-          dir "%RUNNER_TEMP%\msvc-test.obj"
-          echo.
-          echo File ready at: "%RUNNER_TEMP%\msvc-test.obj"
+          $vcvars = $env:VCVARSALL
+          Write-Host "=== Diagnostics ==="
+          Write-Host "VCVARSALL: $vcvars"
+
+          # Call vcvarsall and capture environment
+          Write-Host "=== Calling vcvarsall x86 ==="
+          & cmd /c "`"$vcvars`" x86 && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              $env:$matches[1] = $matches[2]
+            }
+          }
+          Write-Host "vcvarsall applied"
+
+          # Verify compiler
+          Write-Host "=== Compiler version ==="
+          $clOut = & cl.exe 2>&1
+          $clOut | Select-String "Version" | ForEach-Object { Write-Host $_ }
+          if ($LASTEXITCODE -ne 0) { Write-Warning "cl.exe returned $LASTEXITCODE" }
+
+          Write-Host "=== Linker version ==="
+          $linkOut = & link.exe 2>&1
+          $linkOut | Select-String "Version" | ForEach-Object { Write-Host $_ }
+
+          # Compile
+          Write-Host "=== Compiling ==="
+          $repoRoot = (Get-Location).Path
+          $src = Join-Path $repoRoot "tools\msvc-test.c"
+          $objPath = Join-Path $repoRoot "msvc-test.obj"
+          & cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo $objPath $src
+          if ($LASTEXITCODE -ne 0) { Write-Error "cl.exe failed with $LASTEXITCODE"; exit $LASTEXITCODE }
+          Write-Host "cl.exe succeeded"
+
+          # Verify .obj
+          Write-Host "=== Verifying .obj ==="
+          if (-not (Test-Path $objPath)) { Write-Error "Object file not found at $objPath"; exit 1 }
+          $bytes = [System.IO.File]::ReadAllBytes($objPath)
+          $machine = [BitConverter]::ToUInt16($bytes, 4)
+          $sections = [BitConverter]::ToUInt16($bytes, 6)
+          Write-Host "COFF machine: 0x$($machine.ToString('X4')) (expect 0x014C = i386)"
+          Write-Host "Number of sections: $sections"
+          Write-Host "File size: $($bytes.Length) bytes"
+
+          # Copy to runner.temp
+          Write-Host "=== Copy to runner.temp ==="
+          $tempObj = Join-Path $env:RUNNER_TEMP "msvc-test.obj"
+          Copy-Item $objPath $tempObj -Force
+          if (-not (Test-Path $tempObj)) { Write-Error "Copy failed"; exit 1 }
+          Write-Host "Copied to $tempObj"
 
       - name: Upload test object
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modern-msvc-test-obj
-          path: ${{ runner.temp }}\msvc-test.obj
+          path: ${{ runner.temp }}/msvc-test.obj
           if-no-files-found: error
           retention-days: 7
