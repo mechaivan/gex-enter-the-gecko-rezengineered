@@ -24,6 +24,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Diagnose workspace
+        run: |
+          echo === Workspace diagnosis ===
+          echo Current dir: %CD%
+          echo GITHUB_WORKSPACE: %GITHUB_WORKSPACE%
+          dir /b
+          echo.
+          echo Checking tools/msvc-test.c:
+          if exist tools\msvc-test.c (echo FOUND) else (echo NOT FOUND)
+          echo.
+          echo Checking VS installation:
+          dir "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"
+
       - name: Compile, verify, copy and upload test .obj
         run: |
           echo === Diagnostics ===
