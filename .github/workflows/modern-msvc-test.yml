@@ -16,37 +16,29 @@ jobs:
     name: Compile test .obj with modern cl.exe
     runs-on: windows-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        shell: cmd
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup VS 2022 Developer Command Prompt
-        uses: microsoft/setup-msbuild@v2
-        with:
-          vs-version: '17.0'
-
-      - name: Verify compiler
+      - name: Setup VS 2022 x86 environment
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
           cl.exe 2>&1 | findstr /R "Version"
           link.exe 2>&1 | findstr /R "Version"
-        shell: cmd
 
       - name: Compile test .obj (flags compatibles matching)
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
           cl.exe /nologo /c /Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7 /Fo msvc-test.obj tools/msvc-test.c
-        shell: cmd
 
       - name: Verify .obj produced
         run: |
           dir msvc-test.obj
-          $bytes = [System.IO.File]::ReadAllBytes("msvc-test.obj")
-          $machine = [BitConverter]::ToUInt16($bytes, 0x4)
-          Write-Host "COFF machine: 0x$($machine.ToString('X4')) (expect 0x014C = i386)"
-          # Check sections
-          $sections = [BitConverter]::ToUInt16($bytes, 0x6)
-          Write-Host "Number of sections: $sections"
-        shell: pwsh
+          powershell -Command "$bytes = [System.IO.File]::ReadAllBytes('msvc-test.obj'); $machine = [BitConverter]::ToUInt16($bytes, 0x4); Write-Host 'COFF machine: 0x{0:X4} (expect 0x014C = i386)' -f $machine; $sections = [BitConverter]::ToUInt16($bytes, 0x6); Write-Host 'Number of sections: ' + $sections"
 
       - name: Upload test object
         uses: actions/upload-artifact@v4
