@@ -47,6 +47,22 @@ Formato: `YYYY-MM-DD — versión — descripción`.
   no heredar la convención de objdiff «total 0 = 100 %».
 - Sin ejecutar Gex; sin modificar binarios; `docs/PROJECT_STATUS.svg` intacto.
 
+## 2026-10-22 — 0.0.0 — VC6 toolchain: packaging script + CI workflow + docs
+
+- **Nuevo:** `tools/package-msvc6.ps1` — empaqueta VC++ 6.0 SP6 + Platform SDK Feb 1998
+  como `msvc6-toolchain.zip` (binarios `cl.exe`/`link.exe`/`lib.exe`, headers, libs)
+  listo para subir como release asset `msvc6-toolchain`.
+- **Nuevo:** `.github/workflows/msvc6-build.yml` — CI que descarga el asset, setea
+  `PATH`/`INCLUDE`/`LIB`, compila test `.obj` con flags matching (`/Od /Ob0 /Oi- /Oy- /Gd /MT /Gy /Z7`)
+  y prueba objdiff smoke test en Linux.
+- **Nuevo:** `docs/MSVC6_TOOLCHAIN.md` — guía completa: requisitos, ejecución del script,
+  publicación en `gh release create msvc6-toolchain`, uso en CI, y checklist para el
+  matching real (splitter → symbols.txt → C → objdiff → bytematch).
+- Este toolchain es el **bloqueante raíz** para objdiff matching: el binario original usa
+  linker 5.00 (MSVC 5.0/6.0); sin toolchain idéntico, objdiff no puede producir `.obj`
+  comparables byte a byte.
+- Eliminado workflow diagnóstico `modern-msvc-test.yml` (cumplió su propósito).
+
 ## 2026-10-21 — 0.0.0 — Análisis motor timing/game loop con Ghidra (REA+WSL) + WSL/Linux flow
 
 - **Nuevo:** `docs/TIMING_GAME_LOOP_ANALYSIS.md` — consolidación de todos los

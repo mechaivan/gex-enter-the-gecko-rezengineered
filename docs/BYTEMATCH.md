@@ -144,6 +144,8 @@ Hoy no existe ninguno de los dos:
 - **PENDIENTE** `symbols.txt` con los límites y nombres de cada función, que es lo que
   permite asignar cada `.obj` a un fichero de origen y nombrar las unidades.
 - **PENDIENTE** toolchain MSVC 5.0/6.0 reproducible (el enlazador del binario es 5.00).
+  Documentado en [`docs/MSVC6_TOOLCHAIN.md`](MSVC6_TOOLCHAIN.md): empaquetado como
+  release asset `msvc6-toolchain.zip` y workflow [`msvc6-build.yml`](../.github/workflows/msvc6-build.yml).
 - **PENDIENTE** la primera unidad reimplementada en C.
 
 Mientras falte cualquiera de los tres, `objdiff report generate` solo puede producir un
