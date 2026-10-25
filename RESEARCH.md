@@ -5,12 +5,23 @@
 1. **Fuente de verdad: el Gex: Enter the Gecko original para PC.**
    El comportamiento a preservar es el del port PC en su contexto. Toda
    decisión de implementación se juzga contra él.
-2. **Referencias secundarias (otras versiones de Gex):** N64 (Gex64Decomp),
-   guías PS1 de speedrun, etc. Solo sirven para distinguir *"comportamiento
-   original de la familia Gex"* de *"problemas específicos del port de PC"*.
+2. **Referencias secundarias (otras versiones de Gex):** N64 (Gex64Decomp,
+   S-11), Gex 1996 para Windows (gexdecomp, S-27), guías PS1 de speedrun,
+   etc. Solo sirven para distinguir *"comportamiento original de la familia
+   Gex"* de *"problemas específicos del port de PC"*.
    **No se debe intentar reproducir el comportamiento de otras versiones.**
 3. **Gex Trilogy (2025) NO forma parte de las referencias del proyecto.**
    Se mantiene únicamente como contexto histórico (S-12).
+
+> **Nota de desambiguación (`S-26`, 2026-10-25):** este documento contiene dos
+> secciones históricas con el mismo identificador. **(A)** «E-1: estático
+> comparativo F-03» — citada por `PATCH_ANALYSIS.md` (E-1), `TESTING.md`
+> (E-1.1) y `CHANGELOG.md` (entrada de 2026-10-09). **(B)** «Repos RE
+> externos: Glide + desacoplado sim/render (Línea A)» — citada como
+> `S-26/G-0x` por `REVERSE_ENGINEERING.md`, `docs/M13_DECOUPLE_PROPOSAL.md`
+> y `CHANGELOG.md` (entrada de 2026-10-10). No se renombran para no romper
+> citas; `S-26` no debe reutilizarse y el siguiente identificador libre es
+> `S-28`.
 
 Las fuentes son material de investigación, **no** instrucciones ciegas.
 Recopilación inicial: 2026-10-08. El contraste propio comenzó en Fase 1
@@ -167,6 +178,8 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 - Advertencia: **NO es el código de la versión PC** (port distinto:
   LTI Gray Matter; otra plataforma y CPU). Nunca fuente de verdad.
 - Estado: catalogado como referencia secundaria.
+- Véase también S-27 (Hydroloxed/gexdecomp, Gex 1996 para Windows): otra
+  referencia secundaria de la familia Gex, distinta de esta decomp N64.
 
 ## S-12 — Gex Trilogy (2025) — CONTEXTO, no referencia
 
@@ -710,6 +723,51 @@ que habrá que verificar contra el juego real (Fase 1–2):
   Unlicense, 2024 — no estudiado, PSX.)
 - Veredicto Línea A: estudiar G-02 (gating familia motor) + G-03
   (patrón desacoplado); G-01 ya minado; G-04 descartado.
+
+## S-27 — Hydroloxed/gexdecomp (REFERENCIA SECUNDARIA — Gex 1996, no Enter the Gecko)
+
+- URL: <https://github.com/Hydroloxed/gexdecomp>
+- Juego/plataforma: **Gex (1996)** para Windows (PC), no *Gex: Enter the
+  Gecko* (1998). Comparten plataforma, pero no ejecutable, motor ni época de
+  compilación; ninguna de sus direcciones es trasladable al juego de 1998.
+- Estado: **temprano**, verificado en `main` @ `8ba8078` (2026-09-26; último
+  push 2026-09-27): 75 entradas en el árbol, 32 ficheros `.c`, 1178 funciones
+  marcadas por dirección, 32 con scratch de decomp.me (28 al 100 %, 4 entre
+  92,5 y 99 %), 1146 sin match y 1136 marcas `UNIMPLEMENTED`. `fake_main.c`
+  se incluye «hasta que `WinMain()` (y `GameThread`) estén implementados».
+- Metodología declarada en su README: Ghidra → desensamblado exportado con
+  `unassemblize` → decomp.me (objetivo «Windows (9x/NT)», compilador
+  Microsoft Visual C/C++ 4.0) → C compilable con CMake (objetivo `gex`).
+  El contexto de tipos `GEX.H` vive en otro repositorio
+  (`gitlab.com/Hydrolox/gexcommon`), fuera de este. Flujo orientado a
+  recuperar código compilable, no a documentar el binario original de PC de
+  Enter the Gecko.
+- Funciones relevantes citadas (direcciones de **Gex 1996**):
+  `TIME_GetTicks` (`0x00402FA0`), `WaitForNextFrame` (`0x00405120`),
+  `GameThread` (`0x004050E0`) y `RunTimer` (`0x00404AB0`), las cuatro en
+  `src/game/winmain.c`. Son nombres y direcciones útiles para comparación
+  conceptual de temporización/bucle, **no** para localizar esas funciones en
+  el ejecutable de Enter the Gecko. En el código revisado aparecen **sin
+  implementar** (`UNIMPLEMENTED`) y sin scratch de decomp.me, por lo que no
+  demuestran su comportamiento.
+- Utilidad para el proyecto: referencia secundaria de la **familia Gex**
+  para contrastar vocabulario, estructura de bucle y nombres de
+  temporización. Puede ayudar a formular hipótesis sobre el diseño
+  original, nunca a sustituir el análisis del binario PC de Enter the
+  Gecko.
+- Límites de aplicabilidad: **NO** es código de *Enter the Gecko*; **NO**
+  es el port PC de LTI Gray Matter; **NO** se pueden trasladar sus
+  direcciones, firmas ni implementaciones al ejecutable de 1998. Cualquier
+  coincidencia debe verificarse contra el original PC, que sigue siendo la
+  **fuente de verdad**. No mezclar con Gex64Decomp (S-11, N64/MIPS): son
+  juegos, plataformas y decompilaciones distintas.
+- Licencia: los metadatos del repositorio **no declaran licencia**. No
+  copiar código fuente al proyecto; solo se usa como lectura comparativa.
+- Verificación (2026-10-25): README, árbol, historial y código revisados en
+  origen. Los porcentajes de match son **declarados por la propia fuente**
+  (enlaces a decomp.me) y no se han re-verificado aquí; no se ha compilado,
+  ejecutado ni descargado ningún binario.
+- Fecha de revisión: 2026-10-25.
 
 ## Pendiente del mantenedor
 

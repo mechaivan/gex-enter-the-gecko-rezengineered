@@ -2,6 +2,31 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-25 — 0.0.0 — S-27 verificada: referencia externa `Hydroloxed/gexdecomp` (Gex 1996 para Windows)
+
+- **Nueva referencia secundaria:** `RESEARCH.md` S-27 — decompilación
+  *matching* de **Gex (1996) para Windows** (`Hydroloxed/gexdecomp`, `main` @
+  `8ba80780`, 2026-09-26). Se mantiene separada de Gex64Decomp (S-11,
+  N64/MIPS): otro juego, otro motor y otra plataforma de análisis. Sin
+  licencia declarada: **no se copia código**.
+- **Verificado en origen (2026-10-25):** README (Ghidra → `unassemblize` →
+  decomp.me, MSVC 4.0), estado temprano (1178 funciones marcadas, 32 con
+  scratch, 28 al 100 %, 1136 `UNIMPLEMENTED`) y las cuatro funciones de
+  temporización de `src/game/winmain.c` (`TIME_GetTicks` `0x00402fa0`,
+  `RunTimer` `0x00404ab0`, `GameThread` `0x004050e0`, `WaitForNextFrame`
+  `0x00405120`) **sin implementar**: no demuestran comportamiento. Los
+  porcentajes son declarados por la fuente, no re-verificados aquí.
+- **Límites:** direcciones y firmas de Gex 1996, **no trasladables** a
+  `GEX3D.EXE` (Enter the Gecko 1998), que sigue siendo la fuente de verdad.
+  Sin binarios, sin ejecución y sin cambios de código.
+- **Desambiguación `S-26`:** nota en `RESEARCH.md` §0 — dos secciones
+  históricas comparten identificador (A: E-1; B: Línea A); no se renombran
+  para no romper las citas existentes y el siguiente ID libre queda fijado en
+  `S-28`.
+- **Panel/SVG sin cambios:** una referencia documental no es un hito
+  verificado del panel (regla §6); v3.6 intacto. Ficheros modificados esta
+  ronda: `RESEARCH.md`, `CHANGELOG.md`, `PROJECT_STATE.md`.
+
 ## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
 
 - **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de

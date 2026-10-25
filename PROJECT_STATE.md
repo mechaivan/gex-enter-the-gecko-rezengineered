@@ -8,7 +8,7 @@
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-11
+**Last updated:** 2026-10-25
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -112,6 +112,11 @@
   linaje «Gex 2»); informe en
   `docs/research/SOUL_RE_ENGINE_REFERENCE.md` (solo documentación;
   sin verificación en el exe PC; sin cambios de código ni binarios).
+- [x] Referencia externa documentada (2026-10-25): decompilación de
+  **Gex (1996) para Windows** (`Hydroloxed/gexdecomp`, sin licencia;
+  `main` @ `8ba80780`) como referencia secundaria de la familia Gex
+  (RESEARCH S-27); sin código copiado, sin binarios y sin trasladar
+  direcciones a `GEX3D.EXE`.
 
 ## Limitaciones actuales
 
