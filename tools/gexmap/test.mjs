@@ -1,0 +1,277 @@
+/**
+ * Offline tests for the function map.
+ *
+ *   node --test tools/gexmap/test.mjs
+ *
+ * The first group builds tiny synthetic `.text` programs with known instruction
+ * boundaries, so every rule of `analyze()` is exercised without the game binary
+ * (which is never committed). The second group checks the invariants of the
+ * committed artifacts in `analysis/EU/`, which is what makes the published map
+ * self-consistent.
+ */
+
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { analyze, transitiveImports } from "./analyze.mjs";
+
+const IMAGE_BASE = 0x400000;
+const TEXT_VA = 0x401000;
+const TEXT_RAW = 0x200;
+
+/**
+ * Assemble a synthetic program. Each item is { text, hex, repeat }:
+ *   - `hex` is the instruction's bytes and always written to the image;
+ *   - `text: null` writes data bytes that the decoder did not turn into an
+ *     instruction (a gap the boundary check must inspect);
+ *   - `repeat` emits the same 1-byte instruction N times (padding).
+ */
+function build(items, size) {
+  let va = TEXT_VA;
+  const instructions = [];
+  const written = [];
+  for (const item of items) {
+    const bytes = Buffer.from(item.hex, "hex");
+    for (let n = 0; n < (item.repeat ?? 1); n++) {
+      written.push({ addr: va, bytes });
+      if (item.text !== null) instructions.push({ addr: va, text: item.text, bytes: bytes.length });
+      va += bytes.length;
+    }
+  }
+  const virtualSize = Math.max(size ?? 0, va - TEXT_VA);
+  const buffer = Buffer.alloc(TEXT_RAW + virtualSize, 0);
+  for (const item of written) buffer.set(item.bytes, TEXT_RAW + (item.addr - TEXT_VA));
+  const pe = {
+    imageBase: IMAGE_BASE,
+    entryPoint: 0,
+    offsetOf: (rva) => (rva >= 0x1000 && rva - 0x1000 < virtualSize ? TEXT_RAW + (rva - 0x1000) : null),
+  };
+  return { buffer, pe, text: { virtualAddress: 0x1000, virtualSize }, instructions };
+}
+
+const imports = new Map([
+  [0x403000, { dll: "TEST.dll", func: "Alpha" }],
+  [0x403004, { dll: "TEST.dll", func: "Beta" }],
+  [0x403008, { dll: "TEST.dll", func: "Gamma" }],
+]);
+
+const noRepair = () => {
+  throw new Error("disassembleRange should not be called");
+};
+
+test("call target, import thunk, prologue candidate and stub block", () => {
+  const program = build(
+    [
+      { text: "push ebp", hex: "55" },
+      { text: "mov ebp, esp", hex: "8bec" },
+      { text: "call 0x401010", hex: "e808000000" },
+      { text: "ret", hex: "c3" },
+      { text: "int3", hex: "cc", repeat: 7 },
+      { text: "jmp dword ptr [0x403000]", hex: "ff2500304000" },
+      { text: "int3", hex: "cc", repeat: 4 },
+      { text: "push ebp", hex: "55" },
+      { text: "mov ebp, esp", hex: "8bec" },
+      { text: "ret", hex: "c3" },
+      { text: "jmp dword ptr [0x403004]", hex: "ff2504304000" },
+    ],
+    0x24,
+  );
+
+  const result = analyze({ ...program, imports, disassembleRange: noRepair });
+  const byStart = new Map(result.functions.map((fn) => [fn.start, fn]));
+
+  assert.deepEqual(
+    result.functions.map((fn) => fn.start),
+    [0x401000, 0x401010, 0x40101a, 0x40101e],
+  );
+  assert.equal(byStart.get(0x401000).basis, "text-start");
+  assert.equal(byStart.get(0x401010).basis, "call");
+  assert.equal(byStart.get(0x401010).kind, "thunk");
+  assert.equal(byStart.get(0x401010).symbol, "TEST.dll!Alpha");
+  assert.equal(byStart.get(0x40101a).basis, "prologue");
+  assert.equal(byStart.get(0x40101a).kind, "func");
+  assert.equal(byStart.get(0x40101e).basis, "thunk");
+  assert.equal(byStart.get(0x40101e).kind, "thunk");
+  assert.equal(byStart.get(0x40101e).symbol, "TEST.dll!Beta");
+  assert.deepEqual(result.prologueCandidates, [0x40101a]);
+  assert.deepEqual(
+    result.edges.map((edge) => [edge.from, edge.to, edge.kind]),
+    [[0x401000, 0x401010, "call"]],
+  );
+  assert.equal(result.stats.thunks, 2);
+  assert.equal(result.stats.startFromPrologue, 1);
+  assert.equal(result.stats.startFromThunks, 1);
+});
+
+test("payload bytes between a terminator and a prologue are not a boundary", () => {
+  const program = build(
+    [
+      { text: "push ebp", hex: "55" },
+      { text: "mov ebp, esp", hex: "8bec" },
+      { text: "ret", hex: "c3" },
+      { text: null, hex: "01" },
+      { text: "push ebp", hex: "55" },
+      { text: "mov ebp, esp", hex: "8bec" },
+      { text: "ret", hex: "c3" },
+    ],
+    0x10,
+  );
+
+  const result = analyze({ ...program, imports, disassembleRange: noRepair });
+  assert.deepEqual(result.functions.map((fn) => fn.start), [0x401000]);
+  assert.deepEqual(result.prologueCandidates, []);
+});
+
+test("an import jump inside a function is not a thunk", () => {
+  const program = build(
+    [
+      { text: "push ebp", hex: "55" },
+      { text: "mov ebp, esp", hex: "8bec" },
+      { text: "mov eax, 1", hex: "b801000000" },
+      { text: "jmp dword ptr [0x403000]", hex: "ff2500304000" },
+      { text: "ret", hex: "c3" },
+    ],
+    0x10,
+  );
+
+  const result = analyze({ ...program, imports, disassembleRange: noRepair });
+  assert.deepEqual(result.functions.map((fn) => fn.start), [0x401000]);
+  assert.equal(result.functions[0].kind, "func");
+  assert.equal(result.stats.thunks, 0);
+  assert.ok(result.functions[0].imports.has("TEST.dll!Alpha"));
+});
+
+test("a call into a desynchronised region is re-decoded and becomes a start", () => {
+  const program = build(
+    [
+      { text: "call 0x401010", hex: "e80b000000" },
+      { text: "ret", hex: "c3" },
+      { text: "int3", hex: "cc", repeat: 10 },
+    ],
+    0x20,
+  );
+
+  let requested = null;
+  const result = analyze({
+    ...program,
+    imports,
+    disassembleRange: (start, stop) => {
+      requested = { start, stop };
+      return [
+        { addr: 0x401010, text: "xor eax, eax", bytes: 2 },
+        { addr: 0x401012, text: "ret", bytes: 1 },
+      ];
+    },
+  });
+
+  assert.deepEqual(requested, { start: 0x401010, stop: 0x401020 });
+  assert.equal(result.repairs.length, 1);
+  assert.equal(result.repairs[0].start, 0x401010);
+  assert.deepEqual(result.functions.map((fn) => fn.start), [0x401000, 0x401010]);
+  assert.equal(result.functions[1].basis, "call");
+  assert.deepEqual(result.edges.map((edge) => [edge.from, edge.to]), [[0x401000, 0x401010]]);
+});
+
+test("transitiveImports reports depth through the direct call graph", () => {
+  const functions = [
+    { start: 0x1000, imports: new Map([["A", 1]]) },
+    { start: 0x2000, imports: new Map([["B", 1]]) },
+    { start: 0x3000, imports: new Map() },
+  ];
+  const edges = [
+    { from: 0x1000, to: 0x2000 },
+    { from: 0x2000, to: 0x3000 },
+  ];
+  const reached = transitiveImports(functions, edges, 0x1000);
+  assert.deepEqual([...reached.keys()].sort(), ["A", "B"]);
+  assert.equal(reached.get("A"), 0);
+  assert.equal(reached.get("B"), 1);
+});
+
+const eu = new URL("../../analysis/EU/", import.meta.url);
+const readJson = (name) => JSON.parse(readFileSync(new URL(name, eu), "utf8"));
+const rows = (name) =>
+  readFileSync(new URL(name, eu), "utf8")
+    .split(/\r?\n/)
+    .filter((line) => line.length && !line.startsWith("#"))
+    .map((line) => line.split("\t"));
+
+test("committed artifacts: counts, sizes and coverage agree", () => {
+  const summary = readJson("summary.json");
+  const functions = rows("functions.tsv");
+  const calls = rows("calls.tsv");
+
+  assert.equal(summary.schema, 1);
+  assert.equal(functions.length, summary.counts.functions);
+  assert.equal(calls.length, summary.counts.callEdges + summary.counts.tailEdges);
+  assert.equal(
+    functions.reduce((sum, row) => sum + Number.parseInt(row[1], 10), 0),
+    summary.counts.functionBytes,
+  );
+  assert.equal(summary.counts.functionBytes, summary.text.bytes);
+  assert.equal(summary.counts.coveragePercent, 100);
+  assert.equal(summary.repairs.length, summary.counts.repairs);
+});
+
+test("committed artifacts: every start is ordered, non-overlapping and classified", () => {
+  const summary = readJson("summary.json");
+  const functions = rows("functions.tsv");
+  const bases = { call: 0, entry: 0, "text-start": 0, prologue: 0, thunk: 0 };
+
+  let previousEnd = -1;
+  for (const row of functions) {
+    const start = Number.parseInt(row[0], 16);
+    const size = Number.parseInt(row[1], 10);
+    assert.ok(start >= previousEnd, `${row[0]} overlaps the previous function`);
+    assert.ok(bases[row[3]] !== undefined, `${row[0]} has unknown basis ${row[3]}`);
+    bases[row[3]]++;
+    if (row[2] === "thunk") {
+      assert.ok(row[7], `${row[0]} is a thunk without an import`);
+      assert.ok(!row[7].includes(";"), `${row[0]} forwards to more than one import`);
+      assert.equal(row[4], row[7], `${row[0]} symbol does not match its import`);
+      assert.ok(size >= 6, `${row[0]} is smaller than a 6 B stub`);
+    }
+    previousEnd = start + size;
+  }
+
+  assert.equal(bases.call, summary.counts.startFromCalls);
+  assert.equal(bases.entry, summary.counts.startFromEntry);
+  assert.equal(bases["text-start"], summary.counts.startFromTextStart);
+  assert.equal(bases.prologue, summary.counts.startFromPrologue);
+  assert.equal(bases.thunk, summary.counts.startFromThunks);
+  assert.equal(
+    bases.call + bases.entry + bases["text-start"] + bases.prologue + bases.thunk,
+    summary.counts.functions,
+  );
+  assert.equal(
+    functions.filter((row) => row[2] === "thunk").length,
+    summary.counts.thunks,
+  );
+});
+
+test("committed artifacts: every confirmed call start is a callee", () => {
+  const functions = rows("functions.tsv");
+  const calls = rows("calls.tsv");
+  const callees = new Set(calls.map((row) => Number.parseInt(row[1], 16)));
+  for (const row of functions) {
+    if (row[3] !== "call") continue;
+    assert.ok(callees.has(Number.parseInt(row[0], 16)), `${row[0]} is a call start but no edge reaches it`);
+  }
+});
+
+test("committed artifacts: the ByteMatch reconciliation still adds up", () => {
+  const summary = readJson("summary.json");
+  const r = summary.reconciliation;
+  assert.ok(r, "summary has no reconciliation block");
+  assert.equal(
+    r.report_entry_confirmed_start +
+      r.report_entry_prologue_start +
+      r.report_entry_boundary_but_not_a_start +
+      r.report_entry_not_an_instruction_boundary,
+    r.bytematch_functions,
+  );
+  assert.equal(r.report_entry_confirmed_start, summary.counts.startFromCalls);
+  assert.equal(summary.anchors.total, 24);
+  assert.equal(summary.anchors.outside_every_function, 0);
+});

@@ -2,6 +2,61 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-25 — 0.0.0 — Mapa estático de funciones + grafo de llamadas (EU)
+
+- **Nuevo `tools/gexmap/`** — `map` (requiere el `GEX3D.EXE` EU original),
+  `check` (valida sin binario, apto para CI), `query` (consulta una función) y
+  `test.mjs` (tests offline). Lector PE32 propio, desensamblado con
+  `llvm-objdump`, reparación de las 24 regiones donde el barrido lineal se
+  desincroniza, grafo de llamadas directas e imports por función. README
+  propio.
+- **Nuevo `docs/FUNCTION_MAP.md`** — método, cifras, reconciliación con
+  ByteMatch, ejemplo trabajado del update `0x43E1BA` y límites.
+- **Artefactos derivados en `analysis/EU/`** — `functions.tsv` (2 655 filas,
+  sha256 `530a648e…f675d`), `calls.tsv` (5 097 aristas, sha256
+  `66def313…467e2`), `anchors.json` (24 anclas, sha256 `f750a720…9c389`) y
+  `summary.json` (hashes, recuentos, reparaciones, límites). El binario no se
+  copia al repo.
+- **Medido (CONFIRMADO):** 1 448 inicios por `call` directa + 1 por entrada PE
+  + 1 por primer byte de `.text` + 92 stubs = **1 542 inicios confirmados**;
+  **132** stubs `jmp [IAT]`; **5 097** aristas (5 095 `call` + 2 `tail`); 0
+  llamadas directas sin resolver; 24 anclas documentales (13 en inicio exacto,
+  11 dentro, 0 fuera). Los **1 113** candidatos por prólogo son **HYPOTHESIS** y
+  se publican aparte.
+- **Corrección documental (`docs/BYTEMATCH.md`):** la afirmación «cada entrada
+  listada es llamada de verdad, el método no puede inventar una» era falsa.
+  De las 1 647 entradas del informe, **199 no son inicios confirmados** (95 son
+  límite de instrucción pero no inicio; **104 ni siquiera son límite de
+  instrucción**) y **94 inicios confirmados no están en el informe**. También se
+  corrigen los «122 funciones que llaman a una API, todas thunks» (medido: 218
+  funciones referencian imports — 86 `func` + 132 `thunk`) y los «40 thunks»
+  del informe (el binario tiene 132 stubs; 40 son destinos de `call` directa).
+- **Defecto corregido antes de publicar:** los stubs `jmp dword ptr [IAT]` se
+  absorbían en la función anterior y le atribuían sus imports. Caso medido:
+  `0x0054038E` (función real de 54 B, `ret` en `0x005403C3`) aparecía con 354 B
+  de extensión y **50 imports**; ahora tiene **54 B, 0 imports** y los stubs son
+  filas `kind=thunk` desde `0x005403C4`. La comparación se midió ejecutando el
+  mapa con y sin la pasada de stubs.
+- **Validación cruzada:** la entrada PE `0x00541B20` llama a `0x00463278`, la
+  dirección que la documentación identifica como `WinMain`; la arista sale del
+  desensamblado, no de la documentación. Además, las 40 funciones de la unidad
+  `game/imports` del informe coinciden una a una con los 40 stubs del mapa
+  marcados `kind=thunk` con `basis=call`.
+- **Pruebas:** `check` → ok (2 655 inicios, 5 097 aristas, 1 354 462 B de
+  `.text`, 24 anclas, hashes coincidentes); `node --test` → **9/9** (4 casos
+  sintéticos + 5 invariantes); dos ejecuciones completas → **hashes idénticos**
+  de los cuatro artefactos.
+- **Límites / resultados negativos:** los 1 113 prólogos no se promueven; los
+  tamaños son cotas superiores; el 100 % de cobertura es del union de
+  extensiones; no hay evidencia dinámica; no se usó Ghidra ni REA; el mapa no
+  sustituye al splitter ni al `symbols.txt` y **el porcentaje de ByteMatch sigue
+  en 0,00 %**.
+- **Panel/SVG sin cambios:** no hay un hito nuevo de MAIN verificado; v3.6
+  intacto. Ficheros modificados esta ronda: `tools/gexmap/*`,
+  `analysis/EU/*`, `docs/FUNCTION_MAP.md`, `docs/BYTEMATCH.md`,
+  `REVERSE_ENGINEERING.md`, `TESTING.md`, `PROJECT_STATE.md`, `CHANGELOG.md`,
+  `ROADMAP.md`, `tools/README.md`, `.github/workflows/byte-match.yml`.
+
 ## 2026-10-25 — 0.0.0 — S-27 verificada: referencia externa `Hydroloxed/gexdecomp` (Gex 1996 para Windows)
 
 - **Nueva referencia secundaria:** `RESEARCH.md` S-27 — decompilación

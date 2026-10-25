@@ -28,6 +28,14 @@ jobs:
       - name: Validate report
         run: node tools/bytematch-report.mjs --check
 
+      # The function map is derived from the same binary but is validated without it:
+      # hashes pinned in summary.json, counts, overlaps and documented anchors.
+      - name: Validate function map
+        run: node tools/gexmap/cli.mjs check
+
+      - name: Test function map
+        run: node --test tools/gexmap/test.mjs
+
       - name: Upload progress report
         uses: actions/upload-artifact@v4
         with:

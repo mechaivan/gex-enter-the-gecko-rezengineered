@@ -92,6 +92,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)       | Regla permanente de sincronización global    |
 | [docs/TOOLKIT.md](docs/TOOLKIT.md)                     | Entorno y herramientas disponibles           |
 | [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)       | Metodología y registro del panel de progreso |
+| [docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md)           | Mapa estático de funciones + grafo + imports (EU) |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |
@@ -105,8 +106,9 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 /
 ├── README.md / ROADMAP.md / CHANGELOG.md / ...  # Documentación del proyecto
 ├── docs/            # Guías (toolkit, plantillas, análisis futuros)
+├── analysis/        # Artefactos derivados del binario (mapa de funciones)
 ├── research/        # Notas de investigación (futuro)
-├── tools/            # Herramientas propias (glide-shim, m13-core, setup)
+├── tools/            # Herramientas propias (gexmap, glide-shim, m13-core, setup)
 └── scripts/         # Scripts propios (futuro)
 ```
 

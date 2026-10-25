@@ -42,7 +42,11 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
 - [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1 + E-3/M-13 timing).
-- Proyecto Ghidra + naming (`WinMain`, game-loop).
+- Proyecto Ghidra + naming (`WinMain`, game-loop). Mapa estático
+  2026-10-25: `tools/gexmap` identifica inicios confirmados, grafo de
+  llamadas e imports, y `WinMain` por la arista desde la entrada PE;
+  Ghidra, decompilación y nombres originales siguen pendientes
+  (`docs/FUNCTION_MAP.md`).
 - C mínima: timing FA-04/05, ruta/registro FA-11 (I-23 causa
   identificada estática 2026-10-10; dinámica pendiente), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).

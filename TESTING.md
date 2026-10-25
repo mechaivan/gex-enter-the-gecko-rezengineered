@@ -1164,3 +1164,50 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   toolchain (MSYS2 GCC 16.1.0). La propuesta
   `-D__USE_MINGW_ANSI_STDIO=1` queda como contingencia si otra
   toolchain lo mangla; código sin cambios.
+
+## Mapa estático de funciones (2026-10-25, validación offline)
+
+**Qué se prueba:** que el mapa publicado en `analysis/EU/` se puede regenerar de
+forma determinista desde el `GEX3D.EXE` EU verificado y que sus artefactos son
+internamente coherentes sin el binario. No se prueba semántica, ni ejecución, ni
+emparejamiento con código reimplementado.
+
+**Entorno de la corrida:** host Windows, Node.js 26.7.0, `llvm-objdump` 22.1.8
+(LLVM). Binario: EU, 1 557 504 B, MD5 `692b12825003417cc4a5a9d4db13eebe`,
+SHA-256 `d0932549613f9c08fb895c5f8a6461ce044e1863b4cba42da4715c2b41e73886`.
+
+**Comandos:**
+
+```powershell
+node tools/gexmap/cli.mjs map --exe <copia>\GEX3D.EXE --objdump <ruta>\llvm-objdump.exe
+node tools/gexmap/cli.mjs check
+node --test tools/gexmap/test.mjs
+```
+
+**Resultado 2026-10-25:**
+
+- `map`: 2 655 inicios (1 448 `call`, 1 `entry`, 1 `text-start`, 1 113
+  `prologue`, 92 `thunk`), 132 stubs de importación, 5 097 aristas, 24 regiones
+  reparadas, 0 llamadas directas sin resolver.
+- `check`: **ok** (2 655 inicios, 5 097 aristas, 1 354 462/1 354 462 B de
+  `.text`, 24 anclas; SHA-256 de los tres artefactos coincide con el fijado en
+  `summary.json`).
+- `node --test`: **9/9** (4 sintéticos + 5 invariantes de los artefactos).
+- **Determinismo:** dos ejecuciones completas en directorios distintos
+  produjeron hashes idénticos de `functions.tsv`, `calls.tsv`, `anchors.json` y
+  `summary.json`.
+- **Anclas:** 24 documentadas; 13 en el inicio exacto de una función, 11 dentro,
+  0 fuera.
+- **Validación cruzada no trivial:** la entrada PE `0x00541B20` llama a
+  `0x00463278`, la dirección que la documentación identifica como `WinMain`.
+
+**Regresión encontrada y corregida antes de publicar:** los stubs
+`jmp dword ptr [IAT]` se absorbían en la función anterior; `0x0054038E` aparecía
+con 52 imports que no usaba. Ahora hay 132 filas `kind=thunk` y `0x0054038E`
+tiene 0 imports directos. El caso queda como test sintético («an import jump
+inside a function is not a thunk»).
+
+**Resultados negativos / límites:** los 1 113 inicios por prólogo son
+**HYPOTHESIS** y no se promueven; el mapa no sustituye al splitter ni al
+`symbols.txt`; el porcentaje de ByteMatch sigue en 0,00 %; no se usó Ghidra ni
+REA. Detalle completo en `docs/FUNCTION_MAP.md`.

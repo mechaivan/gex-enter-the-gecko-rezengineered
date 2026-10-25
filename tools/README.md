@@ -26,6 +26,12 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
 
 ## Prototipos e instrumentación
 
+- **`gexmap/`** — Mapa estático del `GEX3D.EXE` EU: inicios confirmados,
+  candidatos por prólogo, stubs `jmp [IAT]`, grafo de llamadas e imports por
+  función. `map` (requiere el exe original), `check` (sin binario, para CI),
+  `query` (consulta una función) y tests offline con `node --test`. Resultados
+  en `analysis/EU/` y método/límites en `docs/FUNCTION_MAP.md`. Ver README
+  propio.
 - **`m13-core/`** — Núcleo C11 del acumulador de paso fijo
   (`docs/M13_DECOUPLE_PROPOSAL.md` §4): reloj inyectado, sin
   plataforma, harness propio. Verificado 2026-10-10 (120 checks,

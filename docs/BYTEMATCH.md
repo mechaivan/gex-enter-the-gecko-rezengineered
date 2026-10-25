@@ -2,7 +2,8 @@
 
 > **Nivel de evidencia:** mixto. Lo marcado **CONFIRMADO** sale del análisis directo del
 > binario. Lo marcado **PENDIENTE** es trabajo que aún no existe en el repositorio.
-> Fecha del análisis: 2026-10-21.
+> Fecha del análisis: 2026-10-21. Reconciliación del recuento con el mapa estático:
+> 2026-10-25 (§2.1).
 
 ## 1. Qué es ByteMatch y cómo lee este repositorio
 
@@ -27,16 +28,43 @@ original. Todas sus cifras son medibles en el binario:
 
 | Medida | Valor | Origen |
 |---|---|---|
-| `total_code` | **1 354 413 B** | suma de las 1 647 funciones identificadas en `.text` |
+| `total_code` | **1 354 413 B** | suma de las 1 647 entradas del informe (ver §2.1) |
 | `total_data` | **196 096 B** | bytes de `.rdata` + `.data` + `.idata` presentes en el fichero |
 | `matched_code` | 0 B | nada reimplementado todavía |
 | `matched_functions` | 0 | ídem |
-| `total_functions` | **1 647** | puntos de entrada con llamada directa (`E8 rel32`) dentro de `.text` |
+| `total_functions` | **1 647** | candidatos del barrido de bytes `E8` en `.text`; 1 448 son inicios confirmados (ver §2.1) |
 | `total_units` | **2** | `game/code` y `game/imports` |
 
 En la página se verá **Code 1.29 MiB (0.00 %)**, **Data 191.5 KiB (0.00 %)**,
 **Functions 0 / 1 647** y **Units 0 / 2**. Es la verdad: el proyecto no ha emparejado ni
 una función.
+
+### 2.1 Reconciliación medida del recuento (2026-10-25)
+
+El número **1 647** es lo que publica el informe, no un recuento de funciones
+demostradas. El mapa estático de [`docs/FUNCTION_MAP.md`](FUNCTION_MAP.md)
+desensambla `.text` completo y comprueba cada entrada:
+
+| Categoría | Entradas |
+|---|---:|
+| Inicio confirmado (destino de `call` real, entrada PE o primer byte de `.text`) | **1 448** |
+| Inicio por prólogo (hipótesis) | 0 |
+| Límite de instrucción, pero no inicio | 95 |
+| Ni siquiera límite de instrucción | **104** |
+| **Total del informe** | **1 647** |
+
+- **104 entradas son imposibles como inicio de función**: caen en medio de una
+  instrucción. Son falsos positivos del barrido de bytes `E8` (bytes `E8` dentro
+  de un inmediato, de una tabla de salto o de datos).
+- **95 entradas** son límites de instrucción pero no inicios demostrados; podrían
+  ser funciones alcanzadas de forma indirecta.
+- **94 inicios confirmados no aparecen en el informe**: los 92 stubs que no son
+  destino de una llamada directa, la entrada PE y el primer byte de `.text`. Todos
+  los destinos de `call` reales sí están (1 448).
+
+Por eso la lista es un **punto de partida útil pero incompleto**, no una lista de
+funciones verificadas. Las cifras de ByteMatch (0,00 %) no cambian: el mapa no
+reimplementa nada.
 
 ### El mapa de unidades: qué se ve y por qué
 
@@ -58,6 +86,11 @@ importación: `_grBufferSwap@4`, `_grTexDownloadMipMap@16`, `_gu3dfLoad@8`,
 reimplementar (el enlazador los regenera), pero sí forman parte de la función y conviene
 verlos con su nombre.
 
+El informe solo ve **40** porque su barrido únicamente encuentra los que son destino de
+un `call rel32`. El binario tiene **132** stubs, uno por import referenciado: los otros
+92 no se alcanzan con una llamada directa y quedaban absorbidos en la función anterior.
+El mapa los separa todos como `kind=thunk` (ver `docs/FUNCTION_MAP.md` §3.5).
+
 **Por qué solo dos unidades y no una por subsistema:** porque el mapa de un proyecto de
 decompilación real no sale del binario, sale del **árbol de fuentes de la reimplementación**.
 Cada unidad es un archivo (o traducción) de nuestro C, y para compararla hace falta el
@@ -65,8 +98,10 @@ Cada unidad es un archivo (o traducción) de nuestro C, y para compararla hace f
 
 - El **grafo de llamadas es un bloque único**: 1 643 de las 1 647 funciones están conectadas
   entre sí. No hay forma de trocear el juego en subsistemas por el grafo.
-- Solo **122** funciones llaman directamente a una API del sistema, y **todas** son *thunks*.
-  El juego no tiene una capa deenvoltura propia: llama a Win32 y a Glide a través de la IAT.
+- Solo **86** funciones propias llaman directamente a una API del sistema, y los
+  **132** *thunks* son la única capa de reenvío: no hay una capa de envoltura
+  propia. Medido con el mapa (`docs/FUNCTION_MAP.md` §6): 218 funciones
+  referencian algún import (86 `func` + 132 `thunk`), sobre 132 imports distintos.
 - Los **huecos de relleno** entre funciones son de 8–15 B (107 en total, 1 227 B). El
   enlazador no dejó separadores detectables entre los `.obj` originales, así que los límites
   de los ficheros de origen tampoco son recuperables automáticamente.
@@ -110,17 +145,28 @@ Los 196 096 B de datos **no están asignados a ninguna unidad**: los símbolos d
 pueden atribuir a un fichero de origen sin el `symbols.txt`, así que se contabilizan a nivel
 de proyecto. En cuanto exista, se repartirán entre las unidades que los posean.
 
-### Cómo se cuentan las 1 647 funciones
+### Cómo se cuentan las 1 647 funciones (corregido 2026-10-25)
 
 El ejecutable está *stripped* (`PointerToSymbolTable = 0`) y no hay PDB, así que no existe
-una tabla de símbolos que leer. Lo único localizable sin adivinar son los **puntos de entrada
-con llamada directa**: cada `E8 rel32` de `.text` cuyo destino cae dentro de `.text` es un
-punto de entrada al que el código original llama.
+una tabla de símbolos que leer.
 
-Son **1 647** direcciones distintas. El método solo puede *dejar fuera* funciones (las que
-solo se alcanzan por caída o por un salto, o las que solo se referencian desde una tabla de
-saltos), nunca inventar una: cada entrada listada es llamada de verdad por el binario. Por
-eso la cifra es una **cota inferior** del total real, y no un total exacto.
+El generador del informe (`tools/bytematch-report.mjs`) busca el byte `0xE8` en todo
+`.text` y calcula el destino de un supuesto `call rel32`. Es una estimación barata, no un
+desensamblado: un `E8` dentro de un inmediato, de una tabla de salto o de datos produce un
+destino que nunca fue llamado.
+
+El mapa estático de [`docs/FUNCTION_MAP.md`](FUNCTION_MAP.md) comprueba las 1 647
+direcciones contra el desensamblado real:
+
+- **1 448** son destinos de un `call` decodificado (inicios confirmados);
+- **95** son límites de instrucción pero no inicios demostrados;
+- **104** no son ni límite de instrucción: **no pueden ser inicios de función**.
+
+Por eso la cifra **no es una cota inferior pura**: el barrido puede inventar entradas. El
+mapa da **1 542 inicios confirmados** (1 448 `call` + entrada PE + primer byte de `.text` +
+92 stubs) y **1 113 candidatos** por prólogo, publicados aparte como hipótesis. Mientras no
+haya un informe de objdiff, ByteMatch sigue mostrando 1 647 porque es lo que el informe
+declara; lo que ya no se sostiene es presentarlo como una lista de funciones demostradas.
 
 El tamaño de cada función es la **distancia hasta la siguiente entrada identificada** (la
 última llega hasta el final de `.text`). Es una **cota superior**: el relleno y las tablas de
@@ -140,16 +186,22 @@ calcule objdiff y dejarán de ser cotas.
 Hoy no existe ninguno de los dos:
 
 - **PENDIENTE** divisor (*splitter*) que extraiga unidades del `.EXE`. Con el binario
-  stripped y sin PDB hay que delimitar funciones a mano o por análisis.
+  stripped y sin PDB hay que delimitar funciones a mano o por análisis. El mapa estático de
+  [`docs/FUNCTION_MAP.md`](FUNCTION_MAP.md) ya aporta el prerrequisito: inicios confirmados,
+  grafo de llamadas e imports por función; no aporta los límites de las unidades de
+  compilación.
 - **PENDIENTE** `symbols.txt` con los límites y nombres de cada función, que es lo que
-  permite asignar cada `.obj` a un fichero de origen y nombrar las unidades.
+  permite asignar cada `.obj` a un fichero de origen y nombrar las unidades. El mapa ofrece
+  etiquetas derivadas (`FUN_xxxxxxxx`) y sus extensiones, no nombres originales.
 - **PENDIENTE** toolchain MSVC 5.0/6.0 reproducible (el enlazador del binario es 5.00).
   Documentado en [`docs/MSVC6_TOOLCHAIN.md`](MSVC6_TOOLCHAIN.md): empaquetado como
   release asset `msvc6-toolchain.zip` y workflow [`msvc6-build.yml`](../.github/workflows/msvc6-build.yml).
 - **PENDIENTE** la primera unidad reimplementada en C.
 
-Mientras falte cualquiera de los tres, `objdiff report generate` solo puede producir un
-informe vacío; por eso el informe base se genera con nuestro script, que no inventa nada.
+Mientras falte cualquiera de las cuatro piezas, `objdiff report generate` solo puede
+producir un informe vacío; por eso el informe base se genera con nuestro script. Ese script
+no desensambla: sus 1 647 entradas incluyen falsos positivos (§2.1) y no deben citarse como
+funciones demostradas.
 
 Lo que **sí** queda resuelto desde ahora es el andamiaje: cuando exista la primera unidad
 real, se sustituye `report/EU/report.json` por la salida de objdiff manteniendo el nombre de

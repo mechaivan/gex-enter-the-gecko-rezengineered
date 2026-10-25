@@ -43,6 +43,14 @@
 
 ### Etapa B — Proyecto Ghidra + naming inicial
 
+> **Alternativa estática operativa (2026-10-25):** `tools/gexmap` desensambla el
+> ejecutable EU con `llvm-objdump`, repara las 24 regiones donde el barrido
+> lineal se desincroniza y publica inicios confirmados, candidatos por prólogo,
+> grafo de llamadas e imports por función: `docs/FUNCTION_MAP.md`. No sustituye
+> a Ghidra (no hay decompilación, tipos ni nombres originales), pero cubre el
+> prerrequisito del *splitter* y valida mecánicamente las anclas documentales
+> (24 anclas: 13 en inicio exacto, 11 dentro, 0 fuera).
+
 - [ ] Crear proyecto (fuera del repo; artefactos grandes a Drive).
 - [ ] Auto-análisis, identificar `WinMain`, game-loop, init/shutdown.
 - [ ] Nombrar imports clave y callbacks (ventana, timer, audio).
@@ -53,6 +61,9 @@
 > Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
 > Comparativa consolidada F-02 (2013 NTSC-D3D) vs original EU: `docs/F02_VS_ORIGINAL.md`.
 > **Análisis motor timing/game loop (Ghidra/REA): `docs/TIMING_GAME_LOOP_ANALYSIS.md`.**
+> **Mapa estático de funciones (2026-10-25):** `0x43E1BA` tiene 24 callees
+> directos y 40 imports transitivos medidos; tabla en
+> `docs/FUNCTION_MAP.md` §8. Los roles de esos callees siguen sin asignar.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/
@@ -227,6 +238,11 @@ entorno; Ghidra + Java 21 pendientes de instalar (el host Windows tiene Java 8
 y ningún proveedor nativo); REA (CLI/MCP) adopta un proveedor **aportado**
 (Hopper o Ghidra) y **no** se ha demostrado aún sobre binarios de GEX — ver
 `docs/REA_WINDOWS_ENABLEMENT.md`; testing dinámico requiere Windows.
+
+Herramienta propia operativa: [`tools/gexmap`](tools/gexmap/README.md) — mapa
+estático de funciones, grafo de llamadas e imports sobre el exe EU, con
+validación sin binario (`check`) y tests offline. Resultados y límites en
+[docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md).
 
 ## 5. Registro
 

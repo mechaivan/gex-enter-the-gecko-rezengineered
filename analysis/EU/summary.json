@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "tool": "tools/gexmap",
+  "binary": {
+    "name": "GEX3D.EXE",
+    "size": 1557504,
+    "md5": "692b12825003417cc4a5a9d4db13eebe",
+    "sha256": "d0932549613f9c08fb895c5f8a6461ce044e1863b4cba42da4715c2b41e73886",
+    "image_base": "0x00400000",
+    "entry": "0x00541b20"
+  },
+  "text": {
+    "start": "0x00401000",
+    "end": "0x0054bade",
+    "bytes": 1354462,
+    "virtual_size": 1354462,
+    "raw_size": 1354752
+  },
+  "disassembler": {
+    "command": "llvm-objdump.exe",
+    "version": "LLVM (http://llvm.org/):"
+  },
+  "counts": {
+    "functions": 2655,
+    "gameFunctions": 2523,
+    "thunks": 132,
+    "startFromCalls": 1448,
+    "startFromEntry": 1,
+    "startFromTextStart": 1,
+    "startFromPrologue": 1113,
+    "startFromThunks": 92,
+    "callEdges": 5095,
+    "tailEdges": 2,
+    "unresolvedCalls": 0,
+    "functionBytes": 1354462,
+    "textBytes": 1354462,
+    "coveragePercent": 100,
+    "unreferenced": 1112,
+    "prologueCandidates": 1113,
+    "repairs": 24,
+    "instructions": 391487
+  },
+  "repairs": [
+    {
+      "start": "0x004046cc",
+      "stop": "0x004056cc",
+      "instructions": 994
+    },
+    {
+      "start": "0x0040adac",
+      "stop": "0x0040bdac",
+      "instructions": 883
+    },
+    {
+      "start": "0x0041044f",
+      "stop": "0x0041144f",
+      "instructions": 1062
+    },
+    {
+      "start": "0x00412f8b",
+      "stop": "0x00413f8b",
+      "instructions": 1073
+    },
+    {
+      "start": "0x0041366f",
+      "stop": "0x0041466f",
+      "instructions": 1069
+    },
+    {
+      "start": "0x00421cb0",
+      "stop": "0x00422cb0",
+      "instructions": 1118
+    },
+    {
+      "start": "0x0042500a",
+      "stop": "0x0042600a",
+      "instructions": 1166
+    },
+    {
+      "start": "0x0042d18e",
+      "stop": "0x0042e18e",
+      "instructions": 1242
+    },
+    {
+      "start": "0x0043572f",
+      "stop": "0x0043672f",
+      "instructions": 1322
+    },
+    {
+      "start": "0x00440123",
+      "stop": "0x00441123",
+      "instructions": 1183
+    },
+    {
+      "start": "0x0044023b",
+      "stop": "0x0044123b",
+      "instructions": 1215
+    },
+    {
+      "start": "0x004409b7",
+      "stop": "0x004419b7",
+      "instructions": 1287
+    },
+    {
+      "start": "0x00463be5",
+      "stop": "0x00464be5",
+      "instructions": 1280
+    },
+    {
+      "start": "0x00476b4a",
+      "stop": "0x00477b4a",
+      "instructions": 1370
+    },
+    {
+      "start": "0x0047782f",
+      "stop": "0x0047882f",
+      "instructions": 1103
+    },
+    {
+      "start": "0x004e1fd1",
+      "stop": "0x004e2fd1",
+      "instructions": 1168
+    },
+    {
+      "start": "0x004f0f9f",
+      "stop": "0x004f1f9f",
+      "instructions": 1321
+    },
+    {
+      "start": "0x0050983f",
+      "stop": "0x0050a83f",
+      "instructions": 1229
+    },
+    {
+      "start": "0x0050bc9c",
+      "stop": "0x0050cc9c",
+      "instructions": 1148
+    },
+    {
+      "start": "0x0052b495",
+      "stop": "0x0052c495",
+      "instructions": 1128
+    },
+    {
+      "start": "0x0052d112",
+      "stop": "0x0052e112",
+      "instructions": 1202
+    },
+    {
+      "start": "0x0052d507",
+      "stop": "0x0052e507",
+      "instructions": 1167
+    },
+    {
+      "start": "0x0053d62c",
+      "stop": "0x0053e62c",
+      "instructions": 1262
+    },
+    {
+      "start": "0x00549720",
+      "stop": "0x0054a720",
+      "instructions": 1449
+    }
+  ],
+  "unresolvable": [],
+  "reconciliation": {
+    "bytematch_report": "report/EU/report.json",
+    "bytematch_functions": 1647,
+    "mapped_functions": 2655,
+    "report_entry_confirmed_start": 1448,
+    "report_entry_prologue_start": 0,
+    "report_entry_boundary_but_not_a_start": 95,
+    "report_entry_not_an_instruction_boundary": 104,
+    "report_entries_that_are_not_confirmed_starts": 199,
+    "confirmed_starts_missing_from_report": 94
+  },
+  "anchors": {
+    "file": "anchors.json",
+    "total": 24,
+    "at_function_start": 13,
+    "inside_function": 11,
+    "outside_every_function": 0,
+    "outside": [],
+    "sha256": "f750a7206671d1f0bc0dbf6b81d552cc19e98434c0e79b266e87f4c3c479c389"
+  },
+  "artifacts": {
+    "functions": {
+      "file": "functions.tsv",
+      "lines": 2655,
+      "sha256": "530a648eadf2b119703c6c4d0c1b1b2501278f3d1600fe4add317a3f771f675d"
+    },
+    "calls": {
+      "file": "calls.tsv",
+      "lines": 5097,
+      "sha256": "66def313c09bb0236f816da39dd78b1a08544c4aac625cdb3e12c847907467e2"
+    }
+  },
+  "limits": [
+    "Starts are CONFIRMED only when a direct call instruction or the PE entry point reaches them; the first byte of .text is a structural start and `kind=thunk` rows are linker import stubs. Prologue-only candidates are HYPOTHESIS and are listed apart, never merged.",
+    "Sizes are the distance to the next start: an upper bound that includes padding and any embedded data between functions.",
+    "The disassembly is static and linear; regions where embedded tables desynchronised it are re-decoded from the affected call target in a 4 KiB window and listed in `repairs`.",
+    "No dynamic evidence: the map does not prove that a function runs, nor what it means.",
+    "The 132 import stubs are linker glue, not game code; they are excluded from `gameFunctions` but kept in the map so their imports are not attributed to the preceding function."
+  ]
+}
