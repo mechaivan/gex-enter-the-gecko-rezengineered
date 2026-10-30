@@ -34,7 +34,7 @@ node tools/gexmap/cli.mjs query --function 0x43e1ba
 node tools/gexmap/cli.mjs segments
 node tools/gexmap/cli.mjs segments --json
 
-# Tests offline (sintéticos + invariantes de los artefactos + segmentación)
+# Tests offline (sintéticos + invariantes de los artefactos + segmentación + frame)
 node --test tools/gexmap/test.mjs
 ```
 
@@ -49,6 +49,16 @@ manuales (`S` string, `R` desensamblado) se declaran con su detalle. Falla si un
 evidencia no se sostiene, si una dirección se repite o si la confianza declarada
 no coincide con la derivada. El método y los resultados están en
 [`docs/SUBSYSTEM_SEGMENTS.md`](../../docs/SUBSYSTEM_SEGMENTS.md).
+
+`frame.mjs` no analiza nada: fija la traza dinámica del frame step
+(`docs/FRAME_STEP_TRACE.md`) como datos —las cinco llamadas de `0x0043EA36`, los
+25 sitios de llamada del update con sus recuentos medidos, el render, el bucle de
+cine y 19 fichas de semántica mecánica— y expone `validateFrame(model)`, que las
+contrasta contra `analysis/EU/`: cada sitio dentro de su llamante, arista
+presente, `ret = site + 5`, ningún sitio con más frames que su sesión y toda
+afirmación CONFIRMED con al menos dos líneas de evidencia con dirección. Se
+valida sin binario ni ejecución, así que corre en CI; los recuentos se
+reproducen con [`tools/frame-trace/`](../frame-trace/README.md).
 
 ## Qué significa cada columna
 

@@ -286,17 +286,20 @@ publican como **HYPOTHESIS**, no como rutas activas.
 
 ## 5. Recorrido verificado del frame
 
-Leído en desensamblado crudo (no inferido del grafo):
+Leído en desensamblado crudo **y confirmado en ejecución** (2026-10-30; método,
+recuentos y evidencia en `docs/FRAME_STEP_TRACE.md`):
 
 ```text
 WinMain 0x00463278
-  └─ 0x0043EA36  frame step (58 B)
-       ├─ call 0x0043F80D   entrada del frame            (S5)
-       ├─ call 0x0043E1BA   update por frame (24 callees) (S1)
-       ├─ call 0x0054053E   _grBufferNumPending@0  ─┐
+  └─ 0x0043EA36  frame step (58 B)                     ret 0x00463AAF
+       ├─ call 0x0043F80D   entrada del frame            (S5)  ret 0x0043EA42
+       ├─ call 0x0043E1BA   update por frame (24 callees) (S1)  ret 0x0043EA4E
+       │    └─ call 0x0043DC3A  render (si WORD [obj+0x4E38]==0) ret 0x0043E5C7
+       │         └─ call 0x0054053E  _grBufferNumPending@0       ret 0x0043E0C5
+       ├─ call 0x0054053E   _grBufferNumPending@0  ─┐            ret 0x0043EA56
        │    (bucle: espera a que la cola baje)       │
-       ├─ push 3; call 0x005404F6  _grBufferSwap@4  ─┘
-       ├─ call 0x0046300C   hoja de 5 B
+       ├─ push 3; call 0x005404F6  _grBufferSwap@4  ─┘            ret 0x0043EA63
+       ├─ call 0x0046300C   hoja de 5 B                           ret 0x0043EA68
        └─ ret
 ```
 
@@ -304,6 +307,23 @@ Los stubs son `jmp dword ptr [IAT]` reales: `0x005404F6 -> [0x0065F4C8]` y
 `0x0054053E -> [0x0065F4F0]`. El ancla documental `0x0043EA51` describía solo la
 espera y el swap; el inicio real del frame step es `0x0043EA36` y incluye la
 entrada, el update y la hoja final.
+
+La traza fija tres hechos que el desensamblado por sí solo no daba:
+
+- **Orden y frecuencia.** 1 723 de 1 724 frames repiten exactamente la secuencia
+  anterior. Periodo p50 = **40 ms (25 FPS)**; el `swap` bloquea ≈23 ms y el
+  trabajo de juego (entrada + update + render) ≈14 ms.
+- **El render es condicional.** `0x0043E5B3` solo llama a `0x0043DC3A` si
+  `WORD [obj+0x4E38] == 0`; si no, invierte `[obj+0x14]`. En la muestra siempre
+  se tomó, pero la rama existe y la tabla de S2 no debe leerlo como incondicional.
+- **El drenaje de cola aparece dos veces por frame**: dentro del render
+  (`0x0043E0C5`) y en el bucle del frame step (`0x0043EA56`).
+
+De los 24 callees directos del update, **23 se ejecutan exactamente una vez por
+frame**; el único que no se ejecutó es el *forwarder* `0x0047344B` (sitio
+`0x0043E31C`, 0/606). `0x0045E5C5` es el único destino con dos sitios de llamada
+en el mismo frame. El detalle por sitio y la semántica mecánica demostrable de 19
+destinos están en `docs/FRAME_STEP_TRACE.md` y en `tools/gexmap/frame.mjs`.
 
 Cadena de cine (S4), también cruda:
 
@@ -352,6 +372,13 @@ una agrupación plausible en un hecho.
    ninguna API ni a profundidad 12**; los otros 4 la alcanzan a profundidad 4–8.
    Por eso 22 de los 24 siguen sin subsistema asignado. El mapa dice *quién
    llama a quién*, no *qué hace*.
+
+   Los imports siguen sin clasificarlos, pero la lectura guiada más la traza
+   dinámica ya dan **semántica mecánica demostrable a 19 de los 24** (17
+   CONFIRMED y 2 HYPOTHESIS); los 5 restantes —`0x00405C41`, `0x00412F8B`,
+   `0x0045EAC4`, `0x0046DD40`, `0x00537862`— siguen declarados sin semántica.
+   Ver `docs/FRAME_STEP_TRACE.md` §5 y §6. Ninguno de esos 19 se ha movido de
+   segmento: la semántica es mecánica, no una asignación de subsistema.
 2. **`0x0053FCB7` (housekeeping de voz) no alcanza ninguna API** a profundidad
    12. Su pertenencia a audio se sostiene por el ancla M-13 y por sus cuatro
    llamadores (`0x00423AFE`, `0x00424191`, `0x00463278`, `0x0052B220`), no por
@@ -411,8 +438,15 @@ validación falla antes de publicar una tabla incoherente.
 
 Límites que siguen en pie:
 
-- **Sin evidencia dinámica.** No se ha ejecutado el juego para esta
-  segmentación; no se sabe qué miembros se ejecutan en una partida real.
+- **La evidencia dinámica cubre el frame, no la segmentación entera.** El
+  2026-10-30 se instrumentó el juego y se midió el frame step, el update y el
+  render (`docs/FRAME_STEP_TRACE.md`): 2 326 frames, 25 sitios de llamada del
+  update, 23 de 24 callees ejecutados exactamente una vez por frame. Eso valida
+  *orden y frecuencia* de S1/S2, no la pertenencia de los 65 miembros: los otros
+  58 siguen agrupados por grafo de llamadas, imports y anclas documentales, sin
+  observación en ejecución.
+- **La traza es de un nivel, bajo nGlide.** Frecuencias por frame sólidas; los
+  tiempos absolutos (40 ms de periodo, 23 ms de swap) dependen del wrapper.
 - **Tamaños = cota superior** (distancia al siguiente inicio).
 - **Prólogos = HYPOTHESIS.** Los 8 miembros BAJA incluyen 7 candidatos por
   prólogo y una función confirmada sin API ni ancla (`0x0043EA70`); ninguno se
@@ -424,16 +458,19 @@ Límites que siguen en pie:
 
 Siguientes pasos concretos, en orden de coste/beneficio:
 
-1. **Trazar el frame step en ejecución** (una sola sesión instrumentada) para
-   confirmar el orden real de las cinco llamadas de `0x0043EA36` y el papel de
-   `0x0046300C`.
-2. **Lectura guiada de `0x0043E719`** (339 B, WinMM a profundidad 3): es el
-   único callee del update, además del render, con API alcanzable; su
-   asignación a audio o a entrada movería 1–2 funciones entre S3 y S5.
+1. ~~Trazar el frame step en ejecución~~ **Hecho** (2026-10-30): orden de las
+   cinco llamadas, 25 sitios del update medidos, `0x0046300C` localizado al final
+   del frame tras el `swap`. Ver `docs/FRAME_STEP_TRACE.md`.
+2. ~~Lectura guiada de `0x0043E719`~~ **Hecho**: es una máquina de estados sobre
+   `WORD [obj+0x4E3E]` (0→4, 6 nada, 7→`0x423A6A`, otro→`0x43E63D`) con bits de
+   entrada; no es ni entrada pura ni audio. Su sitio en S1 se mantiene y la
+   hipótesis «candidato a mover entre S3 y S5» se retira.
 3. **Resolver la rama de `0x00538FD5`/`0x00538CB0`** (¿llamada indirecta,
    reinit de dispositivo o código no usado?) antes de dar por cerrada S3.
-4. **Leer `0x00412F8B` y `0x004519DE`** para convertir su posición temporal en
-   semántica verificada (contador, tabla de delta).
+4. **Semántica de los 5 callees del update aún sin asignar**: `0x00405C41`
+   (1 867 B), `0x00412F8B` (1 764 B), `0x0045EAC4` (1 454 B), `0x0046DD40`
+   (2 307 B) y `0x00537862` (690 B). Entre los cuatro primeros está la mayor
+   parte de la lógica del frame que sigue sin explicar.
 5. **No clasificar el resto de las 2 458 funciones de juego** sin una prueba
    por grupo; repetir este método (evidencia + confianza + negativo) en la
    siguiente rebanada, no por dirección.

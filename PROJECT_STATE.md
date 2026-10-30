@@ -4,7 +4,7 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`)
+**Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
@@ -75,7 +75,11 @@
   1 113 candidatos por prólogo = HYPOTHESIS). Primera segmentación por
   subsistemas 2026-10-30: 65 inicios en 7 grupos HYPOTHESIS, con evidencia y
   confianza validadas (`docs/SUBSYSTEM_SEGMENTS.md`; 35 ALTA / 22 MEDIA /
-  8 BAJA). Ghidra y decompilación siguen pendientes; el mapa es prerrequisito
+  8 BAJA). Traza dinámica del frame step 2026-10-30: 2 326 frames
+  instrumentados con breakpoints de hardware, 25 sitios del update medidos
+  (23 de 24 callees 1 vez/frame), 19 destinos con semántica mecánica
+  (`docs/FRAME_STEP_TRACE.md`, `tools/gexmap/frame.mjs`, `tools/frame-trace/`).
+  Ghidra y decompilación siguen pendientes; el mapa es prerrequisito
   del splitter, no un sustituto.
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +
   evaluación de alternativas + requisitos/checklist (TESTING.md,

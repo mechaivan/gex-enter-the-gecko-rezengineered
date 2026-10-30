@@ -2,6 +2,50 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-30 — 0.0.0 — Traza dinámica del frame step (EU, medida en ejecución)
+
+- **Medido en ejecución, no inferido:** se instrumentó `GEX3D.EXE` EU (MD5
+  `692b12825003417cc4a5a9d4db13eebe`) con un depurador propio y **breakpoints de
+  hardware** (`Dr0`–`Dr3`, sin parchear un byte) en 9 sesiones con el update
+  `0x0043E1BA` como **ancla de frame**, más 2 sesiones largas previas. Total
+  observado: 2 326 frames.
+- **Recorrido del frame confirmado:** `0x0043EA36` → entrada `0x0043F80D` →
+  update `0x0043E1BA` (con render `0x0043DC3A` condicional a
+  `WORD [obj+0x4E38]==0`) → drenaje de cola `0x0054053E` (bucle) → `swap(3)`
+  `0x005404F6` → hoja `0x0046300C`. Orden idéntico en 1 723/1 724 frames.
+  Periodo **p50 = 40 ms (25 FPS)**; swap ≈23 ms, trabajo de juego ≈14 ms.
+- **Los 25 sitios del update, medidos:** 24 destinos distintos, **23 ejecutan
+  exactamente 1 vez/frame**; `0x0045E5C5` es el único con dos sitios
+  (`0x0043E3E6`, `0x0043E4F0`). **Negativo:** el *forwarder* `0x0047344B`
+  (sitio `0x0043E31C`) dio **0/606**; `0x0043E63D`, `0x00423AFE` y `0x00423A6A`
+  dieron **0/611**.
+- **Semántica mecánica nueva (CONFIRMED, con la instrucción que la sostiene):**
+  `0x0053F610` (acumulador 24.8, +1,0/frame con arg `0x100`), `0x0053F631`
+  (registros de 0x2C B, índice de frame por módulo), `0x0045E5C5` (dos pasadas
+  sobre la lista), `0x00460BF7` (banderas + copia de 3 WORD), `0x0041F714`
+  (recorrido por pares de cadenas), `0x00436F6F` (tres recorridos de listas),
+  `0x0046FACE` (pool de 0x20 B, 8 WORD a 0x1000, distancia
+  `(30*max+12*min)>>5`), `0x00421E5A` (selección de bloque + despacho por
+  `WORD +0x4E3E`), `0x0046E643`, `0x00540650`, `0x00540950`, `0x00465530`,
+  `0x00421668`, `0x0043E719`, `0x0043E63D`, `0x0047344B`, `0x00473471`.
+  Total **19 de 24 destinos con semántica (17 CONFIRMED + 2 HYPOTHESIS)**; los 5
+  restantes se declaran sin asignar.
+- **Hechos del update:** `memset(obj+0x78,0,0x28)` al inicio; al final
+  `+0x10C = (GetTickCount()−[0x57B5FC])/16,666` (doble verificado en
+  `0x0054C060`), `+0x104++` y `+0xA0 &= 0xF7FFFFFF`.
+- **Nuevo `docs/FRAME_STEP_TRACE.md`** — método, entorno, tabla de los 25 sitios,
+  semántica, negativos, límites y reproducción.
+- **Nuevo `tools/gexmap/frame.mjs`** — datos declarativos (frame step, 25 sitios,
+  render, bucle de cine, 19 semánticas) con `validateFrame()`; **0 problemas**.
+- **Nuevo `tools/frame-trace/`** — `tracer.cs` (depurador con breakpoints de
+  hardware, compila y corre), `summarize.mjs` (estadística por frame),
+  `README.md` y `.gitignore`. Los binarios y los logs no se publican.
+- **Pruebas:** `node --test tools/gexmap/test.mjs` → **16/16** (4 nuevas de
+  frame: validación estructural, 25 sitios/24 destinos, tasas plausibles y
+  evidencia de cada afirmación); `segments` → 0 problemas; `check` → ok.
+- **Panel/SVG sin cambios:** `docs/PROJECT_STATUS.svg` mide MAIN (versión
+  jugable), no hitos de RE; v3.6 intacto.
+
 ## 2026-10-30 — 0.0.0 — Primera segmentación por subsistemas (EU, HYPOTHESIS)
 
 - **Nuevo `tools/gexmap/segments.mjs` + comando `segments`** — agrupa **65

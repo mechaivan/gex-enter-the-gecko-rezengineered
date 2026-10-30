@@ -7,7 +7,7 @@
  * boundaries, so every rule of `analyze()` is exercised without the game binary
  * (which is never committed). The second group checks the invariants of the
  * committed artifacts in `analysis/EU/`, which is what makes the published map
- * self-consistent.
+ * self-consistent. The third group checks the frame-step data in `frame.mjs`.
  */
 
 import test from "node:test";
@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { analyze, transitiveImports } from "./analyze.mjs";
 import { SEGMENTS, buildSegments, loadArtifacts } from "./segments.mjs";
+import { FRAME_STEP, UPDATE_CALLS, RENDER_CALLS, SEMANTICS, validateFrame } from "./frame.mjs";
 
 const IMAGE_BASE = 0x400000;
 const TEXT_VA = 0x401000;
@@ -325,4 +326,74 @@ test("segments: the validator rejects an inflated confidence and a false evidenc
   invented[0].members[0].evidence = ["O"];
   const inventedResult = buildSegments(segmentModel, invented);
   assert.ok(inventedResult.problems.some((p) => p.includes("declares O but the artifacts do not support it")));
+});
+
+test("frame: the frame step, update and render call sites validate against the map", () => {
+  assert.deepEqual(validateFrame(segmentModel), []);
+  assert.equal(FRAME_STEP.size, 58);
+  assert.equal(FRAME_STEP.calls.length, 5);
+  assert.deepEqual(
+    FRAME_STEP.calls.map((call) => call.target),
+    [0x0043f80d, 0x0043e1ba, 0x0054053e, 0x005404f6, 0x0046300c],
+  );
+});
+
+test("frame: 25 update call sites reach 24 distinct targets and every ret is site+5", () => {
+  assert.equal(UPDATE_CALLS.length, 25);
+  assert.equal(new Set(UPDATE_CALLS.map((call) => call.target)).size, 24);
+  assert.equal(
+    UPDATE_CALLS.filter((call) => call.target === 0x0045e5c5).length,
+    2,
+    "0x45E5C5 is called from two different sites",
+  );
+  const update = segmentModel.functions.find((fn) => fn.start === 0x0043e1ba);
+  for (const call of UPDATE_CALLS) {
+    assert.equal(call.site + 5, call.ret, `${call.site.toString(16)} does not precede ${call.ret.toString(16)}`);
+    assert.ok(call.site >= update.start && call.site < update.start + update.size);
+  }
+  for (const call of RENDER_CALLS) {
+    assert.equal(call.site + 5, call.ret);
+  }
+});
+
+test("frame: the measured rates are plausible and the dead site stays dead", () => {
+  for (const call of UPDATE_CALLS) {
+    assert.ok(call.frames <= call.frameSteps, `${call.site.toString(16)} has more frames than the session`);
+    assert.ok(call.calls >= call.frames, `${call.site.toString(16)} has fewer calls than frames`);
+    assert.ok(call.calls - call.frames <= 1, `${call.site.toString(16)} ran more than once per frame`);
+    const complete = call.frameSteps - 1;
+    if (call.calls === 0) {
+      assert.equal(call.target, 0x0047344b, "only the forwarder 0x47344B is expected to be dead");
+      continue;
+    }
+    assert.ok(
+      call.frames === complete || call.frames === call.frameSteps,
+      `${call.site.toString(16)} ran in ${call.frames} of ${call.frameSteps} frames`,
+    );
+  }
+  const dead = UPDATE_CALLS.find((call) => call.target === 0x0047344b);
+  assert.equal(dead.calls, 0);
+  assert.equal(dead.frames, 0);
+});
+
+test("frame: every semantic claim carries evidence and stays inside its confidence level", () => {
+  const byStart = new Map(segmentModel.functions.map((fn) => [fn.start, fn]));
+  const addresses = new Set();
+  for (const entry of SEMANTICS) {
+    assert.ok(!addresses.has(entry.address), `${entry.address.toString(16)} appears twice`);
+    addresses.add(entry.address);
+    const fn = byStart.get(entry.address);
+    assert.ok(fn, `${entry.address.toString(16)} is not a mapped function`);
+    assert.equal(entry.size, fn.size, `${entry.address.toString(16)} size mismatch`);
+    assert.ok(["CONFIRMED", "HYPOTHESIS"].includes(entry.level));
+    assert.ok(entry.evidence.length >= 2, `${entry.address.toString(16)} has too little evidence`);
+    for (const line of entry.evidence) {
+      assert.match(line, /0x[0-9A-Fa-f]{6}/, `${entry.address.toString(16)} evidence lacks an address: ${line}`);
+    }
+    if (entry.level === "CONFIRMED") {
+      assert.ok(!/probablemente|quizas|podria|tal vez/i.test(entry.claim), "a CONFIRMED claim hedges");
+    }
+  }
+  assert.ok(SEMANTICS.some((entry) => entry.level === "HYPOTHESIS"), "the hypothesis layer disappeared");
+  assert.equal(SEMANTICS.filter((entry) => entry.level === "CONFIRMED").length >= 15, true);
 });

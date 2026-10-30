@@ -71,6 +71,14 @@
 > inicios en siete subsistemas HYPOTHESIS y mide qué se puede y qué no se puede
 > afirmar de cada uno (35 ALTA / 22 MEDIA / 8 BAJA; 18 de los 24 callees del
 > update no alcanzan ninguna API ni a profundidad 12). No asigna roles.
+> **Traza dinámica del frame step (2026-10-30):** `docs/FRAME_STEP_TRACE.md`
+> ejecuta el binario EU con breakpoints de hardware (sin parchear código) y mide
+> el ciclo `0x0043EA36` en 2 326 frames: entrada → update → drenaje de cola →
+> `swap(3)` → hoja, periodo p50 = 40 ms (25 FPS), y los 25 sitios del update
+> (23 de 24 callees exactamente 1 vez/frame; `0x0047344B` no se ejecuta).
+> 19 destinos tienen semántica **mecánica** CONFIRMED/HYPOTHESIS; los roles de
+> juego siguen sin asignar. Datos: `tools/gexmap/frame.mjs`; herramientas:
+> `tools/frame-trace/`.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

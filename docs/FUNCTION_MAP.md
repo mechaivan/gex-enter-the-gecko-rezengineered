@@ -305,6 +305,15 @@ ellas, puede alcanzar 40 imports distintos, entre ellos Glide, WinMM y
 qué orden se ejecutan ni con qué datos. Eso sigue siendo trabajo de RE
 (comprobación dinámica o lectura guiada), no del mapa.
 
+**Actualización 2026-10-30 (dinámica):** ya no es una incógnita. La traza
+instrumentada (`docs/FRAME_STEP_TRACE.md`, datos en `tools/gexmap/frame.mjs`)
+mide los **25 sitios de llamada** del update —24 destinos, porque `0x0045E5C5`
+tiene dos— y da **23 de 24 ejecutándose exactamente una vez por frame**; el único
+que no se ejecutó es el *forwarder* `0x0047344B` (0/606). 19 destinos tienen
+además semántica mecánica con la instrucción que la sostiene (17 CONFIRMED, 2
+HYPOTHESIS). Lo que sigue sin demostrarse es el **subsistema** y el **propósito**
+de juego de esos callees: la traza prueba ejecución, no intención.
+
 ## 9. Reproducir y mantener
 
 Requisitos: Node.js ≥ 20 (probado con 26.7.0) y `llvm-objdump` u `objdump`.
@@ -330,7 +339,9 @@ solo valen para el SHA-256 indicado arriba.
 - **Prólogos = hipótesis**. 1 113 candidatos; ninguno promovido.
 - **Cobertura 100 %** es del *union* de extensiones, no prueba de que cada byte
   sea código.
-- **Sin evidencia dinámica**: el mapa no prueba que una función se ejecute.
+- **Sin evidencia dinámica propia**: el mapa no prueba que una función se
+  ejecute. Esa prueba existe aparte, solo para el frame step y el update
+  (`docs/FRAME_STEP_TRACE.md`), y no se extrapola al resto de los inicios.
 - **Sin límites de unidad de compilación**: no sustituye al *splitter* ni al
   `symbols.txt`; da los inicios, el grafo y los imports que el splitter
   necesitará.
@@ -351,3 +362,9 @@ con 35 ALTA / 22 MEDIA / 8 BAJA, 20 de las 24 anclas dentro de un miembro y 20
 aristas entre grupos. El comando `segments` recalcula y valida cada miembro,
 código de evidencia y nivel de confianza. No es una partición, no usa el binario
 en CI y no cambia el 0,00 % de ByteMatch.
+
+**Traza dinámica publicada (2026-10-30):** `docs/FRAME_STEP_TRACE.md` mide en
+ejecución el frame step `0x0043EA36` y los 25 sitios del update, con
+`tools/frame-trace/` para reproducirlo sobre una copia propia del ejecutable.
+`tools/gexmap/frame.mjs` fija esos recuentos como datos validables (sin binario)
+y `validateFrame()` los contrasta con `analysis/EU/`.

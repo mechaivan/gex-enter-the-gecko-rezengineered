@@ -1234,10 +1234,11 @@ node --test tools/gexmap/test.mjs
   juego), 7 grupos, **35 ALTA / 22 MEDIA / 8 BAJA**, 20 de las 24 anclas dentro
   de un miembro, 20 aristas entre grupos, 840 filas alcanzables desde `WinMain`
   solo por llamadas directas.
-- `node --test`: **12/12** (4 sintéticos + 5 invariantes del mapa + 3 de
-  segmentación). Los tests fijan los recuentos, comprueban que ningún candidato
-  por prólogo es ALTA y que el validador **rechaza** una confianza inflada y un
-  código de evidencia inventado.
+- `node --test`: **16/16** (4 sintéticos + 5 invariantes del mapa + 3 de
+  segmentación + 4 del frame step, añadidos con la traza dinámica). Los tests
+  fijan los recuentos, comprueban que ningún candidato por prólogo es ALTA y que
+  el validador **rechaza** una confianza inflada y un código de evidencia
+  inventado.
 - **Resultado negativo medido:** de los 24 callees directos del update
   `0x0043E1BA`, solo 2 alcanzan una API del sistema a profundidad ≤3 y **18 no
   alcanzan ninguna ni a profundidad 12**. La segmentación no asigna esos roles.
@@ -1246,3 +1247,48 @@ node --test tools/gexmap/test.mjs
 llamadas directas desde `WinMain`) no prueba código muerto (callbacks, llamadas
 indirectas); las capas `S` y `R` son lecturas manuales del binario y no se
 re-verifican en CI. El porcentaje de ByteMatch sigue en **0,00 %**.
+
+## Traza dinámica del frame step (2026-10-30, ejecución instrumentada)
+
+**Qué se prueba:** que el orden de las cinco llamadas de `0x0043EA36` y la
+frecuencia de los 25 sitios de llamada del update `0x0043E1BA` son los que
+publica `docs/FRAME_STEP_TRACE.md`. Es la primera prueba **en ejecución** de este
+proyecto; no sustituye a las estáticas.
+
+**Instrumentación:** `tools/frame-trace/tracer.cs`, depurador propio sobre
+`WaitForDebugEvent` con **breakpoints de hardware** (`Dr0`–`Dr3`) y `RF` tras
+cada hit, para no parchear ni un byte del ejecutable. Cada sesión incluye
+`0x0043E1BA` como **ancla de frame**: se llama una vez por frame, así que el
+denominador es exacto. Teclas inyectadas con `PostMessage` (`Escape` salta las
+FMV; el bucle de cine solo cuenta `VK_ESCAPE`).
+
+**Por qué no `INT3`:** el primer trazador con `0xCC` + single-step mata el
+proceso con `0xC000041D`/`0xC0000005` dentro de los callbacks de tiempo antes del
+primer frame de juego. Queda como resultado negativo de método, no del binario.
+
+**Comandos:**
+
+```powershell
+# compilar (sin binarios en el repo)
+& "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /platform:x64 `
+  /optimize+ /out:tracer.exe tools\frame-trace\tracer.cs
+
+# una sesión: ancla + 3 sitios
+.\tracer.exe C:\gex-run\GEX3D.EXE C:\gex-run trace.log 45000 `
+  hw:43e1ba,540650,465530,43e719 1B,1B,1B,1B,0D,0D,28,0D,0D,20,0D
+
+node tools\frame-trace\summarize.mjs trace.log
+node --test tools\gexmap\test.mjs
+```
+
+**Resultado 2026-10-30:** 9 sesiones de 600–611 frames con ancla (m1–m9) + 2
+sesiones largas (1 723 y 1 104 frames). Orden del frame idéntico en 1 723/1 724;
+periodo p50 = 40 ms (25 FPS); 25 sitios → 24 destinos, **23 con exactamente 1
+llamada por frame**; `0x0047344B` **0/606**; `0x0043E63D`, `0x00423AFE` y
+`0x00423A6A` **0/611**. `frame.mjs` valida los datos contra `analysis/EU/` con
+**0 problemas** y `node --test` pasa **16/16**.
+
+**Límites:** un nivel, bajo nGlide, hilo principal; cuatro breakpoints por
+sesión; los logs crudos no se publican (rutas locales) y los recuentos quedan
+fijados en `tools/gexmap/frame.mjs` para poder validarlos sin binario. Los
+tiempos absolutos dependen del wrapper; las frecuencias por frame no.
