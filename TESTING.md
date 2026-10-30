@@ -1211,3 +1211,38 @@ inside a function is not a thunk»).
 **HYPOTHESIS** y no se promueven; el mapa no sustituye al splitter ni al
 `symbols.txt`; el porcentaje de ByteMatch sigue en 0,00 %; no se usó Ghidra ni
 REA. Detalle completo en `docs/FUNCTION_MAP.md`.
+
+## Segmentación estática por subsistemas (2026-10-30, validación offline)
+
+**Qué se prueba:** que la primera agrupación publicada en
+`docs/SUBSYSTEM_SEGMENTS.md` (65 inicios, siete grupos **HYPOTHESIS**) se puede
+recalcular desde `analysis/EU/` sin el binario, y que cada pertenencia,
+evidencia y nivel de confianza se sostiene contra los artefactos. No se prueba
+semántica ni ejecución.
+
+**Comandos:**
+
+```powershell
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs segments --json
+node --test tools/gexmap/test.mjs
+```
+
+**Resultado 2026-10-30:**
+
+- `segments`: **0 problemas**. 65 miembros (2,58 % de los 2 523 inicios de
+  juego), 7 grupos, **35 ALTA / 22 MEDIA / 8 BAJA**, 20 de las 24 anclas dentro
+  de un miembro, 20 aristas entre grupos, 840 filas alcanzables desde `WinMain`
+  solo por llamadas directas.
+- `node --test`: **12/12** (4 sintéticos + 5 invariantes del mapa + 3 de
+  segmentación). Los tests fijan los recuentos, comprueban que ningún candidato
+  por prólogo es ALTA y que el validador **rechaza** una confianza inflada y un
+  código de evidencia inventado.
+- **Resultado negativo medido:** de los 24 callees directos del update
+  `0x0043E1BA`, solo 2 alcanzan una API del sistema a profundidad ≤3 y **18 no
+  alcanzan ninguna ni a profundidad 12**. La segmentación no asigna esos roles.
+
+**Límites:** los nombres de subsistema son **HYPOTHESIS**; `W=no` (sin camino de
+llamadas directas desde `WinMain`) no prueba código muerto (callbacks, llamadas
+indirectas); las capas `S` y `R` son lecturas manuales del binario y no se
+re-verifican en CI. El porcentaje de ByteMatch sigue en **0,00 %**.

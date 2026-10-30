@@ -30,7 +30,11 @@ node tools/gexmap/cli.mjs check
 # Consultar una función
 node tools/gexmap/cli.mjs query --function 0x43e1ba
 
-# Tests offline (sintéticos + invariantes de los artefactos)
+# Primera segmentación por subsistemas (HYPOTHESIS) + validación de evidencias
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs segments --json
+
+# Tests offline (sintéticos + invariantes de los artefactos + segmentación)
 node --test tools/gexmap/test.mjs
 ```
 
@@ -38,6 +42,13 @@ node --test tools/gexmap/test.mjs
 mismos hashes (comprobado). `check` recalcula el SHA-256 de los tres artefactos
 y lo compara con el fijado en `summary.json`, además de validar recuentos,
 solapes, clasificación, aristas y anclas.
+
+`segments` no escribe nada: agrupa 65 inicios en siete subsistemas **HYPOTHESIS**
+y recalcula cada evidencia (`I`/`T`/`A`/`G`/`O`) desde los artefactos; las capas
+manuales (`S` string, `R` desensamblado) se declaran con su detalle. Falla si una
+evidencia no se sostiene, si una dirección se repite o si la confianza declarada
+no coincide con la derivada. El método y los resultados están en
+[`docs/SUBSYSTEM_SEGMENTS.md`](../../docs/SUBSYSTEM_SEGMENTS.md).
 
 ## Qué significa cada columna
 
@@ -74,11 +85,12 @@ las contiene.
 
 | Fichero | Papel |
 |---|---|
-| `cli.mjs` | comandos `map`, `check`, `query`; anclas y reconciliación |
+| `cli.mjs` | comandos `map`, `check`, `query`, `segments`; anclas y reconciliación |
 | `pe.mjs` | lector PE32: secciones, entrada, base de imagen, IAT |
 | `disasm.mjs` | ejecuta objdump y parsea dirección, bytes y texto |
 | `analyze.mjs` | reparación, inicios, stubs, extensiones, grafo, imports |
-| `test.mjs` | tests offline e invariantes de los artefactos |
+| `segments.mjs` | definiciones HYPOTHESIS, evidencia por miembro y validación |
+| `test.mjs` | tests offline e invariantes de los artefactos y de los segmentos |
 
 ## Límites
 

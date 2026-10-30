@@ -163,7 +163,11 @@ node tools/gexmap/cli.mjs check
 # Consultar una función: tamaño, llamadores, llamadas, imports directos y transitivos
 node tools/gexmap/cli.mjs query --function 0x43e1ba
 
-# Tests offline (sintéticos + invariantes de los artefactos)
+# Primera segmentación por subsistemas (HYPOTHESIS) y validación de su evidencia
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs segments --json
+
+# Tests offline (sintéticos + invariantes de los artefactos + segmentación)
 node --test tools/gexmap/test.mjs
 ```
 
@@ -339,3 +343,11 @@ ejemplo, agrupando por imports transitivos y por llamadores del update), y
 contrastarla con las anclas ya documentadas. Cualquier nombre de subsistema que
 se publique debe seguir marcado como HYPOTHESIS hasta que una prueba —estática
 guiada o dinámica— lo demuestre.
+
+**Primera rebanada publicada (2026-10-30):** `docs/SUBSYSTEM_SEGMENTS.md` agrupa
+65 inicios (2,58 % de los 2 523 de juego) en siete subsistemas HYPOTHESIS
+(frame/tiempo, render Glide, audio/voz, cine, entrada, shell Win32 y registro),
+con 35 ALTA / 22 MEDIA / 8 BAJA, 20 de las 24 anclas dentro de un miembro y 20
+aristas entre grupos. El comando `segments` recalcula y valida cada miembro,
+código de evidencia y nivel de confianza. No es una partición, no usa el binario
+en CI y no cambia el 0,00 % de ByteMatch.

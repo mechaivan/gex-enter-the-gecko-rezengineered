@@ -4,11 +4,11 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`)
+**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-25
+**Last updated:** 2026-10-30
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -72,8 +72,11 @@
 - [~] Preparar/validar entorno de RE (Ghidra o alternativa + proyecto).
   Alternativa estática operativa desde 2026-10-25: `tools/gexmap` +
   `docs/FUNCTION_MAP.md` (2 655 inicios, 5 097 aristas, 132 stubs de import,
-  1 113 candidatos por prólogo = HYPOTHESIS). Ghidra y decompilación siguen
-  pendientes; el mapa es prerrequisito del splitter, no un sustituto.
+  1 113 candidatos por prólogo = HYPOTHESIS). Primera segmentación por
+  subsistemas 2026-10-30: 65 inicios en 7 grupos HYPOTHESIS, con evidencia y
+  confianza validadas (`docs/SUBSYSTEM_SEGMENTS.md`; 35 ALTA / 22 MEDIA /
+  8 BAJA). Ghidra y decompilación siguen pendientes; el mapa es prerrequisito
+  del splitter, no un sustituto.
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +
   evaluación de alternativas + requisitos/checklist (TESTING.md,
   2026-10-09); Hito 1 ejecutado en PC del mantenedor (Win11 64-bit;
@@ -143,8 +146,10 @@
   decompilación ni tipos.
 - **Mapa estático sin semántica:** los 1 113 inicios por prólogo son hipótesis;
   los tamaños son cotas superiores; el 100 % de cobertura es del union de
-  extensiones. No sustituye al splitter ni al `symbols.txt` y no cambia el
-  0,00 % de ByteMatch.
+  extensiones. La segmentación por subsistemas (2026-10-30) es una primera
+  rebanada **HYPOTHESIS** de 65 inicios: 8 son BAJA (7 prólogos), `W=no` no
+  prueba código muerto y los nombres no son símbolos originales. No sustituye al
+  splitter ni al `symbols.txt` y no cambia el 0,00 % de ByteMatch.
 - **REA sin backend nativo:** REA es capa de orquestación/evidencia y necesita
   un proveedor externo (Ghidra/IDA/Hopper) para análisis nativo. En el sandbox
   el CLI se instaló pero `rea doctor` da `healthy:false`. **Ningún binario de

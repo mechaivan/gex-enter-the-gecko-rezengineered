@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { analyze, transitiveImports } from "./analyze.mjs";
+import { SEGMENTS, buildSegments, loadArtifacts } from "./segments.mjs";
 
 const IMAGE_BASE = 0x400000;
 const TEXT_VA = 0x401000;
@@ -274,4 +275,54 @@ test("committed artifacts: the ByteMatch reconciliation still adds up", () => {
   assert.equal(r.report_entry_confirmed_start, summary.counts.startFromCalls);
   assert.equal(summary.anchors.total, 24);
   assert.equal(summary.anchors.outside_every_function, 0);
+});
+
+const euDir = fileURLToPath(new URL("../../analysis/EU/", import.meta.url));
+const segmentModel = loadArtifacts(euDir);
+
+test("segments: the committed definitions validate against the artifacts", () => {
+  const result = buildSegments(segmentModel);
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.summary.segments, 7);
+  assert.equal(result.summary.members, 65);
+  assert.deepEqual(result.summary.byConfidence, { ALTA: 35, MEDIA: 22, BAJA: 8 });
+  assert.equal(result.summary.crossSegmentEdges, 20);
+  assert.equal(result.summary.reachableFromWinMain, 840);
+});
+
+test("segments: every member is game code, unique, and no prologue is ALTA", () => {
+  const byStart = new Map(segmentModel.functions.map((fn) => [fn.start, fn]));
+  const seen = new Set();
+  let prologues = 0;
+  for (const segment of SEGMENTS) {
+    assert.ok(segment.name.startsWith("HYPOTHESIS:"), `${segment.id} is not marked HYPOTHESIS`);
+    for (const member of segment.members) {
+      const start = Number.parseInt(member.addr, 16);
+      assert.ok(!seen.has(start), `${member.addr} appears twice`);
+      seen.add(start);
+      const fn = byStart.get(start);
+      assert.ok(fn, `${member.addr} is not a mapped start`);
+      assert.equal(fn.kind, "func", `${member.addr} is a ${fn.kind}`);
+      if (fn.basis === "prologue") {
+        prologues++;
+        assert.equal(member.confidence, "BAJA", `${member.addr} is a prologue but not BAJA`);
+      }
+    }
+  }
+  assert.equal(prologues, 7);
+});
+
+test("segments: the validator rejects an inflated confidence and a false evidence code", () => {
+  const clone = () =>
+    SEGMENTS.map((segment) => ({ ...segment, members: segment.members.map((member) => ({ ...member })) }));
+
+  const inflated = clone();
+  inflated[0].members[0].confidence = "BAJA";
+  const inflatedResult = buildSegments(segmentModel, inflated);
+  assert.ok(inflatedResult.problems.some((p) => p.includes("declares BAJA")));
+
+  const invented = clone();
+  invented[0].members[0].evidence = ["O"];
+  const inventedResult = buildSegments(segmentModel, invented);
+  assert.ok(inventedResult.problems.some((p) => p.includes("declares O but the artifacts do not support it")));
 });

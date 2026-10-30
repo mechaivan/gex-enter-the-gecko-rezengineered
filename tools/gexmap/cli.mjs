@@ -16,6 +16,7 @@ import { resolve, join, basename } from "node:path";
 import { readPE, readImports } from "./pe.mjs";
 import { resolveObjdump, runObjdump } from "./disasm.mjs";
 import { analyze, transitiveImports } from "./analyze.mjs";
+import { EVIDENCE, buildSegments, loadArtifacts } from "./segments.mjs";
 
 const EXPECTED = {
   size: 1557504,
@@ -445,21 +446,88 @@ function commandQuery(args) {
   console.log(`text bytes ${summary.text.bytes}`);
 }
 
+function commandSegments(args) {
+  const dirIndex = args.indexOf("--dir");
+  const dir = resolve(dirIndex !== -1 ? args[dirIndex + 1] : DEFAULT_DIR);
+  const asJson = args.includes("--json");
+
+  const model = loadArtifacts(dir);
+  const result = buildSegments(model);
+
+  if (asJson) {
+    console.log(
+      JSON.stringify(
+        {
+          schema: 1,
+          artifact_dir: dir,
+          method: "docs/SUBSYSTEM_SEGMENTS.md",
+          evidence: EVIDENCE,
+          ...result,
+        },
+        null,
+        2,
+      ),
+    );
+    if (result.problems.length) process.exit(1);
+    return;
+  }
+
+  for (const segment of result.segments) {
+    const c = segment.confidence;
+    console.log(
+      `${segment.id}  ${segment.name}  -  ${segment.count} members ` +
+        `(ALTA ${c.ALTA}, MEDIA ${c.MEDIA}, BAJA ${c.BAJA})`,
+    );
+    console.log(`    families: ${segment.apiFamilies.join(", ")}`);
+    for (const member of segment.members) {
+      const evidence = member.evidence.split("").join(" ") || "-";
+      console.log(
+        `    ${member.addr}  ${String(member.size).padStart(5)} B  ${member.basis.padEnd(8)} ` +
+          `callers=${String(member.callers).padStart(2)}  W=${member.reachableFromWinMain ? "yes" : "no "}  ` +
+          `ev=${evidence.padEnd(11)}  ${member.confidence.padEnd(5)}  ${member.note}`,
+      );
+    }
+    console.log("");
+  }
+
+  const s = result.summary;
+  console.log(
+    `total ${s.members} member(s) of ${s.gameStarts} game starts (${s.mappedStarts} mapped rows): ` +
+      `ALTA ${s.byConfidence.ALTA}, MEDIA ${s.byConfidence.MEDIA}, BAJA ${s.byConfidence.BAJA}`,
+  );
+  console.log(
+    `direct-call reachable from WinMain: ${s.reachableFromWinMain} mapped rows; ` +
+      `cross-segment edges between members: ${s.crossSegmentEdges}`,
+  );
+  for (const edge of result.crossEdges) console.log(`  ${edge.from} -> ${edge.to}  (${edge.segments})`);
+
+  if (result.problems.length) {
+    console.error(`\n${result.problems.length} problem(s):`);
+    for (const problem of result.problems) console.error(`  - ${problem}`);
+    process.exit(1);
+  }
+  console.log("\nall memberships, evidence codes and confidence levels re-checked against the artifacts");
+}
+
 const args = process.argv.slice(2);
 const command = args[0];
 if (command === "map") commandMap(args);
 else if (command === "check") commandCheck(args);
 else if (command === "query") commandQuery(args);
+else if (command === "segments") commandSegments(args);
 else {
   console.log(`usage:
   node tools/gexmap/cli.mjs map --exe <GEX3D.EXE> [--objdump <path>] [--out ${DEFAULT_DIR}]
   node tools/gexmap/cli.mjs check [--dir ${DEFAULT_DIR}]
   node tools/gexmap/cli.mjs query --function 0x43e1ba [--dir ${DEFAULT_DIR}]
+  node tools/gexmap/cli.mjs segments [--dir ${DEFAULT_DIR}] [--json]
 
-map    reads the original EU executable (verified by size/MD5/SHA-256) and writes the
-       derived map into ${DEFAULT_DIR}/. The binary is never copied into the repository.
-check  validates the committed artifacts without the binary (CI).
-query  prints one function's callees and imports from the committed artifacts.`);
+map       reads the original EU executable (verified by size/MD5/SHA-256) and writes the
+          derived map into ${DEFAULT_DIR}/. The binary is never copied into the repository.
+check     validates the committed artifacts without the binary (CI).
+query     prints one function's callees and imports from the committed artifacts.
+segments  groups a first slice of mapped starts into HYPOTHESIS subsystems and validates
+          every membership, evidence code and confidence level against the artifacts.`);
   process.exit(args.length ? 2 : 0);
 }
 

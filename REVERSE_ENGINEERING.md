@@ -49,7 +49,10 @@
 > grafo de llamadas e imports por función: `docs/FUNCTION_MAP.md`. No sustituye
 > a Ghidra (no hay decompilación, tipos ni nombres originales), pero cubre el
 > prerrequisito del *splitter* y valida mecánicamente las anclas documentales
-> (24 anclas: 13 en inicio exacto, 11 dentro, 0 fuera).
+> (24 anclas: 13 en inicio exacto, 11 dentro, 0 fuera). Sobre ese mapa,
+> `segments` publica una primera agrupación por subsistemas **HYPOTHESIS**
+> (`docs/SUBSYSTEM_SEGMENTS.md`): 65 inicios, siete grupos, evidencia y
+> confianza por miembro; no sustituye al naming ni a la decompilación.
 
 - [ ] Crear proyecto (fuera del repo; artefactos grandes a Drive).
 - [ ] Auto-análisis, identificar `WinMain`, game-loop, init/shutdown.
@@ -64,6 +67,10 @@
 > **Mapa estático de funciones (2026-10-25):** `0x43E1BA` tiene 24 callees
 > directos y 40 imports transitivos medidos; tabla en
 > `docs/FUNCTION_MAP.md` §8. Los roles de esos callees siguen sin asignar.
+> **Primera segmentación (2026-10-30):** `docs/SUBSYSTEM_SEGMENTS.md` agrupa 65
+> inicios en siete subsistemas HYPOTHESIS y mide qué se puede y qué no se puede
+> afirmar de cada uno (35 ALTA / 22 MEDIA / 8 BAJA; 18 de los 24 callees del
+> update no alcanzan ninguna API ni a profundidad 12). No asigna roles.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

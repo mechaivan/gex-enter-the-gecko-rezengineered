@@ -2,6 +2,43 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-10-30 — 0.0.0 — Primera segmentación por subsistemas (EU, HYPOTHESIS)
+
+- **Nuevo `tools/gexmap/segments.mjs` + comando `segments`** — agrupa **65
+  inicios** (2,58 % de los 2 523 de juego) en **siete subsistemas HYPOTHESIS**:
+  paso de frame y tiempo (8), render Glide (10), audio/mezcla/voz (9),
+  cinemáticas (12), entrada (9), shell Win32 (11) y registro (6). Cada miembro
+  declara dirección, tamaño, base, llamadores, evidencia y confianza; el comando
+  **recalcula** la evidencia (`I`/`T`/`A`/`G`/`O`) desde `analysis/EU/` y falla
+  si una afirmación no se sostiene. Las capas manuales `S` (string) y `R`
+  (desensamblado crudo) se registran con su detalle.
+- **Nuevo `docs/SUBSYSTEM_SEGMENTS.md`** — método, reglas de confianza, tablas
+  por segmento, recorridos crudos del frame/cine/audio/entrada, resultados
+  negativos y siguientes pasos.
+- **Medido (CONFIRMADO contra los artefactos):** 35 ALTA / 22 MEDIA / 8 BAJA;
+  20 de las 24 anclas caen dentro de un miembro; 20 aristas directas entre
+  grupos; 840 filas del mapa alcanzables desde `WinMain` solo por llamadas
+  directas. El frame step real es `0x0043EA36` (entrada → update → espera de
+  cola → swap(3) → `0x0046300C` → `ret`); el ancla `0x0043EA51` solo describía
+  la espera y el swap.
+- **Resultados negativos publicados:** de los 24 callees directos del update
+  `0x0043E1BA`, solo 2 alcanzan una API a profundidad ≤3 (`0x0043DC3A` Glide,
+  `0x0043E719` WinMM) y **18 no alcanzan ninguna ni a profundidad 12**; el
+  segundo `DirectSoundCreate` (`0x00538CB0`) solo se alcanza vía `0x00538FD5`
+  (prólogo, 0 llamadores); `0x0053FCB7` no alcanza APIs; el string
+  `SOFTWARE\Crystal Dynamics\Gex2\1.00` tiene una única referencia en `.rdata`,
+  no en `.text`; `W=no` no prueba código muerto (callbacks/indirectas).
+- **Pruebas:** `segments` → **0 problemas**; `node --test tools/gexmap/test.mjs`
+  → **12/12** (4 sintéticos + 5 invariantes del mapa + 3 de segmentación,
+  incluido el rechazo de una confianza inflada y de una evidencia inventada);
+  `check` → ok (2 655 inicios, 5 097 aristas, 24 anclas). Los artefactos de
+  `analysis/EU/` **no se modifican** y **ByteMatch sigue en 0,00 %**.
+- **Panel/SVG sin cambios:** no hay un hito nuevo de MAIN verificado; v3.6
+  intacto. Ficheros modificados esta ronda: `tools/gexmap/{segments.mjs,cli.mjs,test.mjs,README.md}`,
+  `docs/SUBSYSTEM_SEGMENTS.md`, `docs/FUNCTION_MAP.md`, `REVERSE_ENGINEERING.md`,
+  `TESTING.md`, `PROJECT_STATE.md`, `ROADMAP.md`, `README.md`, `tools/README.md`,
+  `CHANGELOG.md`.
+
 ## 2026-10-25 — 0.0.0 — Mapa estático de funciones + grafo de llamadas (EU)
 
 - **Nuevo `tools/gexmap/`** — `map` (requiere el `GEX3D.EXE` EU original),

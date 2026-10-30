@@ -93,6 +93,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/TOOLKIT.md](docs/TOOLKIT.md)                     | Entorno y herramientas disponibles           |
 | [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)       | Metodología y registro del panel de progreso |
 | [docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md)           | Mapa estático de funciones + grafo + imports (EU) |
+| [docs/SUBSYSTEM_SEGMENTS.md](docs/SUBSYSTEM_SEGMENTS.md) | Primera segmentación por subsistemas (HYPOTHESIS, EU) |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |
