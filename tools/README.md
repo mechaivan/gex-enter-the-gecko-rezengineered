@@ -32,9 +32,11 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
   `query` (consulta una función), `segments` (primera segmentación por
   subsistemas HYPOTHESIS, con validación de evidencia) y tests offline con
   `node --test`. `frame.mjs` fija además la traza dinámica del frame step como
-  datos validables sin binario. Resultados en `analysis/EU/`; método/límites en
-  `docs/FUNCTION_MAP.md`, `docs/SUBSYSTEM_SEGMENTS.md` y
-  `docs/FRAME_STEP_TRACE.md`. Ver README propio.
+  datos validables sin binario; `audio.mjs` fija las rutas de inicialización
+  de DirectSound (3 alcanzables + 1 sin llamantes) con `validateAudio()`.
+  Resultados en `analysis/EU/`; método/límites en `docs/FUNCTION_MAP.md`,
+  `docs/SUBSYSTEM_SEGMENTS.md`, `docs/FRAME_STEP_TRACE.md` y
+  `docs/AUDIO_INIT_PATHS.md`. Ver README propio.
 - **`frame-trace/`** - Depurador mínimo (C#, `WaitForDebugEvent`) que mide
   cuántas veces se ejecuta cada función por frame **sin parchear el binario**,
   con breakpoints de hardware `Dr0`–`Dr3` y `0x0043E1BA` como ancla de frame.

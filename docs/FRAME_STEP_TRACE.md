@@ -312,3 +312,40 @@ verificar nada, porque `frame.mjs` fija los recuentos y las pruebas los validan.
 
 `docs/PROJECT_STATUS.svg` no se toca: mide el avance de MAIN (versión jugable),
 no hitos de ingeniería inversa.
+
+## 11. Cierre del objetivo (publicado en `9aacead`)
+
+Resumen consolidado de la campaña, para que el informe de trabajo no se pierda
+al no publicarse como fichero suelto:
+
+- **Nueve sesiones instrumentadas** con breakpoints de hardware (`Dr0`–`Dr3`),
+  ancla `0x0043E1BA` (exactamente 1 vez por frame).
+- **2 326 frames** observados entre las sesiones largas. La secuencia completa
+  `0x0043EA36 → 0x0043F80D → 0x0043E1BA → 0x0043DC3A → 0x0054053E (ret
+  0x0043E0C5) → 0x0054053E (ret 0x0043EA56) → 0x005404F6 arg=3 → 0x0046300C`
+  se repite idéntica en 1 723 de 1 724 frames comparables.
+- **Tiempo**: periodo p50 = 40 ms (25 FPS); `swap` ≈ 23 ms, trabajo de juego
+  ≈ 14 ms.
+- **25 sitios del update**: 24 destinos distintos, 23 ejecutados exactamente
+  una vez por frame; el *forwarder* `0x0047344B` no se ejecutó en 606 frames.
+  `0x0043E63D`/`0x00423AFE`/`0x00423A6A` tampoco se tomaron en 611 frames.
+- **Semántica mecánica** de 19 de los 24 destinos, con evidencia instruccional
+  (ver §5 y `tools/gexmap/frame.mjs`).
+- **Render condicional**: `0x0043E5B3` llama a `0x0043DC3A` solo cuando
+  `WORD [obj+0x4E38] == 0`.
+- **Doble drenaje de la cola**: dentro del render (`0x0043E0C5`) y en el bucle
+  del frame step (`0x0043EA56`).
+- **Negativo de método**: `INT3` + *single-step* no es viable en este binario
+  (falla con `0xC000041D`/`0xC0000005` en los *callbacks* del temporizador antes
+  del primer frame de juego). Los breakpoints de hardware no tocan un solo byte
+  del ejecutable y mantienen el juego funcionando.
+
+Efecto sobre la segmentación: S1 pasa de HYPOTHESIS de posición a orden y
+frecuencia medidos; S2 no cambia de miembros, pero se sabe que el render es
+condicional; S3–S7 no cambian. La validación de entonces fue `node --test
+tools/gexmap/test.mjs` 16/16, `segments` sin problemas y `check` correcto.
+
+El siguiente objetivo de esa lista —«resolver la rama
+`0x00538FD5`/`0x00538CB0`»— se cerró después en estático, sin instrumentación,
+porque la imagen de referencia dejó de estar disponible. Ver
+`docs/AUDIO_INIT_PATHS.md`.

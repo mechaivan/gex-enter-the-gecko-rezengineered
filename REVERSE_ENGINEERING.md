@@ -79,6 +79,13 @@
 > 19 destinos tienen semántica **mecánica** CONFIRMED/HYPOTHESIS; los roles de
 > juego siguen sin asignar. Datos: `tools/gexmap/frame.mjs`; herramientas:
 > `tools/frame-trace/`.
+> **Rutas de inicialización de DirectSound (2026-10-31, estático):**
+> `docs/AUDIO_INIT_PATHS.md` documenta tres cadenas alcanzables desde la entrada
+> (arranque, reproducción por nombre y voz) y una cuarta sin llamantes
+> (`0x00538FD5` → `0x00538CB0`). `0x00538551` es el único creador vivo del
+> dispositivo (2 llamantes). No hay traza: la imagen de referencia ya no está en
+> la máquina de análisis y la build presente es un mod distinto. Datos:
+> `tools/gexmap/audio.mjs`.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

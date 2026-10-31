@@ -1292,3 +1292,42 @@ llamada por frame**; `0x0047344B` **0/606**; `0x0043E63D`, `0x00423AFE` y
 sesión; los logs crudos no se publican (rutas locales) y los recuentos quedan
 fijados en `tools/gexmap/frame.mjs` para poder validarlos sin binario. Los
 tiempos absolutos dependen del wrapper; las frecuencias por frame no.
+
+## Rutas de inicialización de DirectSound (2026-10-31, estático)
+
+**Qué se prueba:** que las cuatro cadenas que publica
+`docs/AUDIO_INIT_PATHS.md` existen en el mapa y encajan con el desensamblado,
+sin afirmar que se ejecuten. No hay instrumentación: la imagen de referencia ya
+no está disponible.
+
+**Comandos:**
+
+```bash
+node --test tools/gexmap/test.mjs
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs check
+```
+
+**Resultado 2026-10-31:**
+
+- `node --test`: **22/22** (6 nuevas de audio). Comprueban que `0x00538551`
+  tiene exactamente dos llamantes y ambos están en una ruta declarada; que
+  `0x00538FD5` sigue con **0** llamantes y `0x00538CB0` con uno solo; que la
+  ruta sin llamantes **no** declara `CreateSoundBuffer` ni `SetFormat`; que
+  viva y muerta solo comparten `0x005404F0`; que ningún global nombra un
+  escritor inexistente ni se repite; que todo sitio de vtable cae dentro de su
+  dueño y su slot es múltiplo de 4; y que ninguna ruta declara `calls`/`frames`
+  sin sesión.
+- `segments`: **0 problemas** (65 miembros, sin cambios de pertenencia).
+- `check`: artefactos OK (sin cambios).
+
+**Resultado negativo:** el segundo `DirectSoundCreate` (`0x00538CB0`) no tiene
+camino de llamadas directas desde la entrada, no crea buffer primario, no
+comprueba el `HRESULT` de `SetCooperativeLevel` y le pasa un solo argumento de
+pila. No se declara código muerto: `W=no` no lo prueba.
+
+**Límites:** toda la evidencia es estática (desensamblado + `analysis/EU/`); el
+contenido de `0x5582E0` y de los formatos `0x55811C`/`0x558124` no se puede
+leer sin la imagen original; los nombres CRT (`fopen`, `fread`, `malloc`…) son
+HYPOTHESIS. La build modificada presente (MD5 `3198350e…`) no sirve para
+instrumentar estas direcciones.

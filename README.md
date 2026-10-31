@@ -95,6 +95,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md)           | Mapa estático de funciones + grafo + imports (EU) |
 | [docs/SUBSYSTEM_SEGMENTS.md](docs/SUBSYSTEM_SEGMENTS.md) | Primera segmentación por subsistemas (HYPOTHESIS, EU) |
 | [docs/FRAME_STEP_TRACE.md](docs/FRAME_STEP_TRACE.md)   | Traza dinámica del frame step y del update (medida, EU) |
+| [docs/AUDIO_INIT_PATHS.md](docs/AUDIO_INIT_PATHS.md)   | Rutas de inicialización de DirectSound (estático, EU) |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (pendiente de definir)          |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |

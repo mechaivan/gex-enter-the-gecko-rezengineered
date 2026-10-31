@@ -4,11 +4,11 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`)
+**Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-30
+**Last updated:** 2026-10-31
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -79,6 +79,11 @@
   instrumentados con breakpoints de hardware, 25 sitios del update medidos
   (23 de 24 callees 1 vez/frame), 19 destinos con semántica mecánica
   (`docs/FRAME_STEP_TRACE.md`, `tools/gexmap/frame.mjs`, `tools/frame-trace/`).
+  Rutas de inicialización de DirectSound 2026-10-31 (estático): tres cadenas
+  alcanzables desde la entrada (`0x00538551` con dos llamantes) y una cuarta
+  sin llamantes (`0x00538FD5` -> `0x00538CB0`); datos en `tools/gexmap/audio.mjs`,
+  análisis en `docs/AUDIO_INIT_PATHS.md`. No hay traza: la imagen de referencia
+  ya no está en la máquina de análisis.
   Ghidra y decompilación siguen pendientes; el mapa es prerrequisito
   del splitter, no un sustituto.
 - [~] Definir entorno de testing en Windows: protocolo + matriz FA +

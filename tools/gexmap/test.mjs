@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { analyze, transitiveImports } from "./analyze.mjs";
 import { SEGMENTS, buildSegments, loadArtifacts } from "./segments.mjs";
 import { FRAME_STEP, UPDATE_CALLS, RENDER_CALLS, SEMANTICS, validateFrame } from "./frame.mjs";
+import { INIT_ROUTES, DEAD_ROUTE, AUDIO_SEMANTICS, VTABLE_CALLS, DSOUND_GLOBALS, validateAudio } from "./audio.mjs";
 
 const IMAGE_BASE = 0x400000;
 const TEXT_VA = 0x401000;
@@ -396,4 +397,81 @@ test("frame: every semantic claim carries evidence and stays inside its confiden
   }
   assert.ok(SEMANTICS.some((entry) => entry.level === "HYPOTHESIS"), "the hypothesis layer disappeared");
   assert.equal(SEMANTICS.filter((entry) => entry.level === "CONFIRMED").length >= 15, true);
+});
+
+test("audio: the two DirectSound chains validate against the committed artifacts", () => {
+  assert.deepEqual(validateAudio(segmentModel), []);
+  assert.equal(INIT_ROUTES.length, 3);
+  assert.equal(DEAD_ROUTE.nodes.length, 2);
+});
+
+test("audio: 0x00538551 has exactly two callers and both are on a declared route", () => {
+  const calls = segmentModel.edges.filter((edge) => edge.kind === "call" && edge.to === 0x00538551);
+  assert.deepEqual(calls.map((edge) => edge.from).sort(), [0x00538731, 0x0053b10b].sort());
+  for (const caller of calls.map((edge) => edge.from)) {
+    assert.ok(
+      INIT_ROUTES.some((route) => route.nodes.includes(caller)),
+      `${caller.toString(16)} is not on a declared route`,
+    );
+  }
+  const entry = segmentModel.functions.find((fn) => fn.basis === "entry");
+  assert.equal(entry.start, INIT_ROUTES[0].nodes[0]);
+  for (const route of INIT_ROUTES) {
+    if (!route.partial) {
+      assert.equal(route.nodes[0], entry.start, `${route.id} does not start at the entry point`);
+    }
+    assert.equal(route.nodes[route.nodes.length - 1], 0x00538551, `${route.id} does not end at the device init`);
+  }
+});
+
+test("audio: the dead chain keeps zero callers and never creates a primary buffer", () => {
+  const incoming = segmentModel.edges.filter((edge) => edge.kind === "call" && edge.to === 0x00538fd5);
+  assert.equal(incoming.length, 0, "0x538FD5 gained a caller: the dead route must be re-read");
+  const alt = segmentModel.edges.filter((edge) => edge.kind === "call" && edge.to === 0x00538cb0);
+  assert.deepEqual(alt.map((edge) => edge.from), [0x00538fd5]);
+  const slots = VTABLE_CALLS.filter((call) => call.owner === 0x00538cb0);
+  assert.equal(slots.length, 1);
+  assert.equal(slots[0].offset, 0x18);
+  assert.ok(!slots.some((call) => call.api === "CreateSoundBuffer" || call.api === "SetFormat"));
+});
+
+test("audio: the live and dead chains share only the DirectSoundCreate thunk", () => {
+  const callees = (from) =>
+    new Set(segmentModel.edges.filter((edge) => edge.kind === "call" && edge.from === from).map((edge) => edge.to));
+  const live = callees(0x00538551);
+  const dead = callees(0x00538cb0);
+  const shared = [...live].filter((target) => dead.has(target));
+  assert.deepEqual(shared, [0x005404f0]);
+  assert.equal(live.size, 1);
+  assert.equal(dead.size, 3);
+});
+
+test("audio: no route claims a measurement and every global names a real writer", () => {
+  for (const route of [...INIT_ROUTES, DEAD_ROUTE]) {
+    assert.match(route.status, /NO observada|NO demostrada/, `${route.id} claims a dynamic result`);
+    assert.equal(route.calls, undefined, `${route.id} carries a hit count without a session`);
+    assert.equal(route.frames, undefined, `${route.id} carries a frame count without a session`);
+  }
+  const byStart = new Map(segmentModel.functions.map((fn) => [fn.start, fn]));
+  for (const global of DSOUND_GLOBALS) {
+    if (global.writer == null) continue;
+    assert.ok(byStart.has(global.writer), `${global.address.toString(16)} names an unknown writer`);
+  }
+  assert.equal(new Set(DSOUND_GLOBALS.map((global) => global.address)).size, DSOUND_GLOBALS.length);
+});
+
+test("audio: every vtable site belongs to its owner and the slots are 4-byte aligned", () => {
+  const byStart = new Map(segmentModel.functions.map((fn) => [fn.start, fn]));
+  const sites = new Set();
+  for (const call of VTABLE_CALLS) {
+    assert.ok(!sites.has(call.site), `${call.site.toString(16)} appears twice`);
+    sites.add(call.site);
+    const owner = byStart.get(call.owner);
+    assert.ok(owner, `${call.owner.toString(16)} is not a mapped function`);
+    assert.ok(call.site >= owner.start && call.site < owner.start + owner.size);
+    assert.equal(call.offset % 4, 0);
+    assert.ok(call.api.length > 0);
+  }
+  assert.equal(AUDIO_SEMANTICS.filter((entry) => entry.level === "HYPOTHESIS").length >= 1, true);
+  assert.equal(AUDIO_SEMANTICS.filter((entry) => entry.level === "CONFIRMED").length >= 12, true);
 });

@@ -2,7 +2,60 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
-## 2026-10-30 — 0.0.0 — Traza dinámica del frame step (EU, medida en ejecución)
+## 2026-10-31 - 0.0.0 - Rutas de inicialización de DirectSound (EU, estático)
+
+- **Pregunta cerrada (en estático):** ¿es alcanzable el segundo
+  `DirectSoundCreate` de `0x00538CB0`? **No por llamada directa.** Su único
+  llamante es `0x00538FD5` (35 B, `basis=prologue`), que tiene **0 aristas
+  entrantes** en `analysis/EU/calls.tsv`. No se afirma que sea código muerto:
+  un `call` indirecto o una tabla de punteros serían invisibles al grafo.
+- **Ruta viva:** `0x00538551` (467 B) es el **único** creador del dispositivo
+  y tiene exactamente **dos** llamantes, ambos conectados a la entrada:
+  - **A (arranque):** `0x00541B20` -> `0x00463278` (WinMain, sitio
+    `0x00463A02`) -> `0x0053D822` -> `0x0053B10B` (`0x0053D82F`) ->
+    `0x00538551` (`0x0053B120`).
+  - **B (reproducción por nombre):** WinMain -> `0x00538017`
+    (`0x004637F0`/`0x00463808`) -> `0x00537ED1` -> `0x0053A5A2` ->
+    `0x00538731` (`0x0053A5D1`) -> `0x00538551` (`0x00538739`).
+  - **C (voz, parcial):** `0x0053FF0D` -> `0x00538731` (`0x0054002A`) ->
+    `0x00538551`.
+- **Qué construye cada una (CONFIRMED por instrucción):** `0x00538551` crea el
+  dispositivo, fija `SetCooperativeLevel(+0x18, hwnd, 3)`, crea el buffer
+  primario (`DSBCAPS_PRIMARYBUFFER`, `dwBufferBytes=0`) y le aplica
+  `SetFormat(+0x38, 0x005582E0)`; `0x00538731` crea el **único** buffer
+  secundario (`dwFlags=0xE0`, `0x8000` B) desde un fichero cargado entero y su
+  cabecera `SLAG`/`WAVE`/`fmt `/`data`, y lo arranca con
+  `Play(+0x30, 0, 0, 1)`; `0x0053B10B` envuelve la creación una sola vez
+  (`[0x5AC5C8]`) y deja `[0x5AC5F0]=1`.
+- **Diferencias con la ruta sin llamantes:** `0x00538CB0` no crea buffer
+  primario, no aplica `SetFormat`, **no comprueba** el `HRESULT` de
+  `SetCooperativeLevel` y le pasa **un solo argumento de pila** (falta
+  `dwLevel`). Viva y muerta solo comparten el thunk `0x005404F0` y la
+  estructura `0x0057C330`.
+- **Sin evidencia dinámica, y por qué:** la imagen de referencia
+  (1 557 504 B, MD5 `692b12825003417cc4a5a9d4db13eebe`) ya no está en la
+  máquina; la única build presente es un mod (1 559 040 B, MD5
+  `3198350eb398db9a64771842d7781b4b`, entrada `0x00541FA0`) cuyo patrón de
+  bytes no contiene `0x00538551`. Una traza suya no sería evidencia sobre el
+  binario de referencia. Las tres rutas quedan como **existencia estática +
+  ejecución no observada**.
+- **Nuevo `docs/AUDIO_INIT_PATHS.md`** - método, política de evidencia, las
+  cuatro cadenas con sitios, lectura de `0x00538551`/`0x00538731`/`0x0053B10B`/
+  `0x00538CB0`/`0x005380B3`, comparación de las dos creaciones, límites,
+  reproducción y siguiente paso.
+- **Nuevo `tools/gexmap/audio.mjs`** - 14 globales, 19 fichas de semántica
+  mecánica, 20 llamadas por vtable, 3 rutas vivas + 1 sin llamantes y
+  `validateAudio()`. La ruta C se marca `partial` y el validador **exige**
+  que no empiece en la entrada; si alguien la «arregla» sin evidencia, falla.
+- **Pruebas:** `node --test tools/gexmap/test.mjs` -> **22/22** (6 nuevas de
+  audio); `segments` -> 0 problemas; `check` -> ok.
+- **Documentación sincronizada:** `docs/SUBSYSTEM_SEGMENTS.md` (S3, §5, §6.3,
+  §8), `docs/FRAME_STEP_TRACE.md` (§11, cierre del objetivo anterior),
+  `PROJECT_STATE.md`, `ROADMAP.md`, `README.md`, `tools/README.md`,
+  `tools/gexmap/README.md`, `TESTING.md`. `docs/PROJECT_STATUS.svg` no se toca
+  (mide MAIN, no RE).
+
+## 2026-10-30 - 0.0.0 - Traza dinámica del frame step (EU, medida en ejecución)
 
 - **Medido en ejecución, no inferido:** se instrumentó `GEX3D.EXE` EU (MD5
   `692b12825003417cc4a5a9d4db13eebe`) con un depurador propio y **breakpoints de

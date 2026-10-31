@@ -51,7 +51,10 @@ Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
   validadas (`docs/SUBSYSTEM_SEGMENTS.md`); no asigna roles. Traza
   dinámica del frame step 2026-10-30 (breakpoints de hardware, 2 326
   frames): orden del frame y 25 sitios del update medidos, 19 destinos
-  con semántica mecánica (`docs/FRAME_STEP_TRACE.md`).
+  con semántica mecánica (`docs/FRAME_STEP_TRACE.md`). Rutas de inicialización de DirectSound
+  2026-10-31 (estático, sin traza): `0x00538551` es el único creador vivo
+  (2 llamantes conectados a la entrada) y `0x00538FD5` -> `0x00538CB0`
+  sigue sin llamantes (`docs/AUDIO_INIT_PATHS.md`).
 - C mínima: timing FA-04/05, ruta/registro FA-11 (I-23 causa
   identificada estática 2026-10-10; dinámica pendiente), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).

@@ -163,9 +163,9 @@ otras. Que sean «render» es la hipótesis; **qué** dibuja cada una no se afir
 
 | Dirección | Bytes | Base | Llamadores | W | Evidencia | Confianza | Papel observado |
 |---|---:|---|---:|---|---|---|---|
-| `0x00538551` | 467 | call | 2 | sí | G I T | ALTA | DirectSoundCreate + creación de objeto por vtable |
-| `0x00538CB0` | 107 | call | 1 | no | G I T | MEDIA | segundo DirectSoundCreate; sin camino directo desde WinMain |
-| `0x0053B10B` | 400 | call | 1 | sí | G | MEDIA | cadena de audio; alcanza DirectSound a profundidad 2 |
+| `0x00538551` | 467 | call | 2 | sí | G I T | ALTA | **único** DirectSoundCreate vivo: dispositivo + buffer primario (`DSBCAPS_PRIMARYBUFFER`) |
+| `0x00538CB0` | 107 | call | 1 | no | G I T | MEDIA | segundo DirectSoundCreate; su único llamante (`0x00538FD5`) no tiene llamantes; no crea buffer primario |
+| `0x0053B10B` | 400 | call | 1 | sí | G | MEDIA | init del sonido: llama a `0x00538551` una sola vez y pone `[0x5AC5F0]=1` |
 | `0x0053FCB7` | 122 | call | 4 | sí | A G | MEDIA | housekeeping de voz (ancla); no alcanza APIs del sistema |
 | `0x0053FF0D` | 297 | call | 1 | sí | A G S | MEDIA | ruta `<InstallDir>\audio\voiceuk\%s.sag` (string verificado) |
 | `0x0053FE80` | 141 | call | 2 | sí | A G | MEDIA | snapshot del cociente (ancla R1 en +84); llama a la ruta de voz |
@@ -177,6 +177,13 @@ Sostén: dos rutas independientes. DirectSound aparece en `0x00538551` y en
 `0x00538CB0`; WinMM aparece en el control de volumen auxiliar (`0x0053D6C1`,
 `0x0053DE1A`) y en MCI (`0x0053D822`). La voz se sostiene en el ancla M-13 de
 `0x0053FCB7`, en el string de `0x0053FF0D` y en la llamada de `0x0053FE80`.
+
+El detalle de las cadenas está en
+[`docs/AUDIO_INIT_PATHS.md`](AUDIO_INIT_PATHS.md): `0x00538551` tiene
+exactamente dos llamantes (`0x00538731`, que crea el único buffer secundario de
+streaming, y `0x0053B10B`, el envoltorio de init) y los dos están conectados a
+la entrada por llamadas directas. `0x00538731` no es miembro de S3 (el mapa lo
+deja fuera de la tabla), pero es quien cierra la cadena.
 
 Incertidumbre: `0x0053FF0D` y `0x0053FCB7` **no alcanzan ninguna API del
 sistema** ni a profundidad 12; su asignación es documental y de grafo, no de
@@ -340,15 +347,38 @@ WinMain
                       └─ 0x0053A43A  (recursiva)
 ```
 
-Cadena de audio (S3):
+Cadena de audio (S3), detalle en `docs/AUDIO_INIT_PATHS.md`:
 
 ```text
-0x0053D822 (auxGetVolume + mciSendCommandA)
-  └─ 0x0053B10B
-       └─ 0x00538551  DirectSoundCreate -> [0x0057C384] -> vtable [edx+0x18]
+A) arranque
+0x00541B20 -> 0x00463278 (WinMain) -> 0x0053D822 -> 0x0053B10B -> 0x00538551
+                                                     (auxGetVolume + mciSendCommandA)
+  0x00538551: DirectSoundCreate -> [0x0057C384]
+              SetCooperativeLevel(+0x18, hwnd, 3)
+              CreateSoundBuffer(+0x0C) -> [0x0057C378]  (DSBCAPS_PRIMARYBUFFER)
+              SetFormat(+0x38, 0x005582E0)
+
+B) reproduccion por nombre
+0x00463278 -> 0x00538017 -> 0x00537ED1 -> 0x0053A5A2 -> 0x00538731 -> 0x00538551
+  0x00538731: Stop(+0x48)/Release(+0x08) del anterior, carga el fichero (0x005388AC),
+              parser de cabecera (0x0053899C), CreateSoundBuffer(+0x0C) -> [0x0057C374]
+              (dwFlags=0xE0, 0x8000 B), Play(+0x30, 0, 0, 1), SetVolume(+0x3C)
+  0x005380B3: mezclador GetCurrentPosition(+0x10) / Lock(+0x2C, 0x4000) / Unlock(+0x4C)
+
+C) voz (prefijo parcial)
+0x0053FF0D -> 0x00538731 -> 0x00538551
+
+D) segunda creacion, sin llamantes
+0x00538FD5 (0 llamantes) -> 0x00538CB0
+  0x00538CB0: DirectSoundCreate -> [0x005847E4]; SetCooperativeLevel(+0x18) con un
+              solo argumento de pila; sin buffer primario; [0x005847E0]=1
 
 0x0053FE80 (R1) -> 0x0053FF0D  "%s\audio\voiceuk\%s.sag"
 ```
+
+Las rutas A, B y C existen y son alcanzables por llamadas directas desde la
+entrada; **ninguna se ha observado en ejecución** (ver
+`docs/AUDIO_INIT_PATHS.md` §7).
 
 Cadena de entrada (S5):
 
@@ -383,11 +413,16 @@ una agrupación plausible en un hecho.
    12. Su pertenencia a audio se sostiene por el ancla M-13 y por sus cuatro
    llamadores (`0x00423AFE`, `0x00424191`, `0x00463278`, `0x0052B220`), no por
    imports. Es MEDIA, no ALTA.
-3. **El segundo `DirectSoundCreate` está en una rama no alcanzable.** `0x00538CB0`
+3. **El segundo `DirectSoundCreate` no se alcanza por llamada directa.** `0x00538CB0`
    solo se alcanza a través de `0x00538FD5`, un candidato por prólogo con **0
-   llamadores**; no hay camino de llamadas directas desde `WinMain`. No se
-   afirma que sea código muerto (puede haber llamada indirecta), pero tampoco se
-   presenta como la ruta activa. La ruta activa es `0x00538551`.
+   llamadores**; no hay camino de llamadas directas desde `WinMain`. La ruta
+   activa es `0x00538551`, con **dos** llamantes (`0x00538731` y `0x0053B10B`)
+   y ambos conectados a la entrada. Las dos creaciones solo comparten el thunk
+   `0x005404F0` y la estructura `0x0057C330`; la de `0x00538CB0` no crea buffer
+   primario, no comprueba el `HRESULT` de `SetCooperativeLevel` y le pasa **un
+   solo argumento de pila** (falta `dwLevel`). No se afirma que sea código
+   muerto (puede haber llamada indirecta), pero tampoco se presenta como la
+   ruta activa. Ver `docs/AUDIO_INIT_PATHS.md` §3.4, §4.4 y §5.
 4. **La clave de registro no está referenciada desde `.text`.** El string
    `SOFTWARE\Crystal Dynamics\Gex2\1.00` (VA `0x0055044C`) tiene **una sola**
    referencia de 4 bytes en todo el fichero, en `.rdata` (offset `0x14EC48`), no
@@ -465,8 +500,13 @@ Siguientes pasos concretos, en orden de coste/beneficio:
    `WORD [obj+0x4E3E]` (0→4, 6 nada, 7→`0x423A6A`, otro→`0x43E63D`) con bits de
    entrada; no es ni entrada pura ni audio. Su sitio en S1 se mantiene y la
    hipótesis «candidato a mover entre S3 y S5» se retira.
-3. **Resolver la rama de `0x00538FD5`/`0x00538CB0`** (¿llamada indirecta,
-   reinit de dispositivo o código no usado?) antes de dar por cerrada S3.
+3. ~~Resolver la rama de `0x00538FD5`/`0x00538CB0`~~ **Hecho (estático)**: la
+   cadena existe pero no tiene llamantes; `0x00538551` es el único creador vivo
+   del dispositivo y sus dos llamantes están conectados a la entrada. No se
+   promueve a «código muerto» ni se da por cerrada S3: falta la ejecución y el
+   barrido de tablas de punteros. Ver `docs/AUDIO_INIT_PATHS.md`. Siguiente
+   paso concreto: recuperar la imagen de referencia (MD5 `692b1282…`) para
+   instrumentar `0x00538551`/`0x00538731` con `tools/frame-trace`.
 4. **Semántica de los 5 callees del update aún sin asignar**: `0x00405C41`
    (1 867 B), `0x00412F8B` (1 764 B), `0x0045EAC4` (1 454 B), `0x0046DD40`
    (2 307 B) y `0x00537862` (690 B). Entre los cuatro primeros está la mayor

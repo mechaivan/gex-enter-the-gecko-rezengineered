@@ -34,7 +34,7 @@ node tools/gexmap/cli.mjs query --function 0x43e1ba
 node tools/gexmap/cli.mjs segments
 node tools/gexmap/cli.mjs segments --json
 
-# Tests offline (sintéticos + invariantes de los artefactos + segmentación + frame)
+# Tests offline (sintéticos + invariantes de los artefactos + segmentación + frame + audio)
 node --test tools/gexmap/test.mjs
 ```
 
@@ -59,6 +59,16 @@ presente, `ret = site + 5`, ningún sitio con más frames que su sesión y toda
 afirmación CONFIRMED con al menos dos líneas de evidencia con dirección. Se
 valida sin binario ni ejecución, así que corre en CI; los recuentos se
 reproducen con [`tools/frame-trace/`](../frame-trace/README.md).
+
+`audio.mjs` tampoco analiza: fija las rutas de inicialización de DirectSound
+(`docs/AUDIO_INIT_PATHS.md`) —14 globales con su único escritor, 20 llamadas por
+vtable, 3 rutas alcanzables desde la entrada y 1 sin llamantes, más 19 fichas de
+semántica mecánica— y expone `validateAudio(model)`. Comprueba que todo sitio de
+ruta es una arista real dentro de su llamante; que `0x00538551` tiene
+exactamente dos llamantes; que `0x00538FD5` sigue con cero y `0x00538CB0` con
+uno; que viva y muerta solo comparten `0x005404F0`; y que ninguna ruta declara
+hits o frames sin sesión. La ruta de voz se marca `partial` y el validador
+**exige** que no empiece en la entrada.
 
 ## Qué significa cada columna
 
@@ -100,7 +110,9 @@ las contiene.
 | `disasm.mjs` | ejecuta objdump y parsea dirección, bytes y texto |
 | `analyze.mjs` | reparación, inicios, stubs, extensiones, grafo, imports |
 | `segments.mjs` | definiciones HYPOTHESIS, evidencia por miembro y validación |
-| `test.mjs` | tests offline e invariantes de los artefactos y de los segmentos |
+| `frame.mjs` | traza dinámica del frame step como datos + `validateFrame()` |
+| `audio.mjs` | rutas de inicialización de DirectSound + `validateAudio()` |
+| `test.mjs` | tests offline e invariantes de los artefactos, segmentos, frame y audio |
 
 ## Límites
 
