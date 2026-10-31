@@ -54,7 +54,11 @@ Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
   con semántica mecánica (`docs/FRAME_STEP_TRACE.md`). Rutas de inicialización de DirectSound
   2026-10-31 (estático, sin traza): `0x00538551` es el único creador vivo
   (2 llamantes conectados a la entrada) y `0x00538FD5` -> `0x00538CB0`
-  sigue sin llamantes (`docs/AUDIO_INIT_PATHS.md`).
+  sigue sin llamantes (`docs/AUDIO_INIT_PATHS.md`). Ruta de audio
+  reconstruida el mismo día: `0x00538285` es un decodificador IMA ADPCM
+  de 4 bits, `0x005380B3` una bomba de streaming y `0x00538731` el
+  reproductor (`docs/AUDIO_MIXER_RE.md`); ya no queda ningún bucle de
+  audio sin leer.
 - C mínima: timing FA-04/05, ruta/registro FA-11 (I-23 causa
   identificada estática 2026-10-10; dinámica pendiente), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).
@@ -109,11 +113,18 @@ mods/parches.
 - [x] **I-1 — Lector del contenedor de audio `SLAG`.** Parser `0x0053899C` +
   carga `0x005388AC` transcritos a C11 (`port/src/asset/sag.c`), 29 casos y
   fuzz, 69 305 checks. Doc: `docs/SAG_CONTAINER.md`.
-- [ ] **I-2 — Buffer de sonido.** Convertir `(WAVEFORMATEX, payload)` en un
-  buffer reproducible: creación, relleno, arranque, parada y liberación
-  (`0x00538731` → `0x00538551`, `0x0053B10B`). Bloqueo conocido: el bucle
-  `0x00538285` del mezclador sigue sin leerse. Criterio: reproduce un tono
-  sintético desde un `SLAG` generado, sin DirectSound en la prueba.
+- [x] **I-2 — Ruta de audio (`SLAG` → PCM).** El «mezclador» `0x005380B3`
+  resultó ser una **bomba de streaming** y `0x00538285` un **decodificador IMA
+  ADPCM de 4 bits**; no hay mezcla de voces en esta ruta. Implementados
+  `port/src/audio/adpcm.c` (`0x00538285` + tablas `0x00558138`/`0x00558178`) y
+  `port/src/audio/stream.c` (buffer `0x8000`/`0x4000`, bomba `0x005380B3`,
+  reproductor `0x00538731`) con *backend* inyectable; 60 052 + 144 checks y demo
+  `port/tools/sagplay.c` (tono sintético → `build/tone.wav`). Doc:
+  `docs/AUDIO_MIXER_RE.md`. Pendiente: backend de dispositivo y bucle de bombeo.
+- [ ] **I-2b — Audio audible en el port.** Implementar un *backend* de
+  dispositivo (WASAPI/ALSA/SDL) con `submit`/`stop`/`cursor`, programar la bomba
+  cada media mitad y exponer el volumen de `[0x5582F4]`. Criterio: el tono
+  sintético suena sin DirectSound y el *gate* del cursor se respeta.
 - [ ] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo ya
   está prototipado en `tools/m13-core`; falta conectarlo al orden de frame
   medido en `docs/FRAME_STEP_TRACE.md` (pre-update → update + sello → swap) y
@@ -124,8 +135,9 @@ mods/parches.
   candidato de entrada). Criterio: proceso que corre, responde a teclas y no
   crashea; es el primer «prototipo ejecutable» aunque no muestre el juego.
 
-Orden justificado: I-2 cierra el subsistema ya empezado; I-3 e I-4 son los
-requisitos mínimos de cualquier bucle jugable y no dependen de assets.
+Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible;
+I-3 e I-4 son los requisitos mínimos de cualquier bucle jugable y no dependen de
+assets.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

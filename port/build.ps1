@@ -6,8 +6,9 @@
     There is no `make` in this environment, so this script mirrors the POSIX
     Makefile targets:
 
-        .\build.ps1 test    build and run the native checks
-        .\build.ps1 demo    build sagdump and dump a synthetic fixture
+        .\build.ps1 test    build and run the native checks (container + audio)
+        .\build.ps1 demo    build sagdump/sagplay and run their synthetic demos
+        .\build.ps1 audio   build sagplay and decode the synthetic tone
         .\build.ps1 clean   remove build\ (only what this build produced)
 
     The compiler is looked up in PATH: clang first, then gcc. Override with
@@ -16,7 +17,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('test', 'demo', 'clean', 'all')]
+    [ValidateSet('test', 'demo', 'audio', 'clean', 'all')]
     [string]$Target = 'all',
     [string]$Compiler
 )
@@ -37,13 +38,22 @@ if (-not $Compiler) {
 $buildDir = Join-Path $PSScriptRoot 'build'
 $cflags = @('-std=c11', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Iinclude')
 $sagSrc = Join-Path $PSScriptRoot 'src/asset/sag.c'
+$audioSrc = @(
+    (Join-Path $PSScriptRoot 'src/audio/adpcm.c'),
+    (Join-Path $PSScriptRoot 'src/audio/stream.c')
+)
 
-function Build-Exe([string]$source, [string]$name) {
+function Build-Exe([string]$source, [string]$name, [string[]]$sources = @(), [string[]]$flags = @()) {
     $out = Join-Path $buildDir $name
     Write-Host "compile $name ($Compiler)"
-    & $Compiler @cflags -o $out $source $sagSrc
+    & $Compiler @cflags @flags -o $out $source $sagSrc @sources
     if ($LASTEXITCODE -ne 0) { throw "compilation failed: $name" }
     return $out
+}
+
+function Run-Check([string]$exe, [string]$label) {
+    & $exe
+    if ($LASTEXITCODE -ne 0) { throw "$label failed (exit $LASTEXITCODE)" }
 }
 
 if ($Target -eq 'clean') {
@@ -57,9 +67,9 @@ if ($Target -eq 'clean') {
 New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
 if ($Target -in @('test', 'all')) {
-    $exe = Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe'
-    & $exe
-    if ($LASTEXITCODE -ne 0) { throw "native checks failed (exit $LASTEXITCODE)" }
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
 }
 
 if ($Target -in @('demo', 'all')) {
@@ -69,6 +79,12 @@ if ($Target -in @('demo', 'all')) {
     if ($LASTEXITCODE -ne 0) { throw 'fixture generation failed' }
     & $exe $fixture
     if ($LASTEXITCODE -ne 0) { throw "sagdump failed (exit $LASTEXITCODE)" }
+}
+
+if ($Target -in @('audio', 'demo', 'all')) {
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/sagplay.c') 'sagplay.exe' $audioSrc @('-lm')
+    & $exe
+    if ($LASTEXITCODE -ne 0) { throw "sagplay failed (exit $LASTEXITCODE)" }
 }
 
 Write-Host 'ok'

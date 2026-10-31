@@ -11,25 +11,29 @@ el fixture de demostración. Sin SDKs, sin DirectSound, sin assets del juego.
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 69 305 checks y la demo
-.\build.ps1 test     # solo checks
-.\build.ps1 demo     # solo la demo (fixture sintético + sagdump)
+.\build.ps1 all      # compila, ejecuta 69 305 + 60 052 + 144 checks y las demos
+.\build.ps1 test     # solo checks (contenedor + ADPCM + ruta de audio)
+.\build.ps1 audio    # solo la demo de audio (SLAG sintético -> build\tone.wav)
+.\build.ps1 demo     # fixture sintético + sagdump + demo de audio
 .\build.ps1 clean    # borra build\ (solo lo que genera el script)
 ```
 
-En POSIX, `make test` / `make demo` / `make clean` (mismo contenido; **no
-ejecutado en este entorno** porque no hay `make` en este Windows).
+En POSIX, `make test` / `make audio` / `make demo` / `make clean` (mismo
+contenido; **no ejecutado en este entorno** porque no hay `make` en este
+Windows). `make audio` enlaza con `-lm` (la demo usa `sin`).
 Compilador alternativo: `.\build.ps1 test -Compiler gcc`.
 
 Qué produce:
 
 | Target | Artefacto | Uso |
 | --- | --- | --- |
-| `test` | `build/test_sag.exe` | batería del lector `SLAG` (no se distribuye) |
-| `demo` | `build/sagdump.exe` + `build/demo.sag` | CLI de inspección y fixture sintético |
+| `test` | `build/test_sag.exe`, `build/test_adpcm.exe`, `build/test_audio.exe` | baterías del lector y de la ruta de audio (no se distribuyen) |
+| `audio` | `build/sagplay.exe` + `build/tone.wav` | demo: `SLAG` sintético → PCM → WAV |
+| `demo` | `build/sagdump.exe` + `build/demo.sag` + `build/sagplay.exe` | CLI de inspección, fixture sintético y demo de audio |
 
 `build/` está ignorado por Git. Estos artefactos son de desarrollo: no son
-entregables del proyecto y no contienen nada del juego.
+entregables del proyecto y no contienen nada del juego. `build/tone.wav` se
+genera en cada ejecución de `audio`/`demo`.
 
 Entorno verificado (2026-10-31): `clang` 22.1.8 (`x86_64-w64-windows-gnu`),
 `gcc` del mismo toolchain, Node 26.7.0. **No hay `make` en este Windows**, de

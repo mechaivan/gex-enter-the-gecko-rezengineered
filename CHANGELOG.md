@@ -2,6 +2,57 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-10-31 - 0.0.0 - Ruta de audio nativa: IMA ADPCM + bomba de streaming
+
+- **Corrección de nomenclatura (CONFIRMADO):** `0x005380B3` **no es un
+  mezclador**. Es una bomba de *streaming* de un único buffer; `0x00538285`,
+  el bucle que quedaba sin leer, es un **decodificador IMA/DVI ADPCM de 4
+  bits** (2 muestras por byte, nibble alto primero, estado continuo). No hay
+  mezcla multi-voz en esta ruta.
+- **Funciones reconstruidas instrucción a instrucción:**
+  - `0x00538285` (388 B): decodificador ADPCM; orden exacto (paso del índice
+    anterior, ajuste antes del delta, clamp `[-32768, 32767]`, índice `[0, 88]`).
+  - `0x005380B3` (466 B): `Lock(0x4000)` → *gate* del cursor de reproducción →
+    `read(0x1000)` → `decode` → `memset` de la cola corta → `Unlock`; media
+    mitad de silencio y `Stop()` posterior.
+  - `0x00538731` (379 B): carga del `.sag`, `CreateSoundBuffer(0x8000, 0xE0)`,
+    reseteo de estado, prefill, `Play(looping)` y `SetVolume`.
+  - `0x00538409`, `0x005384A3`, `0x005384ED`, `0x00538040/68/75/A6` y el setter
+    de volumen `0x00538724`.
+- **Tablas ADPCM recuperadas:** `adjust[16]` (`0x00558138`) y `step[89]`
+  (`0x00558178`) son las tablas canónicas de IMA ADPCM, leídas de la única
+  build presente (mod, `.data` a `+0x170`, verificado en tres anclas y en tres
+  copias de la tabla). **HIPÓTESIS** para la imagen de referencia: falta leer su
+  `.data`. El decodificador no las lleva incrustadas: se inyectan.
+- **Código nuevo:**
+  - `port/include/gex/audio/adpcm.h`, `port/src/audio/adpcm.c` — decodificador.
+  - `port/include/gex/audio/stream.h`, `port/src/audio/stream.c` — buffer
+    `0x8000`/`0x4000`, bomba, reproductor y *backend* inyectable
+    (`submit`/`stop`/`cursor`).
+  - `port/tests/test_adpcm.c` — vector dorado `07 F0` → `{0, 11, −19, −15}`,
+    clamp, continuidad, fuente corta, tablas alternativas, 20 000 flujos
+    aleatorios; **60 052 checks, 0 fallos**.
+  - `port/tests/test_audio.c` — ciclo del buffer, formatos, payload corto,
+    múltiplo exacto, truncado, equivalencia con decodificación de una pasada,
+    *gate* del cursor, cola silenciosa, errores; **144 checks, 0 fallos**.
+  - `port/tools/sagplay.c` — demo: `SLAG` sintético (tono 440 Hz) → PCM →
+    `build/tone.wav`.
+  - `port/build.ps1` / `port/Makefile`: targets `audio` y `test` ampliado.
+- **Bug latente del original documentado y no replicado:** con un payload
+  múltiplo exacto de `0x1000`, `read` devuelve `-1`, el original decodifica
+  `0xFFFFFFFE` muestras y hace `memset(ptr1 - 4, 0, 0x4004)`. El port lo trata
+  como fin de fuente (D8).
+- **Desviaciones D7–D11** documentadas en `docs/AUDIO_MIXER_RE.md` §11.
+- **Negativos / límites:** no hay `.sag` reales; no hay backend de dispositivo
+  (la salida se verifica escribiendo un WAV y capturando muestras); no hay
+  bucle de bombeo conectado al frame; la mezcla multi-voz, si existe, no está
+  identificada.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** nuevo `docs/AUDIO_MIXER_RE.md`; actualizados
+  `docs/AUDIO_INIT_PATHS.md` (§4.2, §4.5, §6, §10), `docs/SAG_CONTAINER.md`
+  (§1, §3, §9, §11), `PROJECT_STATE.md`, `ROADMAP.md` (I-2/I-2b), `TESTING.md`,
+  `BUILD.md`, `README.md` y `port/README.md`.
+
 ## 2026-10-31 - 0.0.0 - Primer componente del port nativo: lector `SLAG`
 
 - **Cambio de fase:** se abre la vía de implementación nativa en `port/`

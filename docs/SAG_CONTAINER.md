@@ -15,14 +15,14 @@ Es el primer componente **implementado** del port. Cumple las condiciones que
 se exigían para empezar:
 
 - **Semántica completa por instrucción.** Las ~90 instrucciones de
-  `0x0053899C` se leyeron enteras; no queda ningún bucle interno sin abrir
-  (a diferencia del mezclador `0x005380B3`, que tiene dos bucles en
-  `0x00538285` y `0x00538409`... el segundo, de hecho, es el `read` que aquí
-  se usa).
+  `0x0053899C` se leyeron enteras; no queda ningún bucle interno sin abrir.
+  Cuando se escribió esto, el consumidor (`0x005380B3`) tenía dos bucles sin
+  reconstruir (`0x00538285` y `0x00538409`); ambos están cerrados ahora
+  (`docs/AUDIO_MIXER_RE.md` §4-§5).
 - **Cero dependencias de plataforma.** No toca DirectSound, Glide, Win32 ni
   memoria global del motor: opera sobre un buffer.
 - **Consumidor claro.** El parser llena un `WAVEFORMATEX` y devuelve el tamaño
-  del payload PCM; ese payload alimenta el buffer de audio
+  del payload comprimido; ese payload alimenta la bomba de audio
   (`docs/AUDIO_INIT_PATHS.md`).
 - **Prueba sin el juego.** Un contenedor sintético basta para ejercitar todas
   las ramas.
@@ -73,6 +73,12 @@ Chunks reconocidos:
   una vez, **gana la última** antes de `data`.
 - `"data"` (`0x61746164`): el parser **devuelve `size`** y deja el cursor al
   inicio del payload. No copia nada.
+
+**Hallazgo posterior (2026-10-31):** el payload de `data` **no es PCM**. El
+consumidor real (`0x00538731` → `0x005380B3` → `0x00538285`) lo decodifica como
+**IMA ADPCM de 4 bits** (2 muestras por byte, nibble alto primero). El
+`WAVEFORMATEX` del chunk `fmt ` describe la señal **decodificada** (mono, 16
+bits), no el contenido del chunk. Detalle en `docs/AUDIO_MIXER_RE.md` §8.
 
 Cualquier otro tag se salta con `seek(pos + size)`.
 
@@ -235,9 +241,12 @@ El fixture lo genera `port/tests/make_demo_sag.mjs`: 8 bytes de silencio
 - **No se ha ejecutado el parser original** sobre los mismos bytes: no hay
   imagen de referencia para instrumentar. La equivalencia es estática
   (transcripción instrucción a instrucción), no dinámica.
-- **No se reproduce la reproducción de audio.** Esto solo lee el contenedor.
-  Crear el `IDirectSoundBuffer`, rellenarlo y mezclarlo son componentes
-  distintos (`0x005380B3` y alrededores), aún no implementados.
+- **La reproducción de audio ya está implementada, pero no verificada contra un
+  `.sag` real.** `port/src/audio/` contiene el decodificador IMA ADPCM
+  (`0x00538285`), la bomba de streaming (`0x005380B3`) y el reproductor
+  (`0x00538731`) sobre un *backend* inyectable; ver `docs/AUDIO_MIXER_RE.md`.
+  Lo que sigue sin validar es que un fichero real del juego se decodifique como
+  se espera: no hay ningún `.sag` en disco.
 - **`form_size` se expone sin interpretar.** Si algún día se demuestra su
   significado, hay que añadir la comprobación correspondiente.
 
@@ -260,7 +269,10 @@ make test && make demo
 
 El consumidor natural de este lector es el camino de carga de sonido:
 `0x005387AD` -> `0x00538731` -> `0x0053899C`, y desde ahi el buffer de audio.
-El siguiente componente debería ser el **buffer de sonido** (creación,
-relleno y liberación), porque convierte estos bytes en algo reproducible y
-sigue sin necesitar render ni entrada. Antes hay que cerrar el bucle de
-`0x00538285`, que es el único tramo del mezclador que sigue sin leerse.
+Ese camino ya esta implementado en `port/src/audio/` (ver
+`docs/AUDIO_MIXER_RE.md`): el bucle `0x00538285` resulto ser un decodificador
+IMA ADPCM de 4 bits, no un mezclador.
+
+Lo que queda de este componente es de validacion, no de implementacion:
+conseguir un `.sag` real (o extraerlo de los datos del juego) y comprobar que el
+contenedor no tiene chunks adicionales ni un `form_size` con significado.

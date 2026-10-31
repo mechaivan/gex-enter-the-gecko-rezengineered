@@ -168,8 +168,10 @@ sin la imagen original: no se afirma la frecuencia ni el número de canales.
 `dwFlags=0xE0` = `DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN | DSBCAPS_CTRLFREQUENCY`
 (0x20+0x40+0x80); `dwBufferBytes=0x8000` (32 KiB) es el tamaño del **único**
 buffer de streaming. El clamp posterior a `SetVolume` (`-10000..0`) es
-**código muerto**: la expresión `volumen*30-3000` con `volumen` en `[0,127]`
-nunca sale de ese rango.
+**código muerto por partida doble**: los dos cuerpos son autoasignaciones
+(`0x53888B`, `0x538891`) y además, con `[0x5582F4] > 100`, el valor
+`volumen*30-3000` sale del rango válido de `SetVolume` sin que nadie lo corrija.
+Detalle en `docs/AUDIO_MIXER_RE.md` §6.3.
 
 ### 4.3 `0x0053B10B` — envoltorio de inicialización (400 B, CONFIRMED)
 
@@ -211,12 +213,18 @@ Tres diferencias decisivas con `0x00538551`:
 Además usa globales propias (`0x5847E4`, `0x57C39C`, `0x5847E0`) que ningún
 otro código lee como dispositivo activo.
 
-### 4.5 `0x005380B3` — mezclador (466 B, CONFIRMED)
+### 4.5 `0x005380B3` — bomba de streaming (466 B, CONFIRMED)
 
 `GetCurrentPosition(+0x10)`, `Lock(+0x2C)` de `0x4000` B sobre `[0x57C374]`,
-mezcla en la región bloqueada, `Stop(+0x48)` si procede y `Unlock(+0x4C)`.
-Mantiene el cursor en `[0x57C37C]` y la bandera `[0x57C380]`. Es el consumidor
-del buffer de 32 KiB que crea `0x00538731`.
+lectura de `0x1000` B, decodificación IMA ADPCM (`0x00538285`) en la región
+bloqueada, `Stop(+0x48)` si procede y `Unlock(+0x4C)`. Mantiene el cursor en
+`[0x57C37C]` y la bandera `[0x57C380]`. Es el consumidor del buffer de 32 KiB
+que crea `0x00538731`.
+
+**Corrección de nomenclatura:** pese a lo que decía este documento y
+`docs/SUBSYSTEM_SEGMENTS.md`, **no mezcla voces**. Es una bomba de *streaming*
+de un único flujo: no hay suma de canales ni de sonidos. La reconstrucción
+instrucción a instrucción está en `docs/AUDIO_MIXER_RE.md` §5.
 
 ## 5. Comparación de las dos creaciones
 
@@ -247,8 +255,11 @@ comparten algo más, la prueba falla y obliga a releer.
 - **No se afirma el orden temporal** de las rutas A, B y C en un frame real.
   Solo se afirma que las aristas existen y que los sitios caen dentro del
   llamante.
-- **No se afirma el contenido** de `0x5582E0` (WAVEFORMATEX del primario), ni el
-  texto de `0x55811C`/`0x558124`/`0x55812C`/`0x558130`.
+- **No se afirma el contenido** de `0x5582E0` (WAVEFORMATEX del primario) en la
+  **referencia**, ni el texto de `0x55811C`/`0x558124`/`0x55812C`/`0x558130`.
+  En la build mod, `0x558450` (`+0x170`) contiene `{PCM, mono, 11025 Hz, 16
+  bits}`; el desplazamiento está verificado en tres anclas, pero leer la
+  referencia sigue pendiente.
 - **No se afirma** que `0x541060`/`0x540C20`/`0x540CA0`/`0x540DE0`/`0x540F90`/
   `0x5416E0`/`0x541950` sean `fopen`/`fclose`/`fread`/`ftell`/`fseek`/`malloc`/
   `HeapFree`: es una lectura de la forma de las llamadas (HYPOTHESIS).
@@ -316,28 +327,51 @@ ruta declara hits o frames sin sesión.
    punteros en `.data`/`.rdata`; mientras no aparezca, la ruta D sigue siendo
    «existe, no se alcanza por llamada directa».
 
-## 10. Lector del contenedor implementado (2026-10-31)
+## 10. Componentes implementados en el port (2026-10-31)
 
-El primer componente del port nativo ya no es solo estatico: el parser
-`0x0053899C` y el cargador `0x005388AC` estan transcritos en C11 en
-`port/src/asset/sag.c` (API en `port/include/gex/asset/sag.h`), con 29 casos
-de prueba y fuzz en `port/tests/test_sag.c` (69 305 checks, 0 fallos).
+Dos tramos de este documento ya no son solo análisis: están transcritos a C11 y
+probados sin el juego y sin DirectSound.
 
-Esto convierte el tramo que esta seccion describe en un formato ejecutable:
+### 10.1 Lector del contenedor
 
-- la cabecera `SLAG` / dword != `0xFFFFFFFF` / `WAVE`;
-- el recorrido de chunks `tag` + `size`;
-- `fmt ` -> `memset(dest, 0, 18)` + `min(size, 18)` + `seek(pos + size)`;
-- `data` -> devuelve el tamano declarado y deja el cursor al payload.
+`port/src/asset/sag.c` (API en `port/include/gex/asset/sag.h`) transcribe el
+parser `0x0053899C` y el cargador `0x005388AC`: cabecera `SLAG` / dword /
+`WAVE`, recorrido de chunks, `fmt ` → `WAVEFORMATEX` de 18 bytes y `data` →
+tamaño declarado con el cursor al payload. 29 casos y fuzz en
+`port/tests/test_sag.c` (69 305 checks, 0 fallos).
 
-Lo que **no** cambia: esto lee el contenedor, no reproduce audio. La creacion
-del buffer secundario (`0x00538731` -> `0x00538551`) y del mezclador
-`0x005380B3` siguen sin implementar. Ver `docs/SAG_CONTAINER.md` para el
-formato, las desviaciones deliberadas y los limites.
+### 10.2 Ruta de audio
 
-El lector se prueba sin el juego y sin DirectSound:
+`port/src/audio/adpcm.c` y `port/src/audio/stream.c` (API en
+`port/include/gex/audio/`) implementan:
+
+| Original | Port | Estado |
+| --- | --- | --- |
+| `0x00538285` decodificador IMA ADPCM | `gex_adpcm_*` | implementado, 60 052 checks |
+| `0x005380B3` bomba de streaming | `gex_audio_stream_pump` | implementado, 144 checks |
+| `0x00538731` reproductor | `gex_audio_stream_open/play/close` | implementado |
+| buffer secundario `0x8000`/`0x4000` | `gex_audio_buffer_*` | implementado |
+| `IDirectSoundBuffer` | `gex_audio_backend` inyectable | sustituido |
+| `0x00538551` dispositivo + primario | — | **no implementado** (no hace falta) |
+
+La demo `port/tools/sagplay.c` construye un `SLAG` sintético, lo decodifica y
+entrega PCM a un *sink* WAV (`build/tone.wav`). Detalles, evidencia y
+desviaciones en `docs/AUDIO_MIXER_RE.md`.
+
+### 10.3 Lo que sigue sin implementar
+
+- **Backend de dispositivo**: no hay salida a hardware; sólo WAV y captura en
+  memoria.
+- **Bucle de bombeo**: el original llama a `0x005380B3` desde el frame
+  (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`); el port expone la bomba, pero
+  nadie la programa todavía.
+- **Mezcla multi-voz**: esta ruta tiene un único buffer. Si el juego suma
+  sonidos, ese camino no está identificado.
+
+El lector y la ruta de audio se prueban sin el juego:
 
 ```powershell
 cd port
-.\build.ps1 all
+.\build.ps1 test    # contenedor + ADPCM + ruta de audio
+.\build.ps1 audio   # demo: SLAG sintético -> build\tone.wav
 ```

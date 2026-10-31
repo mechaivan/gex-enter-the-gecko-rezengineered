@@ -1380,8 +1380,85 @@ lectura fuera de rango ni campo incoherente.
 **Límites:** los fixtures son sintéticos; no hay ningún `.sag` real
 disponible en el repositorio ni en disco, así que no se ha comparado contra
 un fichero del juego. La equivalencia con `0x0053899C` es estática
-(transcripción instrucción a instrucción), no dinámica. Esto prueba el
-lector, no la reproducción de audio.
+(transcripción instrucción a instrucción), no dinámica.
+
+## Ruta de audio nativa (2026-10-31, validación offline)
+
+Prueba de la ruta completa `SLAG` → PCM sin el juego, sin assets y sin
+DirectSound. Dos suites nuevas y una demo:
+
+```powershell
+cd port
+.\build.ps1 test     # contenedor + ADPCM + ruta de audio
+.\build.ps1 audio    # demo: SLAG sintético -> build\tone.wav
+```
+
+Salida medida (clang 22.1.8, `-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin
+avisos):
+
+```text
+compile test_sag.exe (clang)
+compile test_adpcm.exe (clang)
+compile test_audio.exe (clang)
+ok
+fuzz: 20000 random buffers, 0 accepted
+69305 checks, 0 failures
+60052 checks, 0 failures
+144 checks, 0 failures
+```
+
+```text
+source:  synthetic SLAG (440 Hz, 0.5 s, 22050 Hz, built in memory)
+bytes:   5558
+format:  PCM mono 22050 Hz, 16-bit (declared by "fmt ")
+payload: 5512 bytes of 4-bit ADPCM (11024 samples)
+pumps:   4 calls of 0x005380B3
+chunks:  2 read, 1 short
+decoded: 11024 samples
+halves:  3 submitted, 24576 samples (1.115 s)
+stops:   1
+pcm:     peak=12241 fnv1a=0x80D4F719 over 24576 delivered samples
+wav:     build/tone.wav (written, 24576 samples)
+```
+
+`test_adpcm` comprueba el decodificador `0x00538285`:
+
+- vector dorado calculado a mano: bytes `07 F0` → muestras `{0, 11, −19, −15}`,
+  estado final `history = −15`, `step_index = 15`;
+- orden de nibbles (alto primero) y conmutación por byte;
+- continuidad del estado al partir el flujo en dos llamadas;
+- saturación a `32767` / `−32768` y límites del índice (0 y 88);
+- fuente corta y fuente vacía, argumentos `NULL`, máscara de nibble;
+- tablas alternativas (el algoritmo no depende de las recuperadas);
+- 20 000 flujos aleatorios con invariantes (índice e historia en rango,
+  muestras = bytes × 2).
+
+`test_audio` comprueba el buffer y la bomba `0x005380B3`:
+
+- creación, lock, doble lock rechazado, unlock, conmutación de mitades,
+  play/stop y liberación;
+- fallo del *backend* en `submit` → `GEX_AUDIO_ERR_BACKEND`;
+- rechazo de formatos (sin `fmt `, estéreo, 8 bits, rate 0, payload vacío);
+- payload corto: cola a cero, mitad de silencio y `Stop()` (y `Stop()` de
+  nuevo en cada llamada posterior);
+- payload múltiplo exacto de `0x1000`: la fuente se cierra con `want == 0` y
+  **no** se escribe fuera de la mitad (el original corrompe memoria aquí);
+- equivalencia muestra a muestra con una decodificación de una sola pasada;
+- payload truncado (`data_size` > fichero) → se reproduce lo disponible;
+- *gate* del cursor: el prefill no espera, la segunda mitad se rellena con el
+  cursor en 0 y la primera espera a `0x4000` (`deferred` = 1);
+- ninguna muestra obsoleta después de la señal (regresión de un fallo real del
+  port: el `Unlock` de la rama de parada entregaba la mitad anterior).
+
+Verificación independiente del WAV (script aparte, no parte del build): periodo
+mediano de 50 muestras a 22 050 Hz → **441 Hz** para un tono pedido de 440 Hz
+(22 050/440 = 50,11 muestras por periodo), pico 12 241 y **0** muestras no
+nulas después de la señal.
+
+**Límites:** no hay `.sag` reales ni backend de dispositivo; el tono lo genera
+un codificador ADPCM escrito para la demo (el motor original sólo decodifica).
+La equivalencia con `0x00538285`/`0x005380B3` es estática. Detalle en
+`docs/AUDIO_MIXER_RE.md`.
 
 ## Batería completa (regresión)
 
@@ -1389,5 +1466,5 @@ lector, no la reproducción de audio.
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 checks, 0 fallos
+cd port; .\build.ps1 all            # 69 305 + 60 052 + 144 checks, 0 fallos
 ```
