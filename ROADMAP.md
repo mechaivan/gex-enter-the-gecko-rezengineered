@@ -98,6 +98,35 @@ dependencia real, no por número.
 ### Ola 3 — Integración y resto
 M-18/M-19/M-20, M-22…M-26. X-01/X-02 siguen DEFERRED.
 
+## Vía de implementación nativa (abierta 2026-10-31)
+
+Ruta paralela a Hitos R/K/P, decidida por el mantenedor: implementar ya las
+piezas cuyo comportamiento está demostrado por instrucción, sin esperar a la
+Fase 3. El port vive en `port/` y cada pieza trae su prueba ejecutable sin el
+juego. **No** altera el panel: Hito P y MAIN siguen midiendo la ruta de
+mods/parches.
+
+- [x] **I-1 — Lector del contenedor de audio `SLAG`.** Parser `0x0053899C` +
+  carga `0x005388AC` transcritos a C11 (`port/src/asset/sag.c`), 29 casos y
+  fuzz, 69 305 checks. Doc: `docs/SAG_CONTAINER.md`.
+- [ ] **I-2 — Buffer de sonido.** Convertir `(WAVEFORMATEX, payload)` en un
+  buffer reproducible: creación, relleno, arranque, parada y liberación
+  (`0x00538731` → `0x00538551`, `0x0053B10B`). Bloqueo conocido: el bucle
+  `0x00538285` del mezclador sigue sin leerse. Criterio: reproduce un tono
+  sintético desde un `SLAG` generado, sin DirectSound en la prueba.
+- [ ] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo ya
+  está prototipado en `tools/m13-core`; falta conectarlo al orden de frame
+  medido en `docs/FRAME_STEP_TRACE.md` (pre-update → update + sello → swap) y
+  probarlo con reloj inyectado. Criterio: la secuencia de llamadas por frame
+  coincide con la traza, sin render.
+- [ ] **I-4 — Ventana + entrada + renderer nulo.** Abrir ventana, leer teclado
+  y ejecutar el frame step con un renderer que no dibuja (`0x0043E719` es el
+  candidato de entrada). Criterio: proceso que corre, responde a teclas y no
+  crashea; es el primer «prototipo ejecutable» aunque no muestre el juego.
+
+Orden justificado: I-2 cierra el subsistema ya empezado; I-3 e I-4 son los
+requisitos mínimos de cualquier bucle jugable y no dependen de assets.
+
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 
 > Secuencia de publicación futura, en orden de prioridad actual. Nada

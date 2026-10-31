@@ -2,3 +2,5 @@
 # (the sha256 of each file is pinned inside analysis/EU/summary.json).
 # Never let Git rewrite their line endings, or the check fails on a fresh clone.
 analysis/** -text
+# The port Makefile must keep LF so make works on POSIX checkouts.
+port/Makefile text eol=lf

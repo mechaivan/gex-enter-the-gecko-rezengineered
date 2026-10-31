@@ -4,6 +4,28 @@
 > binarios EU inventariados + análisis estático básico registrado en
 > [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md).
 > RE profundo (Etapas B+) **no iniciado** (bloqueado hasta cambio de fase).
+>
+> **Nota (2026-10-31):** se ha abierto una vía de implementación nativa en
+> `port/` que consume esta evidencia sin esperar al cierre de la Fase 3. No
+> cambia la metodología: el RE sigue siendo la fuente de cada pieza
+> implementada, y nada se implementa sin semántica demostrada por instrucción.
+> Primer componente: lector `SLAG` ([docs/SAG_CONTAINER.md](docs/SAG_CONTAINER.md)).
+
+## 0. Regla de paso a implementación (2026-10-31)
+
+Una función del binario puede implementarse cuando se cumplen **las cuatro**
+condiciones:
+
+1. su flujo se ha leído **entero**, incluyendo todos los bucles internos;
+2. se conoce qué escribe en memoria y qué devuelve, con las instrucciones que
+   lo demuestran;
+3. sus dependencias son nulas o aislables (sin DirectSound/Glide/Win32, o con
+   una interfaz que se pueda sustituir en la prueba);
+4. existe una prueba que no necesita el juego completo.
+
+Si falta una, la pieza queda **bloqueada** y se documenta qué evidencia
+concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
+`0x00538285` sin leer) y el frame step (necesita render/update y reloj real).
 
 ## 1. Principios
 

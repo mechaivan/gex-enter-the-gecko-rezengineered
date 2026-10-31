@@ -315,3 +315,29 @@ ruta declara hits o frames sin sesión.
 3. Buscar la ruta de datos hacia `0x00538FD5` con un barrido de tablas de
    punteros en `.data`/`.rdata`; mientras no aparezca, la ruta D sigue siendo
    «existe, no se alcanza por llamada directa».
+
+## 10. Lector del contenedor implementado (2026-10-31)
+
+El primer componente del port nativo ya no es solo estatico: el parser
+`0x0053899C` y el cargador `0x005388AC` estan transcritos en C11 en
+`port/src/asset/sag.c` (API en `port/include/gex/asset/sag.h`), con 29 casos
+de prueba y fuzz en `port/tests/test_sag.c` (69 305 checks, 0 fallos).
+
+Esto convierte el tramo que esta seccion describe en un formato ejecutable:
+
+- la cabecera `SLAG` / dword != `0xFFFFFFFF` / `WAVE`;
+- el recorrido de chunks `tag` + `size`;
+- `fmt ` -> `memset(dest, 0, 18)` + `min(size, 18)` + `seek(pos + size)`;
+- `data` -> devuelve el tamano declarado y deja el cursor al payload.
+
+Lo que **no** cambia: esto lee el contenedor, no reproduce audio. La creacion
+del buffer secundario (`0x00538731` -> `0x00538551`) y del mezclador
+`0x005380B3` siguen sin implementar. Ver `docs/SAG_CONTAINER.md` para el
+formato, las desviaciones deliberadas y los limites.
+
+El lector se prueba sin el juego y sin DirectSound:
+
+```powershell
+cd port
+.\build.ps1 all
+```

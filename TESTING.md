@@ -1331,3 +1331,63 @@ contenido de `0x5582E0` y de los formatos `0x55811C`/`0x558124` no se puede
 leer sin la imagen original; los nombres CRT (`fopen`, `fread`, `malloc`…) son
 HYPOTHESIS. La build modificada presente (MD5 `3198350e…`) no sirve para
 instrumentar estas direcciones.
+
+## Lector nativo del contenedor `SLAG` (2026-10-31, validación offline)
+
+Primera prueba de un componente **implementado**, no de una herramienta de
+análisis. No necesita el ejecutable original, ni assets del juego, ni
+DirectSound.
+
+```powershell
+cd port
+.\build.ps1 all
+```
+
+Salida medida (clang 22.1.8 y gcc, `-std=c11 -O2 -Wall -Wextra -Wpedantic`,
+sin avisos):
+
+```text
+compile test_sag.exe (clang)
+fuzz: 20000 random buffers, 0 accepted
+69305 checks, 0 failures
+compile sagdump.exe (clang)
+demo.sag: 54 bytes (synthetic)
+file:   build/demo.sag
+size:   54 bytes
+form:   SLAG size=0x0000002E (46)
+format: chunk=18 copied=18
+        wFormatTag=0x0001 nChannels=1 nSamplesPerSec=22050
+        nAvgBytesPerSec=22050 nBlockAlign=1 wBitsPerSample=8 cbSize=0
+data:   offset=46 size=8 complete
+```
+
+Qué se comprueba:
+
+- cabecera `SLAG` / dword != `0xFFFFFFFF` / `WAVE`, y sus rechazos;
+- recorrido de chunks con tag desconocido, `fmt ` de 16/18/20 bytes, dos
+  `fmt ` (gana el último), `data` antes de `fmt `;
+- `data` de tamaño 0, `data` truncado (`data_complete = 0`), tamaño
+  `0xFFFFFFFE`;
+- `fmt ` de tamaño 0 en medio y al final;
+- carga real de fichero temporal y errores (inexistente, vacío);
+- 20 000 buffers aleatorios y 20 000 mutaciones, con invariantes
+  (`data_offset <= size`, `format_bytes <= 18`, coherencia de `has_format`).
+
+**Resultado negativo:** de 20 000 buffers aleatorios, **0** fueron aceptados
+(ningún falso positivo del parser). En las mutaciones no apareció ninguna
+lectura fuera de rango ni campo incoherente.
+
+**Límites:** los fixtures son sintéticos; no hay ningún `.sag` real
+disponible en el repositorio ni en disco, así que no se ha comparado contra
+un fichero del juego. La equivalencia con `0x0053899C` es estática
+(transcripción instrucción a instrucción), no dinámica. Esto prueba el
+lector, no la reproducción de audio.
+
+## Batería completa (regresión)
+
+```powershell
+node --test tools/gexmap/test.mjs   # 22/22
+node tools/gexmap/cli.mjs check     # artefactos OK
+node tools/gexmap/cli.mjs segments  # 0 problemas
+cd port; .\build.ps1 all            # 69 305 checks, 0 fallos
+```

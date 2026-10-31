@@ -1,11 +1,46 @@
 # BUILD — Construcción
 
-> Estado: **pendiente de definir** (Fase 1: no hay nada que construir).
+> Estado: **parcial**. El port nativo tiene un componente con build y pruebas
+> (`port/`, 2026-10-31). No hay build jugable del juego: el resto de la
+> implementación (Olas, tras Hito P) sigue pendiente.
 
-Cuando exista implementación (Olas, tras Hito P), este documento describirá:
+## Port nativo (`port/`) — funcional
+
+Requisitos: un compilador C11 (`clang` o `gcc`) y Node ≥ 18 solo para generar
+el fixture de demostración. Sin SDKs, sin DirectSound, sin assets del juego.
+
+```powershell
+cd port
+.\build.ps1 all      # compila, ejecuta 69 305 checks y la demo
+.\build.ps1 test     # solo checks
+.\build.ps1 demo     # solo la demo (fixture sintético + sagdump)
+.\build.ps1 clean    # borra build\ (solo lo que genera el script)
+```
+
+En POSIX, `make test` / `make demo` / `make clean` (mismo contenido; **no
+ejecutado en este entorno** porque no hay `make` en este Windows).
+Compilador alternativo: `.\build.ps1 test -Compiler gcc`.
+
+Qué produce:
+
+| Target | Artefacto | Uso |
+| --- | --- | --- |
+| `test` | `build/test_sag.exe` | batería del lector `SLAG` (no se distribuye) |
+| `demo` | `build/sagdump.exe` + `build/demo.sag` | CLI de inspección y fixture sintético |
+
+`build/` está ignorado por Git. Estos artefactos son de desarrollo: no son
+entregables del proyecto y no contienen nada del juego.
+
+Entorno verificado (2026-10-31): `clang` 22.1.8 (`x86_64-w64-windows-gnu`),
+`gcc` del mismo toolchain, Node 26.7.0. **No hay `make` en este Windows**, de
+ahí `build.ps1`.
+
+## Resto del proyecto — pendiente
+
+Cuando exista implementación de juego (Olas, tras Hito P), este documento
+describirá además:
 
 - requisitos (compiladores, SDKs, dependencias);
-- pasos de build reproducibles;
 - qué produce cada target (loader, DLL, parches…);
 - cómo el usuario aporta sus archivos originales;
 - verificación de artefactos (hashes).
@@ -13,8 +48,8 @@ Cuando exista implementación (Olas, tras Hito P), este documento describirá:
 De momento, ver [ROADMAP.md](ROADMAP.md) y [REVERSE_ENGINEERING.md](REVERSE_ENGINEERING.md).
 
 Los builds de herramientas de desarrollo (`tools/glide-shim`,
-`tools/m13-core`) se documentan en el README de cada herramienta y no
-producen entregables del proyecto.
+`tools/m13-core`, `tools/gexmap`, `tools/frame-trace`) se documentan en el
+README de cada herramienta y no producen entregables del proyecto.
 
 ## Distribución futura (planificación 2026-10-09 — NO implementado)
 

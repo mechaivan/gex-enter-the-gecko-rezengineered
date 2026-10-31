@@ -5,7 +5,7 @@
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`)
-**Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
+**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`. **No playable build**: Hito P / MAIN unchanged; this is a component, not the port
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-10-31
@@ -32,6 +32,34 @@
 > community fixes before implementing any modifications.
 > Ruta corta (2026-10-10): Hito R → Hito K → Hito P (= MAIN 100%) →
 > Olas 1–3. Ver ROADMAP.
+>
+> Cambio de fase (2026-10-31): se abre una **vía de implementación nativa** en
+> paralelo a la investigación. El objetivo ya no es solo entender el binario,
+> sino tener componentes reales, probados sin el juego, que se puedan integrar
+> después. El primer componente es el lector del contenedor de audio `SLAG`
+> (`docs/SAG_CONTAINER.md`, código en `port/`). Esta vía **no** promociona
+> Hito P ni MAIN: el panel sigue midiendo la ruta de mods/parches.
+
+## Vía de implementación nativa (abierta 2026-10-31)
+
+Decisión del mantenedor: empezar a implementar sin esperar al cierre de la
+Fase 3, eligiendo piezas cuyo comportamiento ya está demostrado por
+instrucción. Condiciones que debe cumplir cada pieza:
+
+1. semántica completa del original (sin bucles internos sin leer);
+2. dependencias de plataforma nulas o mínimas;
+3. prueba posible sin el juego completo ni assets originales;
+4. consumidor identificado en el motor.
+
+Estado:
+
+| Pieza | Original | Código | Prueba |
+| --- | --- | --- | --- |
+| Lector `SLAG` (formato + payload `data`) | `0x0053899C`, `0x005388AC`, `0x00538B01`, `0x00538409`, `0x00538A99`, `0x00538ACA` | `port/src/asset/sag.c` | `port/tests/test_sag.c` (69 305 checks, 0 fallos) |
+
+Límites de esta vía, explícitos: no hay ficheros `.sag` reales disponibles, la
+equivalencia es estática (transcripción instrucción a instrucción) y nada de
+esto reproduce audio todavía. Ver `docs/SAG_CONTAINER.md` §6 y §9.
 
 ## Checklist de la Fase 0 ✅ (cerrada 2026-10-08)
 

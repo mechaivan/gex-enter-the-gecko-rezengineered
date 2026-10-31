@@ -1,6 +1,45 @@
 # CHANGELOG
 
-Formato: `YYYY-MM-DD — versión — descripción`.
+Formato: `YYYY-MM-DD - versión - descripción`.
+
+## 2026-10-31 - 0.0.0 - Primer componente del port nativo: lector `SLAG`
+
+- **Cambio de fase:** se abre la vía de implementación nativa en `port/`
+  (C11, sin dependencias). No promociona Hito P ni MAIN: el panel sigue
+  midiendo la ruta de mods/parches, y **no hay build jugable**.
+- **Componente implementado:** lector del contenedor de audio `SLAG`.
+  Transcripción instrucción a instrucción del parser `0x0053899C` y del
+  cargador de fichero completo `0x005388AC`, más los auxiliares que usan
+  (`0x00538B01` `read4`, `0x00538409` `read`, `0x00538A99` `tell`,
+  `0x00538ACA` `seek`).
+  - `port/include/gex/asset/sag.h` — API pura: `gex_sag_parse`,
+    `gex_sag_load`, `gex_sag_release`, `gex_sag_status_name`.
+  - `port/src/asset/sag.c` — parser sobre buffer en memoria (sin I/O, sin
+    DirectSound, sin memoria global) + cargador que reproduce `fopen`/`fseek`/
+    `ftell`/`malloc`/`fread`/`fclose`.
+  - `port/tools/sagdump.c` — CLI que imprime lo que el lector entendió.
+  - `port/tests/test_sag.c` — 29 casos + 2 fuzz; **69 305 checks, 0 fallos**.
+  - `port/tests/make_demo_sag.mjs` — fixture sintético de 54 bytes.
+  - `port/build.ps1` (Windows, no hay `make` aquí) y `port/Makefile` (POSIX).
+- **Formato documentado:** `SLAG` + dword != `0xFFFFFFFF` + `WAVE`; chunks
+  `tag`+`size`; `fmt ` → `memset(dest,0,18)` + `min(size,18)` + `seek(pos+size)`;
+  `data` → devuelve el **tamaño declarado** con el cursor al payload. Nuevo
+  `docs/SAG_CONTAINER.md` con mapa de funciones, algoritmo con direcciones,
+  desviaciones y límites.
+- **Desviaciones deliberadas (documentadas, §6):** separación
+  `TRUNCATED`/`SENTINEL` (el `read4` original confunde lectura corta con el
+  dword `0xFFFFFFFF`), comprobaciones de límites con `size_t`, flag
+  `data_complete` para payload truncado, `NO_DATA` en lugar de `-1` para
+  `fmt ` de tamaño 0 al final, y aritmética de 64 bits.
+- **Negativos / límites:** no hay ningún fichero `.sag` real en el repositorio
+  ni en disco (el árbol de la build mod solo contiene `GEX3D.EXE`), así que la
+  validación es contra fixtures sintéticos; no hay imagen de referencia para
+  comparar dinámicamente contra el parser original; no se reproduce audio.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación sincronizada:** `PROJECT_STATE.md` (vía de implementación),
+  `ROADMAP.md` (I-1…I-4), `BUILD.md`, `TESTING.md`, `README.md`,
+  `REVERSE_ENGINEERING.md`, `docs/AUDIO_INIT_PATHS.md` §10, `.gitignore`
+  (`*.sag`).
 
 ## 2026-10-31 - 0.0.0 - Rutas de inicialización de DirectSound (EU, estático)
 
