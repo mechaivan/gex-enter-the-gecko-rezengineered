@@ -6,13 +6,19 @@
     There is no `make` in this environment, so this script mirrors the POSIX
     Makefile targets:
 
-        .\build.ps1 test    build and run the native checks (container + audio)
+        .\build.ps1 test    build and run the native checks (container + audio
+                            + the real-device backend, which self-skips when no
+                            sound device exists)
         .\build.ps1 demo    build sagdump/sagplay and run their synthetic demos
         .\build.ps1 audio   build sagplay and decode the synthetic tone
         .\build.ps1 clean   remove build\ (only what this build produced)
 
     The compiler is looked up in PATH: clang first, then gcc. Override with
     -Compiler. Nothing here touches the retail executable or its assets.
+
+    The device backend needs dsound.h and dsound.lib, which ship with the
+    Windows toolchain (MinGW-w64/llvm-mingw). No third-party dependency is
+    downloaded or vendored.
 #>
 
 [CmdletBinding()]
@@ -40,8 +46,10 @@ $cflags = @('-std=c11', '-O2', '-Wall', '-Wextra', '-Wpedantic', '-Iinclude')
 $sagSrc = Join-Path $PSScriptRoot 'src/asset/sag.c'
 $audioSrc = @(
     (Join-Path $PSScriptRoot 'src/audio/adpcm.c'),
-    (Join-Path $PSScriptRoot 'src/audio/stream.c')
+    (Join-Path $PSScriptRoot 'src/audio/stream.c'),
+    (Join-Path $PSScriptRoot 'src/audio/sched.c')
 )
+$deviceSrc = @((Join-Path $PSScriptRoot 'src/audio/backend_dsound.c'))
 
 function Build-Exe([string]$source, [string]$name, [string[]]$sources = @(), [string[]]$flags = @()) {
     $out = Join-Path $buildDir $name
@@ -70,6 +78,7 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
 }
 
 if ($Target -in @('demo', 'all')) {
@@ -82,7 +91,7 @@ if ($Target -in @('demo', 'all')) {
 }
 
 if ($Target -in @('audio', 'demo', 'all')) {
-    $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/sagplay.c') 'sagplay.exe' $audioSrc @('-lm')
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/sagplay.c') 'sagplay.exe' ($audioSrc + $deviceSrc) @('-lm', '-ldsound')
     & $exe
     if ($LASTEXITCODE -ne 0) { throw "sagplay failed (exit $LASTEXITCODE)" }
 }

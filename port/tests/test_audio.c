@@ -6,6 +6,7 @@
  * docs/SAG_CONTAINER.md and the pump sizes recovered in docs/AUDIO_MIXER_RE.md.
  */
 
+#include "gex/audio/sched.h"
 #include "gex/audio/stream.h"
 
 #include <stdio.h>
@@ -93,6 +94,8 @@ typedef struct {
     uint32_t rate;
     int submits;
     int stops;
+    int pauses;
+    int resumes;
     int fail_next;
     uint32_t play_cursor; /* only read by make_cursor_backend */
 } capture;
@@ -119,6 +122,16 @@ static void capture_stop(void *ctx)
     ((capture *)ctx)->stops++;
 }
 
+static void capture_pause(void *ctx)
+{
+    ((capture *)ctx)->pauses++;
+}
+
+static void capture_resume(void *ctx)
+{
+    ((capture *)ctx)->resumes++;
+}
+
 static gex_audio_backend make_backend(capture *c)
 {
     gex_audio_backend backend;
@@ -126,6 +139,8 @@ static gex_audio_backend make_backend(capture *c)
     backend.submit = capture_submit;
     backend.stop = capture_stop;
     backend.cursor = NULL;
+    backend.pause = capture_pause;
+    backend.resume = capture_resume;
     return backend;
 }
 
@@ -489,6 +504,185 @@ static void test_stream_play_cursor_gate(void)
     gex_audio_stream_close(&stream);
 }
 
+/* ---------------------------------------------------------------- sched */
+
+static void test_sched_lifecycle(void)
+{
+    fixture f;
+    gex_sag sag;
+    gex_audio_stream stream;
+    gex_audio_sched sched;
+    capture cap;
+    memset(&cap, 0, sizeof(cap));
+    cap.capacity = sizeof(cap.samples) / sizeof(cap.samples[0]);
+
+    build(&f, 1, 16, 22050, 0x2000, 0x2000);
+    CHECK(gex_sag_parse(f.bytes, f.size, &sag) == GEX_SAG_OK);
+    CHECK(gex_audio_stream_open(&stream, &sag, f.bytes, f.size,
+                                make_cursor_backend(&cap)) == GEX_AUDIO_OK);
+
+    gex_audio_sched_init(&sched, &stream);
+    CHECK(sched.ticks == 0);
+    CHECK(sched.fills == 0);
+    CHECK(gex_audio_sched_due(&sched) == 0); /* nothing before play */
+
+    CHECK(gex_audio_stream_play(&stream) == GEX_AUDIO_OK); /* pre-fill */
+    CHECK(stream.buffer.halves == 1);
+    CHECK(stream.buffer.write_offset == GEX_AUDIO_HALF_BYTES);
+
+    /* Cursor still in half 0: the half about to be written is free. */
+    cap.play_cursor = 0;
+    CHECK(gex_audio_sched_due(&sched) == 1);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(stream.buffer.halves == 2);
+    CHECK(sched.fills == 1);
+    CHECK(sched.deferred == 0);
+
+    /* Now half 0 would be overwritten while it plays: deferred, no pump. */
+    CHECK(gex_audio_sched_due(&sched) == 0);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(sched.deferred == 1);
+    CHECK(sched.fills == 1);
+    CHECK(stream.buffer.halves == 2);
+
+    /* Cursor reaches the midpoint: the gate opens. The payload is exactly two
+     * chunks, so this pump sees want == 0 (D8) and closes the source. */
+    cap.play_cursor = GEX_AUDIO_HALF_BYTES;
+    CHECK(gex_audio_sched_due(&sched) == 1);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(stream.buffer.halves == 3);
+    CHECK(stream.source_open == 0);
+
+    /* Silent half, then the Stop branch. */
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(stream.buffer.halves == 4);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(stream.finished == 1);
+    CHECK(sched.finished == 1);
+    CHECK(cap.stops == 1);
+
+    /* Once finished, ticks do nothing at all. */
+    const uint64_t ticks = sched.ticks;
+    CHECK(gex_audio_sched_due(&sched) == 0);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(sched.ticks == ticks + 1);
+    CHECK(stream.buffer.halves == 4);
+
+    gex_audio_stream_close(&stream);
+}
+
+static void test_sched_no_cursor_drain(void)
+{
+    fixture f;
+    gex_sag sag;
+    gex_audio_stream stream;
+    gex_audio_sched sched;
+    capture cap;
+    memset(&cap, 0, sizeof(cap));
+    cap.capacity = sizeof(cap.samples) / sizeof(cap.samples[0]);
+
+    build(&f, 1, 16, 22050, 0x2000, 0x2000);
+    CHECK(gex_sag_parse(f.bytes, f.size, &sag) == GEX_SAG_OK);
+    CHECK(gex_audio_stream_open(&stream, &sag, f.bytes, f.size,
+                                make_backend(&cap)) == GEX_AUDIO_OK);
+    gex_audio_sched_init(&sched, &stream);
+    CHECK(gex_audio_stream_play(&stream) == GEX_AUDIO_OK);
+
+    int guard = 0;
+    while (!sched.finished && guard++ < 16) {
+        CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    }
+    CHECK(sched.finished == 1);
+    CHECK(stream.buffer.halves == 4);
+    CHECK(sched.fills == 3);    /* the three pumps after the pre-fill */
+    CHECK(sched.deferred == 0); /* a sink without cursor never defers */
+    CHECK(cap.submits == 4);
+
+    gex_audio_stream_close(&stream);
+}
+
+static void test_sched_pause_resume(void)
+{
+    fixture f;
+    gex_sag sag;
+    gex_audio_stream stream;
+    gex_audio_sched sched;
+    capture cap;
+    memset(&cap, 0, sizeof(cap));
+    cap.capacity = sizeof(cap.samples) / sizeof(cap.samples[0]);
+
+    build(&f, 1, 16, 22050, 0x2000, 0x2000);
+    CHECK(gex_sag_parse(f.bytes, f.size, &sag) == GEX_SAG_OK);
+    CHECK(gex_audio_stream_open(&stream, &sag, f.bytes, f.size,
+                                make_cursor_backend(&cap)) == GEX_AUDIO_OK);
+    gex_audio_sched_init(&sched, &stream);
+    CHECK(gex_audio_stream_play(&stream) == GEX_AUDIO_OK);
+
+    gex_audio_sched_pause(&sched);
+    CHECK(sched.paused == 1);
+    CHECK(cap.pauses == 1);
+    CHECK(gex_audio_sched_due(&sched) == 0);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(sched.fills == 0);
+    CHECK(sched.deferred == 0); /* a paused tick is not a deferral */
+    CHECK(stream.buffer.halves == 1);
+
+    gex_audio_sched_resume(&sched);
+    CHECK(sched.paused == 0);
+    CHECK(cap.resumes == 1);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_OK);
+    CHECK(stream.buffer.halves == 2);
+    CHECK(sched.fills == 1);
+
+    /* Pausing or resuming twice must not call the backend twice. */
+    gex_audio_sched_pause(&sched);
+    gex_audio_sched_pause(&sched);
+    CHECK(cap.pauses == 2);
+    gex_audio_sched_resume(&sched);
+    gex_audio_sched_resume(&sched);
+    CHECK(cap.resumes == 2);
+
+    gex_audio_stream_close(&stream);
+}
+
+static void test_sched_backend_error(void)
+{
+    fixture f;
+    gex_sag sag;
+    gex_audio_stream stream;
+    gex_audio_sched sched;
+    capture cap;
+    memset(&cap, 0, sizeof(cap));
+    cap.capacity = sizeof(cap.samples) / sizeof(cap.samples[0]);
+
+    build(&f, 1, 16, 22050, 0x2000, 0x2000);
+    CHECK(gex_sag_parse(f.bytes, f.size, &sag) == GEX_SAG_OK);
+    CHECK(gex_audio_stream_open(&stream, &sag, f.bytes, f.size,
+                                make_cursor_backend(&cap)) == GEX_AUDIO_OK);
+    gex_audio_sched_init(&sched, &stream);
+    CHECK(gex_audio_stream_play(&stream) == GEX_AUDIO_OK);
+
+    cap.fail_next = 1;
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_ERR_BACKEND);
+    CHECK(sched.last_status == GEX_AUDIO_ERR_BACKEND);
+    CHECK(stream.buffer.halves == 2); /* the half was produced, not delivered */
+
+    gex_audio_stream_close(&stream);
+}
+
+static void test_sched_arguments(void)
+{
+    gex_audio_sched sched;
+    gex_audio_sched_init(&sched, NULL);
+    CHECK(gex_audio_sched_due(&sched) == 0);
+    CHECK(gex_audio_sched_tick(&sched) == GEX_AUDIO_ERR_ARGUMENT);
+    CHECK(gex_audio_sched_due(NULL) == 0);
+    CHECK(gex_audio_sched_tick(NULL) == GEX_AUDIO_ERR_ARGUMENT);
+    gex_audio_sched_pause(NULL);
+    gex_audio_sched_resume(NULL);
+    gex_audio_sched_init(NULL, NULL);
+}
+
 int main(void)
 {
     test_buffer_lifecycle();
@@ -500,6 +694,11 @@ int main(void)
     test_stream_truncated_payload();
     test_stream_play_cursor_gate();
     test_stream_errors();
+    test_sched_lifecycle();
+    test_sched_no_cursor_drain();
+    test_sched_pause_resume();
+    test_sched_backend_error();
+    test_sched_arguments();
     test_status_names();
 
     printf("%d checks, %d failures\n", checks, failures);

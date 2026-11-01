@@ -327,10 +327,11 @@ ruta declara hits o frames sin sesión.
    punteros en `.data`/`.rdata`; mientras no aparezca, la ruta D sigue siendo
    «existe, no se alcanza por llamada directa».
 
-## 10. Componentes implementados en el port (2026-10-31)
+## 10. Componentes implementados en el port (2026-10-31, ampliado 2026-11-01)
 
 Dos tramos de este documento ya no son solo análisis: están transcritos a C11 y
-probados sin el juego y sin DirectSound.
+probados sin el juego. Desde I-2b el tramo de dispositivo también está
+implementado, con DirectSound real.
 
 ### 10.1 Lector del contenedor
 
@@ -348,30 +349,40 @@ tamaño declarado con el cursor al payload. 29 casos y fuzz en
 | Original | Port | Estado |
 | --- | --- | --- |
 | `0x00538285` decodificador IMA ADPCM | `gex_adpcm_*` | implementado, 60 052 checks |
-| `0x005380B3` bomba de streaming | `gex_audio_stream_pump` | implementado, 144 checks |
+| `0x005380B3` bomba de streaming | `gex_audio_stream_pump` | implementado, 215 checks |
 | `0x00538731` reproductor | `gex_audio_stream_open/play/close` | implementado |
 | buffer secundario `0x8000`/`0x4000` | `gex_audio_buffer_*` | implementado |
-| `IDirectSoundBuffer` | `gex_audio_backend` inyectable | sustituido |
-| `0x00538551` dispositivo + primario | — | **no implementado** (no hace falta) |
+| `IDirectSoundBuffer` | `gex_audio_backend` inyectable | sustituido (captura/WAV) |
+| `0x00538551` dispositivo + primario | `gex_audio_dsound_open` | **implementado** (I-2b, Windows) |
+| `CreateSoundBuffer(0x8000, 0xE0)` | `gex_audio_dsound_open` | **implementado** |
+| `GetCurrentPosition` | `gex_audio_dsound` → `cursor` | **implementado** |
+| `SetVolume` (`0x0053886c`) | `gex_audio_dsound_set_volume` | **implementado** |
+| llamantes del frame (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`) | `gex_audio_sched_tick` | **implementado** (contrato) |
 
 La demo `port/tools/sagplay.c` construye un `SLAG` sintético, lo decodifica y
-entrega PCM a un *sink* WAV (`build/tone.wav`). Detalles, evidencia y
-desviaciones en `docs/AUDIO_MIXER_RE.md`.
+entrega PCM a un *sink* WAV (`build/tone.wav`) o, con `--device`, al
+`IDirectSoundBuffer` real. Detalles, evidencia y desviaciones (D7-D14) en
+`docs/AUDIO_MIXER_RE.md`, §16 para el backend y el planificador.
 
 ### 10.3 Lo que sigue sin implementar
 
-- **Backend de dispositivo**: no hay salida a hardware; sólo WAV y captura en
-  memoria.
-- **Bucle de bombeo**: el original llama a `0x005380B3` desde el frame
-  (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`); el port expone la bomba, pero
-  nadie la programa todavía.
+- **Bucle de bombeo conectado al frame**: `gex_audio_sched` ya reproduce el
+  contrato de los llamantes de `0x005380B3` y `sagplay --device` lo ejercita en
+  tiempo real, pero todavía no hay frame loop de juego que lo llame (llega con
+  I-3/I-4). El punto de integración es una llamada por frame tras el update.
+- **Backend para otras plataformas**: `backend_dsound.c` es sólo Windows. Un
+  *sink* ALSA/PipeWire/SDL sólo necesita `submit`/`stop`/`cursor`/`pause`/
+  `resume`.
 - **Mezcla multi-voz**: esta ruta tiene un único buffer. Si el juego suma
   sonidos, ese camino no está identificado.
+- **Volumen del juego**: la fórmula de `0x0053886c` está implementada y probada,
+  pero el global `[0x5582F4]` no está conectado (no hay juego que lo mueva).
 
 El lector y la ruta de audio se prueban sin el juego:
 
 ```powershell
 cd port
-.\build.ps1 test    # contenedor + ADPCM + ruta de audio
+.\build.ps1 test    # contenedor + ADPCM + ruta de audio + dispositivo
 .\build.ps1 audio   # demo: SLAG sintético -> build\tone.wav
+.\build\sagplay.exe --device   # el mismo tono por el altavoz
 ```

@@ -120,11 +120,20 @@ mods/parches.
   `port/src/audio/stream.c` (buffer `0x8000`/`0x4000`, bomba `0x005380B3`,
   reproductor `0x00538731`) con *backend* inyectable; 60 052 + 144 checks y demo
   `port/tools/sagplay.c` (tono sintético → `build/tone.wav`). Doc:
-  `docs/AUDIO_MIXER_RE.md`. Pendiente: backend de dispositivo y bucle de bombeo.
-- [ ] **I-2b — Audio audible en el port.** Implementar un *backend* de
-  dispositivo (WASAPI/ALSA/SDL) con `submit`/`stop`/`cursor`, programar la bomba
-  cada media mitad y exponer el volumen de `[0x5582F4]`. Criterio: el tono
-  sintético suena sin DirectSound y el *gate* del cursor se respeta.
+  `docs/AUDIO_MIXER_RE.md`. Backend de dispositivo y bucle de bombeo → I-2b.
+- [x] **I-2b — Audio audible en el port.** *Backend* de dispositivo con
+  DirectSound (la API del original: `dsound.h`/`-ldsound`, sin dependencias
+  nuevas; SDL2/SDL3 no está instalado y habría supuesto vendorizar código),
+  `port/src/audio/backend_dsound.c` + `port/include/gex/audio/backend_dsound.h`,
+  y programación del bombeo con `port/src/audio/sched.c` +
+  `port/include/gex/audio/sched.h` (el contrato de los llamantes de
+  `0x005380B3`: una llamada por frame tras el update). Volumen de `0x0053886c`
+  incluido. Pruebas: `test_audio` 215 checks y `test_device` 50 checks (esta
+  última se auto-omite sin tarjeta), con el cursor avanzando a 44 100 B/s y el
+  contenido de la mitad leído por `Lock` idéntico al decodificado. Doc:
+  `docs/AUDIO_MIXER_RE.md` §16. **Límite:** la audición humana no la verifica
+  el agente; `sagplay --device` queda para el mantenedor. El *gate* del cursor
+  se respeta (56 diferimientos medidos en una ejecución real).
 - [ ] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo ya
   está prototipado en `tools/m13-core`; falta conectarlo al orden de frame
   medido en `docs/FRAME_STEP_TRACE.md` (pre-update → update + sello → swap) y
@@ -135,9 +144,11 @@ mods/parches.
   candidato de entrada). Criterio: proceso que corre, responde a teclas y no
   crashea; es el primer «prototipo ejecutable» aunque no muestre el juego.
 
-Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible;
-I-3 e I-4 son los requisitos mínimos de cualquier bucle jugable y no dependen de
-assets.
+Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
+(backend DirectSound + planificador, 2026-11-01); I-3 e I-4 son los requisitos
+mínimos de cualquier bucle jugable y no dependen de assets. La llamada
+`gex_audio_sched_tick(&sched)` una vez por frame, tras el update, es el punto de
+integración que I-3/I-4 deben insertar.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

@@ -1400,11 +1400,12 @@ avisos):
 compile test_sag.exe (clang)
 compile test_adpcm.exe (clang)
 compile test_audio.exe (clang)
+compile test_device.exe (clang)
 ok
 fuzz: 20000 random buffers, 0 accepted
 69305 checks, 0 failures
 60052 checks, 0 failures
-144 checks, 0 failures
+215 checks, 0 failures
 ```
 
 ```text
@@ -1448,17 +1449,81 @@ wav:     build/tone.wav (written, 24576 samples)
 - *gate* del cursor: el prefill no espera, la segunda mitad se rellena con el
   cursor en 0 y la primera espera a `0x4000` (`deferred` = 1);
 - ninguna muestra obsoleta después de la señal (regresión de un fallo real del
-  port: el `Unlock` de la rama de parada entregaba la mitad anterior).
+  port: el `Unlock` de la rama de parada entregaba la mitad anterior);
+- planificador (I-2b): no bombea antes de `play`, respeta el *gate* leyendo el
+  cursor del *sink*, cuenta `fills`/`deferred`, cierra en `Stop`, drena sin
+  cursor, pausa/reanudación idempotentes, propaga el error del backend y valida
+  argumentos.
 
 Verificación independiente del WAV (script aparte, no parte del build): periodo
 mediano de 50 muestras a 22 050 Hz → **441 Hz** para un tono pedido de 440 Hz
 (22 050/440 = 50,11 muestras por periodo), pico 12 241 y **0** muestras no
 nulas después de la señal.
 
-**Límites:** no hay `.sag` reales ni backend de dispositivo; el tono lo genera
-un codificador ADPCM escrito para la demo (el motor original sólo decodifica).
-La equivalencia con `0x00538285`/`0x005380B3` es estática. Detalle en
-`docs/AUDIO_MIXER_RE.md`.
+**Límites:** no hay `.sag` reales; el tono lo genera un codificador ADPCM escrito
+para la demo (el motor original sólo decodifica). La equivalencia con
+`0x00538285`/`0x005380B3` es estática. Detalle en `docs/AUDIO_MIXER_RE.md`.
+
+## Audio audible: backend DirectSound y planificador (2026-11-01, hardware real)
+
+Primera prueba del port que habla con **hardware de sonido**. Sigue sin
+necesitar el ejecutable original ni assets del juego, y no necesita tarjeta:
+sin dispositivo, `test_device` imprime `skipped` y devuelve 0.
+
+```powershell
+cd port
+.\build.ps1 test                 # incluye test_device
+.\build\sagplay.exe --device     # reproduce el tono sintético
+```
+
+Salida medida (Windows 11, DirectSound emulado, clang 22.1.8,
+`-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin avisos):
+
+```text
+device: cursor after pause = 0 bytes
+device: cursor moved 8446 bytes in 219 ms (expected ~9657)
+device checks: 50, 0 failures
+```
+
+```text
+source:  synthetic SLAG (440 Hz, 0.5 s, 22050 Hz, built in memory)
+payload: 5512 bytes of 4-bit ADPCM (11024 samples)
+pumps:   60 calls of 0x005380B3 (56 deferred by the gate)
+decoded: 11024 samples
+halves:  3 submitted, 24576 samples (1.115 s)
+stops:   1
+device:  DirectSound default, DSSCL_NORMAL, 22050 Hz mono 16-bit
+submits: 3 halves, 0 restores, 0 lock failures
+cursor:  16384 bytes before the stop, 390 ms wall
+note:    the PCM was handed to the device; confirm by ear
+```
+
+`test_device` comprueba:
+
+- apertura/cierre (incluido doble cierre) y rechazo de formatos no mono/16
+  bits/rate 0 antes de crear el dispositivo;
+- prefill → `submits == 1`, `playing == 1` (`Play(looping)` en el primer envío);
+- **contenido**: la mitad escrita se lee con `IDirectSoundBuffer::Lock` y se
+  compara muestra a muestra con `gex_adpcm_decode` del mismo chunk;
+- **cursor**: avanza a ≈44 100 B/s con tolerancia de un tercio (evidencia de
+  que el dispositivo consume el PCM del port);
+- *gate*: con el dispositivo pausado el cursor está congelado y la bomba difiere
+  la mitad que lo sobrescribiría;
+- pausa/reanudación (el cursor sigue desde donde se congeló) y `Stop` (el cursor
+  queda congelado);
+- volumen `100 → 0 dB`, `0 → -3000 dB` (`0x0053886c`);
+- reinicio: un segundo flujo sobre el mismo dispositivo vuelve a hacer prefill y
+  `Play`.
+
+**Resultado negativo / límite honesto:** lo verificado es que el dispositivo
+acepta los buffers y que su cursor avanza a la frecuencia del flujo. **No** se ha
+verificado que una persona oiga el tono: el agente no tiene acceso a la salida de
+audio. La confirmación auditiva es del mantenedor con `sagplay --device`.
+
+**Límites:** backend sólo Windows (`_WIN32`; el `Makefile` POSIX no lo compila);
+un solo flujo (sin mezcla multi-voz); sin `.sag` reales; las tablas ADPCM siguen
+siendo HIPÓTESIS para la imagen de referencia. Detalle en
+`docs/AUDIO_MIXER_RE.md` §16.
 
 ## Batería completa (regresión)
 
@@ -1466,5 +1531,5 @@ La equivalencia con `0x00538285`/`0x005380B3` es estática. Detalle en
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 + 60 052 + 144 checks, 0 fallos
+cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 50 checks, 0 fallos
 ```

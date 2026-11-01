@@ -97,7 +97,7 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/FRAME_STEP_TRACE.md](docs/FRAME_STEP_TRACE.md)   | Traza dinámica del frame step y del update (medida, EU) |
 | [docs/AUDIO_INIT_PATHS.md](docs/AUDIO_INIT_PATHS.md)   | Rutas de inicialización de DirectSound (estático, EU) |
 | [docs/SAG_CONTAINER.md](docs/SAG_CONTAINER.md)         | Contenedor de audio `SLAG`: formato, lector nativo y pruebas |
-| [docs/AUDIO_MIXER_RE.md](docs/AUDIO_MIXER_RE.md)       | Ruta de audio: ADPCM, bomba de streaming y reproductor (estático + port) |
+| [docs/AUDIO_MIXER_RE.md](docs/AUDIO_MIXER_RE.md)       | Ruta de audio: ADPCM, bomba, reproductor, backend DirectSound (estático + port) |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
 | [BUILD.md](BUILD.md)                                   | Construcción (port parcial: `port/` funcional) |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |
@@ -120,8 +120,10 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 
 `port/` es código nuevo del port: implementación propia escrita a partir de la
 evidencia documentada, nunca binario ni assets del juego. Hoy contiene el lector
-del contenedor de audio `SLAG` y la ruta de audio completa —decodificador IMA
-ADPCM, bomba de streaming y reproductor con backend inyectable—; ver
+del contenedor de audio `SLAG`, la ruta de audio completa —decodificador IMA
+ADPCM, bomba de streaming y reproductor con backend inyectable— y, desde I-2b,
+un backend DirectSound que hace sonar esa ruta en el dispositivo real más el
+planificador que la bombea desde el frame; ver
 [port/README.md](port/README.md).
 
 El repositorio contiene **únicamente** código propio, herramientas propias,

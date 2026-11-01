@@ -53,6 +53,13 @@ typedef enum gex_audio_status {
  * as 0x005380B3 does at 0x00538108-0x0053812a. With no cursor the sink is
  * assumed to have consumed everything it was given.
  *
+ * `pause`/`resume` are optional and only meaningful for a device sink: pause
+ * must freeze the play cursor where it is (the original's buffer keeps its
+ * position across Stop/Play, so a frozen cursor keeps the gate valid), and
+ * resume must continue from that position. They are NOT the same as `stop`:
+ * stop ends playback, pause suspends it. The scheduler calls them; the pump
+ * never does.
+ *
  * Any callback may be NULL.
  */
 typedef struct gex_audio_backend {
@@ -60,6 +67,8 @@ typedef struct gex_audio_backend {
     int (*submit)(void *ctx, const int16_t *samples, size_t count, uint32_t rate);
     void (*stop)(void *ctx);
     uint32_t (*cursor)(void *ctx);
+    void (*pause)(void *ctx);
+    void (*resume)(void *ctx);
 } gex_audio_backend;
 
 typedef struct gex_audio_buffer {

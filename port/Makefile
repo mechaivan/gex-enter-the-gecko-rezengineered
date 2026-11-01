@@ -4,6 +4,10 @@
 #   make demo   build sagdump/sagplay and run their synthetic demos
 #   make audio  build sagplay and decode the synthetic tone
 #   make clean  remove build/ (only files this build produced)
+#
+# The DirectSound device backend (src/audio/backend_dsound.c, test_device.c)
+# is Windows-only and is built by build.ps1; `sagplay --device` therefore
+# exists only in Windows builds. Everything else here is portable C11.
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wpedantic -Iinclude
@@ -12,8 +16,9 @@ BUILD   := build
 
 SAG_SRC   := src/asset/sag.c
 SAG_HDR   := include/gex/asset/sag.h
-AUDIO_SRC := src/audio/adpcm.c src/audio/stream.c
-AUDIO_HDR := include/gex/audio/adpcm.h include/gex/audio/stream.h
+AUDIO_SRC := src/audio/adpcm.c src/audio/stream.c src/audio/sched.c
+AUDIO_HDR := include/gex/audio/adpcm.h include/gex/audio/stream.h \
+             include/gex/audio/sched.h
 
 .PHONY: all test demo audio clean
 

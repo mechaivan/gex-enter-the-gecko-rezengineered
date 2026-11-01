@@ -1,13 +1,18 @@
 # Ruta de audio: decodificador IMA ADPCM, bomba de streaming y reproductor
 
 > **Nivel de evidencia:** estático sobre el desensamblado de la referencia EU
-> (`objdump` de `.text`), más una implementación nativa probada sin hardware.
+> (`objdump` de `.text`), más una implementación nativa probada sin hardware y,
+> desde I-2b, un backend DirectSound verificado en el dispositivo real (§16).
 > Lo marcado CONFIRMADO está en las instrucciones citadas; lo marcado HIPÓTESIS
 > es inferencia explícita; lo marcado UNKNOWN no está establecido.
 >
-> **Código nuevo:** `port/include/gex/audio/adpcm.h`, `port/include/gex/audio/stream.h`,
-> `port/src/audio/adpcm.c`, `port/src/audio/stream.c`, `port/tests/test_adpcm.c`,
-> `port/tests/test_audio.c`, `port/tools/sagplay.c`.
+> **Código nuevo:** `port/include/gex/audio/adpcm.h`,
+> `port/include/gex/audio/stream.h`, `port/include/gex/audio/sched.h`,
+> `port/include/gex/audio/backend_dsound.h`, `port/src/audio/adpcm.c`,
+> `port/src/audio/stream.c`, `port/src/audio/sched.c`,
+> `port/src/audio/backend_dsound.c`, `port/tests/test_adpcm.c`,
+> `port/tests/test_audio.c`, `port/tests/test_device.c`,
+> `port/tools/sagplay.c`.
 >
 > **Documentos hermanos:** `docs/SAG_CONTAINER.md` (contenedor y desviaciones
 > D1-D6), `docs/AUDIO_INIT_PATHS.md` (rutas de inicialización de DirectSound).
@@ -31,7 +36,9 @@ las dos mitades.
 
 Consecuencia para el port: la ruta completa **se puede reproducir sin
 DirectSound**, sustituyendo el buffer secundario por memoria propia y la salida
-por un *backend* inyectable. Eso es lo que implementa `port/src/audio/`.
+por un *backend* inyectable. Eso es lo que implementa `port/src/audio/`. Desde
+I-2b hay además un *backend* DirectSound real (§16), que es el que hace sonar la
+ruta en un altavoz.
 
 ## 2. Evidencia y método
 
@@ -436,13 +443,18 @@ depende de ellas.
 ### 10.1 Módulos
 
 ```
-port/include/gex/audio/adpcm.h   gex_adpcm_state, gex_adpcm_tables, decode
-port/include/gex/audio/stream.h  gex_audio_buffer, gex_audio_stream, backend
-port/src/audio/adpcm.c           0x00538285
-port/src/audio/stream.c          0x005380B3 + 0x00538731 + buffer
-port/tests/test_adpcm.c          vector dorado, clamp, continuidad, fuzz
-port/tests/test_audio.c          buffer, bomba, reproductor, backend
-port/tools/sagplay.c             demo: SLAG sintético → PCM → WAV
+port/include/gex/audio/adpcm.h         gex_adpcm_state, gex_adpcm_tables, decode
+port/include/gex/audio/stream.h        gex_audio_buffer, gex_audio_stream, backend
+port/include/gex/audio/sched.h         gex_audio_sched (cuándo llamar a la bomba)
+port/include/gex/audio/backend_dsound.h  gex_audio_dsound (dispositivo, sólo Windows)
+port/src/audio/adpcm.c                 0x00538285
+port/src/audio/stream.c                0x005380B3 + 0x00538731 + buffer
+port/src/audio/sched.c                 los llamantes de 0x005380B3 (§16.3)
+port/src/audio/backend_dsound.c        IDirectSoundBuffer real (§16)
+port/tests/test_adpcm.c                vector dorado, clamp, continuidad, fuzz
+port/tests/test_audio.c                buffer, bomba, reproductor, backend, sched
+port/tests/test_device.c               dispositivo real (se omite sin tarjeta)
+port/tools/sagplay.c                   demo: SLAG sintético → PCM → WAV o dispositivo
 ```
 
 ### 10.2 El buffer (`gex_audio_buffer`)
@@ -482,20 +494,28 @@ typedef struct gex_audio_backend {
     int  (*submit)(void *ctx, const int16_t *samples, size_t count, uint32_t rate);
     void  (*stop)(void *ctx);
     uint32_t (*cursor)(void *ctx);
+    void  (*pause)(void *ctx);   /* opcional: congela el cursor */
+    void  (*resume)(void *ctx);  /* opcional: sigue desde ahí */
 } gex_audio_backend;
 ```
 
 - `submit` recibe una mitad decodificada (8 192 muestras mono de 16 bits).
 - `stop` corresponde al `Stop()` de la rama de parada.
 - `cursor` es opcional; sin él no hay *gate*.
-- Los tres pueden ser `NULL`: el flujo se decodifica y las muestras se
-  descartan sin fallar.
+- `pause`/`resume` son opcionales y sólo tienen sentido en un dispositivo:
+  pausar congela el cursor donde está (el buffer del original conserva su
+  posición entre `Stop`/`Play`, así que el *gate* sigue siendo válido) y
+  reanudar continúa desde ahí. **No** equivalen a `stop`: `stop` termina la
+  reproducción, `pause` la suspende. Los llama el planificador, nunca la bomba.
+- Todos pueden ser `NULL`: el flujo se decodifica y las muestras se descartan
+  sin fallar.
 
-No hay backend de dispositivo en este entregable: la demo escribe un WAV y las
-pruebas capturan en memoria. Un backend real (WASAPI, ALSA, SDL…) sólo tendría
-que implementar `submit`/`stop`/`cursor`; nada del decodificador cambia.
+Hay dos implementaciones: la captura en memoria de las pruebas y el WAV de la
+demo (ambas sin hardware, sin `cursor`), y el dispositivo DirectSound real
+(`backend_dsound.c`, sólo Windows), que es el objeto que el original maneja.
+Nada del decodificador cambia entre ellos. Detalle en §16.
 
-## 11. Desviaciones deliberadas (D7-D11)
+## 11. Desviaciones deliberadas (D7-D14)
 
 | # | Original | Port | Motivo |
 | --- | --- | --- | --- |
@@ -504,6 +524,9 @@ que implementar `submit`/`stop`/`cursor`; nada del decodificador cambia.
 | D9 | no valida `WAVEFORMATEX` | rechaza si no es mono/16 bits/rate>0 | el decodificador siempre produce mono 16 bits; otro formato sería basura |
 | D10 | un payload declarado mayor que el fichero se lee hasta donde haya | igual, pero con `payload_truncated = 1` | el fallo debe ser visible, no silencioso |
 | D11 | `Unlock` tras `Stop` de una mitad sin rellenar | se libera el bloqueo sin entregar muestras | el original ya ha parado el buffer; entregar datos obsoletos al *sink* sería un artefacto del port |
+| D12 | `DSSCL_PRIORITY` + ventana del juego | `DSSCL_NORMAL` + ventana de escritorio (`NULL` → `GetDesktopWindow()`) | la demo no tiene ventana de juego; DirectSound convierte el formato del secundario al del primario por sí mismo. El resto de la cadena (`DirectSoundCreate` → `SetCooperativeLevel` → `CreateSoundBuffer`) es la misma y en el mismo orden |
+| D13 | `dwFlags = 0xE0` (`CTRLVOLUME|CTRLPAN|CTRLFREQUENCY`) | los mismos + `DSBCAPS_GETCURRENTPOSITION2` + `DSBCAPS_GLOBALFOCUS` | `GETCURRENTPOSITION2` hace que `GetCurrentPosition` devuelva la posición real (el *gate* depende de ella); `GLOBALFOCUS` mantiene audible la demo de consola cuando no es la ventana activa. Sobre el DirectSound emulado de Windows 10/11 el resultado de `CreateSoundBuffer` es `DS_OK` (verificado en hardware, §16.5) |
+| D14 | recrea el buffer secundario en cada reproducción (`0x0053874e..0x00538815`) | `stop` hace `Stop()` + `SetCurrentPosition(0)` + `write_offset = 0` sobre el mismo buffer | equivale a «buffer nuevo» para un segundo flujo sin destruir y recrear el objeto. `pause` **no** resetea: debe conservar la posición |
 
 Además, el índice inicial se satura a `[0, 88]` antes de indexar la tabla
 (`gex_adpcm_apply`), mientras que el original indexa con el global tal cual. Con
@@ -523,7 +546,8 @@ $ .\build.ps1 test          # Windows
 $ make test                 # POSIX
 69305 checks, 0 failures    # test_sag
 60052 checks, 0 failures    # test_adpcm
-144 checks, 0 failures      # test_audio
+215 checks, 0 failures      # test_audio
+50 checks, 0 failures       # test_device (se omite sin tarjeta de sonido)
 ```
 
 `test_adpcm.c` cubre:
@@ -560,7 +584,21 @@ $ make test                 # POSIX
   cursor en 0, la primera espera a `0x4000` y cuenta `deferred`;
 - cola silenciosa: después de las muestras decodificadas no se entrega ni una
   muestra obsoleta (regresión del fallo descrito en §10.2);
-- errores y flujo sin backend (`submit == NULL`).
+- errores y flujo sin backend (`submit == NULL`);
+- planificador (§16.3): no bombea antes de `play`, respeta el *gate* contra el
+  cursor del *sink*, cuenta `fills`/`deferred`, cierra en `Stop`, deja de hacer
+  nada al terminar, drena sin cursor, pausa/reanudación idempotentes (dos
+  `pause` no llaman dos veces al backend), propaga el error del backend y valida
+  argumentos.
+
+`test_device.c` (§16.5) se ejecuta sólo si existe un dispositivo DirectSound; si
+no, imprime `skipped` y devuelve 0, de modo que la batería sigue siendo
+ejecutable en cualquier máquina. Cubre apertura/cierre (incluido doble cierre),
+rechazo de formatos, prefill → `submits == 1` y `playing == 1`, contenido de la
+mitad escrita leído por `Lock` y comparado con `gex_adpcm_decode`, avance del
+cursor a 44 100 B/s, *gate* con el cursor congelado, pausa/reanudación, volumen
+(`100 → 0 dB`, `0 → -3000 dB`), `Stop` que congela el cursor y reinicio con un
+segundo flujo.
 
 ## 13. Demostración
 
@@ -573,7 +611,7 @@ file:    (in memory)
 bytes:   5558
 format:  PCM mono 22050 Hz, 16-bit (declared by "fmt ")
 payload: 5512 bytes of 4-bit ADPCM (11024 samples)
-pumps:   4 calls of 0x005380B3
+pumps:   4 calls of 0x005380B3 (0 deferred by the gate)
 chunks:  2 read, 1 short
 decoded: 11024 samples
 halves:  3 submitted, 24576 samples (1.115 s)
@@ -594,6 +632,7 @@ wav:     build/tone.wav (written, 24576 samples)
   muestras no nulas después de la señal.
 - `sagplay <fichero.sag> [salida.wav]` hace lo mismo con un contenedor real, si
   algún día hay uno.
+- `sagplay --device` hace el mismo recorrido contra el dispositivo real (§16.6).
 
 ## 14. Límites y lo que sigue pendiente
 
@@ -628,26 +667,28 @@ wav:     build/tone.wav (written, 24576 samples)
 
 ### 14.4 Para integrar audio en el juego
 
-1. **Backend de dispositivo** (WASAPI/ALSA/SDL): implementar `submit`, `stop` y,
-   para respetar el *gate*, `cursor`. Sin él la ruta funciona pero no hay sonido
-   audible.
-2. **Hilo o temporizador de bombeo**: el original depende de que alguien llame
-   a `0x005380B3` con frecuencia; el port necesita un bucle que lo haga cada
-   media mitad (o cada frame, como el original).
+1. ~~**Backend de dispositivo**~~ → hecho en I-2b con DirectSound (§16.1).
+   Sigue abierto un backend para otras plataformas (ALSA/PipeWire/SDL): basta
+   con implementar `submit`/`stop`/`cursor`/`pause`/`resume`.
+2. ~~**Hilo o temporizador de bombeo**~~ → hecho en I-2b: `gex_audio_sched`
+   (§16.3) reproduce el contrato del frame loop. Falta conectarlo al frame de
+   I-3/I-4 (§16.7).
 3. **Localizar los `.sag`** en los datos del juego y el camino que los nombra
    (`0x00537ED1` construye rutas `…\audio\voiceuk\%s.sag`), para poder probar
    con audio real.
 4. **Decidir qué hacer con el bug del múltiplo exacto** en ficheros reales: si
    alguno lo es, el original se corrompe; el port lo reproduce truncado.
-5. **Volumen**: exponer `[0x5582F4]` con la misma fórmula, o mapear a la escala
-   del backend (0..1) documentando la diferencia.
+5. **Volumen**: `gex_audio_dsound_set_volume` ya aplica `level*30 - 3000`
+   (§16.4); falta decidir de dónde sale el nivel (el global `[0x5582F4]`) y si
+   se expone como ajuste de usuario.
 
 ## 15. Cómo reproducir
 
 ```powershell
 cd port
-.\build.ps1 test        # contenedor + ADPCM + ruta de audio
+.\build.ps1 test        # contenedor + ADPCM + ruta de audio + dispositivo
 .\build.ps1 audio       # demo: SLAG sintético -> build\tone.wav
+.\build\sagplay.exe --device   # el mismo tono por el altavoz (Windows)
 .\build.ps1 all         # todo lo anterior + sagdump
 ```
 
@@ -663,3 +704,202 @@ node --test tools/gexmap/test.mjs
 node tools/gexmap/cli.mjs check
 node tools/gexmap/cli.mjs segments
 ```
+
+## 16. Backend de dispositivo y programación del bombeo (I-2b)
+
+Hasta I-2 el port producía PCM correcto pero no sonaba: el *backend* era la
+captura en memoria de las pruebas y el WAV de la demo. I-2b cierra las dos
+piezas que faltaban —un *sink* que habla con el dispositivo y algo que llame a
+la bomba a tiempo— sin tocar el decodificador ni la bomba.
+
+### 16.1 Backend elegido: DirectSound
+
+`gex_audio_dsound` (`port/include/gex/audio/backend_dsound.h`,
+`port/src/audio/backend_dsound.c`) recrea el objeto que el original maneja:
+
+| Original | Port |
+| --- | --- |
+| `DirectSoundCreate` + `SetCooperativeLevel` (`0x00538551`) | `gex_audio_dsound_open` |
+| `CreateSoundBuffer(0x8000, 0xE0, fmt)` (`0x005387f1`) | `gex_audio_dsound_open` (`DSBUFFERDESC`) |
+| `Lock`/`Unlock` de la mitad `[0x57C37C]` (`0x0053812f..0x0053827e`) | `submit` |
+| `Play(0,0,DSBPLAY_LOOPING)` (`0x0053884c`) | `submit` la primera vez |
+| `GetCurrentPosition` (`+0x10`) | `cursor` |
+| `Stop` (`0x00538251`) | `stop` |
+| `Restore` tras `DSERR_BUFFERLOST` (`0x00538040`) | `submit` |
+| `SetVolume(level*30-3000)` (`0x0053886c`) | `gex_audio_dsound_set_volume` |
+
+**Por qué DirectSound y no SDL/WASAPI:**
+
+1. **Es la API del original.** El cursor, el *wrap* del `DSBPLAY_LOOPING` y la
+   regla de «no sobrescribir la mitad que suena» se conservan 1:1 en vez de
+   re-derivarlos sobre otro transporte. Un backend distinto obligaría a
+   reconstruir la semántica de posición y a demostrar que coincide.
+2. **Cero dependencias nuevas.** `dsound.h` viene con el toolchain
+   (MinGW-w64/llvm-mingw) y `dsound.dll` con Windows; el enlace es `-ldsound`.
+   No se descarga ni se vendoriza nada.
+3. **SDL no está disponible aquí.** En la máquina de desarrollo no existen
+   `sdl2-config` ni `sdl3-config`, no hay `SDL.h` en el toolchain ni
+   `pkg-config`. Adoptar SDL habría significado traer código de terceros,
+   revisar su licencia y convertirlo en dependencia obligatoria del build para
+   un solo *sink*. Se descarta, y queda como opción documentada para Linux.
+
+**Formato:** mono PCM 16 bits a la frecuencia que declara el `.sag` (la misma
+restricción que ya imponía `gex_audio_stream_open`). Cualquier otro formato se
+rechaza con `GEX_AUDIO_DEVICE_BAD_FORMAT` antes de crear el dispositivo.
+
+**Cola acotada por construcción:** el buffer es fijo de `0x8000` bytes, igual
+que el original. Si el bombeo llega tarde, el *gate* rechaza sobrescribir la
+mitad que suena y el dispositivo repite la mitad anterior; la cola no crece.
+No hay hilo ni *callback* de audio: `submit` corre en el hilo del llamante, que
+es el mismo que llama a la bomba (el original hace lo mismo desde el frame
+loop), así que el dispositivo nunca ejecuta trabajo de decodificación.
+
+### 16.2 Diferencias con el original (D12-D14)
+
+Están en la tabla de §11. Resumen: `DSSCL_NORMAL` con ventana de escritorio
+(D12), dos flags extra en `DSBUFFERDESC` (D13) y `stop` que resetea la posición
+en lugar de recrear el buffer (D14). Ninguna cambia el flujo de datos ni el
+resultado audible; las tres son consecuencia de que la demo no tiene ventana de
+juego y de que DirectSound en Windows 10/11 está emulado.
+
+### 16.3 Programación del bombeo: `gex_audio_sched`
+
+El original no tiene temporizador de audio: el frame loop llama a `0x005380B3`
+una vez por pasada (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`) y el reproductor
+una vez antes de `Play` (`0x00538842`). La bomba es idempotente: bloquea una
+mitad y, si el cursor sigue en ella, vuelve sin escribir
+(`0x00538108..0x0053812a`).
+
+`gex_audio_sched` (`port/include/gex/audio/sched.h`, `port/src/audio/sched.c`)
+reproduce ese contrato:
+
+```c
+gex_audio_sched sched;
+gex_audio_sched_init(&sched, &stream);
+/* una vez por frame, después de la fase de update */
+gex_audio_sched_tick(&sched);
+```
+
+- `gex_audio_sched_due(&sched)` es puro: dice si la bomba escribiría ahora,
+  aplicando el mismo test que la bomba. **No** recibe el cursor: lo lee del
+  propio *sink* (`backend.cursor`), que es la misma llamada que hace la bomba.
+  Una sola fuente de verdad evita que planificador y bomba discrepen (fue un
+  fallo real detectado por una prueba roja durante I-2b: el planificador decía
+  «toca» con un cursor que la bomba no veía, y la bomba difería).
+- `gex_audio_sched_tick(&sched)` llama a `gex_audio_stream_pump` sólo si toca,
+  mantiene `ticks`/`fills`/`deferred` y propaga el estado del backend en
+  `last_status`. Un error del backend **no** cierra el flujo por sí solo: el
+  llamante decide.
+- Llamar de más es inocuo (sólo cuenta un `deferred`). Llamar de menos de una
+  vez por mitad (8 192 muestras, ≈0,37 s a 22 050 Hz) hace que el dispositivo
+  repita la mitad anterior, exactamente como el original.
+- Sin `cursor` (WAV, captura en memoria) el planificador drena a su ritmo:
+  `due` es siempre cierto mientras haya flujo.
+- `gex_audio_sched_pause`/`_resume` paran y reanudan el bombeo y, si el *sink*
+  los implementa, congelan/reanudan el dispositivo en su posición. Son
+  idempotentes: dos `pause` seguidos no llaman dos veces al backend.
+
+**Punto de integración con I-3/I-4:** una única llamada
+`gex_audio_sched_tick(&sched)` por frame, **después** de la fase de update y
+antes del swap (el orden medido en `docs/FRAME_STEP_TRACE.md`). El planificador
+no necesita reloj propio ni hilo: si el frame dura más de ≈0,37 s, el *gate*
+simplemente difiere y el sonido repite la mitad anterior, que es el
+comportamiento del original bajo carga. `sched.finished` avisa de que el flujo
+terminó para que el frame loop libere el stream.
+
+### 16.4 Volumen
+
+`gex_audio_dsound_set_volume(dev, level, &applied)` aplica
+`level * 30 - 3000` dB, la fórmula de `0x0053886c` (`level` 0..100, 100 = 0 dB
+= máximo). El «clamp» posterior del original (`0x0053888b`/`0x00538891`) son dos
+auto-asignaciones: código muerto, no se replica. `applied` devuelve el valor
+enviado al dispositivo para que la prueba pueda comprobarlo.
+
+### 16.5 Pruebas
+
+| Suite | Qué prueba | Resultado |
+| --- | --- | --- |
+| `test_audio` | planificador: ciclo completo, `gate`, `deferred`, pausa/reanudación, error del backend, argumentos | **215 checks, 0 fallos** |
+| `test_device` | dispositivo real: apertura, formatos, contenido de la mitad leída por `Lock`, avance del cursor, `gate` con cursor congelado, pausa/reanudación, volumen, `Stop`, reinicio | **50 checks, 0 fallos** |
+| `test_adpcm` / `test_sag` | sin cambios | 60 052 / 69 305, 0 fallos |
+
+`test_device` se **auto-omite** si no hay dispositivo (`device: no DirectSound
+device on this machine; skipped`, salida 0), de modo que la batería se puede
+ejecutar en cualquier máquina.
+
+Evidencia medida en esta máquina (Windows 11, DirectSound emulado, clang
+22.1.8):
+
+```text
+device: cursor after pause = 0 bytes
+device: cursor moved 8446 bytes in 219 ms (expected ~9657)
+device checks: 50, 0 failures
+```
+
+El cursor avanza a ≈44 100 B/s (22 050 Hz × 2 B) con una tolerancia de un
+tercio, lo que demuestra que el dispositivo consume el PCM que produce el port.
+La prueba además lee la mitad escrita con `IDirectSoundBuffer::Lock` y la
+compara muestra a muestra con `gex_adpcm_decode`, así que el contenido que llega
+al hardware es exactamente el decodificado.
+
+### 16.6 Qué es hardware y qué es simulado
+
+- **Hardware real:** `test_device` y `sagplay --device` abren un dispositivo
+  DirectSound de verdad y le entregan buffers; el cursor medido es del
+  dispositivo. En esta máquina: `CreateSoundBuffer` con los flags de D13
+  devuelve `DS_OK`, `Lock` por mitades da `b1 = 16384`, `b2 = 0`, y el cursor
+  avanza a la frecuencia del flujo.
+- **Simulado / sin hardware:** `test_audio` (captura en memoria) y
+  `build/tone.wav` (fichero). Verifican la lógica, no el altavoz.
+- **No verificado:** que una persona **oiga** el tono. El agente no tiene oídos
+  ni acceso a la salida de audio; lo único objetivable es que el dispositivo
+  aceptó los buffers y que su cursor avanza. La confirmación auditiva queda para
+  el mantenedor con `sagplay --device`.
+- **Sin `.sag` reales:** todo se valida con fixtures sintéticos. Las tablas
+  ADPCM siguen siendo **HIPÓTESIS** para la imagen de referencia (§9.4).
+
+### 16.7 Cómo oírlo
+
+```powershell
+cd port
+.\build.ps1 audio                 # compila sagplay y escribe build\tone.wav
+.\build\sagplay.exe --device      # reproduce el tono sintético por el altavoz
+.\build\sagplay.exe --device mi.sag   # o un contenedor propio, si lo hay
+```
+
+Salida medida con el tono sintético (el `Sleep(1)` del bucle de espera hace que
+el número de *pumps* y el tiempo de pared varíen entre ejecuciones; el audio
+entregado no):
+
+```text
+source:  synthetic SLAG (440 Hz, 0.5 s, 22050 Hz, built in memory)
+payload: 5512 bytes of 4-bit ADPCM (11024 samples)
+pumps:   60 calls of 0x005380B3 (56 deferred by the gate)
+decoded: 11024 samples
+halves:  3 submitted, 24576 samples (1.115 s)
+stops:   1
+device:  DirectSound default, DSSCL_NORMAL, 22050 Hz mono 16-bit
+submits: 3 halves, 0 restores, 0 lock failures
+cursor:  16384 bytes before the stop, 390 ms wall
+note:    the PCM was handed to the device; confirm by ear
+```
+
+Los 56 `deferred` son la prueba de que el *gate* está actuando en tiempo real:
+el bucle sólo escribe cuando el cursor ha dejado la mitad. `stops: 1` es la rama
+de parada de `0x00538242`, que llega cuando la fuente está cerrada y la mitad de
+silencio ya está en el buffer; por eso el tiempo de pared (≈0,4 s) es menor que
+la duración nominal del buffer (1,115 s): el `Stop` corta la cola de silencio,
+igual que el original.
+
+### 16.8 Límites de I-2b
+
+- **Audibilidad humana:** no verificada por el agente (ver §16.6).
+- **Sólo Windows:** `backend_dsound.c` es `_WIN32`; el `Makefile` POSIX no lo
+  compila y `sagplay --device` no existe allí. `test_audio`, `test_adpcm` y
+  `test_sag` siguen siendo portables.
+- **Un solo flujo:** igual que la ruta reconstruida, no hay mezcla multi-voz
+  (§14.3). Dos `gex_audio_stream` sobre el mismo `gex_audio_dsound` se pisan.
+- **Sin `.sag` reales** ni imagen de referencia instrumentada: la equivalencia
+  con el original sigue siendo estática.
+- **Volumen:** la fórmula está implementada y probada, pero nadie conecta aún el
+  global `[0x5582F4]` del juego.

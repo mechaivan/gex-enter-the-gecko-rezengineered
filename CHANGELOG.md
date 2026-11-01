@@ -2,6 +2,62 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-01 - 0.0.0 - I-2b: audio audible (backend DirectSound) y planificador
+
+- **Backend de dispositivo: DirectSound, no SDL/WASAPI.** El original habla
+  DirectSound (`0x00538551` crea dispositivo y primario, `0x005387f1` el
+  secundario de `0x8000`, `0x005380B3` decide con `GetCurrentPosition`). Usar la
+  misma API conserva 1:1 el cursor, el *wrap* de `DSBPLAY_LOOPING` y la regla de
+  no sobrescribir la mitad que suena. No añade dependencias: `dsound.h` viene con
+  el toolchain y `dsound.dll` con Windows (`-ldsound`). SDL2/SDL3 **no está
+  instalado** en esta máquina (sin `sdl2-config`/`sdl3-config`, sin `SDL.h`, sin
+  `pkg-config`), así que adoptarlo habría supuesto vendorizar código de terceros
+  y una dependencia obligatoria para un solo *sink*. Se descarta y se documenta.
+- **Código nuevo:**
+  - `port/include/gex/audio/backend_dsound.h`, `port/src/audio/backend_dsound.c`
+    — `gex_audio_dsound`: `DirectSoundCreate` + `SetCooperativeLevel` +
+    `CreateSoundBuffer(0x8000)`; `submit` (Lock/Unlock de la mitad, `Restore` tras
+    `DSERR_BUFFERLOST`, `Play(looping)` en el primer envío), `stop`, `cursor`
+    (`GetCurrentPosition`), `pause`/`resume` y volumen `level*30 - 3000`
+    (`0x0053886c`).
+  - `port/include/gex/audio/sched.h`, `port/src/audio/sched.c` — planificador:
+    `gex_audio_sched_init/due/tick/pause/resume`, el contrato de los llamantes de
+    `0x005380B3` (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`) y del prefill
+    `0x00538842`. El tick lee el cursor del propio *sink*, la misma fuente que la
+    bomba: una sola verdad (fue un fallo real detectado por una prueba roja).
+  - `port/include/gex/audio/stream.h` — `gex_audio_backend` gana `pause`/`resume`
+    opcionales; `stop` no es lo mismo que `pause`.
+  - `port/tests/test_device.c` — 50 checks contra el dispositivo real; se
+    auto-omite (`skipped`, salida 0) si no hay tarjeta.
+  - `port/tests/test_audio.c` — 5 suites nuevas de planificador; 144 → **215**
+    checks.
+  - `port/tools/sagplay.c` — `--device`, `--help`, parseo posicional
+    `[in.sag] [out.wav]`, uso del planificador y diagnóstico
+    (`device:`/`submits:`/`cursor:`/`note:`).
+  - `port/build.ps1` / `port/Makefile` — `test_device.exe` con `-ldsound`;
+    `sagplay.exe` con `-lm -ldsound`; `sched.c` en las fuentes de audio.
+- **Desviaciones D12–D14** documentadas en `docs/AUDIO_MIXER_RE.md` §11:
+  `DSSCL_NORMAL` + ventana de escritorio en vez de `DSSCL_PRIORITY` + ventana del
+  juego; `DSBCAPS_GETCURRENTPOSITION2` y `DSBCAPS_GLOBALFOCUS` añadidos a los
+  `0xE0` originales; `stop` resetea la posición (`SetCurrentPosition(0)`) en vez
+  de recrear el buffer secundario.
+- **Evidencia en hardware (esta máquina, Windows 11, DirectSound emulado):**
+  `CreateSoundBuffer` con los flags de D13 → `DS_OK`; `Lock` por mitades →
+  `b1 = 16384`, `b2 = 0`; cursor a ≈44 100 B/s (22 050 Hz × 2 B);
+  `Stop` congela el cursor y `Play` reanuda desde ahí (13 296 → 23 000 en
+  250 ms); `test_device` 50/50; `sagplay --device` entrega 3 mitades y el *gate*
+  difiere 56 veces en una ejecución real.
+- **Qué es y qué no es:** el PCM llega a un dispositivo real y su cursor avanza a
+  la frecuencia correcta, y la mitad escrita se lee por `Lock` y coincide
+  muestra a muestra con `gex_adpcm_decode`. **No** se ha verificado la audición
+  humana: el agente no puede oír; `sagplay --device` queda para el mantenedor.
+  Sin `.sag` reales: todo con fixtures sintéticos.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** `docs/AUDIO_MIXER_RE.md` (§10.1, §10.4, §11 D12–D14, §12,
+  §13, §14.4 y nuevo **§16**), `docs/AUDIO_INIT_PATHS.md` (§10),
+  `PROJECT_STATE.md`, `ROADMAP.md` (I-2b cerrado, punto de integración I-3/I-4),
+  `TESTING.md`, `BUILD.md`, `README.md` y `port/README.md`.
+
 ## 2026-10-31 - 0.0.0 - Ruta de audio nativa: IMA ADPCM + bomba de streaming
 
 - **Corrección de nomenclatura (CONFIRMADO):** `0x005380B3` **no es un

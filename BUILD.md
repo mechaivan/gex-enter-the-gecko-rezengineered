@@ -1,34 +1,48 @@
 # BUILD — Construcción
 
-> Estado: **parcial**. El port nativo tiene un componente con build y pruebas
-> (`port/`, 2026-10-31). No hay build jugable del juego: el resto de la
-> implementación (Olas, tras Hito P) sigue pendiente.
+> Estado: **parcial**. El port nativo tiene componentes con build y pruebas
+> (`port/`, 2026-10-31 / 2026-11-01), incluido un backend de audio DirectSound
+> que habla con el dispositivo real. No hay build jugable del juego: el resto de
+> la implementación (Olas, tras Hito P) sigue pendiente.
 
 ## Port nativo (`port/`) — funcional
 
 Requisitos: un compilador C11 (`clang` o `gcc`) y Node ≥ 18 solo para generar
-el fixture de demostración. Sin SDKs, sin DirectSound, sin assets del juego.
+el fixture de demostración. Sin SDKs, sin assets del juego. En Windows el
+backend de audio usa `dsound.h` + `-ldsound`, que vienen con el toolchain
+(MinGW-w64/llvm-mingw): **no hay dependencias de terceros que descargar**.
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 69 305 + 60 052 + 144 checks y las demos
-.\build.ps1 test     # solo checks (contenedor + ADPCM + ruta de audio)
+.\build.ps1 all      # compila, ejecuta 69 305 + 60 052 + 215 + 50 checks y las demos
+.\build.ps1 test     # solo checks (contenedor + ADPCM + ruta de audio + dispositivo)
 .\build.ps1 audio    # solo la demo de audio (SLAG sintético -> build\tone.wav)
 .\build.ps1 demo     # fixture sintético + sagdump + demo de audio
 .\build.ps1 clean    # borra build\ (solo lo que genera el script)
 ```
 
+Reproducir por el altavoz (Windows, necesita dispositivo de sonido):
+
+```powershell
+cd port
+.\build\sagplay.exe --device            # tono sintético 440 Hz, 0,5 s
+.\build\sagplay.exe --device mi.sag     # un contenedor propio, si lo hay
+```
+
 En POSIX, `make test` / `make audio` / `make demo` / `make clean` (mismo
 contenido; **no ejecutado en este entorno** porque no hay `make` en este
-Windows). `make audio` enlaza con `-lm` (la demo usa `sin`).
+Windows). `make audio` enlaza con `-lm` (la demo usa `sin`). El backend
+DirectSound es sólo Windows: `Makefile` no lo compila y `sagplay --device` no
+existe en POSIX; `test_audio`, `test_adpcm` y `test_sag` siguen siendo
+portables.
 Compilador alternativo: `.\build.ps1 test -Compiler gcc`.
 
 Qué produce:
 
 | Target | Artefacto | Uso |
 | --- | --- | --- |
-| `test` | `build/test_sag.exe`, `build/test_adpcm.exe`, `build/test_audio.exe` | baterías del lector y de la ruta de audio (no se distribuyen) |
-| `audio` | `build/sagplay.exe` + `build/tone.wav` | demo: `SLAG` sintético → PCM → WAV |
+| `test` | `build/test_sag.exe`, `build/test_adpcm.exe`, `build/test_audio.exe`, `build/test_device.exe` | baterías del lector, de la ruta de audio y del dispositivo (no se distribuyen) |
+| `audio` | `build/sagplay.exe` + `build/tone.wav` | demo: `SLAG` sintético → PCM → WAV (o dispositivo con `--device`) |
 | `demo` | `build/sagdump.exe` + `build/demo.sag` + `build/sagplay.exe` | CLI de inspección, fixture sintético y demo de audio |
 
 `build/` está ignorado por Git. Estos artefactos son de desarrollo: no son

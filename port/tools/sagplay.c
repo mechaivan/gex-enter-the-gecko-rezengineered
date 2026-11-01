@@ -4,11 +4,14 @@
  *   sagplay                      build a synthetic SLAG (440 Hz, 0.5 s) in
  *                                memory, decode it and write build/tone.wav
  *   sagplay <file.sag> [out.wav] load a container, decode it, write a WAV
+ *   sagplay --device [file.sag]  decode it and play it through the real
+ *                                DirectSound device (Windows builds only)
  *
  * This is the visible check of the port's audio route: SLAG container ->
  * WAVEFORMATEX + payload -> 4-bit ADPCM decode (0x00538285) -> 0x4000-byte
- * halves -> output sink. The sink here is a WAV file, so nothing needs a sound
- * card; the same interface is what a real device backend would implement.
+ * halves -> output sink. The default sink is a WAV file, so nothing needs a
+ * sound card and the output is reproducible; --device swaps in the backend
+ * that recreates the original's IDirectSoundBuffer (backend_dsound.c).
  *
  * The synthetic path uses a small greedy ADPCM encoder written for this demo.
  * It is NOT part of the original game: the retail engine only decodes.
@@ -16,7 +19,12 @@
 
 #include "gex/asset/sag.h"
 #include "gex/audio/adpcm.h"
+#include "gex/audio/sched.h"
 #include "gex/audio/stream.h"
+
+#if defined(_WIN32)
+#include "gex/audio/backend_dsound.h"
+#endif
 
 #include <math.h>
 #include <stdio.h>
@@ -245,12 +253,51 @@ static uint8_t g_image[1 << 20];
 static uint8_t g_payload[1 << 19];
 static int16_t g_mirror[1 << 18];
 
+static void usage(const char *argv0)
+{
+    fprintf(stderr,
+            "usage: %s [--device] [in.sag] [out.wav]\n"
+            "  (no arguments)   synthetic 440 Hz tone -> build/tone.wav\n"
+            "  --device         play through DirectSound instead of a WAV\n"
+            "                   (Windows builds only; needs a sound device)\n",
+            argv0);
+}
+
 int main(int argc, char **argv)
 {
-    size_t image_size = 0;
-    const char *wav_path = argc >= 3 ? argv[2] : "build/tone.wav";
-    const char *sag_path = argc >= 2 ? argv[1] : NULL;
+    const char *sag_path = NULL;
+    const char *wav_path = NULL;
+    int use_device = 0;
 
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--device") == 0) {
+            use_device = 1;
+        } else if (strcmp(argv[i], "--help") == 0 ||
+                   strcmp(argv[i], "-h") == 0) {
+            usage(argv[0]);
+            return 0;
+        } else if (argv[i][0] == '-') {
+            fprintf(stderr, "unknown option: %s\n", argv[i]);
+            usage(argv[0]);
+            return 1;
+        } else if (sag_path == NULL) {
+            sag_path = argv[i];
+        } else if (wav_path == NULL) {
+            wav_path = argv[i];
+        } else {
+            usage(argv[0]);
+            return 1;
+        }
+    }
+    if (use_device && wav_path != NULL) {
+        fprintf(stderr, "--device writes no WAV: drop the output path\n");
+        return 1;
+    }
+    if (!use_device && wav_path == NULL) {
+        wav_path = "build/tone.wav";
+    }
+
+    size_t image_size = 0;
     if (sag_path != NULL) {
         unsigned char *loaded = NULL;
         size_t loaded_size = 0;
@@ -289,53 +336,124 @@ int main(int argc, char **argv)
     const uint32_t rate = (uint32_t)(sag.format[4] | (sag.format[5] << 8));
 
     wav_sink sink;
-    if (!wav_open(&sink, wav_path, rate)) {
-        fprintf(stderr, "%s: cannot write\n", wav_path);
-        return 1;
-    }
-    sink.mirror = g_mirror;
-    sink.mirror_capacity = sizeof(g_mirror) / sizeof(g_mirror[0]);
+    memset(&sink, 0, sizeof(sink));
 
     gex_audio_backend backend;
-    backend.ctx = &sink;
-    backend.submit = wav_submit;
-    backend.stop = wav_stop;
-    backend.cursor = NULL; /* the file sink has no play position */
+#if defined(_WIN32)
+    gex_audio_dsound device;
+    memset(&device, 0, sizeof(device));
+#endif
+
+    if (use_device) {
+#if defined(_WIN32)
+        const gex_audio_device_status dst =
+            gex_audio_dsound_open(&device, NULL, rate, 1, 16);
+        if (dst != GEX_AUDIO_DEVICE_OK) {
+            fprintf(stderr, "device: %s\n", gex_audio_device_status_name(dst));
+            return 1;
+        }
+        backend = device.backend;
+#else
+        fprintf(stderr, "--device needs the Windows DirectSound backend\n");
+        return 1;
+#endif
+    } else {
+        if (!wav_open(&sink, wav_path, rate)) {
+            fprintf(stderr, "%s: cannot write\n", wav_path);
+            return 1;
+        }
+        sink.mirror = g_mirror;
+        sink.mirror_capacity = sizeof(g_mirror) / sizeof(g_mirror[0]);
+
+        backend.ctx = &sink;
+        backend.submit = wav_submit;
+        backend.stop = wav_stop;
+        backend.cursor = NULL; /* the file sink has no play position */
+        backend.pause = NULL;
+        backend.resume = NULL;
+    }
 
     gex_audio_stream stream;
     gex_audio_status status =
         gex_audio_stream_open(&stream, &sag, g_image, image_size, backend);
     if (status != GEX_AUDIO_OK) {
         fprintf(stderr, "open failed: %s\n", gex_audio_status_name(status));
-        wav_close(&sink);
+        if (!use_device) {
+            wav_close(&sink);
+        }
+#if defined(_WIN32)
+        if (use_device) {
+            gex_audio_dsound_close(&device);
+        }
+#endif
         return 1;
     }
 
     status = gex_audio_stream_play(&stream);
     if (status != GEX_AUDIO_OK) {
         fprintf(stderr, "play failed: %s\n", gex_audio_status_name(status));
-        wav_close(&sink);
+        if (!use_device) {
+            wav_close(&sink);
+        }
+        gex_audio_stream_close(&stream);
+#if defined(_WIN32)
+        if (use_device) {
+            gex_audio_dsound_close(&device);
+        }
+#endif
         return 1;
     }
 
-    unsigned pumps = 1;
-    while (!stream.finished && pumps < 100000u) {
-        status = gex_audio_stream_pump(&stream);
-        if (status != GEX_AUDIO_OK) {
-            fprintf(stderr, "pump failed: %s\n", gex_audio_status_name(status));
-            break;
+    gex_audio_sched sched;
+    gex_audio_sched_init(&sched, &stream);
+
+#if defined(_WIN32)
+    unsigned long wall_ms = 0;
+    uint32_t final_cursor = 0;
+#endif
+
+    if (use_device) {
+#if defined(_WIN32)
+        /* Frame-loop contract: tick, and sleep only when the gate is closed.
+         * The device plays while we wait, so this runs in real time. */
+        const DWORD started = GetTickCount();
+        while (!sched.finished && wall_ms < 30000ul) {
+            const uint64_t deferred = sched.deferred;
+            final_cursor = device.backend.cursor(device.backend.ctx);
+            status = gex_audio_sched_tick(&sched);
+            if (status != GEX_AUDIO_OK) {
+                fprintf(stderr, "pump failed: %s\n",
+                        gex_audio_status_name(status));
+                break;
+            }
+            if (sched.deferred != deferred) {
+                Sleep(1);
+            }
+            wall_ms = (unsigned long)(GetTickCount() - started);
         }
-        pumps++;
+#endif
+    } else {
+        unsigned guard = 0;
+        while (!sched.finished && guard++ < 100000u) {
+            status = gex_audio_sched_tick(&sched);
+            if (status != GEX_AUDIO_OK) {
+                fprintf(stderr, "pump failed: %s\n",
+                        gex_audio_status_name(status));
+                break;
+            }
+        }
     }
 
-    const int wav_ok = wav_close(&sink);
+    const int wav_ok = use_device ? 1 : wav_close(&sink);
 
     printf("file:    %s\n", sag_path != NULL ? sag_path : "(in memory)");
     printf("bytes:   %zu\n", image_size);
     printf("format:  PCM mono %u Hz, 16-bit (declared by \"fmt \")\n", rate);
     printf("payload: %u bytes of 4-bit ADPCM (%u samples)\n", sag.data_size,
            sag.data_size * 2u);
-    printf("pumps:   %u calls of 0x005380B3\n", pumps);
+    printf("pumps:   %llu calls of 0x005380B3 (%llu deferred by the gate)\n",
+           (unsigned long long)(sched.ticks + 1u),
+           (unsigned long long)sched.deferred);
     printf("chunks:  %llu read, %llu short\n",
            (unsigned long long)stream.chunks,
            (unsigned long long)stream.short_chunks);
@@ -345,11 +463,30 @@ int main(int argc, char **argv)
            (unsigned long long)stream.buffer.samples_submitted,
            rate ? (double)stream.buffer.samples_submitted / (double)rate : 0.0);
     printf("stops:   %u\n", stream.buffer.stops);
-    printf("pcm:     peak=%zu fnv1a=0x%08X over %zu delivered samples\n",
-           sink.peak, fnv1a(g_mirror, sink.mirror_count), sink.mirror_count);
-    printf("wav:     %s (%s, %llu samples)\n", wav_path,
-           wav_ok ? "written" : "FAILED", (unsigned long long)sink.samples);
+    if (use_device) {
+#if defined(_WIN32)
+        printf("device:  DirectSound default, DSSCL_NORMAL, %u Hz mono 16-bit\n",
+               rate);
+        printf("submits: %llu halves, %llu restores, %llu lock failures\n",
+               (unsigned long long)device.submits,
+               (unsigned long long)device.restores,
+               (unsigned long long)device.lock_failures);
+        printf("cursor:  %u bytes before the stop, %lu ms wall\n", final_cursor,
+               wall_ms);
+        printf("note:    the PCM was handed to the device; confirm by ear\n");
+#endif
+    } else {
+        printf("pcm:     peak=%zu fnv1a=0x%08X over %zu delivered samples\n",
+               sink.peak, fnv1a(g_mirror, sink.mirror_count), sink.mirror_count);
+        printf("wav:     %s (%s, %llu samples)\n", wav_path,
+               wav_ok ? "written" : "FAILED", (unsigned long long)sink.samples);
+    }
 
     gex_audio_stream_close(&stream);
+#if defined(_WIN32)
+    if (use_device) {
+        gex_audio_dsound_close(&device);
+    }
+#endif
     return (status == GEX_AUDIO_OK && wav_ok) ? 0 : 1;
 }
