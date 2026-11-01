@@ -50,6 +50,10 @@ $audioSrc = @(
     (Join-Path $PSScriptRoot 'src/audio/sched.c')
 )
 $deviceSrc = @((Join-Path $PSScriptRoot 'src/audio/backend_dsound.c'))
+$coreSrc = @(
+    (Join-Path $PSScriptRoot 'src/core/loop_core.c'),
+    (Join-Path $PSScriptRoot 'src/core/frame.c')
+)
 
 function Build-Exe([string]$source, [string]$name, [string[]]$sources = @(), [string[]]$flags = @()) {
     $out = Join-Path $buildDir $name
@@ -78,6 +82,7 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
 }
 
@@ -88,6 +93,14 @@ if ($Target -in @('demo', 'all')) {
     if ($LASTEXITCODE -ne 0) { throw 'fixture generation failed' }
     & $exe $fixture
     if ($LASTEXITCODE -ne 0) { throw "sagdump failed (exit $LASTEXITCODE)" }
+}
+
+if ($Target -in @('demo', 'all')) {
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/framedemo.c') 'framedemo.exe' ($coreSrc + $audioSrc)
+    & $exe --frames 4
+    if ($LASTEXITCODE -ne 0) { throw "framedemo failed (exit $LASTEXITCODE)" }
+    & $exe --decoupled --frames 3 --dt 60000 --audio
+    if ($LASTEXITCODE -ne 0) { throw "framedemo --decoupled failed (exit $LASTEXITCODE)" }
 }
 
 if ($Target -in @('audio', 'demo', 'all')) {

@@ -349,3 +349,20 @@ El siguiente objetivo de esa lista —«resolver la rama
 `0x00538FD5`/`0x00538CB0`»— se cerró después en estático, sin instrumentación,
 porque la imagen de referencia dejó de estar disponible. Ver
 `docs/AUDIO_INIT_PATHS.md`.
+
+## 7. Del original al port (I-3)
+
+El frame loop nativo (`port/src/core/frame.c`) reproduce la **secuencia** de
+esta traza, no su contenido:
+
+- `pre_frame` ← `0x0043F80D`;
+- `update` × N ← `0x0043E1BA`, con N del acumulador de paso fijo;
+- `gex_audio_sched_tick()` ← `0x005380B3`, una vez por frame presentado;
+- `present` ← `0x0043DC3A` + drenaje `0x0054053E` + swap `0x005404F6`, todavía
+  como callback de prueba.
+
+`0x0046300C` no se modela porque su semántica sigue sin identificar. El
+periodo de 40 ms se conserva como **presentación** en el preset Original 1:1,
+pero el paso lógico del modo desacoplado es 16,667 ms (60 Hz), la cuantía del
+sello del update (§3.3): no se confunden los dos relojes. Detalle, pruebas y
+discrepancias F1–F6 en `docs/FRAME_LOOP_PORT.md`.

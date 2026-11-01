@@ -1525,11 +1525,72 @@ un solo flujo (sin mezcla multi-voz); sin `.sag` reales; las tablas ADPCM siguen
 siendo HIPÓTESIS para la imagen de referencia. Detalle en
 `docs/AUDIO_MIXER_RE.md` §16.
 
+## Frame loop nativo (I-3, 2026-11-01, sin el juego)
+
+Primera prueba del **bucle** del port: reloj inyectado, acumulador de paso
+fijo, orden de fases y planificador de audio. No hay ventana, entrada ni
+renderer; `pre_frame`, `update` y `present` son stubs que graban llamadas.
+
+```powershell
+cd port
+.\build.ps1 test                  # incluye test_frame
+.\build\framedemo.exe --frames 4
+.\build\framedemo.exe --decoupled --frames 3 --dt 60000 --audio
+```
+
+```powershell
+cd tools\m13-core
+clang -std=c11 -Wall -Wextra -Wpedantic -O2 -I..\..\port\include `
+    -o ..\..\port\build\test_m13_core.exe test_m13_core.c `
+    ..\..\port\src\core\loop_core.c
+..\..\port\build\test_m13_core.exe
+```
+
+Salida medida (Windows 11, clang 22.1.8, `-std=c11 -O2 -Wall -Wextra
+-Wpedantic`, sin avisos):
+
+```text
+365 checks, 0 failures
+120 checks, 0 failures
+```
+
+`framedemo --frames 4` (Original 1:1, 40 ms por pasada):
+
+```text
+frame  0: now=   40000 us  steps=1  present
+frame  3: now=  160000 us  steps=1  present
+totals:  frames=4 steps=4 presents=4 audio_ticks=0 discards=0 aborted=0 backwards=0
+```
+
+`framedemo --decoupled --frames 3 --dt 60000 --audio` (catch-up + scheduler):
+
+```text
+frame  0: now=   60000 us  steps=3  present
+frame  1: now=  120000 us  steps=4  present
+frame  2: now=  180000 us  steps=3  present
+totals:  frames=3 steps=10 presents=3 audio_ticks=3 discards=0 aborted=0 backwards=0
+audio:   3 halves submitted, 0 stops, finished=0
+```
+
+`test_frame` comprueba: orden exacto `pre → update → audio → present`; un
+update y un present en Original 1:1; varias actualizaciones con un solo present
+y **un solo tick** de audio en catch-up; que el tick ya ocurrió cuando corre
+`present`; que un error de pre-frame/update/audio no llega a fases posteriores;
+clamp de 250 ms; tope de 5 pasos y contador de descartes; reloj invertido;
+pausa/reanudación sin ráfaga de recuperación; cierre idempotente y
+reinicialización; e independencia de la tasa lógica respecto a la cadencia de
+presentación (400 ms a 25 Hz y a 200 Hz ⇒ 23 pasos en ambos).
+
+**Límite honesto:** esto prueba el bucle, no el juego. No hay lógica del juego,
+renderer ni reloj real; las tres fases son callbacks. Detalle y discrepancias
+F1–F6 en `docs/FRAME_LOOP_PORT.md`.
+
 ## Batería completa (regresión)
 
 ```powershell
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 50 checks, 0 fallos
+cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 365 + 50 checks, 0 fallos
+cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 ```

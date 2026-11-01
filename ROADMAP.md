@@ -134,21 +134,31 @@ mods/parches.
   `docs/AUDIO_MIXER_RE.md` §16. **Límite:** la audición humana no la verifica
   el agente; `sagplay --device` queda para el mantenedor. El *gate* del cursor
   se respeta (56 diferimientos medidos en una ejecución real).
-- [ ] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo ya
-  está prototipado en `tools/m13-core`; falta conectarlo al orden de frame
-  medido en `docs/FRAME_STEP_TRACE.md` (pre-update → update + sello → swap) y
-  probarlo con reloj inyectado. Criterio: la secuencia de llamadas por frame
-  coincide con la traza, sin render.
+- [x] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo se
+  movió de `tools/m13-core` al port (`port/src/core/loop_core.c`, una sola
+  implementación; el harness del prototipo compila esa fuente y conserva sus
+  120 checks) y `port/src/core/frame.c` implementa `gex_frame_run()` con el
+  orden medido `pre_frame → update × N → gex_audio_sched_tick → present`, reloj
+  inyectado, catch-up acotado (5 pasos, clamp 250 ms), descartes
+  contabilizados, reloj invertido recuperado, pausa/reanudación y política de
+  errores explícita. Preset Original 1:1 (40000 µs, un update por present) y
+  preset desacoplado (16667 µs = 60 Hz, la cuantía del sello `16.666` del
+  update). Pruebas: `test_frame` 365 checks + `framedemo`; sin ventana, entrada
+  ni render (los tres callbacks son stubs). Doc: `docs/FRAME_LOOP_PORT.md`.
 - [ ] **I-4 — Ventana + entrada + renderer nulo.** Abrir ventana, leer teclado
   y ejecutar el frame step con un renderer que no dibuja (`0x0043E719` es el
   candidato de entrada). Criterio: proceso que corre, responde a teclas y no
   crashea; es el primer «prototipo ejecutable» aunque no muestre el juego.
+  Hereda de I-3 el punto exacto de conexión: el hook `present` de
+  `gex_frame` y un proveedor de reloj real para `now_us`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
-(backend DirectSound + planificador, 2026-11-01); I-3 e I-4 son los requisitos
-mínimos de cualquier bucle jugable y no dependen de assets. La llamada
-`gex_audio_sched_tick(&sched)` una vez por frame, tras el update, es el punto de
-integración que I-3/I-4 deben insertar.
+(backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
+al primer bucle temporal nativo (2026-11-01); I-4 es el requisito mínimo de
+cualquier bucle jugable y no depende de assets. La llamada
+`gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez por frame
+presentado y tras el update (`port/src/core/frame.c`); I-4 solo tiene que
+rellenar los hooks `pre_frame`/`update`/`present` y leer el reloj real.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

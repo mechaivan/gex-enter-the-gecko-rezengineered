@@ -19,6 +19,8 @@ SAG_HDR   := include/gex/asset/sag.h
 AUDIO_SRC := src/audio/adpcm.c src/audio/stream.c src/audio/sched.c
 AUDIO_HDR := include/gex/audio/adpcm.h include/gex/audio/stream.h \
              include/gex/audio/sched.h
+CORE_SRC  := src/core/loop_core.c src/core/frame.c
+CORE_HDR  := include/gex/core/loop_core.h include/gex/core/frame.h
 
 .PHONY: all test demo audio clean
 
@@ -39,17 +41,26 @@ $(BUILD)/test_audio: tests/test_audio.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(S
 $(BUILD)/sagdump: tools/sagdump.c $(SAG_SRC) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagdump.c $(SAG_SRC)
 
+$(BUILD)/test_frame: tests/test_frame.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(CORE_HDR) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_frame.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC)
+
+$(BUILD)/framedemo: tools/framedemo.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(CORE_HDR) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tools/framedemo.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
+
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_adpcm $(BUILD)/test_audio
+test: $(BUILD)/test_sag $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame
 	./$(BUILD)/test_sag
 	./$(BUILD)/test_adpcm
 	./$(BUILD)/test_audio
+	./$(BUILD)/test_frame
 
-demo: $(BUILD)/sagdump $(BUILD)/sagplay
+demo: $(BUILD)/sagdump $(BUILD)/sagplay $(BUILD)/framedemo
 	node tests/make_demo_sag.mjs $(BUILD)/demo.sag
 	./$(BUILD)/sagdump $(BUILD)/demo.sag
+	./$(BUILD)/framedemo --frames 4
+	./$(BUILD)/framedemo --decoupled --frames 3 --dt 60000 --audio
 	./$(BUILD)/sagplay
 
 audio: $(BUILD)/sagplay

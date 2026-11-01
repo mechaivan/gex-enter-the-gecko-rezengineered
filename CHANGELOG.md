@@ -2,6 +2,61 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-01 - 0.0.0 - I-3: núcleo temporal y frame loop nativo integrado
+
+- **El acumulador M-13 se mueve al port, sin copia divergente.** `m13_core.c`
+  pasa a `port/src/core/loop_core.c` (misma semántica, prefijo `gex_loop_core_`)
+  y `tools/m13-core/m13_core.h` queda como shim que traduce `m13_*` a
+  `gex_loop_core_*`. `test_m13_core.c` **no se toca**: sus 120 checks ahora
+  compilan y prueban la fuente del port. Se añade `gex_loop_core_rebase()` para
+  reanclar el reloj tras una pausa.
+- **Frame loop nativo (`port/src/core/frame.c`, `gex/core/frame.h`).**
+  `gex_frame_run(now_us)` reproduce el orden medido en
+  `docs/FRAME_STEP_TRACE.md`: `pre_frame` (`0x0043F80D`) → `update` × N
+  (`0x0043E1BA`) → `gex_audio_sched_tick()` (`0x005380B3`) → `present`
+  (`0x0043DC3A` + drenaje `0x0054053E` + swap `0x005404F6`). El tick de audio
+  va **dentro** de la fase de presentación: una pasada con 3 updates de
+  recuperación hace un solo tick, como el original.
+- **Tiempo:** preset Original 1:1 (`step_us = 40000`, `original_mode = 1`,
+  un update por present, sin acarreo) y preset desacoplado (`step_us = 16667`
+  = 60 Hz, la cuantía del sello `16.666` que el update ya usa). No se elige
+  40 ms como paso lógico: 40 ms es el periodo de **presentación** (swap
+  bloqueante). El valor definitivo de `STEP` sigue pendiente de E-2.
+- **Política explícita:** clamp de 250 ms antes del acumulador, catch-up
+  máximo de 5 pasos con descarte contabilizado, reloj invertido ignorado y
+  presentado una vez (`GEX_FRAME_WARN_CLOCK`), pausa que congela todas las
+  fases y reanuda reanclando el reloj, y errores de callback/audio que abortan
+  el frame sin ejecutar fases posteriores, vaciando el acumulador para no
+  repetir el paso fallido. El frame loop no abre, cierra ni reinicia recursos
+  que no posee.
+- **Código nuevo:** `port/include/gex/core/loop_core.h`,
+  `port/src/core/loop_core.c`, `port/include/gex/core/frame.h`,
+  `port/src/core/frame.c`, `port/tests/test_frame.c` (365 checks),
+  `port/tools/framedemo.c` (demo con reloj guionizado). `port/build.ps1` y
+  `port/Makefile` ganan `test_frame` y `framedemo`; el `Makefile` de
+  `tools/m13-core` compila el núcleo del port.
+- **Resultados medidos (Windows 11, clang 22.1.8, `-Wall -Wextra -Wpedantic`,
+  sin avisos):** `build.ps1 all` → 69 305 + 60 052 + 215 + **365** + 50 checks,
+  0 fallos; `tools/m13-core` → 120 checks, 0 fallos; `node --test
+  tools/gexmap/test.mjs` 22/22; `cli.mjs check` y `segments` OK. `framedemo`
+  original: 4 frames → 4 pasos, 4 presents; desacoplado con `--dt 60000`:
+  3 presents → 10 pasos (3, 4, 3), 3 ticks de audio.
+- **Qué es y qué no es:** el reloj, el acumulador, el orden de fases, el
+  planificador de audio, el catch-up y el ciclo de vida son reales.
+  `pre_frame`, `update` y `present` son callbacks de prueba: **no** hay lógica
+  del juego, ventana, entrada, renderer ni lectura de reloj real. No se afirma
+  que el juego original se ejecute.
+- **Discrepancias F1–F6** documentadas en `docs/FRAME_LOOP_PORT.md` §11: el
+  drenaje en bucle y el swap bloqueante no se modelan; `0x0046300C` no se
+  modela por falta de semántica; el sello temporal del update no se implementa;
+  el modo desacoplado diverge a propósito del original *present-bound*; el
+  manejo de errores de audio y la pausa son política del port.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** `docs/FRAME_LOOP_PORT.md` (nuevo), `docs/FRAME_STEP_TRACE.md`
+  (§7), `docs/M13_DECOUPLE_PROPOSAL.md` (§4), `PROJECT_STATE.md`, `ROADMAP.md`
+  (I-3 cerrado), `TESTING.md`, `BUILD.md`, `README.md`, `port/README.md` y
+  `tools/m13-core/README.md`.
+
 ## 2026-11-01 - 0.0.0 - I-2b: audio audible (backend DirectSound) y planificador
 
 - **Backend de dispositivo: DirectSound, no SDL/WASAPI.** El original habla

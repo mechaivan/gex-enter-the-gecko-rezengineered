@@ -121,10 +121,13 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 `port/` es código nuevo del port: implementación propia escrita a partir de la
 evidencia documentada, nunca binario ni assets del juego. Hoy contiene el lector
 del contenedor de audio `SLAG`, la ruta de audio completa —decodificador IMA
-ADPCM, bomba de streaming y reproductor con backend inyectable— y, desde I-2b,
-un backend DirectSound que hace sonar esa ruta en el dispositivo real más el
-planificador que la bombea desde el frame; ver
-[port/README.md](port/README.md).
+ADPCM, bomba de streaming y reproductor con backend inyectable—, desde I-2b un
+backend DirectSound que hace sonar esa ruta en el dispositivo real más el
+planificador que la bombea desde el frame y, desde I-3, el primer frame loop
+nativo: acumulador de paso fijo, orden de fases medido y reloj inyectado, con
+las fases de entrada, update y presentación todavía como callbacks de prueba.
+Ver [port/README.md](port/README.md) y
+[docs/FRAME_LOOP_PORT.md](docs/FRAME_LOOP_PORT.md).
 
 El repositorio contiene **únicamente** código propio, herramientas propias,
 documentación y material legalmente distribuible. Los archivos originales del

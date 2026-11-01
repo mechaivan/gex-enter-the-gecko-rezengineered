@@ -671,8 +671,8 @@ wav:     build/tone.wav (written, 24576 samples)
    Sigue abierto un backend para otras plataformas (ALSA/PipeWire/SDL): basta
    con implementar `submit`/`stop`/`cursor`/`pause`/`resume`.
 2. ~~**Hilo o temporizador de bombeo**~~ → hecho en I-2b: `gex_audio_sched`
-   (§16.3) reproduce el contrato del frame loop. Falta conectarlo al frame de
-   I-3/I-4 (§16.7).
+   (§16.3) reproduce el contrato del frame loop. Conectado al frame en I-3:
+   `port/src/core/frame.c` llama al tick una vez por frame presentado (§16.3).
 3. **Localizar los `.sag`** en los datos del juego y el camino que los nombra
    (`0x00537ED1` construye rutas `…\audio\voiceuk\%s.sag`), para poder probar
    con audio real.
@@ -799,13 +799,19 @@ gex_audio_sched_tick(&sched);
   los implementa, congelan/reanudan el dispositivo en su posición. Son
   idempotentes: dos `pause` seguidos no llaman dos veces al backend.
 
-**Punto de integración con I-3/I-4:** una única llamada
+**Punto de integración con el frame loop:** una única llamada
 `gex_audio_sched_tick(&sched)` por frame, **después** de la fase de update y
 antes del swap (el orden medido en `docs/FRAME_STEP_TRACE.md`). El planificador
 no necesita reloj propio ni hilo: si el frame dura más de ≈0,37 s, el *gate*
 simplemente difiere y el sonido repite la mitad anterior, que es el
 comportamiento del original bajo carga. `sched.finished` avisa de que el flujo
 terminó para que el frame loop libere el stream.
+
+**Estado I-3 (2026-11-01):** ese punto ya está insertado y probado. Es
+`port/src/core/frame.c`, dentro de la fase de presentación del frame loop
+(`docs/FRAME_LOOP_PORT.md` §5): una llamada por frame presentado, nunca por
+paso lógico de recuperación, y ninguna llamada si el frame aborta antes. El
+frame loop no cierra el stream: lo libera quien lo abrió.
 
 ### 16.4 Volumen
 
