@@ -140,8 +140,8 @@ mods/parches.
   120 checks) y `port/src/core/frame.c` implementa `gex_frame_run()` con el
   orden medido `pre_frame → update × N → gex_audio_sched_tick → present`, reloj
   inyectado, catch-up acotado (5 pasos, clamp 250 ms), descartes
-  contabilizados, reloj invertido recuperado, pausa/reanudación y política de
-  errores explícita. Preset Original 1:1 (40000 µs, un update por present) y
+  contabilizados, reloj invertido recuperado, pausas/reanudación y política de
+  errores explícita (incluida corrección: los errores de pre_frame limpian acumulador y reanclan reloj). Preset Original 1:1 (40000 µs, un update por present) y
   preset desacoplado (16667 µs = 60 Hz, la cuantía del sello `16.666` del
   update). Pruebas: `test_frame` 365 checks + `framedemo`; sin ventana, entrada
   ni render (los tres callbacks son stubs). Doc: `docs/FRAME_LOOP_PORT.md`.

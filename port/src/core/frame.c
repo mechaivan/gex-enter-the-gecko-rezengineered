@@ -128,6 +128,9 @@ gex_frame_status gex_frame_run(gex_frame *f, uint64_t now_us)
         if (f->hooks.pre_frame(f->hooks.ctx, &f->tick) != 0) {
             f->aborted++;
             f->last_status = GEX_FRAME_ERR_PRE_FRAME;
+            /* Clean accumulator and re-anchor clock like other errors. */
+            f->core.acc_us = 0;
+            f->core.t_prev_us = now_us;
             return f->last_status;
         }
     }

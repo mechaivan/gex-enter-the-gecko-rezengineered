@@ -52,8 +52,7 @@
 > 2026-11-01 (I-3): existe un **frame loop nativo** ejecutable. El acumulador
 > M-13 se movió al port (una sola implementación) y `gex_frame_run()` reproduce
 > el orden medido `pre-frame → update × N → planificador de audio → present`,
-> con reloj inyectado, catch-up acotado, descartes contabilizados, pausa y
-> política de errores. Las tres fases siguen siendo callbacks: no hay ventana,
+> con reloj inyectado, catch-up acotado, descartes contabilizados, pausas/reanudación y política de errores explícita (incluida corrección: los errores de pre-frame limpian acumulador y reanclan reloj). Las tres fases siguen siendo callbacks: no hay ventana,
 > entrada ni renderer. 365 checks + demo `framedemo`; `docs/FRAME_LOOP_PORT.md`.
 
 ## Vía de implementación nativa (abierta 2026-10-31)
