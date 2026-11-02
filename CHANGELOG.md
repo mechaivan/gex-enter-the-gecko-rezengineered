@@ -31,12 +31,12 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   que no posee.
 - **Código nuevo:** `port/include/gex/core/loop_core.h`,
   `port/src/core/loop_core.c`, `port/include/gex/core/frame.h`,
-  `port/src/core/frame.c`, `port/tests/test_frame.c` (365 checks),
+  `port/src/core/frame.c`, `port/tests/test_frame.c` (410 checks),
   `port/tools/framedemo.c` (demo con reloj guionizado). `port/build.ps1` y
   `port/Makefile` ganan `test_frame` y `framedemo`; el `Makefile` de
   `tools/m13-core` compila el núcleo del port.
 - **Resultados medidos (Windows 11, clang 22.1.8, `-Wall -Wextra -Wpedantic`,
-  sin avisos):** `build.ps1 all` → 69 305 + 60 052 + 215 + **365** + 50 checks,
+  sin avisos):** `build.ps1 all` → 69 305 + 60 052 + 215 + **410** + 50 checks,
   0 fallos; `tools/m13-core` → 120 checks, 0 fallos; `node --test
   tools/gexmap/test.mjs` 22/22; `cli.mjs check` y `segments` OK. `framedemo`
   original: 4 frames → 4 pasos, 4 presents; desacoplado con `--dt 60000`:
@@ -46,6 +46,14 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   `pre_frame`, `update` y `present` son callbacks de prueba: **no** hay lógica
   del juego, ventana, entrada, renderer ni lectura de reloj real. No se afirma
   que el juego original se ejecute.
+- **Regresión de `pre_frame` (2026-11-02):** T6b fija que el error deja
+  `core.acc_us = 0` y `core.t_prev_us = now_us`, y que el frame siguiente no
+  recupera el tiempo anterior: 15 ms acumulados → fallo en 20 000 µs → 0
+  updates a 32 000 µs (12 ms desde el nuevo ancla) → 1 update a 48 667 µs.
+  Verificado por mutación: quitar cualquiera de las dos líneas del fix produce
+  11 fallos cada una. No hay GCC de GNU en la máquina (`gcc.exe` es un driver
+  de Clang 22.1.8 con el mismo target); el harness `tools/m13-core` se compiló
+  a mano con los flags de su Makefile: 120 checks, 0 fallos.
 - **Discrepancias F1–F6** documentadas en `docs/FRAME_LOOP_PORT.md` §11: el
   drenaje en bucle y el swap bloqueante no se modelan; `0x0046300C` no se
   modela por falta de semántica; el sello temporal del update no se implementa;

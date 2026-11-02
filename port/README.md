@@ -16,8 +16,8 @@ dispositivo de sonido real:
 | Bomba de streaming + reproductor | `0x005380B3`, `0x00538731` | `gex/audio/stream.h` | funcional, 215 checks |
 | Planificador del bombeo (frame loop) | llamantes `0x00463205`, `0x0053A5FB`, `0x0053FCB7` | `gex/audio/sched.h` | funcional |
 | Backend DirectSound (dispositivo) | `0x00538551`, `CreateSoundBuffer(0x8000, 0xE0)`, `GetCurrentPosition`, `0x0053886c` | `gex/audio/backend_dsound.h` | funcional (Windows), 50 checks |
-| Núcleo temporal (acumulador M-13) | `0x0043EA36` + `16.666` de `0x0054C060` | `gex/core/loop_core.h` | funcional, 120 checks + 365 |
-| Frame loop nativo | orden de `0x0043F80D` → `0x0043E1BA` → `0x005380B3` → `0x0043DC3A` | `gex/core/frame.h` | funcional, 365 checks |
+| Núcleo temporal (acumulador M-13) | `0x0043EA36` + `16.666` de `0x0054C060` | `gex/core/loop_core.h` | funcional, 120 checks + 410 |
+| Frame loop nativo | orden de `0x0043F80D` → `0x0043E1BA` → `0x005380B3` → `0x0043DC3A` | `gex/core/frame.h` | funcional, 410 checks (incl. regresión pre_frame) |
 
 No hay motor, ni render, ni entrada, ni lectura de reloj real. El audio sí
 suena: `sagplay --device` entrega el PCM a un `IDirectSoundBuffer` real. Lo que

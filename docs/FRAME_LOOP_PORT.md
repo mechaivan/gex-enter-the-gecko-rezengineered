@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | Acumulador de paso fijo | `port/include/gex/core/loop_core.h`, `port/src/core/loop_core.c` | `tools/m13-core/m13_core.c`, movido tal cual (prefijo `gex_loop_core_`) |
 | Frame loop | `port/include/gex/core/frame.h`, `port/src/core/frame.c` | nuevo; orden de `0x0043EA36` |
-| Pruebas deterministas | `port/tests/test_frame.c` | nuevo; 365 checks |
+| Pruebas deterministas | `port/tests/test_frame.c` | nuevo; 410 checks |
 | Demo ejecutable | `port/tools/framedemo.c` | nuevo; reloj guionizado |
 | Compatibilidad del prototipo | `tools/m13-core/m13_core.h` (shim) | traduce `m13_*` → `gex_loop_core_*` |
 
@@ -206,7 +206,7 @@ núcleo (`core.steps_total`, `core.presents_total`, `core.discards_total`,
 ```powershell
 cd port
 .\build.ps1 clean
-.\build.ps1 all        # 69 305 + 60 052 + 215 + 365 + 50 checks, 0 fallos
+.\build.ps1 all        # 69 305 + 60 052 + 215 + 410 + 50 checks, 0 fallos
 .\build\test_frame.exe
 .\build\framedemo.exe --frames 4
 .\build\framedemo.exe --decoupled --frames 3 --dt 60000 --audio
@@ -227,7 +227,7 @@ Salida medida en esta máquina (Windows 11, clang 22.1.8,
 69305 checks, 0 failures
 60052 checks, 0 failures
 215 checks, 0 failures
-365 checks, 0 failures
+410 checks, 0 failures
 device checks: 50, 0 failures
 120 checks, 0 failures        <- tools/m13-core contra el núcleo del port
 ```
@@ -267,12 +267,49 @@ Los pasos por frame (3, 4, 3) muestran el acarreo fraccional: 180 ms / 16,667 ms
 | T4 clamp | 10 s ⇒ mismo resultado que 250 ms; `t_prev` avanza |
 | T5 reloj invertido | 0 updates, 1 present, `WARN_CLOCK`, `t_prev` intacto |
 | T6 error en pre-frame | 0 updates, 0 ticks, 0 presents |
+| T6b regresión de pre-frame | el error deja `acc = 0` y `t_prev = now`; el frame siguiente no recupera el tiempo anterior |
 | T7 error en update | 2 updates entrados, 0 ticks, 0 presents, `acc = 0` |
 | T8 error de audio | `ERR_AUDIO` + `last_audio = ERR_BACKEND`, sin present, recuperación sin repetición |
 | T9 error en present | el tick ya ocurrió, `frames` no aumenta |
 | T10 pausa/reanudación | ninguna fase mientras dura; 20 ms tras reanudar ⇒ 1 paso, 0 descartes |
 | T11 ciclo de vida | rechazo sin inicializar, config inválida, cierre idempotente, reinicialización |
 | T12 independencia | 400 ms a 25 Hz y a 200 Hz ⇒ los mismos 23 pasos; 10 y 80 ticks |
+
+### 9.1 Regresión del error de `pre_frame` (commit `68034dc`)
+
+T6 comprobaba que el error aborta antes de update/audio/present, pero no el
+estado del acumulador. T6b lo fija de forma determinista con el preset
+desacoplado y reloj inyectado:
+
+1. `run(15000)` deja `acc = 15 000 µs` sin consumir ningún paso.
+2. `pre_frame` falla en `run(20000)`: se comprueba el error, que no hay
+   update, tick ni present, y que `frames` no aumenta.
+3. Se comprueban las dos condiciones del fix: `acc_us == 0` y
+   `t_prev_us == 20000`.
+4. Se desactiva el fallo y `run(32000)` (12 ms desde el nuevo ancla, menos de
+   un paso) debe hacer **0 updates**; sin el reanclaje serían 17 ms desde el
+   ancla anterior y habría 1.
+5. `run(48667)` (un paso exacto de 16 667 µs desde 32 000) hace **1 update**.
+
+Evidencia de mutación (temporal, revertida; `git diff` de `frame.c` vacío
+después):
+
+| Mutación en `port/src/core/frame.c` | Resultado de `test_frame` |
+| --- | --- |
+| quitar `f->core.acc_us = 0;` | 11 fallos, incluido `acc_us == 0` y un update espurio en `run(32000)` |
+| quitar `f->core.t_prev_us = now_us;` | 11 fallos, incluido `t_prev_us == 20000` y un update espurio en `run(32000)` |
+| ninguna (código real) | 410 checks, 0 fallos |
+
+La prueba no duplica lógica de producción: solo llama a la API pública y lee
+los campos documentados de `gex_frame`/`gex_loop_core`.
+
+**Resultados negativos y límites de esta validación:** no hay GCC de GNU en la
+máquina; el `gcc.exe` del toolchain es un *driver* de Clang 22.1.8 con el
+mismo target `x86_64-w64-windows-gnu`, así que la compilación "con GCC"
+verifica el mismo frontend, no un compilador distinto. `make` tampoco existe
+en Windows: el harness `tools/m13-core` se compiló a mano con los mismos flags
+de su Makefile (120 checks, 0 fallos). La suite `test_device` se ejecutó y
+pasó 50 checks en esta máquina; la audición humana sigue sin verificarse.
 
 ## 10. Qué es real y qué es de prueba
 

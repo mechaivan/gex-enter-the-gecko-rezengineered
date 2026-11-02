@@ -1550,7 +1550,7 @@ Salida medida (Windows 11, clang 22.1.8, `-std=c11 -O2 -Wall -Wextra
 -Wpedantic`, sin avisos):
 
 ```text
-365 checks, 0 failures
+410 checks, 0 failures
 120 checks, 0 failures
 ```
 
@@ -1581,9 +1581,18 @@ pausa/reanudación sin ráfaga de recuperación; cierre idempotente y
 reinicialización; e independencia de la tasa lógica respecto a la cadencia de
 presentación (400 ms a 25 Hz y a 200 Hz ⇒ 23 pasos en ambos).
 
+**Regresión T6b (2026-11-02):** el fallo de `pre_frame` deja
+`core.acc_us == 0` y `core.t_prev_us == now_us`. La secuencia es determinista:
+15 ms acumulados → fallo en 20 000 µs → 0 updates a 32 000 µs (12 ms desde el
+nuevo ancla; sin reanclaje serían 17 ms y habría 1) → 1 update a 48 667 µs.
+Se comprobó por mutación que quitar `acc_us = 0` o `t_prev_us = now_us` produce
+11 fallos cada una; el código se restauró y `git diff` quedó vacío.
+
 **Límite honesto:** esto prueba el bucle, no el juego. No hay lógica del juego,
-renderer ni reloj real; las tres fases son callbacks. Detalle y discrepancias
-F1–F6 en `docs/FRAME_LOOP_PORT.md`.
+renderer ni reloj real; las tres fases son callbacks. No hay GCC de GNU en la
+máquina: `gcc.exe` es un driver de Clang 22.1.8, así que la compilación
+"con GCC" usa el mismo frontend. Detalle y discrepancias F1–F6 en
+`docs/FRAME_LOOP_PORT.md`.
 
 ## Batería completa (regresión)
 
@@ -1591,6 +1600,6 @@ F1–F6 en `docs/FRAME_LOOP_PORT.md`.
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 365 + 50 checks, 0 fallos
+cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 410 + 50 checks, 0 fallos
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 ```

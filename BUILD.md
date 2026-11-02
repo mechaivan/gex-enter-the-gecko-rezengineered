@@ -15,7 +15,7 @@ backend de audio usa `dsound.h` + `-ldsound`, que vienen con el toolchain
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 69 305 + 60 052 + 215 + 365 + 50 checks y las demos
+.\build.ps1 all      # compila, ejecuta 69 305 + 60 052 + 215 + 410 + 50 checks y las demos
 .\build.ps1 test     # solo checks (contenedor + ADPCM + ruta de audio + frame loop + dispositivo)
 .\build.ps1 audio    # solo la demo de audio (SLAG sintético -> build\tone.wav)
 .\build.ps1 demo     # fixture sintético + sagdump + framedemo + demo de audio

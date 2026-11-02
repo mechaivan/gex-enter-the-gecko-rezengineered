@@ -141,10 +141,12 @@ mods/parches.
   orden medido `pre_frame → update × N → gex_audio_sched_tick → present`, reloj
   inyectado, catch-up acotado (5 pasos, clamp 250 ms), descartes
   contabilizados, reloj invertido recuperado, pausas/reanudación y política de
-  errores explícita (incluida corrección: los errores de pre_frame limpian acumulador y reanclan reloj). Preset Original 1:1 (40000 µs, un update por present) y
-  preset desacoplado (16667 µs = 60 Hz, la cuantía del sello `16.666` del
-  update). Pruebas: `test_frame` 365 checks + `framedemo`; sin ventana, entrada
-  ni render (los tres callbacks son stubs). Doc: `docs/FRAME_LOOP_PORT.md`.
+  errores explícita (incluida corrección: los errores de pre_frame limpian
+  acumulador y reanclan reloj, fijada por la regresión T6b). Preset Original
+  1:1 (40000 µs, un update por present) y preset desacoplado (16667 µs = 60 Hz,
+  la cuantía del sello `16.666` del update). Pruebas: `test_frame` 410 checks
+  + `framedemo`; sin ventana, entrada ni render (los tres callbacks son stubs).
+  Doc: `docs/FRAME_LOOP_PORT.md`.
 - [ ] **I-4 — Ventana + entrada + renderer nulo.** Abrir ventana, leer teclado
   y ejecutar el frame step con un renderer que no dibuja (`0x0043E719` es el
   candidato de entrada). Criterio: proceso que corre, responde a teclas y no

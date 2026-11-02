@@ -5,7 +5,7 @@
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`)
-**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 365 checks + `framedemo`, `docs/FRAME_LOOP_PORT.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
+**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-11-01
@@ -53,7 +53,10 @@
 > M-13 se movió al port (una sola implementación) y `gex_frame_run()` reproduce
 > el orden medido `pre-frame → update × N → planificador de audio → present`,
 > con reloj inyectado, catch-up acotado, descartes contabilizados, pausas/reanudación y política de errores explícita (incluida corrección: los errores de pre-frame limpian acumulador y reanclan reloj). Las tres fases siguen siendo callbacks: no hay ventana,
-> entrada ni renderer. 365 checks + demo `framedemo`; `docs/FRAME_LOOP_PORT.md`.
+> entrada ni renderer. 410 checks + demo `framedemo`; `docs/FRAME_LOOP_PORT.md`.
+> La regresión T6b fija que un error de `pre_frame` deja `acc_us = 0` y
+> reancla `t_prev_us` en `now_us`, y que el frame siguiente no recupera el
+> tiempo anterior (mutaciones de ambas líneas detectadas).
 
 ## Vía de implementación nativa (abierta 2026-10-31)
 
@@ -77,7 +80,7 @@ Estado:
 | *Backend* de dispositivo DirectSound | `0x00538551` (dispositivo), `CreateSoundBuffer(0x8000, 0xE0)`, `GetCurrentPosition`, `SetVolume` `0x0053886c` | `port/src/audio/backend_dsound.c` | `port/tests/test_device.c` (50 checks, 0 fallos, se omite sin tarjeta) |
 | Programación del bombeo (frame loop) | llamantes `0x00463205`, `0x0053A5FB`, `0x0053FCB7`; prefill `0x00538842` | `port/src/audio/sched.c` | `port/tests/test_audio.c` (planificador) |
 | Núcleo temporal (acumulador M-13) | `0x0043EA36` (frame step) + `16.666` de `0x0054C060` | `port/src/core/loop_core.c` | `tools/m13-core` (120 checks) + `port/tests/test_frame.c` |
-| Frame loop nativo | orden de `0x0043EA36`/`0x0043F80D`/`0x0043E1BA`/`0x005380B3` | `port/src/core/frame.c` | `port/tests/test_frame.c` (365 checks) + `port/tools/framedemo.c` |
+| Frame loop nativo | orden de `0x0043EA36`/`0x0043F80D`/`0x0043E1BA`/`0x005380B3` | `port/src/core/frame.c` | `port/tests/test_frame.c` (410 checks, incluida T6b) + `port/tools/framedemo.c` |
 
 Límites de esta vía, explícitos: no hay ficheros `.sag` reales disponibles y la
 equivalencia con el original es estática (transcripción instrucción a
@@ -92,8 +95,10 @@ tiene oídos, así que la confirmación por oído queda para el mantenedor con
 I-3 (2026-11-01) añade el frame loop: el acumulador de paso fijo, el orden de
 fases medido y el tick del planificador de audio. Lo que **no** hace es jugar:
 `pre_frame`, `update` y `present` son callbacks de prueba; no hay ventana,
-entrada, renderer ni lectura de reloj real. Eso es I-4. Discrepancias con el
-original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
+entrada, renderer ni lectura de reloj real. Eso es I-4. La política de errores
+se verificó con T6b: un fallo de `pre_frame` vacía el acumulador y reancla el
+reloj, de modo que el frame siguiente no repite el tiempo fallido. Discrepancias
+con el original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
 
 ## Checklist de la Fase 0 ✅ (cerrada 2026-10-08)
 

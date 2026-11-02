@@ -399,6 +399,89 @@ static void test_pre_frame_error(void)
     gex_audio_stream_close(&stream);
 }
 
+/* T6b: a pre-frame error empties the accumulator and re-anchors the clock, so
+ * the pending time before the failure is never replayed. Regression for the
+ * fix in 68034dc: without either half of that cleanup the next run recovers
+ * the time accumulated before the error. */
+static void test_pre_frame_error_reanchors(void)
+{
+    recorder r;
+    sink s;
+    gex_audio_stream stream;
+    gex_audio_sched sched;
+    gex_frame f;
+    const gex_frame_config cfg = gex_frame_config_decoupled();
+    int updates_before;
+    int presents_before;
+
+    memset(&r, 0, sizeof(r));
+    memset(&s, 0, sizeof(s));
+    audio_open(&stream, &sched, &s);
+    CHECK(gex_frame_init(&f, &cfg, rec_hooks(&r), &sched, 0) == GEX_FRAME_OK);
+
+    /* 15 ms at a 16.667 ms step: pending simulation time, no update yet. */
+    CHECK(gex_frame_run(&f, 15000) == GEX_FRAME_OK);
+    CHECK(f.last_steps == 0);
+    CHECK(f.core.acc_us == 15000);
+    CHECK(f.core.t_prev_us == 15000);
+    CHECK(f.frames == 1);
+    CHECK(r.update_calls == 0);
+    CHECK(r.present_calls == 1);
+
+    updates_before = r.update_calls;
+    presents_before = r.present_calls;
+
+    /* Fail pre_frame on the next frame (second pre_frame call). */
+    r.fail_pre_at = 2;
+    CHECK(gex_frame_run(&f, 20000) == GEX_FRAME_ERR_PRE_FRAME);
+
+    /* The two essential conditions of the fix. */
+    CHECK(f.core.acc_us == 0);
+    CHECK(f.core.t_prev_us == 20000);
+
+    /* Nothing after pre_frame ran, and the failed frame is not a presentation. */
+    CHECK(f.last_status == GEX_FRAME_ERR_PRE_FRAME);
+    CHECK(f.aborted == 1);
+    CHECK(f.frames == 1);
+    CHECK(f.last_steps == 0);
+    CHECK(f.steps == 0);
+    CHECK(f.audio_ticks == 1);
+    CHECK(r.pre_calls == 2);
+    CHECK(r.update_calls == updates_before);
+    CHECK(r.present_calls == presents_before);
+    CHECK(sched.ticks == 1);
+
+    /* Recover: 12 ms after the new anchor is less than one step, while 17 ms
+     * from the pre-failure anchor would already be one. Without the re-anchor
+     * this frame replays part of the time accumulated before the error. */
+    r.fail_pre_at = 0;
+    CHECK(gex_frame_run(&f, 32000) == GEX_FRAME_OK);
+    CHECK(f.last_steps == 0);
+    CHECK(f.steps == 0);
+    CHECK(f.core.acc_us == 12000);
+    CHECK(f.core.t_prev_us == 32000);
+    CHECK(f.frames == 2);
+    CHECK(r.update_calls == updates_before);
+    CHECK(r.present_calls == presents_before + 1);
+    CHECK(r.present_steps[1] == 0);
+
+    /* One full step measured from the new anchor runs exactly one update. */
+    CHECK(gex_frame_run(&f, 48667) == GEX_FRAME_OK);
+    CHECK(f.last_steps == 1);
+    CHECK(f.steps == 1);
+    CHECK(f.core.acc_us == 12000);
+    CHECK(f.frames == 3);
+    CHECK(r.update_calls == updates_before + 1);
+    CHECK(r.update_steps[updates_before] == 1);
+    CHECK(r.present_calls == presents_before + 2);
+    CHECK(r.present_steps[2] == 1);
+    CHECK(f.core.steps_total == 1);
+    CHECK(strcmp(r.log, "PRPPRPUR") == 0);
+
+    gex_frame_shutdown(&f);
+    gex_audio_stream_close(&stream);
+}
+
 /* T7: an update error skips the remaining updates, audio and present. */
 static void test_update_error(void)
 {
@@ -648,6 +731,7 @@ int main(void)
     test_delta_clamp();
     test_clock_backwards();
     test_pre_frame_error();
+    test_pre_frame_error_reanchors();
     test_update_error();
     test_audio_error();
     test_present_error();
