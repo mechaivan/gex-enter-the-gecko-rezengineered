@@ -2,6 +2,67 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-02 - 0.0.0 - I-5: investigación y diseño del renderer nativo
+
+- **Hito de investigación; nada implementado.** No se dibuja nada, no se
+  compila `d3d11`, no se tocan `loop_core.c`/`frame.c`/el planificador de
+  audio, no cambian I-4 ni el build, no hay dependencias nuevas. `gexloop`
+  sigue con el renderer nulo. `docs/PROJECT_STATUS.svg` sin tocar (mide MAIN).
+- **Evidencia consolidada del render original (`docs/RENDERER_ARCHITECTURE_RESEARCH.md`
+  §2).** El exe EU importa **exclusivamente Glide** (38 funciones de
+  `glide2x.dll`, cero DirectDraw/Direct3D; censadas por familia). Inicialización
+  confirmada: `grSstWinOpen` con 512×384 @ 75 Hz y **2 buffers de color, 0
+  auxiliares** para juego (`0x0046324D`) y 640×480 @ 60 Hz para cine
+  (`0x00537EA6`), tras una sonda `grSstQueryHardware` (`0x00424D82`). Presentación
+  confirmada por traza: render **condicional** `0x0043DC3A` (instala callbacks,
+  envía 2 listas), drenaje **doble** por frame (`grBufferNumPending` dentro del
+  render y en el frame step) y `grBufferSwap(3)` que bloquea ~23 ms de los 40.
+  El swap **encola y retorna** (semántica G-01): el freno es el spin-a-cero del
+  frame siguiente — el original es *present-bound* por su bucle, no por el swap.
+  Geometría: triángulos/líneas en espacio de pantalla con `w` (Glide no tiene
+  matrices; el juego transforma en CPU, INFERIDO por ausencia de imports de
+  transformación). Texturas: carga `.3df` (`gu3dfLoad`, `0x004329EF`),
+  mipmaps y descarga parcial (`0x00461C32`/`0x00473238`), paletas NCC
+  (`grTexNCCTable`, `0x00469836`); `FONT.3DF` es `.3df` `rgb332` 128×128.
+  Cine vía `grLfbWriteRegion` (`0x00537D70`).
+- **Comparativa de alternativas (§5).** Direct3D 11 (sistema, COM ya probado
+  en el repo con DirectSound, **cabeceras y librerías verificadas hoy en ambos
+  toolchains**, WARP determinista para pruebas sin GPU) vs OpenGL (compat
+  profile deprecado, sin rasterizador software de sistema) vs capa Glide
+  (nGlide/dgVoodoo: freeware cerrado con descarga; OpenGLide: LGPL-2.0 Beta
+  sin actividad desde 2020; solo tendría sentido para reusar el binario, que
+  este port excluye por diseño) vs rasterizador software propio C11 (plan B
+  determinista). **Recomendación: Direct3D 11**, condicionada a R-1 (crear
+  dispositivo): ningún programa D3D11/OpenGL se ha compilado ni ejecutado en
+  el proyecto todavía.
+- **Arquitectura propuesta (§6, sin código de producción).** Contrato
+  `gex_renderer` agnóstico de la API (init/present/shutdown espejo del nulo)
+  con vtable interna `begin_frame`/`present`/`on_focus_lost`;
+  `gex_null_renderer` **se conserva** como implementación de prueba (los 117
+  checks de `test_app` no cambian); backend `backend_d3d11.c` futuro,
+  Windows-only y excluido del Makefile POSIX como `backend_dsound.c`; el
+  `HWND` de I-4 entra por el config; la cadencia sigue siendo del bucle
+  (`MsgWaitForMultipleObjectsEx`), no del Present; el drenaje doble del
+  original **no se replica** deliberadamente (artefacto de cola de Voodoo).
+- **Plan de validación incremental (§7):** R-1 crear/destruir dispositivo
+  (HW+WARP), R-2 swapchain sobre el HWND, R-3 clear de color verificable por
+  hash bajo WARP, R-4 presentación estable sin fugas (debug layer), R-5
+  medición de `SyncInterval` 0/1/3 frente a los CSV del glide-shim (8 318
+  swaps), R-6 errores/device-lost/cierre, R-7 geometría y textura sintética
+  `.3df`+NCC, R-8 A/B visual contra el original (PC mantenedor). R-1…R-6 no
+  requieren assets del juego; R-8 sí.
+- **Incógnitas registradas (§8, sin inventar):** campos de `GrVertex` que
+  rellena el juego (U-1), modos de combine/alpha/chromakey/fog (U-2),
+  formatos de textura (U-3), estructura de las «2 listas» de `0x0043DC3A`
+  (U-4), papel de `grSstControl` (U-5), `GEX.VFX` (U-6), tasa real de
+  refresco en runtime (U-7). Decisiones pendientes D-1 (flip vs bitblt),
+  D-2 (política de device-lost), D-3 (drenaje, decidido no replicar).
+- **Documentación:** `docs/RENDERER_ARCHITECTURE_RESEARCH.md` (nuevo),
+  `PROJECT_STATE.md`, `ROADMAP.md` (I-5 cerrado como investigación), `port/
+  README.md`. Fuentes externas citadas con fecha de consulta (OpenGLide
+  2026-11-02); sezero/glide sigue siendo semántica de referencia sin copiar
+  código (GPL de 3dfx incompatible con el repo). REA no operativo; no se usó.
+
 ## 2026-11-02 - 0.0.0 - I-4: ventana Win32, entrada de teclado y reloj real
 
 - **Primer proceso nativo ejecutable (`port/src/app/i4_main_win32.c` →

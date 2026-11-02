@@ -162,11 +162,27 @@ mods/parches.
   port usa mensajes Win32 como decisión explícita. Pruebas: 826 + 117 + 1 009
   checks nuevos y prueba real de ventana (Escape y `WM_CLOSE`). Doc:
   `docs/WINDOW_INPUT_PORT.md`.
+- [x] **I-5 — Investigación y diseño del renderer nativo (sin implementar).**
+  Hito de investigación: consolida la evidencia del render original (Glide
+  exclusivo, 38 imports censados; `grSstWinOpen` 512×384@75 Hz con 2 buffers
+  de color; render condicional `0x0043DC3A` + drenaje doble + `grBufferSwap(3)`
+  que bloquea ~23 ms; triángulos en pantalla con `w`, texturas `.3df`/NCC) y
+  evalúa D3D 11 vs OpenGL vs capa Glide vs rasterizador software contra siete
+  criterios del proyecto. **Recomendación: Direct3D 11** (cabeceras y librerías
+  verificadas en ambos toolchains hoy, WARP para pruebas sin GPU, cero
+  descargas), condicionada a R-1 (crear dispositivo) como primer paso del hito
+  de implementación; OpenGL y el rasterizador C11 quedan como alternativas con
+  el mismo contrato. Se define el contrato `gex_renderer` (vtable interna,
+  `gex_null_renderer` sigue vivo para las pruebas) y el plan R-1…R-8. **No se
+  implementó nada**: sin `d3d11` compilado, sin geometría, sin cambios en
+  `frame.c`/`loop_core.c`/audio, sin dependencias ni build. Doc:
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
 al primer bucle temporal nativo (2026-11-01); I-4 cierra el primer proceso
-ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02). La
+ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02); I-5
+investiga y diseña el renderer real sin implementarlo (2026-11-02). La
 llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
 por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
 `pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.

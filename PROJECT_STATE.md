@@ -5,7 +5,7 @@
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`)
-**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
+**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; **no rendering implemented**, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-11-02
@@ -119,6 +119,18 @@ entrada, renderer ni lectura de reloj real. La política de errores se verificó
 con T6b: un fallo de `pre_frame` vacía el acumulador y reancla el reloj, de modo
 que el frame siguiente no repite el tiempo fallido. Discrepancias con el
 original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
+
+I-5 (2026-11-02) **investiga y diseña** el renderer real sin implementarlo:
+la superficie Glide del original queda censada (38 imports, §2.1 del doc), la
+secuencia de presentación confirmada (render condicional `0x0043DC3A` +
+drenaje doble + `grBufferSwap(3)` bloqueante ~23 ms) y la alternativa elegida
+es **Direct3D 11** detrás de un contrato C11 agnóstico (`gex_renderer`), con
+`gex_null_renderer` conservado para las pruebas y OpenGL/rasterizador propio
+como alternativas. La elección queda condicionada a R-1 (crear dispositivo),
+primer paso del hito de implementación. Incógnitas U-1…U-7 (campos del
+vértice, modos de combine, formatos de textura, las «2 listas» de
+`0x0043DC3A`) quedan registradas y sin inventar. Detalle en
+`docs/RENDERER_ARCHITECTURE_RESEARCH.md`.
 
 I-4 (2026-11-02) conecta la ventana, la entrada y el reloj real, pero **sigue
 sin jugar**: `pre_frame` y `update` solo cuentan llamadas y `present` usa un
@@ -266,6 +278,14 @@ la traza lo sitúa en el update como máquina de estados de acción.
   agente no puede escuchar la salida. La confirmación auditiva es del
   mantenedor (`port\build\sagplay.exe --device`). Además el backend es sólo
   Windows y no hay `.sag` reales: todo se valida con fixtures sintéticos.
+- **I-5: diseño sin implementación.** El renderer real **no existe**: I-5
+  documenta evidencia, comparativa de APIs (D3D 11 recomendado, condicionado a
+  R-1), contrato propuesto y plan R-1…R-8. Ninguna API gráfica moderna se ha
+  compilado ni ejecutado en este proyecto (solo se verificó la disponibilidad
+  de cabeceras/librerías en el toolchain); lo único render-related ejecutado
+  por el proyecto sigue siendo el original bajo nGlide. Incógnitas del
+  original (vértice, modos de combine, formatos de textura, «2 listas» de
+  `0x0043DC3A`) abiertas. Detalle en `docs/RENDERER_ARCHITECTURE_RESEARCH.md`.
 - **I-4: ventana real, juego y renderer ausentes.** `gexloop.exe` crea una
   ventana Win32 real, recibe teclado y corre el frame loop con QPC, pero
   `pre_frame`/`update` son stubs y `present` es un renderer nulo que no dibuja.

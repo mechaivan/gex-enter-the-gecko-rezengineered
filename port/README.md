@@ -25,6 +25,7 @@ ventana Win32 real**:
 | Núcleo de aplicación | orden de I-3 + Escape/foco | `gex/app/i4_app.h` | funcional, 117 checks |
 | Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
 | Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
+| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado**: I-5 es investigación y diseño (D3D 11 recomendado, condicionado a R-1) |
 
 No hay motor, ni render, ni lógica de juego. La ventana, el teclado, el reloj
 QPC y el frame loop **sí** son reales: `gexloop.exe` abre una ventana, responde
@@ -305,5 +306,8 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   tiempo, política de catch-up/errores, API, pruebas y discrepancias F1-F6.
 - `docs/WINDOW_INPUT_PORT.md` - ventana Win32, mensajes, teclado, reloj QPC,
   cadencia/espera, renderer nulo, pruebas reales y discrepancias W1-W8.
+- `docs/RENDERER_ARCHITECTURE_RESEARCH.md` - I-5: evidencia del render Glide
+  del original, comparativa de APIs (D3D 11 recomendado), contrato
+  `gex_renderer` propuesto (sin implementar) y plan de validación R-1…R-8.
 - `docs/FUNCTION_MAP.md` - mapa estático de funciones y grafo de llamadas.
 - `TESTING.md` - batería completa del repositorio.
