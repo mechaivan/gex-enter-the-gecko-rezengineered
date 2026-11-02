@@ -25,7 +25,8 @@ ventana Win32 real**:
 | Núcleo de aplicación | orden de I-3 + Escape/foco | `gex/app/i4_app.h` | funcional, 117 checks |
 | Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
 | Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
-| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado**: I-5 es investigación y diseño (D3D 11 recomendado, condicionado a R-1) |
+| Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 205 checks; hardware y WARP a FL 11_1; sin swapchain |
+| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado aún**: R-2+ (swapchain, presentación, geometría) |
 
 No hay motor, ni render, ni lógica de juego. La ventana, el teclado, el reloj
 QPC y el frame loop **sí** son reales: `gexloop.exe` abre una ventana, responde
@@ -51,6 +52,7 @@ port/
   include/gex/core/frame.h           frame loop: fases, hooks, ciclo de vida
   include/gex/input/key_state.h      teclado: nivel, flancos y pérdida de foco
   include/gex/render/null_renderer.h renderer nulo (present sin dibujar)
+  include/gex/render/d3d11_device.h  dispositivo D3D11 real (sólo Windows, R-1)
   include/gex/app/i4_app.h           núcleo de aplicación (frame + input + present)
   include/gex/platform/clock.h       conversión portable ticks → µs
   include/gex/platform/win32_time.h  reloj QPC (sólo Windows)
@@ -64,6 +66,7 @@ port/
   src/core/frame.c                   orden de frame + tick de audio + errores
   src/input/key_state.c              tablas de teclado (C11 puro)
   src/render/null_renderer.c         present que contabiliza y no dibuja
+  src/render/d3d11_device.c          D3D11CreateDevice + ciclo COM (sólo Windows)
   src/app/i4_app.c                   orquestación portable (Escape, limpieza)
   src/app/i4_main_win32.c            ejecutable I-4 (bucle, espera, estadísticas)
   src/platform/clock.c               aritmética de ticks a microsegundos
@@ -77,10 +80,12 @@ port/
   tests/test_app.c                   app + reloj + renderer + ciclo de vida
   tests/test_win32_time.c            QPC real: monotonía y avance (Windows)
   tests/test_device.c                dispositivo real (se omite si no hay tarjeta)
+  tests/test_d3d11_device.c          dispositivo D3D11: HW+WARP, COM, errores (Windows)
   tests/make_demo_sag.mjs            genera un contenedor sintético de 54 bytes
   tools/sagdump.c                    CLI que muestra lo que el lector entendió
   tools/sagplay.c                    demo: SLAG sintético -> PCM -> WAV o dispositivo
   tools/framedemo.c                  demo: frame loop con reloj guionizado
+  tools/d3d11probe.c                 sonda del dispositivo D3D11 (R-1, Windows)
   build.ps1                          build en Windows (no hay make)
   Makefile                           equivalente POSIX (sin backend DirectSound)
 ```
@@ -94,8 +99,9 @@ Windows (PowerShell, sin `make` en este entorno):
 ```powershell
 cd port
 .\build.ps1 all      # compila, ejecuta los checks y las demos
-.\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame + entrada + app + reloj + dispositivo)
+.\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame + entrada + app + reloj + dispositivos)
 .\build.ps1 loop     # solo gexloop.exe (ventana Win32 real)
+.\build.ps1 probe    # solo d3d11probe.exe (informe del dispositivo D3D11; Windows)
 .\build.ps1 audio    # solo la demo de audio (escribe build\tone.wav)
 .\build.ps1 demo     # fixture sintético + sagdump + framedemo + demo de audio
 .\build.ps1 clean    # borra build\ (solo lo que genera este script)
@@ -259,6 +265,23 @@ granularidad de Windows (~15,6 ms) capaba la presentación a ~65/s; se restaura
 con `timeEndPeriod(1)`. La ventana está vacía: `present` es nulo y
 `pre_frame`/`update` son stubs.
 
+Dispositivo D3D11 (R-1, Windows; sin swapchain ni dibujo):
+
+```powershell
+.\build\d3d11probe.exe
+```
+
+```text
+hardware ok      feature level 11_1  flags 0x0  hr 0x00000000
+warp     ok      feature level 11_1  flags 0x0  hr 0x00000000
+baseline: ok
+```
+
+Ambos modos se crean, se consultan y se destruyen sin dejar referencias COM.
+La prueba automatizada (`test_d3d11_device`) añade los caminos de error
+(`E_INVALIDARG` con bits reservados, capa debug ausente) y el ciclo de vida.
+Detalle en `docs/D3D11_DEVICE.md`.
+
 `sagdump` y `sagplay` aceptan cualquier ruta: si tienes un `.sag` propio,
 pásalo como argumento (`sagplay fichero.sag salida.wav`, o
 `sagplay --device fichero.sag`) y procesan ese. No se incluye ninguno.
@@ -309,5 +332,7 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
 - `docs/RENDERER_ARCHITECTURE_RESEARCH.md` - I-5: evidencia del render Glide
   del original, comparativa de APIs (D3D 11 recomendado), contrato
   `gex_renderer` propuesto (sin implementar) y plan de validación R-1…R-8.
+- `docs/D3D11_DEVICE.md` - R-1: dispositivo D3D11 real, hardware y WARP,
+  gestión COM, resultados medidos y límites.
 - `docs/FUNCTION_MAP.md` - mapa estático de funciones y grafo de llamadas.
 - `TESTING.md` - batería completa del repositorio.

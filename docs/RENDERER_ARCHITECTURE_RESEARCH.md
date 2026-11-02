@@ -359,12 +359,13 @@ alguna vez se prioriza comparación binaria con el exe original.
 
 **Recomendación: Direct3D 11** (Opción A), con las salidas abiertas que el
 contrato de §6 preserva: OpenGL como backend alternativo y el rasterizador
-software como plan B. La decisión queda **condicionada a R-1**: crear y
-destruir un dispositivo D3D11 (HW y WARP) con los headers ya presentes. Si
-R-1 fallara, la decisión pasa a B o D con el mismo contrato. No se elige por
-popularidad: es la única opción que cumple los siete criterios del proyecto
-hoy, con verificación de toolchain hecha en esta máquina y sin introducir
-descargas.
+software como plan B. La decisión quedó **condicionada a R-1**: crear y
+destruir un dispositivo D3D11 (HW y WARP) con los headers ya presentes.
+**R-1 se ejecutó el 2026-11-02 y salió limpio en ambos modos (FL 11_1,
+205 checks, 0 fallos, Clang y GCC): la recomendación queda confirmada.**
+La elección no fue por popularidad: es la única opción que cumplía los siete
+criterios del proyecto en el momento de decidir, con verificación de
+toolchain en esta máquina y sin descargas. Detalle en `docs/D3D11_DEVICE.md`.
 
 ## 6. Arquitectura propuesta (NO implementada)
 
@@ -513,7 +514,7 @@ del backend en la carga, con fixtures `.3df` sintéticos generados por script
 
 | Paso | Qué demuestra | Sin assets del juego | Estado |
 | --- | --- | --- | --- |
-| R-1 | Crear/destruir dispositivo D3D11 (HW y WARP); verifica la decisión de §5.6 | sí | pendiente |
+| R-1 | Crear/destruir dispositivo D3D11 (HW y WARP); verifica la decisión de §5.6 | sí | **ejecutado 2026-11-02**: ambos modos a FL 11_1, 205 checks, 0 fallos, Clang y GCC; `docs/D3D11_DEVICE.md` |
 | R-2 | Crear swapchain sobre el HWND de I-4 (512×384) y presentarla | sí | pendiente |
 | R-3 | `begin_frame` con clear de color uniforme; comprobación visual programática (`CopyResource` + hash del backbuffer bajo WARP) | sí | pendiente |
 | R-4 | Presentación estable: cadencia del bucle intacta (~105–108 presents/s con nulo; medir el cambio con Present real), sin fugas (contador de objetos vivos del debug layer) | sí | pendiente |

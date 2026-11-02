@@ -1673,13 +1673,62 @@ entrada del original (S5) es HYPOTHESIS y su fuente exacta de teclado no está
 confirmada. `0x0043E719` no es entrada: la traza lo sitúa en el update como
 máquina de estados de acción. Detalle en `docs/WINDOW_INPUT_PORT.md`.
 
+## Dispositivo Direct3D 11 (R-1, 2026-11-02, sin swapchain ni dibujo)
+
+Primera pieza del renderer real: crear, usar y destruir el dispositivo
+`D3D11CreateDevice` en modo **hardware** y en modo **WARP**, con el feature
+level obtenido registrado y cierre COM completo. No hay ventana, swapchain,
+geometría ni presentación (R-2+).
+
+```powershell
+cd port
+.\build.ps1 test      # incluye test_d3d11_device
+.\build.ps1 probe     # d3d11probe.exe
+```
+
+Salida medida (Windows 11, clang 22.1.8 y gcc 16.1.0, `-std=c11 -O2 -Wall
+-Wextra -Wpedantic`, sin avisos):
+
+```text
+warp: creating D3D_DRIVER_TYPE_WARP device...
+warp: ok, feature level 11_1, flags 0x0
+bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
+debug layer: not available (hr=0x887A002D); failure was clean
+hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
+hardware: ok, feature level 11_1, flags 0x0
+205 checks, 0 failures, 0 skipped
+```
+
+Qué cubren los 205 checks: nombres de estados y niveles; argumentos y estado
+(`NULL`, driver inválido, doble `init` sin tocar el vivo, `shutdown` no-ops);
+**WARP real** (creación + `CheckFormatSupport` + contexto inmediato + cierre +
+re-init + ciclo de 3 tandas); **hardware real** (idéntico); dos dispositivos
+vivos a la vez; feature level ∈ lista pedida; eco de flags de creación; COM
+(contexto con 1 referencia; device verificado por comportamiento: referencia
+manual retenida, `shutdown`, el objeto vive solo en la manual y el `Release`
+final devuelve 0); fallos limpios con bits reservados (`E_INVALIDARG`) y con
+la capa debug ausente (`DXGI_ERROR_SDK_COMPONENT_MISSING`).
+
+**Hallazgos:** el runtime mantiene referencias internas al device (el contexto
+inmediato lo mantiene vivo), así que «device refcount == 1» no es un
+invariante; se verifica la destrucción completa por comportamiento. Las macros
+COM C de los headers WIDL requieren `COBJMACROS`. `d3d11.h` es idéntico por
+MD5 en llvm-mingw y MSYS2; enlace con `-ld3d11`, sin descargas. La capa debug
+(`D3D11SDKLayers.dll`) no está instalada en el PC mantenedor: la prueba tiene
+ramas para ambos casos y no se descarga nada para activarla.
+
+**Límite honesto:** sin swapchain ni presentación (por alcance); identidad del
+adaptador hardware no consultada (sin DXGI factory en R-1); el `Makefile` POSIX
+no se ejecuta aquí (sin `make`). Detalle en `docs/D3D11_DEVICE.md`.
+
 ## Batería completa (regresión)
 
 ```powershell
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 410 + 826 + 117 + 1 009 + 50 checks, 0 fallos
+cd port; .\build.ps1 all            # 132 189 checks, 0 fallos (incl. D3D11 device)
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
+cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1
 ```

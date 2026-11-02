@@ -177,12 +177,28 @@ mods/parches.
   implementó nada**: sin `d3d11` compilado, sin geometría, sin cambios en
   `frame.c`/`loop_core.c`/audio, sin dependencias ni build. Doc:
   `docs/RENDERER_ARCHITECTURE_RESEARCH.md`.
+- [x] **R-1 — Dispositivo Direct3D 11 (hardware y WARP).** Primera pieza del
+  renderer real, sin swapchain ni dibujo: `gex_d3d11_device`
+  (`port/src/render/d3d11_device.c`, Windows-only) crea el dispositivo con
+  `D3D11CreateDevice` en modo `HARDWARE` o `WARP`, registra el feature level
+  obtenido (lista explícita 11_1→9_1), entrega el contexto inmediato y libera
+  todo COM en `shutdown` idempotente; fallo = struct a cero. **Medido en esta
+  máquina: hardware y WARP creados a FL 11_1**; bits reservados →
+  `E_INVALIDARG` (0x80070057) con cierre limpio; capa debug ausente →
+  `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D), hallazgo documentado.
+  Verificación de fugas conductual (referencia manual + `Release` final a 0)
+  porque el runtime mantiene referencias internas al device. Prueba:
+  `test_d3d11_device` 205 checks, 0 fallos con **Clang 22.1.8 y GCC 16.1.0**;
+  sonda `d3d11probe.exe`; batería completa 132 189 checks, 0 fallos. La
+  decisión D3D11 de I-5 queda confirmada. Doc: `docs/D3D11_DEVICE.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
 al primer bucle temporal nativo (2026-11-01); I-4 cierra el primer proceso
 ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02); I-5
-investiga y diseña el renderer real sin implementarlo (2026-11-02). La
+investiga y diseña el renderer real sin implementarlo (2026-11-02); R-1 verifica
+la decisión con el dispositivo D3D11 real, hardware y WARP, sin swapchain ni
+dibujo (2026-11-02). La
 llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
 por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
 `pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.

@@ -2,6 +2,53 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-02 - 0.0.0 - R-1: dispositivo Direct3D 11 real (hardware y WARP)
+
+- **Primera pieza del renderer real, sin swapchain ni dibujo.**
+  `gex_d3d11_device` (`port/src/render/d3d11_device.c` + `gex/render/
+  d3d11_device.h`, Windows-only con el patrón de `backend_dsound`) crea el
+  dispositivo con `D3D11CreateDevice` en modo **HARDWARE** o **WARP**
+  (selección explícita), pide la lista de feature levels 11_1→9_1 y **registra
+  el nivel realmente obtenido**, entrega el contexto inmediato y libera todo
+  COM en un `shutdown` idempotente que permite re-`init`. Fallo = struct a
+  cero; doble `init` sobre un dispositivo vivo se rechaza sin tocarlo.
+- **Resultado real en el PC mantenedor (Windows 11):** hardware y WARP
+  creados ambos a **feature level 11_1**, flags 0x0, `S_OK`. La decisión
+  D3D11 de I-5 deja de estar condicionada y queda **confirmada**.
+- **Fallos medidos y limpios:** bits reservados de flags (`0xFFFFFFFF`) →
+  `E_INVALIDARG` (0x80070057) con struct totalmente cerrado; capa debug sin
+  SDK layers instaladas → `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D),
+  el código exacto que Microsoft documenta — `D3D11SDKLayers.dll` no está
+  instalada en esta máquina y **no se descarga nada** para conseguirla.
+- **Hallazgo COM:** el contexto inmediato arranca con 1 referencia, pero el
+  device lleva referencias internas del runtime (el contexto mantiene vivo a
+  su device), así que «device refcount == 1» no es un invariante válido. La
+  verificación de fugas es conductual: referencia manual retenida, `shutdown`
+  que libera las suyas, el objeto sobrevive solo con la manual y el
+  `Release` final devuelve **0** (destrucción completa). Se ejecuta en WARP,
+  hardware, ciclo de 3 re-inits, dos dispositivos simultáneos y rama debug.
+- **Pruebas: `test_d3d11_device` 205 checks, 0 fallos, 0 saltos** — idéntico
+  con Clang 22.1.8 (llvm-mingw) y con GCC de GNU 16.1.0 (MSYS2), sin avisos
+  con `-std=c11 -O2 -Wall -Wextra -Wpedantic`. `d3d11.h` verificado idéntico
+  por MD5 en ambos toolchains; enlace con `-ld3d11` (sin descargas).
+  `build.ps1` integra la prueba en `test` y añade el target `probe` con la
+  sonda `d3d11probe.exe`. Batería completa: **132 189 checks, 0 fallos**.
+  `m13-core` 120 checks y `gexmap` 22/22 sin cambios (núcleo intacto).
+- **Errores encontrados y resueltos:** las macros COM C de los headers WIDL
+  requieren `COBJMACROS` antes de incluir `d3d11.h` (la cabecera lo define);
+  el invariante inicial de refcount del device era falso y se sustituyó por
+  la verificación conductual; `-Wswitch` por los niveles 12.x en el
+  `switch` de nombres.
+- **Alcance respetado:** sin swapchain, sin ventana gráfica nueva, sin
+  geometría, shaders ni texturas; sin dependencias nuevas; `Makefile` POSIX
+  sin compilar D3D11 (solo comentario); renderer nulo e I-4 intactos;
+  `docs/PROJECT_STATUS.svg` sin tocar. Documentación oficial consultada
+  (Microsoft Learn): `D3D11CreateDevice` y guía WARP.
+- **Documentación:** `docs/D3D11_DEVICE.md` (nuevo),
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md` (R-1 ejecutado, decisión
+  confirmada), `PROJECT_STATE.md`, `ROADMAP.md` (R-1 cerrado), `BUILD.md`,
+  `port/README.md`, `port/build.ps1`, `port/Makefile`.
+
 ## 2026-11-02 - 0.0.0 - I-5: investigación y diseño del renderer nativo
 
 - **Hito de investigación; nada implementado.** No se dibuja nada, no se
