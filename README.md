@@ -28,15 +28,15 @@
 
 ## Estado actual
 
-| Campo               | Valor                                                        |
-|---------------------|--------------------------------------------------------------|
-| Fase                | **1 — Research & Original PC Documentation**                 |
-| Versión             | 0.0.0                                                        |
-| Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`)  |
-| Reverse engineering | Profundo no iniciado (Etapa A + estático acotado E-3/M-13)   |
-| Implementación      | **No iniciada (solo vía Hito P tras Fase 3 + autorización)** |
-| Testing             | Hito 1 ejecutado (F-05 + arranque EU en Win11)              |
-| Ruta corta          | Hitos R → K → P + Olas 1–3 (ver ROADMAP)                    |
+| Campo                 | Valor |
+|-----------------------|-------|
+| Fase                  | **1 — Research & Original PC Documentation** |
+| Versión               | 0.0.0 |
+| Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`) |
+| Reverse engineering   | **Iniciado** — análisis estático, mapa de funciones, segmentación por subsistemas, traza dinámica del frame y reconstrucción de la ruta de audio. Investigación progresiva en curso. |
+| Implementación        | **Iniciada** — port nativo C11 con lector SLAG, audio DirectSound, frame loop, ventana Win32, teclado y reloj real. Renderer nativo en desarrollo (Direct3D 11). |
+| Testing               | Hito 1 ejecutado (F-05 + arranque EU en Win11). Componentes del port nativo validados mediante pruebas automatizadas y pruebas reales en Windows. |
+| Ruta corta            | Hitos R → K → P + Olas 1–3 (ver `ROADMAP.md`). La vía de implementación nativa avanza en paralelo y no altera el progreso de MAIN. |
 
 Ver [PROJECT_STATE.md](PROJECT_STATE.md) para el estado detallado.
 
