@@ -11,6 +11,7 @@
                             sound device exists)
         .\build.ps1 demo    build sagdump/sagplay and run their synthetic demos
         .\build.ps1 audio   build sagplay and decode the synthetic tone
+        .\build.ps1 loop    build gexloop.exe (I-4: window, keyboard, clock)
         .\build.ps1 clean   remove build\ (only what this build produced)
 
     The compiler is looked up in PATH: clang first, then gcc. Override with
@@ -23,7 +24,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('test', 'demo', 'audio', 'clean', 'all')]
+    [ValidateSet('test', 'demo', 'audio', 'loop', 'clean', 'all')]
     [string]$Target = 'all',
     [string]$Compiler
 )
@@ -54,11 +55,17 @@ $coreSrc = @(
     (Join-Path $PSScriptRoot 'src/core/loop_core.c'),
     (Join-Path $PSScriptRoot 'src/core/frame.c')
 )
+$inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
+$renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
+$appSrc = @((Join-Path $PSScriptRoot 'src/app/i4_app.c'))
+$clockSrc = @((Join-Path $PSScriptRoot 'src/platform/clock.c'))
+$win32TimeSrc = @((Join-Path $PSScriptRoot 'src/platform/win32_time.c'))
+$win32WindowSrc = @((Join-Path $PSScriptRoot 'src/platform/win32_window.c'))
 
 function Build-Exe([string]$source, [string]$name, [string[]]$sources = @(), [string[]]$flags = @()) {
     $out = Join-Path $buildDir $name
     Write-Host "compile $name ($Compiler)"
-    & $Compiler @cflags @flags -o $out $source $sagSrc @sources
+    & $Compiler @cflags -o $out $source $sagSrc @sources @flags
     if ($LASTEXITCODE -ne 0) { throw "compilation failed: $name" }
     return $out
 }
@@ -83,7 +90,15 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_input.c') 'test_input.exe' $inputSrc) 'input state checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_app.c') 'test_i4_app.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc)) 'I-4 app checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_win32_time.c') 'test_win32_time.exe' ($clockSrc + $win32TimeSrc)) 'Win32 clock checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
+}
+
+if ($Target -in @('loop', 'all')) {
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc) @('-luser32', '-lgdi32', '-lwinmm')
+    Write-Host "built $exe (run it from a console; Escape or close the window)"
 }
 
 if ($Target -in @('demo', 'all')) {

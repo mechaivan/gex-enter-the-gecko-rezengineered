@@ -5,10 +5,10 @@
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
 **Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`)
-**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
+**Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`. **No playable build**: Hito P / MAIN unchanged; these are components, not the port
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-01
+**Last updated:** 2026-11-02
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 
@@ -57,6 +57,20 @@
 > La regresión T6b fija que un error de `pre_frame` deja `acc_us = 0` y
 > reancla `t_prev_us` en `now_us`, y que el frame siguiente no recupera el
 > tiempo anterior (mutaciones de ambas líneas detectadas).
+>
+> 2026-11-02 (I-4): existe el **primer proceso nativo ejecutable**. `gexloop.exe`
+> abre una ventana Win32 real (clase `GexNativeLoopWindow`, 960×540), drena
+> mensajes, mantiene estado de teclado con flancos y liberación al perder foco,
+> sale con Escape o al cerrar la ventana, y conduce el frame loop de I-3 con
+> `QueryPerformanceCounter` en microsegundos. Paso lógico 60 Hz (16 667 µs) y
+> presentación objetivo 120 Hz (8 333 µs) con espera en
+> `MsgWaitForMultipleObjectsEx`; `timeBeginPeriod(1)` se usa y se restaura para
+> que la cadencia de presentación no quede limitada por los ~15,6 ms del
+> temporizador por defecto. `pre_frame` y `update` son stubs y `present` es un
+> **renderer nulo** que no dibuja. 826 + 117 + 1009 checks nuevos y prueba real
+> de ventana (Escape, `WM_CLOSE`, pérdida de foco, ~105–108 presents/s,
+> 59,5–60,0 pasos/s, 0,85–1,93 % de CPU, 0 errores). Doc:
+> `docs/WINDOW_INPUT_PORT.md`.
 
 ## Vía de implementación nativa (abierta 2026-10-31)
 
@@ -81,6 +95,12 @@ Estado:
 | Programación del bombeo (frame loop) | llamantes `0x00463205`, `0x0053A5FB`, `0x0053FCB7`; prefill `0x00538842` | `port/src/audio/sched.c` | `port/tests/test_audio.c` (planificador) |
 | Núcleo temporal (acumulador M-13) | `0x0043EA36` (frame step) + `16.666` de `0x0054C060` | `port/src/core/loop_core.c` | `tools/m13-core` (120 checks) + `port/tests/test_frame.c` |
 | Frame loop nativo | orden de `0x0043EA36`/`0x0043F80D`/`0x0043E1BA`/`0x005380B3` | `port/src/core/frame.c` | `port/tests/test_frame.c` (410 checks, incluida T6b) + `port/tools/framedemo.c` |
+| Estado de teclado (nivel, flancos, foco) | decisión del port: `WM_KEYDOWN`/`WM_KEYUP` (la ruta S5 del original es HYPOTHESIS) | `port/src/input/key_state.c` | `port/tests/test_input.c` (826 checks) |
+| Reloj monotónico real | `QueryPerformanceCounter`/`QueryPerformanceFrequency` | `port/src/platform/win32_time.c` | `port/tests/test_win32_time.c` (1009 checks) |
+| Renderer nulo | no aplica: I-4 declara que no dibuja | `port/src/render/null_renderer.c` | `port/tests/test_app.c` (present contabilizado) |
+| Núcleo de aplicación | orden del frame de I-3 + Escape/foco | `port/src/app/i4_app.c` | `port/tests/test_app.c` (117 checks) |
+| Ventana Win32 + mensajes | shell S6 (`0x00463091`/`0x00463278`), adaptado | `port/src/platform/win32_window.c` | prueba real de ventana (Escape, `WM_CLOSE`) |
+| Ejecutable I-4 | — | `port/src/app/i4_main_win32.c` (`gexloop.exe`) | prueba real sostenida + CPU |
 
 Límites de esta vía, explícitos: no hay ficheros `.sag` reales disponibles y la
 equivalencia con el original es estática (transcripción instrucción a
@@ -95,10 +115,20 @@ tiene oídos, así que la confirmación por oído queda para el mantenedor con
 I-3 (2026-11-01) añade el frame loop: el acumulador de paso fijo, el orden de
 fases medido y el tick del planificador de audio. Lo que **no** hace es jugar:
 `pre_frame`, `update` y `present` son callbacks de prueba; no hay ventana,
-entrada, renderer ni lectura de reloj real. Eso es I-4. La política de errores
-se verificó con T6b: un fallo de `pre_frame` vacía el acumulador y reancla el
-reloj, de modo que el frame siguiente no repite el tiempo fallido. Discrepancias
-con el original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
+entrada, renderer ni lectura de reloj real. La política de errores se verificó
+con T6b: un fallo de `pre_frame` vacía el acumulador y reancla el reloj, de modo
+que el frame siguiente no repite el tiempo fallido. Discrepancias con el
+original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
+
+I-4 (2026-11-02) conecta la ventana, la entrada y el reloj real, pero **sigue
+sin jugar**: `pre_frame` y `update` solo cuentan llamadas y `present` usa un
+renderer nulo. La ventana, el reloj QPC, los mensajes, el estado de teclado, la
+liberación por pérdida de foco, Escape y el cierre son reales y se ejecutaron.
+La ruta de entrada del original (S5) sigue siendo HYPOTHESIS y la fuente exacta
+de teclado no está confirmada; el port usa mensajes Win32 como decisión
+explícita, no como reproducción. Diferencias W1–W8, pruebas y límites en
+`docs/WINDOW_INPUT_PORT.md` §12–§13. `0x0043E719` queda descartado como entrada:
+la traza lo sitúa en el update como máquina de estados de acción.
 
 ## Checklist de la Fase 0 ✅ (cerrada 2026-10-08)
 
@@ -236,6 +266,14 @@ con el original (F1–F6) y límites en `docs/FRAME_LOOP_PORT.md` §11–§12.
   agente no puede escuchar la salida. La confirmación auditiva es del
   mantenedor (`port\build\sagplay.exe --device`). Además el backend es sólo
   Windows y no hay `.sag` reales: todo se valida con fixtures sintéticos.
+- **I-4: ventana real, juego y renderer ausentes.** `gexloop.exe` crea una
+  ventana Win32 real, recibe teclado y corre el frame loop con QPC, pero
+  `pre_frame`/`update` son stubs y `present` es un renderer nulo que no dibuja.
+  La prueba de ventana es programática (`FindWindowEx` + `PostMessage`), no con
+  teclado físico ni comprobación visual. La ruta de entrada del original (S5)
+  es HYPOTHESIS y la fuente exacta de teclado no está confirmada; el port usa
+  mensajes Win32 como decisión explícita. Detalle en
+  `docs/WINDOW_INPUT_PORT.md`.
 
 ## Criterio de salida de la Fase 0 (cumplido 2026-10-08, histórico)
 

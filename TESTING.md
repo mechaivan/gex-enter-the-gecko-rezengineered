@@ -1589,10 +1589,89 @@ Se comprobó por mutación que quitar `acc_us = 0` o `t_prev_us = now_us` produc
 11 fallos cada una; el código se restauró y `git diff` quedó vacío.
 
 **Límite honesto:** esto prueba el bucle, no el juego. No hay lógica del juego,
-renderer ni reloj real; las tres fases son callbacks. No hay GCC de GNU en la
-máquina: `gcc.exe` es un driver de Clang 22.1.8, así que la compilación
-"con GCC" usa el mismo frontend. Detalle y discrepancias F1–F6 en
-`docs/FRAME_LOOP_PORT.md`.
+renderer ni reloj real; las tres fases son callbacks. En I-3 no se usó un GCC de
+GNU: el `gcc.exe` del `PATH` es un driver de Clang 22.1.8, así que la
+compilación "con GCC" usaba el mismo frontend. **Actualización 2026-11-02:** el
+GCC de GNU 16.1.0 de MSYS2 (fuera del `PATH`) validó la batería de I-4; ver la
+sección siguiente. Detalle y discrepancias F1–F6 en `docs/FRAME_LOOP_PORT.md`.
+
+## Ventana, entrada y reloj nativos (I-4, 2026-11-02, ventana real)
+
+Primer proceso nativo del port: ventana Win32, mensajes de teclado, reloj
+`QueryPerformanceCounter` y frame loop de I-3 con **renderer nulo**. No hay
+juego, renderizado ni audio adjunto; `pre_frame`/`update` son stubs.
+
+```powershell
+cd port
+.\build.ps1 all
+.\build.ps1 loop
+.\build\gexloop.exe --frames 360
+```
+
+Salida medida (Windows 11, clang 22.1.8, `-std=c11 -O2 -Wall -Wextra
+-Wpedantic`, sin avisos):
+
+```text
+826 checks, 0 failures     test_input
+117 checks, 0 failures     test_i4_app
+1009 checks, 0 failures    test_win32_time
+131984 checks, 0 failures  total de build.ps1 all
+```
+
+`gexloop --frames 360` (sin mensajes, ventana real):
+
+```text
+clock: QueryPerformanceCounter, 10000000 Hz
+frame: decoupled, step=16667 us (60 Hz), max_dt=250000 us, max_steps=5
+present: target 8333 us (120 Hz), logical and present cadences independent
+timer: 1 ms resolution (timeBeginPeriod(1))
+stats: t=2.01s presents=214 fps=106.6 steps=120 steps/s=59.7 ...
+frame limit reached (360 presents)
+final: t=3.65s presents=360 fps=98.6 steps=219 steps/s=60.0 ...
+exit: clean, frame errors=0, clock warnings=0
+```
+
+Prueba de ventana con mensajes (`FindWindowEx` + `PostMessage`; **no** teclado
+físico):
+
+| Caso | Ventana | Código | Duración | Presents/s | Pasos/s | CPU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| W↓/W↑, A↓, `WM_KILLFOCUS`, Escape | sí | 0 | 2,20 s | 107,7 | 60,0 | 1,38 % |
+| `WM_CLOSE` | sí | 0 | 1,56 s | 104,9 | 59,5 | 1,93 % |
+| 360 presents sin mensajes | sí | 0 | 3,65 s | 98,6 | 60,0 | 0,85 % |
+
+En las tres: `exit: clean`, `frame errors=0`, `clock warnings=0`,
+`discards=0`, `aborted=0`, `backwards=0`. La entrada se registró como
+`key down W`, `key up W`, `key down A`, `focus lost`, `key up A`,
+`key down Escape`.
+
+**Hallazgo:** sin `timeBeginPeriod(1)`, la granularidad de ~15,6 ms de Windows
+limitaba la presentación a ~65/s (el paso lógico seguía en ~60/s). Con 1 ms se
+alcanzan 104,9–107,7 presents/s; el resto hasta 120 es el redondeo a
+milisegundos de `MsgWaitForMultipleObjectsEx`. Se restaura con
+`timeEndPeriod(1)` al salir.
+
+**Validación independiente con GCC de GNU 16.1.0 (MSYS2, fuera del `PATH`):**
+
+```powershell
+$env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
+cd port
+.\build.ps1 test -Compiler 'C:\msys64\mingw64\bin\gcc.exe'
+.\build.ps1 loop -Compiler 'C:\msys64\mingw64\bin\gcc.exe'
+```
+
+Misma batería: **131 984 checks, 0 fallos**, sin avisos con
+`-std=c11 -O2 -Wall -Wextra -Wpedantic`. `gexloop --frames 20` compilado con
+GCC: 108,4 presents/s, 59,6 pasos/s, `exit: clean, frame errors=0`. El
+`gcc.exe` del `PATH` es un driver de Clang 22.1.8 y no se usó como validación
+independiente. `build.ps1` coloca ahora las librerías después de las fuentes
+(antes GNU ld no las resolvía; Clang/LLD sí).
+
+**Límite honesto:** la ventana se comprobó programáticamente; no se inyectó
+teclado físico ni se verificó visualmente (está vacía por diseño). La ruta de
+entrada del original (S5) es HYPOTHESIS y su fuente exacta de teclado no está
+confirmada. `0x0043E719` no es entrada: la traza lo sitúa en el update como
+máquina de estados de acción. Detalle en `docs/WINDOW_INPUT_PORT.md`.
 
 ## Batería completa (regresión)
 
@@ -1600,6 +1679,7 @@ máquina: `gcc.exe` es un driver de Clang 22.1.8, así que la compilación
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 410 + 50 checks, 0 fallos
+cd port; .\build.ps1 all            # 69 305 + 60 052 + 215 + 410 + 826 + 117 + 1 009 + 50 checks, 0 fallos
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
+cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
 ```

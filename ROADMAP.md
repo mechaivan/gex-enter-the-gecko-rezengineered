@@ -147,20 +147,31 @@ mods/parches.
   la cuantía del sello `16.666` del update). Pruebas: `test_frame` 410 checks
   + `framedemo`; sin ventana, entrada ni render (los tres callbacks son stubs).
   Doc: `docs/FRAME_LOOP_PORT.md`.
-- [ ] **I-4 — Ventana + entrada + renderer nulo.** Abrir ventana, leer teclado
-  y ejecutar el frame step con un renderer que no dibuja (`0x0043E719` es el
-  candidato de entrada). Criterio: proceso que corre, responde a teclas y no
-  crashea; es el primer «prototipo ejecutable» aunque no muestre el juego.
-  Hereda de I-3 el punto exacto de conexión: el hook `present` de
-  `gex_frame` y un proveedor de reloj real para `now_us`.
+- [x] **I-4 — Ventana + entrada + renderer nulo.** Primer proceso nativo:
+  `gexloop.exe` abre una ventana Win32 real (clase `GexNativeLoopWindow`,
+  960×540), drena mensajes (`WM_KEYDOWN`/`WM_KEYUP`/`WM_KILLFOCUS`/`WM_CLOSE`),
+  mantiene estado de teclado con flancos y libera todo al perder foco, sale con
+  Escape o al cerrar, y conduce `gex_frame_run()` con
+  `QueryPerformanceCounter`. Paso lógico 60 Hz (16 667 µs) y presentación
+  objetivo 120 Hz (8 333 µs) con `MsgWaitForMultipleObjectsEx` y
+  `timeBeginPeriod(1)` restaurado al salir; medido ~105–108 presents/s,
+  59,5–60,0 pasos/s, 0,85–1,93 % de CPU y 0 errores. `present` es un renderer
+  nulo que no dibuja; `pre_frame`/`update` son stubs. La evidencia retira
+  `0x0043E719` como candidato de entrada (es una máquina de estados de acción
+  dentro del update); la ruta de entrada del original es S5 (HYPOTHESIS) y el
+  port usa mensajes Win32 como decisión explícita. Pruebas: 826 + 117 + 1 009
+  checks nuevos y prueba real de ventana (Escape y `WM_CLOSE`). Doc:
+  `docs/WINDOW_INPUT_PORT.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
-al primer bucle temporal nativo (2026-11-01); I-4 es el requisito mínimo de
-cualquier bucle jugable y no depende de assets. La llamada
-`gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez por frame
-presentado y tras el update (`port/src/core/frame.c`); I-4 solo tiene que
-rellenar los hooks `pre_frame`/`update`/`present` y leer el reloj real.
+al primer bucle temporal nativo (2026-11-01); I-4 cierra el primer proceso
+ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02). La
+llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
+por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
+`pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.
+El renderizado y la lógica de juego quedan para el hito siguiente (no iniciado);
+I-4 no los adelanta.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

@@ -2,6 +2,70 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-02 - 0.0.0 - I-4: ventana Win32, entrada de teclado y reloj real
+
+- **Primer proceso nativo ejecutable (`port/src/app/i4_main_win32.c` →
+  `port/build/gexloop.exe`).** Abre una ventana Win32 real (clase
+  `GexNativeLoopWindow`, 960×540), mantiene un bucle continuo, drena la cola de
+  mensajes y conduce `gex_frame_run()` de I-3 con microsegundos de
+  `QueryPerformanceCounter`. No hay SDL/GLFW/raylib ni dependencias nuevas:
+  solo `user32`, `gdi32` y `winmm` del sistema.
+- **`0x0043E719` deja de ser candidato de entrada (CONFIRMADO por la traza).**
+  `docs/FRAME_STEP_TRACE.md` lo sitúa dentro del update (sitio `0x0043E2F5`,
+  599/599 frames) como máquina de estados de acción sobre `WORD [obj+0x4E3E]`;
+  no es entrada ni audio. La ruta de entrada del original es S5
+  (`0x0043F80D`, `joyGetPosEx`/`joyGetDevCapsA`, `VkKeyScanA`), **HYPOTHESIS**:
+  la fuente exacta de teclado no está confirmada. El port usa
+  `WM_KEYDOWN`/`WM_KEYUP` como decisión explícita, no como reproducción.
+- **Entrada (`port/src/input/key_state.c`).** Tablas de 256 códigos virtuales:
+  nivel (`down`), flanco de bajada (`pressed`), flanco de subida (`released`),
+  auto-repeat coalescido, `WM_KILLFOCUS` que libera todas las teclas y Escape
+  interpretado después del frame. `WM_SYSKEYDOWN`/`WM_SYSKEYUP` se enrutan igual
+  y se dejan pasar a `DefWindowProcW` para no romper Alt+F4.
+- **Reloj (`port/src/platform/win32_time.c` + `clock.c`).** Frecuencia y
+  contador de QPC; conversión portable ticks → µs con cociente y resto; guarda
+  de retroceso (0 y `GEX_FRAME_WARN_CLOCK`, no error). En esta máquina QPC
+  devolvió 10 000 000 Hz.
+- **Cadencia y CPU.** Paso lógico 60 Hz (16 667 µs, preset desacoplado de I-3);
+  presentación objetivo 120 Hz (8 333 µs), independiente del paso. Espera en
+  `MsgWaitForMultipleObjectsEx(QS_ALLINPUT, MWMO_INPUTAVAILABLE)`. **Hallazgo
+  medido:** sin tocar la resolución del temporizador, Windows (~15,6 ms) capaba
+  la presentación a ~65/s; se añadió `timeBeginPeriod(1)` (con
+  `timeEndPeriod(1)` al salir) y se midieron 104,9–107,7 presents/s y
+  59,5–60,0 pasos/s. La diferencia hasta 120 es el redondeo a milisegundos de
+  la espera; se documenta el valor efectivo, no se presenta 120 como medido.
+- **Renderer nulo (`port/src/render/null_renderer.c`).** `present` se conecta al
+  frame loop, devuelve 0 y contabiliza `presents`/`last_now_us`/`last_steps`,
+  pero no dibuja: no hay dispositivo, superficie ni swap. `WM_ERASEBKGND`
+  devuelve 1 y `WM_PAINT` solo valida la región. `pre_frame` y `update` son
+  stubs que cuentan llamadas; no hay lógica de juego ni audio adjunto.
+- **Pruebas nuevas:** `test_input.c` (826 checks), `test_app.c` (117) y
+  `test_win32_time.c` (1 009). `build.ps1 all` pasa con 69 305 + 60 052 + 215 +
+  410 + 826 + 117 + 1 009 + 50 = **131 984 checks, 0 fallos**. `tools/m13-core`
+  sigue en **120 checks, 0 fallos**; `gexmap` 22/22 y `check`/`segments` sin
+  problemas. Flags: `-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin avisos.
+- **Prueba real de ventana (Windows 11):** ventana localizada con
+  `FindWindowEx`; W↓/W↑, A↓ + `WM_KILLFOCUS`, Escape y `WM_CLOSE`. Tres
+  ejecuciones con código de salida 0, `exit: clean`, `frame errors=0`,
+  `clock warnings=0`, `discards=0`, `aborted=0`, `backwards=0`; 2,20 s/107,7
+  presents/s/60,0 pasos/s/1,38 % CPU, 1,56 s/104,9/59,5/1,93 % y 3,65 s/98,6/
+  60,0/0,85 %. Los mensajes se entregaron con `PostMessage` (misma cola y
+  `WndProc`), **no** con teclado físico.
+- **Límites:** no hay renderizado, lógica de juego, cámara, colisiones ni
+  assets; `gexloop` no adjunta audio. La ruta de entrada del original sigue sin
+  confirmar. Sin `make` en este Windows (el `Makefile` se actualizó pero no se
+  ejecutó). El `gcc.exe` del `PATH` es un driver de Clang 22.1.8 y no cuenta
+  como segunda validación, pero se usó el GCC de GNU 16.1.0 de MSYS2 (fuera del
+  `PATH`): misma batería, 131 984 checks y 0 fallos, sin avisos; `gexloop`
+  compilado con GCC también arrancó limpio. Se corrigió el orden de las
+  librerías en `build.ps1` (GNU ld no las resolvía antes de las fuentes).
+  Integridad de los cuatro archivos personales no verificada; no se tocaron ni
+  publicaron.
+- **Documentación:** `docs/WINDOW_INPUT_PORT.md` (nuevo), `PROJECT_STATE.md`,
+  `ROADMAP.md` (I-4 cerrado), `TESTING.md`, `BUILD.md`, `port/README.md`,
+  `port/Makefile` y `port/build.ps1`. `docs/PROJECT_STATUS.svg` **no se toca**:
+  mide MAIN, no componentes.
+
 ## 2026-11-01 - 0.0.0 - I-3: núcleo temporal y frame loop nativo integrado
 
 - **El acumulador M-13 se mueve al port, sin copia divergente.** `m13_core.c`
@@ -51,9 +115,11 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   recupera el tiempo anterior: 15 ms acumulados → fallo en 20 000 µs → 0
   updates a 32 000 µs (12 ms desde el nuevo ancla) → 1 update a 48 667 µs.
   Verificado por mutación: quitar cualquiera de las dos líneas del fix produce
-  11 fallos cada una. No hay GCC de GNU en la máquina (`gcc.exe` es un driver
-  de Clang 22.1.8 con el mismo target); el harness `tools/m13-core` se compiló
-  a mano con los flags de su Makefile: 120 checks, 0 fallos.
+  11 fallos cada una. En I-3 no se usó un GCC de GNU (`gcc.exe` era un driver
+  de Clang 22.1.8 con el mismo target; actualización 2026-11-02: el GCC de GNU
+  16.1.0 de MSYS2, fuera del `PATH`, validó después la batería de I-4); el
+  harness `tools/m13-core` se compiló a mano con los flags de su Makefile: 120
+  checks, 0 fallos.
 - **Discrepancias F1–F6** documentadas en `docs/FRAME_LOOP_PORT.md` §11: el
   drenaje en bucle y el swap bloqueante no se modelan; `0x0046300C` no se
   modela por falta de semántica; el sello temporal del update no se implementa;

@@ -3,8 +3,9 @@
 > Estado: **implementado y probado sin el juego** el 2026-11-01. Ejecuta el
 > núcleo temporal, el orden de frame reconstruido y el planificador de audio de
 > I-2b. **No** ejecuta lógica del juego ni renderiza nada: `pre_frame`, `update`
-> y `present` son callbacks inyectados. I-4 conecta ventana, entrada y renderer
-> nulo en el callback de presentación.
+> y `present` son callbacks inyectados. I-4 (2026-11-02) conecta ventana,
+> entrada y reloj real a esos callbacks; `present` sigue siendo un renderer
+> nulo. Ver `docs/WINDOW_INPUT_PORT.md`.
 >
 > Evidencia de partida: `docs/FRAME_STEP_TRACE.md` (traza dinámica),
 > `docs/M13_DECOUPLE_PROPOSAL.md` §4 (acumulador), `docs/AUDIO_MIXER_RE.md`
@@ -303,13 +304,17 @@ después):
 La prueba no duplica lógica de producción: solo llama a la API pública y lee
 los campos documentados de `gex_frame`/`gex_loop_core`.
 
-**Resultados negativos y límites de esta validación:** no hay GCC de GNU en la
-máquina; el `gcc.exe` del toolchain es un *driver* de Clang 22.1.8 con el
-mismo target `x86_64-w64-windows-gnu`, así que la compilación "con GCC"
-verifica el mismo frontend, no un compilador distinto. `make` tampoco existe
-en Windows: el harness `tools/m13-core` se compiló a mano con los mismos flags
-de su Makefile (120 checks, 0 fallos). La suite `test_device` se ejecutó y
-pasó 50 checks en esta máquina; la audición humana sigue sin verificarse.
+**Resultados negativos y límites de esta validación:** en el momento de I-3 no
+se usó un GCC de GNU; el `gcc.exe` del `PATH` es un *driver* de Clang 22.1.8 con
+el mismo target `x86_64-w64-windows-gnu`, así que la compilación "con GCC"
+verificaba el mismo frontend, no un compilador distinto. **Actualización
+2026-11-02 (I-4):** existe un GCC de GNU 16.1.0 en MSYS2
+(`C:\msys64\mingw64\bin`, fuera del `PATH`), y con él se validó la batería de
+I-4 (131 984 checks, 0 fallos, sin avisos); ver `docs/WINDOW_INPUT_PORT.md` §9.
+`make` tampoco existe en Windows: el harness `tools/m13-core` se compiló a mano
+con los mismos flags de su Makefile (120 checks, 0 fallos). La suite
+`test_device` se ejecutó y pasó 50 checks en esta máquina; la audición humana
+sigue sin verificarse.
 
 ## 10. Qué es real y qué es de prueba
 
@@ -329,19 +334,19 @@ pasó 50 checks en esta máquina; la audición humana sigue sin verificarse.
 
 | ID | Original | Port | Motivo |
 | --- | --- | --- | --- |
-| F1 | el frame step drena la cola en bucle (`0x0043EA51`) y el swap bloquea ~23 ms | `present` es un callback único; no hay drenaje ni swap | no existe renderer todavía (I-4) |
+| F1 | el frame step drena la cola en bucle (`0x0043EA51`) y el swap bloquea ~23 ms | `present` es un callback único; no hay drenaje ni swap | no existe renderer: I-4 usa uno nulo |
 | F2 | `0x0046300C` tras el swap | no modelada | semántica sin identificar; no se inventa |
-| F3 | el update calcula `(GetTickCount()-inicio)/16.666` dentro de sí mismo | el reloj se inyecta al bucle; el sello no se implementa | no hay objeto de juego; el sello pertenece al update real (I-4+) |
+| F3 | el update calcula `(GetTickCount()-inicio)/16.666` dentro de sí mismo | el reloj se inyecta al bucle; el sello no se implementa | no hay objeto de juego; el sello pertenece al update real (no implementado) |
 | F4 | el juego es *present-bound*: un frame lento ralentiza la simulación | modo desacoplado con catch-up y descarte | objetivo de M-13; es opcional y `original_mode` es el preset por defecto |
 | F5 | no hay manejo de errores de DirectSound en el frame loop | un error de audio aborta el frame y vacía el acumulador | política del port, explícita y probada |
 | F6 | no hay pausa del frame loop | `gex_frame_pause/resume` | herramienta del port; reancla el reloj |
 
-## 12. Límites y pendientes para I-4
+## 12. Límites y estado tras I-4
 
-- **No hay ventana, entrada ni renderer.** `present` es un stub; I-4 conecta
-  ahí el renderer nulo y el swap.
-- **No hay lectura de reloj real.** Falta el proveedor de `now_us` (p. ej.
-  `QueryPerformanceCounter` en Windows) con la misma interfaz inyectable.
+- **Ventana, entrada y reloj real: cubiertos por I-4.** `gexloop.exe` aporta el
+  proveedor `QueryPerformanceCounter`, la ventana Win32 y el estado de teclado;
+  `present` sigue siendo un **renderer nulo** (no hay swap ni píxeles). Ver
+  `docs/WINDOW_INPUT_PORT.md`.
 - **El render condicional (`[obj+0x4E38]`) no se modela**: pertenece al update
   original, no al bucle.
 - **El drenaje de cola del swap** (`_grBufferNumPending`) no se modela: sin

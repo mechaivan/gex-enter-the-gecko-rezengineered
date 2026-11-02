@@ -6,8 +6,9 @@ propia escrita a partir de la evidencia documentada en `docs/`.
 
 ## Estado
 
-Tres subsistemas implementados y probados sin el juego; el último habla con el
-dispositivo de sonido real:
+Cuatro subsistemas implementados y probados sin el juego; el último habla con el
+dispositivo de sonido real y, desde I-4, existe además un **proceso nativo con
+ventana Win32 real**:
 
 | Componente | Original | Cabecera | Estado |
 | --- | --- | --- | --- |
@@ -18,18 +19,23 @@ dispositivo de sonido real:
 | Backend DirectSound (dispositivo) | `0x00538551`, `CreateSoundBuffer(0x8000, 0xE0)`, `GetCurrentPosition`, `0x0053886c` | `gex/audio/backend_dsound.h` | funcional (Windows), 50 checks |
 | Núcleo temporal (acumulador M-13) | `0x0043EA36` + `16.666` de `0x0054C060` | `gex/core/loop_core.h` | funcional, 120 checks + 410 |
 | Frame loop nativo | orden de `0x0043F80D` → `0x0043E1BA` → `0x005380B3` → `0x0043DC3A` | `gex/core/frame.h` | funcional, 410 checks (incl. regresión pre_frame) |
+| Estado de teclado | decisión del port (`WM_KEYDOWN`/`WM_KEYUP`; S5 del original = HYPOTHESIS) | `gex/input/key_state.h` | funcional, 826 checks |
+| Reloj monotónico real | `QueryPerformanceCounter` | `gex/platform/win32_time.h` | funcional (Windows), 1 009 checks |
+| Renderer nulo | no aplica: I-4 declara que no dibuja | `gex/render/null_renderer.h` | funcional, sin dibujo |
+| Núcleo de aplicación | orden de I-3 + Escape/foco | `gex/app/i4_app.h` | funcional, 117 checks |
+| Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
+| Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
 
-No hay motor, ni render, ni entrada, ni lectura de reloj real. El audio sí
-suena: `sagplay --device` entrega el PCM a un `IDirectSoundBuffer` real. Lo que
-**no** está verificado es la audición humana (el agente no puede oír); la
-confirmación por oído es del mantenedor.
+No hay motor, ni render, ni lógica de juego. La ventana, el teclado, el reloj
+QPC y el frame loop **sí** son reales: `gexloop.exe` abre una ventana, responde
+a teclas, libera el estado al perder foco y sale con Escape o al cerrar. El
+audio sigue siendo audible por separado: `sagplay --device` entrega el PCM a un
+`IDirectSoundBuffer` real. Lo que **no** está verificado es la audición humana
+(el agente no puede oír); la confirmación por oído es del mantenedor.
 
-Desde I-3 hay además un **frame loop ejecutable** (`framedemo`): acumulador de
-paso fijo, orden de fases medido y tick del planificador de audio una vez por
-frame. `pre_frame`, `update` y `present` son callbacks de prueba —no hay lógica
-del juego ni renderer—, así que esto **no** es un build jugable. `port/` es el
-sitio donde los componentes irán apareciendo, uno por uno, cada uno con su
-prueba.
+`gexloop` no es un build jugable: `pre_frame` y `update` solo cuentan llamadas
+y `present` usa un renderer nulo que no dibuja. Es el primer «prototipo
+ejecutable», no el juego.
 
 ## Estructura
 
@@ -42,6 +48,12 @@ port/
   include/gex/audio/backend_dsound.h dispositivo DirectSound (sólo Windows)
   include/gex/core/loop_core.h       acumulador de paso fijo (núcleo M-13)
   include/gex/core/frame.h           frame loop: fases, hooks, ciclo de vida
+  include/gex/input/key_state.h      teclado: nivel, flancos y pérdida de foco
+  include/gex/render/null_renderer.h renderer nulo (present sin dibujar)
+  include/gex/app/i4_app.h           núcleo de aplicación (frame + input + present)
+  include/gex/platform/clock.h       conversión portable ticks → µs
+  include/gex/platform/win32_time.h  reloj QPC (sólo Windows)
+  include/gex/platform/win32_window.h ventana, WndProc y mensajes (sólo Windows)
   src/asset/sag.c                    transcripción del parser y del cargador
   src/audio/adpcm.c                  0x00538285
   src/audio/stream.c                 0x005380B3 + 0x00538731 + buffer secundario
@@ -49,10 +61,20 @@ port/
   src/audio/backend_dsound.c         IDirectSoundBuffer real (Lock/Play/cursor/volumen)
   src/core/loop_core.c               la única implementación del acumulador
   src/core/frame.c                   orden de frame + tick de audio + errores
+  src/input/key_state.c              tablas de teclado (C11 puro)
+  src/render/null_renderer.c         present que contabiliza y no dibuja
+  src/app/i4_app.c                   orquestación portable (Escape, limpieza)
+  src/app/i4_main_win32.c            ejecutable I-4 (bucle, espera, estadísticas)
+  src/platform/clock.c               aritmética de ticks a microsegundos
+  src/platform/win32_time.c          QueryPerformanceCounter (Windows)
+  src/platform/win32_window.c        CreateWindowExW + WndProc (Windows)
   tests/test_sag.c                   batería sintética + fuzz (sin el juego)
   tests/test_adpcm.c                 vector dorado, clamp, continuidad, fuzz
   tests/test_audio.c                 buffer, bomba, gate del cursor, backend, sched
   tests/test_frame.c                 frame loop: orden, catch-up, errores, pausa
+  tests/test_input.c                 teclado: flancos, auto-repeat, foco, Escape
+  tests/test_app.c                   app + reloj + renderer + ciclo de vida
+  tests/test_win32_time.c            QPC real: monotonía y avance (Windows)
   tests/test_device.c                dispositivo real (se omite si no hay tarjeta)
   tests/make_demo_sag.mjs            genera un contenedor sintético de 54 bytes
   tools/sagdump.c                    CLI que muestra lo que el lector entendió
@@ -71,7 +93,8 @@ Windows (PowerShell, sin `make` en este entorno):
 ```powershell
 cd port
 .\build.ps1 all      # compila, ejecuta los checks y las demos
-.\build.ps1 test     # solo checks (contenedor + ADPCM + ruta + frame loop + dispositivo)
+.\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame + entrada + app + reloj + dispositivo)
+.\build.ps1 loop     # solo gexloop.exe (ventana Win32 real)
 .\build.ps1 audio    # solo la demo de audio (escribe build\tone.wav)
 .\build.ps1 demo     # fixture sintético + sagdump + framedemo + demo de audio
 .\build.ps1 clean    # borra build\ (solo lo que genera este script)
@@ -82,6 +105,15 @@ Frame loop (I-3), sin ventana ni juego:
 ```powershell
 .\build\framedemo.exe --frames 4
 .\build\framedemo.exe --decoupled --frames 3 --dt 60000 --audio
+```
+
+Primer proceso con ventana (I-4), renderer nulo:
+
+```powershell
+.\build.ps1 loop
+.\build\gexloop.exe                 # corre hasta Escape o cerrar la ventana
+.\build\gexloop.exe --frames 360
+.\build\gexloop.exe --seconds 5
 ```
 
 Para oírlo (necesita dispositivo de sonido; el tono sintético dura 0,5 s):
@@ -102,9 +134,12 @@ make demo
 El `Makefile` es el equivalente POSIX del script; **no se ha podido ejecutar en
 este entorno** porque el Windows del mantenedor no tiene `make`. El build que
 sí está verificado es `build.ps1` (clang y gcc). `make audio` enlaza con `-lm`
-porque la demo usa `sin`. El backend DirectSound es sólo Windows: el `Makefile`
-no lo compila y `sagplay --device` no existe en POSIX; `test_sag`,
-`test_adpcm` y `test_audio` siguen siendo portables.
+porque la demo usa `sin`. El backend DirectSound y la capa Win32 son sólo
+Windows: el `Makefile` no compila `backend_dsound.c`, `win32_time.c`,
+`win32_window.c`, `test_device.c`, `test_win32_time.c` ni `gexloop`, así que
+`sagplay --device` y `gexloop` no existen en POSIX; `test_sag`, `test_adpcm`,
+`test_audio`, `test_frame`, `test_input`, `test_i4_app` y `framedemo` siguen
+siendo portables.
 
 Compilador: `clang` o `gcc` con `-std=c11`. Se puede forzar con
 `.\build.ps1 test -Compiler gcc`.
@@ -193,6 +228,36 @@ Con `--decoupled --dt 60000` el acumulador recupera: tres presentaciones, diez
 pasos lógicos (3, 4, 3) y un tick de audio por presentación. Las fases siguen
 siendo stubs: no hay juego ni renderer.
 
+Ventana y reloj (I-4, Windows; renderer nulo):
+
+```powershell
+.\build\gexloop.exe --frames 360
+```
+
+Salida medida (ventana real, 3,65 s):
+
+```text
+clock: QueryPerformanceCounter, 10000000 Hz
+frame: decoupled, step=16667 us (60 Hz), max_dt=250000 us, max_steps=5
+present: target 8333 us (120 Hz), logical and present cadences independent
+timer: 1 ms resolution (timeBeginPeriod(1))
+window: class=GexNativeLoopWindow, 960x540 client area
+renderer: null (draws nothing)
+audio: none attached
+controls: Escape or close the window to exit
+stats: t=2.01s presents=214 fps=106.6 steps=120 steps/s=59.7 ...
+final: t=3.65s presents=360 fps=98.6 steps=219 steps/s=60.0 ...
+exit: clean, frame errors=0, clock warnings=0
+```
+
+`Escape` o cerrar la ventana terminan el proceso con código 0. La consola solo
+imprime transiciones de teclado/foco y estadísticas cada 2 s, nunca un mensaje
+por frame. En esta máquina la prueba real midió 104,9–107,7 presents/s,
+59,5–60,0 pasos/s y 0,85–1,93 % de CPU. Sin `timeBeginPeriod(1)` la
+granularidad de Windows (~15,6 ms) capaba la presentación a ~65/s; se restaura
+con `timeEndPeriod(1)`. La ventana está vacía: `present` es nulo y
+`pre_frame`/`update` son stubs.
+
 `sagdump` y `sagplay` aceptan cualquier ruta: si tienes un `.sag` propio,
 pásalo como argumento (`sagplay fichero.sag salida.wav`, o
 `sagplay --device fichero.sag`) y procesan ese. No se incluye ninguno.
@@ -202,11 +267,13 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
 - **Evidencia primero.** Cada función nueva cita la dirección del original en
   su comentario de cabecera. Sin dirección, no hay implementación.
 - **Sin dependencias.** C11 y libc en las piezas puras: nada de Win32 en
-  `adpcm`/`stream`/`sched`, lo que permite probarlas en cualquier plataforma y
-  reutilizarlas después. La salida de audio es un *backend* con
-  `submit`/`stop`/`cursor`/`pause`/`resume` que inyecta el llamante; el único
-  archivo que ve Windows es `backend_dsound.c`, y usa la API del sistema
-  (`dsound.h` + `-ldsound`), no una librería de terceros.
+  `adpcm`/`stream`/`sched`, ni en `key_state`/`null_renderer`/`i4_app`/
+  `clock`, lo que permite probarlas en cualquier plataforma y reutilizarlas
+  después. La salida de audio es un *backend* con
+  `submit`/`stop`/`cursor`/`pause`/`resume` que inyecta el llamante; la capa
+  Windows vive solo en `backend_dsound.c`, `win32_time.c`, `win32_window.c` e
+  `i4_main_win32.c`, y usa la API del sistema (`dsound.h`, `user32`, `gdi32`,
+  `winmm`), no una librería de terceros.
 - **Las desviaciones se documentan.** Si el original confía en el contenedor y
   la implementación comprueba límites, se dice y se justifica en
   `docs/SAG_CONTAINER.md` §6 y en `docs/AUDIO_MIXER_RE.md` §11 (D1-D14).
@@ -217,7 +284,8 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   cursor avanza a la frecuencia correcta, pero la audición humana no la verifica
   el agente: eso se dice tal cual y se deja la comprobación a `--device`.
   En el frame loop pasa lo mismo: `pre_frame`, `update` y `present` son
-  callbacks de prueba y el bucle se llama bucle, no juego.
+  callbacks de prueba y el bucle se llama bucle, no juego. El renderer de I-4
+  se llama **nulo** y no aparenta dibujar; la ventana es real, pero está vacía.
 - **Una sola implementación por pieza.** El acumulador de paso fijo vive en
   `src/core/loop_core.c`; `tools/m13-core` compila esa misma fuente con un shim
   de compatibilidad en vez de tener una copia que diverja.
@@ -235,5 +303,7 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   correspondencia con el port (§7).
 - `docs/FRAME_LOOP_PORT.md` - frame loop nativo: arquitectura, decisiones de
   tiempo, política de catch-up/errores, API, pruebas y discrepancias F1-F6.
+- `docs/WINDOW_INPUT_PORT.md` - ventana Win32, mensajes, teclado, reloj QPC,
+  cadencia/espera, renderer nulo, pruebas reales y discrepancias W1-W8.
 - `docs/FUNCTION_MAP.md` - mapa estático de funciones y grafo de llamadas.
 - `TESTING.md` - batería completa del repositorio.
