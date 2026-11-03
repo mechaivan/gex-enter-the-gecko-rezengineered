@@ -29,7 +29,7 @@ R-2 la swapchain DXGI, todavía sin presentar ni dibujar:
 | Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 314 checks; hardware y WARP a FL 11_1; sin swapchain |
 | Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 572 checks; bitblt, 2 buffers, 960×540, resize; sin `Present` |
 | Renderer Direct3D 11 (R-3) | implementación del contrato `gex_renderer` | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; primera salida gráfica visible con `Present`, clear del backbuffer y render target view |
-| Investigación R-4 | VSync, DXGI, Debug Layer, pérdida del dispositivo | `docs/R4_DIAGNOSTIC.md` | investigación iniciada, 0 checks |
+| Estabilidad y diagnóstico R-4 | VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo entre frames |
 | Renderer Direct3D 11 (R-3) | `grDrawBuffer`, `grBufferClear`, `grSwapBuffers` | `gex/render/d3d11_renderer.h` | funcional (Windows), 28 checks; clear color, Present, resize; integrado con I-4; validado visualmente |
 
 No hay motor, ni lógica de juego. La ventana, el teclado, el reloj QPC, el frame loop

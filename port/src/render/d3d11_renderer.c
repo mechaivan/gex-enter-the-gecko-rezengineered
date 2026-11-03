@@ -87,6 +87,25 @@ gex_d3d11_renderer_status gex_d3d11_renderer_init(
     renderer->backbuffer = backbuffer;
     renderer->initialized = 1;
     
+    /* Initialize device removed reason */
+    renderer->device_removed_reason = S_OK;
+    
+    /* Enable debug layer if requested */
+    if (renderer->enable_debug_layer) {
+        ID3D11Device *device = renderer->device;
+        ID3D11DeviceContext *context = renderer->context;
+        
+        /* Try to enable debug layer */
+        HRESULT hr = ID3D11Device_SetFeatureLevel(device, D3D11_FEATURE_LEVEL_11_0);
+        if (FAILED(hr)) {
+            renderer->last_hresult = hr;
+            return GEX_D3D11_RENDERER_RTV_CREATE_FAILED;
+        }
+        
+        /* Note: Debug layer is not critical, so we don't fail if it's not available */
+        renderer->last_hresult = S_OK;
+    }
+    
     return GEX_D3D11_RENDERER_OK;
 }
 
@@ -152,10 +171,14 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
     ID3D11DeviceContext_ClearRenderTargetView(renderer->context, renderer->rtv,
                                            renderer->clear_color);
     
-    /* Present the backbuffer */
-    HRESULT hr = IDXGISwapChain_Present(renderer->swapchain, 0, 0);
+    /* Present the backbuffer with the configured sync interval */
+    HRESULT hr = IDXGISwapChain_Present(renderer->swapchain, renderer->sync_interval, 0);
     renderer->last_hresult = hr;
     if (FAILED(hr)) {
+        /* Check for device removal error */
+        if (hr == DXGI_ERROR_DEVICE_REMOVED) {
+            renderer->device_removed_reason = ID3D11Device_GetDeviceRemovedReason(renderer->device);
+        }
         return 1;
     }
     
@@ -200,6 +223,49 @@ const char *gex_d3d11_renderer_status_name(gex_d3d11_renderer_status status)
         return "rtv create failed";
     }
     return "unknown";
+}
+
+int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval)
+{
+    if (renderer == NULL || !renderer->initialized) {
+        return 1;
+    }
+    
+    /* Validate sync interval */
+    if (sync_interval > 4) {
+        return 1;
+    }
+    
+    renderer->sync_interval = sync_interval;
+    return 0;
+}
+
+int gex_d3d11_renderer_set_debug_layer(gex_d3d11_renderer *renderer, int enable)
+{
+    if (renderer == NULL || !renderer->initialized) {
+        return 1;
+    }
+    
+    renderer->enable_debug_layer = enable;
+    return 0;
+}
+
+HRESULT gex_d3d11_renderer_get_device_removed_reason(gex_d3d11_renderer *renderer)
+{
+    if (renderer == NULL || !renderer->initialized) {
+        return E_FAIL;
+    }
+    
+    return renderer->device_removed_reason;
+}
+
+uint64_t gex_d3d11_renderer_get_frame_time_us(gex_d3d11_renderer *renderer)
+{
+    if (renderer == NULL || !renderer->initialized) {
+        return 0;
+    }
+    
+    return renderer->frame_time_us;
 }
 
 #endif /* _WIN32 */

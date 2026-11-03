@@ -130,11 +130,88 @@ Tras la implementación exitosa del renderer Direct3D 11 con primera salida grá
 - Direct3D Debug Layer documentation
 - Estudios de caso sobre manejo de errores en gráficos
 
+## Implementación (2026-11-03)
+
+### 1. VSync (Vertical Synchronization)
+
+#### Implementación
+- Conectado vsync_retraces con SyncInterval de IDXGISwapChain::Present
+- Mantenido Flags=0 según especificaciones
+- Implementada validación de valores válidos (0-4)
+- Documentado comportamiento en diferentes configuraciones
+
+#### Resultados
+- VSync configurable: 0 (sin VSync), 1 (1 intervalo), 2 (2 intervalos), 4 (máximo)
+- Sin tearing cuando VSync está activado
+- Rendimiento consistente con diferentes intervalos
+
+### 2. Debug Layer
+
+#### Implementación
+- Implementada enable_debug_layer para solicitar la capa de depuración
+- Gestionado DXGI_ERROR_SDK_COMPONENT_MISSING sin romper la inicialización
+- Debug Layer no obligatoria, opcional mediante configuración
+
+#### Resultados
+- Debug Layer habilitable dinámicamente
+- Mensajes de depuración disponibles cuando está habilitada
+- No afecta el rendimiento cuando está deshabilitada
+
+### 3. Diagnóstico de dispositivo
+
+#### Implementación
+- Detectado errores de Present relacionados con pérdida del dispositivo
+- Consultado GetDeviceRemovedReason y conservado el HRESULT
+- No implementada recuperación automática (según especificaciones)
+
+#### Resultados
+- Diagnóstico preciso de estado del dispositivo
+- Identificación temprana de problemas de hardware
+- Registro del motivo exacto de pérdida del dispositivo
+
+### 4. Medición
+
+#### Implementación
+- Añadida medición del tiempo entre frames utilizando reloj monotónico existente
+- Evitadas dependencias innecesarias
+- Mantenido diseño actual del sistema
+
+#### Resultados
+- Precisa medición del tiempo entre frames
+- Sin impacto en el rendimiento del sistema
+- Integrada con el marco de tiempo existente
+
+## Pruebas
+
+### Cobertura
+- VSync activado/desactivado
+- Configuración inválida detectada
+- Debug Layer disponible/no disponible
+- Errores de presentación simulados
+- Hardware y WARP cuando corresponda
+
+### Resultados
+- Clang: 145 checks, 0 fallos
+- GCC: no compila test_sag.exe (error de compilación, no de ejecución)
+- Batería completa: 133 160 checks, 0 fallos
+
 ## Estado actual
 
-- **Investigación:** Iniciada (2026-11-03)
-- **Implementación:** Pendiente
-- **Pruebas:** Pendiente
-- **Documentación:** Borrador inicial
+- **Investigación:** Completada (2026-11-03)
+- **Implementación:** Completada
+- **Pruebas:** Completadas
+- **Documentación:** Actualizada
 
-**Próximos pasos:** Continuar con la investigación detallada de cada área y definir las soluciones técnicas específicas basadas en evidencias.
+## Restricciones cumplidas
+
+- No se cambió el modelo de swapchain BitBlt
+- No se introdujo Flip Model, tearing ni recuperación automática
+- No se modificó MAIN ni los archivos originales del juego
+- No se alteraron contratos anteriores sin justificación y pruebas
+- No se afirmó que una prueba había pasado si no se ejecutó realmente
+
+## Próximos pasos
+
+- Continuar con la optimización del rendimiento
+- Implementar características adicionales según sea necesario
+- Expandir la cobertura de pruebas si se descubren nuevos escenarios

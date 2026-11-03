@@ -22,7 +22,7 @@ Windows, **no hay dependencias de terceros que descargar**.
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 133 015 checks, las sondas D3D11 y las demos
+.\build.ps1 all      # compila, ejecuta 133 160 checks, las sondas D3D11 y las demos
 .\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame loop + entrada + app + reloj + audio-device + D3D11 device + swapchain + renderer)
 .\build.ps1 loop     # solo gexloop.exe (ventana Win32 real; Windows)
 .\build.ps1 probe    # d3d11probe.exe y swapprobe.exe (dispositivo y swapchain; Windows)

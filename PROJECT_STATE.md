@@ -167,7 +167,7 @@ llegan a 0 al liberar en orden. **No hay `Present`, ni clear, ni dibujo** (R-3
 y siguientes), y `gexloop` sigue con el renderer nulo. **572 checks nuevos**, 0
 fallos, hardware y WARP, Clang 22.1.8; GCC 16.1.0 no compila test_sag.exe,
 por lo que la validación completa solo se ha realizado con Clang.
-**batería completa 133 015 checks**. Detalle en `docs/D3D11_SWAPCHAIN.md`.
+**batería completa 133 160 checks**. Detalle en `docs/D3D11_SWAPCHAIN.md`.
 
 I-4 (2026-11-02) conecta la ventana, la entrada y el reloj real, pero **sigue
 sin jugar**: `pre_frame` y `update` solo cuentan llamadas y `present` usa un

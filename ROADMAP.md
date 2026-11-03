@@ -211,9 +211,10 @@ mods/parches.
   target view. Primera presentación gráfica visible con Direct3D 11. **145 checks,
   0 fallos** con Clang 22.1.8; batería completa **133 015 checks**. Doc:
   `docs/D3D11_RENDERER.md`.
-- [ ] **R-4 — Investigación de VSync, DXGI, Debug Layer y pérdida del dispositivo.**
-  Inicia investigación sobre VSync, DXGI, Debug Layer y pérdida del dispositivo.
-  Documenta problemas y soluciones técnicas. **0 checks**. Doc: `docs/R4_DIAGNOSTIC.md`.
+- [x] **R-4 — Investigación de VSync, DXGI, Debug Layer y pérdida del dispositivo.**
+  Implementa VSync configurable, Debug Layer, diagnóstico de dispositivo y medición
+  del tiempo entre frames. **145 checks** con Clang 22.1.8; batería completa
+  **133 160 checks**. Doc: `docs/R4_DIAGNOSTIC.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador

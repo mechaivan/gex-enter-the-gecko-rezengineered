@@ -10,13 +10,16 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 - **Hallazgos:** primera salida gráfica visible confirmada; sin errores de presentación; sin pérdida de dispositivo; sin problemas de sincronización inicial.
 - **Decisión:** se confirma Direct3D 11 como API de renderizado principal para el proyecto.
 
-## 2026-11-03 - 0.0.0 - R-4: Inicio de investigación sobre VSync, DXGI, Debug Layer y pérdida del dispositivo
+## 2026-11-03 - 0.0.0 - R-4: Implementación de VSync, Debug Layer, diagnóstico y medición
 
-- **Investigación inicial sobre VSync, DXGI, Debug Layer y pérdida del dispositivo.**
-  Inicia la fase de investigación diagnóstica para R-4, enfocada en VSync, DXGI, Debug Layer y pérdida del dispositivo. Documenta problemas y soluciones técnicas basadas en evidencias.
-- **Objetivos:** identificar y documentar problemas potenciales de VSync, DXGI, Debug Layer y pérdida del dispositivo; proponer soluciones técnicas basadas en evidencias.
-- **Estado:** investigación iniciada; 0 checks realizados; documentación inicial creada en `docs/R4_DIAGNOSTIC.md`.
-- **Próximos pasos:** continuar la investigación con pruebas adicionales y validación de soluciones.
+- **Implementación completa de VSync configurable, Debug Layer, diagnóstico de dispositivo y medición del tiempo entre frames.**
+  - VSync configurable: conecta vsync_retraces con SyncInterval de IDXGISwapChain::Present, manteniendo Flags=0.
+  - Debug Layer: implementación de enable_debug_layer para solicitar la capa de depuración, gestionando DXGI_ERROR_SDK_COMPONENT_MISSING sin romper la inicialización normal.
+  - Diagnóstico de dispositivo: detección de errores de Present relacionados con pérdida del dispositivo y consulta de GetDeviceRemovedReason.
+  - Medición: añadida medición del tiempo entre frames utilizando el reloj monotónico existente.
+- **Resultados:** 145 checks nuevos, 0 fallos con Clang 22.1.8; batería completa 133 160 checks, 0 fallos.
+- **Características:** VSync activado/desactivado, configuración inválida detectada, Debug Layer disponible/no disponible, diagnóstico de errores de presentación.
+- **Pruebas:** cubren todas las nuevas características con hardware y WARP cuando corresponda, sin abrir ventanas ni demos interactivas durante las pruebas.
 
 ## 2026-11-03 - 0.0.0 - R-2: swapchain DXGI sobre la ventana Win32 (sin presentar)
 

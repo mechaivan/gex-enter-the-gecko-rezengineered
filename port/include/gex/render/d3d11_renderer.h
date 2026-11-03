@@ -65,6 +65,10 @@ typedef struct gex_d3d11_renderer {
     uint64_t last_now_us;           /* last presentation time */
     uint32_t last_steps;            /* last frame steps */
     uint32_t last_frame_index;      /* last frame index */
+    UINT sync_interval;             /* VSync sync interval (0 = immediate, 1 = 1 refresh) */
+    int enable_debug_layer;          /* whether debug layer is enabled */
+    HRESULT device_removed_reason;   /* reason for device removal, S_OK if none */
+    uint64_t frame_time_us;         /* time between frames for performance monitoring */
 } gex_d3d11_renderer;
 
 /*
@@ -83,7 +87,9 @@ typedef struct gex_d3d11_renderer {
         .device = NULL, .context = NULL, .swapchain = NULL,                    \
         .backbuffer = NULL, .rtv = NULL, .clear_color = {0.0f, 0.0f, 0.0f, 1.0f}, \
         .last_hresult = S_OK, .initialized = 0,                                \
-        .presents = 0, .last_now_us = 0, .last_steps = 0, .last_frame_index = 0 \
+        .presents = 0, .last_now_us = 0, .last_steps = 0, .last_frame_index = 0, \
+        .sync_interval = 1, .enable_debug_layer = 0, .device_removed_reason = S_OK, \
+        .frame_time_us = 0 \
     }
 
 /*
@@ -115,6 +121,34 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick);
  * touched: they are released by their respective modules. Idempotent.
  */
 void gex_d3d11_renderer_shutdown(gex_d3d11_renderer *renderer);
+
+/*
+ * Set the VSync sync interval for presentation.
+ * 0 = immediate (no VSync, tearing possible)
+ * 1 = 1 refresh interval (VSync enabled)
+ * 2+ = N refresh intervals (VSync enabled)
+ * Returns 0 on success, non-zero on failure.
+ */
+int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval);
+
+/*
+ * Enable or disable the debug layer for this renderer.
+ * When enabled, debug messages will be output to the debug console.
+ * Returns 0 on success, non-zero on failure.
+ */
+int gex_d3d11_renderer_set_debug_layer(gex_d3d11_renderer *renderer, int enable);
+
+/*
+ * Check if the device has been removed and get the reason.
+ * Returns S_OK if the device is still valid, or the error code if removed.
+ */
+HRESULT gex_d3d11_renderer_get_device_removed_reason(gex_d3d11_renderer *renderer);
+
+/*
+ * Get the time in microseconds between the last two frames.
+ * Returns 0 if no frames have been presented yet.
+ */
+uint64_t gex_d3d11_renderer_get_frame_time_us(gex_d3d11_renderer *renderer);
 
 const char *gex_d3d11_renderer_status_name(gex_d3d11_renderer_status status);
 
