@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | Cabecera de la swapchain | `port/include/gex/render/d3d11_swapchain.h` | contrato Windows-only; no lo incluye ningún fichero portable |
 | Implementación | `port/src/render/d3d11_swapchain.c` | `IDXGIFactory::CreateSwapChain` + `GetBuffer(0)` + `ResizeBuffers` + ciclo COM |
-| Prueba automatizada | `port/tests/test_d3d11_swapchain.c` | 429 checks (WARP, hardware, errores, resize, COM, ciclo de vida, ventana muerta) |
+| Prueba automatizada | `port/tests/test_d3d11_swapchain.c` | 572 checks (WARP, hardware, errores, resize, COM, ciclo de vida, ventana muerta, contrato de inicialización) |
 | Sonda de consola | `port/tools/swapprobe.c` → `build/swapprobe.exe` | ventana I-4 real + swapchain WARP y hardware, informe legible |
 | Build | `port/build.ps1` | `test` ejecuta la prueba; `probe`/`all` compilan y ejecutan la sonda |
 | `port/Makefile` | solo comentario | la pieza queda documentada como Windows-only; **no se compila en POSIX** |
@@ -29,6 +29,60 @@ El núcleo portable (`loop_core.c`, `frame.c`, `i4_app.c`,
 planificador de audio **no se han modificado**. `gexloop` sigue arrancando con
 el renderer nulo y no sabe que existe DXGI. El renderer nulo sigue disponible
 para todas las pruebas anteriores.
+
+### 1.1 Contrato de inicialización y errores (mantenimiento 2026-11-03)
+
+**Precondición declarada una vez y respetada en todo el módulo:** un
+`gex_d3d11_swapchain` debe inicializarse con la macro
+`GEX_D3D11_SWAPCHAIN_INITIALIZER` (o a cero) **antes** del primer `init` y
+antes de `shutdown`, y el `gex_d3d11_device` que se le pasa debe respetar la
+misma precondición:
+
+```c
+gex_d3d11_swapchain sw = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+if (gex_d3d11_swapchain_init(&sw, &dev, &cfg) ==
+    GEX_D3D11_SWAPCHAIN_OK) {
+    /* ... */
+    gex_d3d11_swapchain_shutdown(&sw);
+}
+```
+
+La macro `GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER` existe para la struct de
+configuración (input struct): deja los defaults en 2 buffers y
+`R8G8B8A8_UNORM`, y tamaño 0 que `init` rechaza, para que un tamaño olvidado
+falle ruidosamente en lugar de crear silenciosamente una swapchain 0×0.
+
+`shutdown` deja el struct exactamente en el estado de la macro, así que un
+struct cerrado se reutiliza sin trabajo extra y un segundo `shutdown` es un
+no-op.
+
+Resultado exacto de `init` en cada caso:
+
+| Caso | Resultado | Estado del struct |
+| --- | --- | --- |
+| `sw == NULL` | `BAD_ARGUMENT` | nada se lee |
+| `sw` viva (`initialized != 0`) | `BAD_STATE` | **intacta**: swapchain, backbuffer y dispositivo del llamante no se tocan ni se liberan; la comprobación precede a cualquier validación de argumentos |
+| `sw` cerrada + `dev`/`cfg` NULL | `BAD_ARGUMENT` | **no se escribe** |
+| `sw` cerrada + dispositivo R-1 cerrado, HWND muerto/falso, tamaño 0 | `BAD_ARGUMENT` | **no se escribe** |
+| `sw` cerrada + argumentos válidos, creación falla | `CREATE_FAILED` | a cero (cerrada), sin recursos parcialmente abiertos; `last_hresult` = HRESULT del runtime |
+| `sw` cerrada + argumentos válidos, creación correcta | `OK` | viva |
+
+Invariante nuevo y probado: **`CREATE_FAILED` implica `FAILED(last_hresult)`**,
+incluido el caso defensivo «DXGI respondió éxito pero no entregó el objeto»,
+que ahora registra `E_FAIL`.
+
+Por qué la precondición no se autocorrige: igual que R-1 (§4.1), leer un
+struct nunca escrito es comportamiento indefinido; un *magic cookie* lee la
+misma memoria indeterminada y no añade garantía; una entrada `create` que
+nunca inspeccione eliminaría la protección `BAD_STATE` probada. El módulo
+lee **solo `initialized`**, nunca punteros, para distinguir vivo de cerrado.
+
+La prueba añadió 143 checks: equivalencia macro ↔ cero (swapchain y config),
+literal compuesto, ciclo completo desde la macro, `shutdown` → estado macro,
+reutilización, `BAD_STATE` con precedencia sobre NULLs en ambos argumentos
+restantes, struct cerrada «sucia» con punteros centinela que el rechazo no
+toca, y fallo de creación sobre struct de macro con la invariante de
+`last_hresult`.
 
 ## 2. Arquitectura
 
@@ -174,7 +228,7 @@ target y `OutputWindow`.
 
 ## 7. Resultados reales
 
-### 7.1 Batería automatizada (429 checks)
+### 7.1 Batería automatizada (572 checks)
 
 Salida exacta con Clang 22.1.8 (idéntica con GCC 16.1.0):
 
@@ -190,39 +244,28 @@ refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
+refs before shutdown: swapchain 3, backbuffer 2
 buffer_count=1000: status=create failed hr=0x887A0001
 resize after window destroyed: status=ok hr=0x00000000
 refs before shutdown: swapchain 3, backbuffer 2
 hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
 hardware: swapchain ok 320x240
 refs before shutdown: swapchain 3, backbuffer 2
-429 checks, 0 failures, 0 skipped
+572 checks, 0 failures, 0 skipped
 ```
 
 Cobertura por bloques:
 
-1. **Nombres de estado**, incluido un valor desconocido.
-2. **Argumentos y estado:** `NULL` en cada parámetro, dispositivo R-1 cerrado,
-   `HWND` nulo, `HWND` falso, tamaño 0, resize sobre swapchain cerrada,
-   `backbuffer(NULL)`, `shutdown(NULL)` y doble `shutdown`. Un struct cerrado
-   pero con basura se deja **a cero** tras un `init` rechazado (contrato de la
-   cabecera).
-3. **WARP real:** creación sobre la ventana de I-4, `desc` exacta (tamaño,
-   formato, 2 buffers, ventana, bitblt, uso de render target, `OutputWindow`),
-   backbuffer con textura 1 mip / 1 array / `DEFAULT` / sin MSAA, y su
-   referencia (AddRef→2, Release→1).
-4. **Resize:** válido, mismo tamaño, repetido, **ventana real redimensionada
-   con `SetWindowPos` y resize al área de cliente resultante** (684×481),
-   tamaños 0 rechazados sin tocar DXGI y swapchain todavía usable después.
+1. **Contrato de inicialización:** macro ≡ cero campo a campo (swapchain y config); literal compuesto; ciclo completo desde la macro; `shutdown` → estado macro; reutilización.
+2. **Argumentos y estado:** `NULL` en cada parámetro, dispositivo R-1 cerrado, `HWND` nulo/falso, tamaño 0, resize sobre swapchain cerrada, `backbuffer(NULL)`, `shutdown(NULL)` y doble `shutdown`; struct cerrado «sucio» con centinelas intacto tras rechazo; `BAD_STATE` precede a NULLs en los dos argumentos restantes.
+3. **WARP real:** creación sobre la ventana de I-4, `desc` exacta (tamaño, formato, 2 buffers, ventana, bitblt, uso de render target, `OutputWindow`), backbuffer con textura 1 mip / 1 array / `DEFAULT` / sin MSAA, y su referencia (AddRef→2, Release→1).
+4. **Resize:** válido, mismo tamaño, repetido, **ventana real redimensionada con `SetWindowPos` y resize al área de cliente resultante** (684×481), tamaños 0 rechazados sin tocar DXGI y swapchain todavía usable después.
 5. **Doble `init`:** `BAD_STATE` con la swapchain viva intacta.
-6. **COM:** referencias medidas (§4.1), liberación completa a 0, idempotencia y
-   dos ciclos completos de `init → resize → cierre`.
-7. **Dos swapchains sobre dos ventanas con un solo dispositivo:** punteros
-   distintos, ambas operativas, resize independiente, cierre independiente.
-8. **Error de creación:** `BufferCount = 1000` → DXGI lo rechaza con
-   `DXGI_ERROR_INVALID_CALL` (`0x887A0001`) y el struct queda **totalmente
-   cerrado** (sin swapchain, sin backbuffer, `initialized = 0`).
-9. **Ventana no válida:** creación con `HWND` destruido → `BAD_ARGUMENT`;
+6. **COM:** referencias medidas (§4.1), liberación completa a 0, idempotencia y dos ciclos completos de `init → resize → cierre`.
+7. **Dos swapchains sobre dos ventanas con un solo dispositivo:** punteros distintos, ambas operativas, resize independiente, cierre independiente.
+8. **Error de creación:** `BufferCount = 1000` → DXGI lo rechaza con `DXGI_ERROR_INVALID_CALL` (`0x887A0001`) y el struct queda **totalmente cerrado** (sin swapchain, sin backbuffer, `initialized = 0`).
+9. **Ventana no válida:** creación con `HWND` destruido → `BAD_ARGUMENT`; swapchain viva cuya ventana muere → `ResizeBuffers` devuelve `S_OK` (DXGI no valida), struct coherente y cierre limpio.
+10. **Hardware:** las mismas comprobaciones cuando hay GPU (aquí la hay, FL 11_1); si no la hubiera, el bloque se marca `skipped` con aviso, nunca un «pass» fingido.
    creación válida y destrucción posterior de la ventana → `ResizeBuffers`
    devuelve `OK`, struct coherente y cierre limpio con todas las referencias
    a 0.
@@ -271,8 +314,8 @@ hardware: closed (backbuffer, swapchain, device)
 
 | Compilador | Versión | Compilación | Ejecución |
 | --- | --- | --- | --- |
-| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 429 checks, 0 fallos, 0 saltos |
-| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 429 checks, 0 fallos, 0 saltos |
+| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 572 checks, 0 fallos, 0 saltos |
+| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 572 checks, 0 fallos, 0 saltos |
 
 Enlace: `-ld3d11 -luuid`, sin `-ldxgi`.
 

@@ -529,8 +529,8 @@ del backend en la carga, con fixtures `.3df` sintéticos generados por script
 
 | Paso | Qué demuestra | Sin assets del juego | Estado |
 | --- | --- | --- | --- |
-| R-1 | Crear/destruir dispositivo D3D11 (HW y WARP); verifica la decisión de §5.6 | sí | **ejecutado 2026-11-02**: ambos modos a FL 11_1, 205 checks, 0 fallos, Clang y GCC; `docs/D3D11_DEVICE.md` |
-| R-2 | Crear swapchain sobre el HWND de I-4 (512×384) y presentarla | sí | **ejecutado 2026-11-03**: swapchain DXGI bitblt (`DISCARD`, 2 buffers, `R8G8B8A8_UNORM`, ventana) sobre el `HWND` de I-4, con `ResizeBuffers` y COM verificado; **sin `Present`** (eso es R-3); 429 checks, 0 fallos, Clang y GCC; `docs/D3D11_SWAPCHAIN.md` |
+| R-1 | Crear/destruir dispositivo D3D11 (HW y WARP); verifica la decisión de §5.6 | sí | **ejecutado 2026-11-02**: ambos modos a FL 11_1, **314 checks**, 0 fallos, Clang y GCC; `docs/D3D11_DEVICE.md` |
+| R-2 | Crear swapchain sobre el HWND de I-4 (512×384) y presentarla | sí | **ejecutado 2026-11-03**: swapchain DXGI bitblt (`DISCARD`, 2 buffers, `R8G8B8A8_UNORM`, ventana) sobre el `HWND` de I-4, con `ResizeBuffers` y COM verificado; **sin `Present`** (eso es R-3); **572 checks**, 0 fallos, Clang y GCC; `docs/D3D11_SWAPCHAIN.md` |
 | R-3 | `begin_frame` con clear de color uniforme; comprobación visual programática (`CopyResource` + hash del backbuffer bajo WARP) | sí | pendiente |
 | R-4 | Presentación estable: cadencia del bucle intacta (~105–108 presents/s con nulo; medir el cambio con Present real), sin fugas (contador de objetos vivos del debug layer) | sí | pendiente |
 | R-5 | Sincronización: `SyncInterval` 0/1/3 medidos con QPC; comparar el efecto de cola frente al drenaje+swap(3) del original (referencia: glide-shim CSVs, 8 318 swaps) | sí | pendiente |

@@ -7,6 +7,11 @@
 > ni presentación**: eso es R-2 y posteriores, según el diseño de
 > `docs/RENDERER_ARCHITECTURE_RESEARCH.md` §6–§7.
 >
+> **Actualización 2026-11-03 (mantenimiento previo a R-3):** contrato de
+> inicialización formalizado — macro `GEX_D3D11_DEVICE_INITIALIZER`, tabla
+> exacta de resultados de `init` y prueba ampliada a **314 checks** (§4.1 y
+> §6.1). El diseño y las decisiones de R-1 no cambian.
+>
 > Documentación oficial consultada (Microsoft Learn, 2026-11-02):
 > `D3D11CreateDevice` (nf-d3d11-d3d11createdevice) y la guía WARP
 > (direct3darticles/directx-warp). Nada se dio por disponible sin comprobarlo.
@@ -17,7 +22,7 @@
 | --- | --- | --- |
 | Cabecera del dispositivo | `port/include/gex/render/d3d11_device.h` | contrato Windows-only (patrón de `backend_dsound.h`) |
 | Implementación | `port/src/render/d3d11_device.c` | `D3D11CreateDevice` + ciclo de vida COM |
-| Prueba automatizada | `port/tests/test_d3d11_device.c` | 205 checks (WARP, hardware, errores, COM, ciclo de vida) |
+| Prueba automatizada | `port/tests/test_d3d11_device.c` | 314 checks (WARP, hardware, errores, COM, ciclo de vida, contrato de inicialización) |
 | Sonda de consola | `port/tools/d3d11probe.c` → `build/d3d11probe.exe` | informe legible por el mantenedor |
 | Build | `port/build.ps1` | `test` ejecuta la prueba; `probe` (y `all`) compilan y ejecutan la sonda |
 | `port/Makefile` | solo comentario | la pieza queda documentada como Windows-only, **no se compila en POSIX** |
@@ -121,12 +126,66 @@ init/shutdown, en el caso de dos dispositivos vivos a la vez y en la rama de
 la capa debug. Es la verificación de fugas disponible sin la capa debug
 (§6.3); con ella, R-2+ podrá repetir el mismo patrón por cada recurso nuevo.
 
+### 4.1 Contrato de inicialización y errores (mantenimiento 2026-11-03)
+
+**Precondición declarada una vez y respetada en todo el módulo:** un
+`gex_d3d11_device` debe inicializarse con la macro
+`GEX_D3D11_DEVICE_INITIALIZER` (o a cero) **antes** del primer `init` y
+antes de `shutdown`:
+
+```c
+gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
+if (gex_d3d11_device_init(&dev, GEX_D3D11_DRIVER_WARP, 0) ==
+    GEX_D3D11_DEVICE_OK) {
+    /* ... */
+    gex_d3d11_device_shutdown(&dev);
+}
+```
+
+`shutdown` deja el struct exactamente en el estado de la macro, así que un
+struct cerrado se reutiliza sin trabajo extra y un segundo `shutdown` es un
+no-op. La macro es un inicializador agregado con designadores, también
+utilizable como literal compuesto:
+`(gex_d3d11_device)GEX_D3D11_DEVICE_INITIALIZER`.
+
+Resultado exacto de `init` en cada caso:
+
+| Caso | Resultado | Estado del struct |
+| --- | --- | --- |
+| `dev == NULL` | `BAD_ARGUMENT` | nada se lee ni se escribe |
+| `dev` vivo (`initialized != 0`) | `BAD_STATE` | **intacto**: dispositivo y contexto no se liberan ni se reescriben; la comprobación precede a la de cualquier argumento escalar |
+| `dev` cerrado + driver inválido | `BAD_ARGUMENT` | **no se escribe**: un rechazo nunca descarta el estado del llamante |
+| `dev` cerrado + argumentos válidos, creación falla | `CREATE_FAILED` | a cero (cerrado), sin recursos parcialmente abiertos; `last_hresult` = HRESULT del runtime |
+| `dev` cerrado + argumentos válidos, creación correcta | `OK` | vivo |
+
+Invariante nuevo y probado: **`CREATE_FAILED` implica `FAILED(last_hresult)`**,
+incluido el caso defensivo «el runtime respondió éxito pero no entregó un
+trío usable», que ahora registra `E_FAIL` en lugar de `S_OK`.
+
+Por qué la precondición no se puede autocorregir (decisión descartada):
+«¿está inicializado este struct?» no tiene respuesta en C para un struct que
+el llamante nunca escribió — leer esos bytes es comportamiento indefinido
+(valores indeterminados), y un campo *magic cookie* leería exactamente la
+misma memoria indeterminada: añade un campo a mantener sin añadir garantía.
+La alternativa de un punto de entrada `create` que nunca inspeccione el
+struct eliminaría la protección de doble `init` (`BAD_STATE`) que R-1 prueba
+y documenta. Lo que sí hace el módulo: leer **un solo campo**
+(`initialized`), nunca un puntero, y solo para distinguir vivo de cerrado;
+las pruebas nunca leen structs deliberadamente sin inicializar.
+
+La prueba añadió 109 checks: equivalencia macro ↔ cero campo a campo (sin
+`memcmp`, por el padding), ciclo completo iniciado desde la macro,
+`shutdown` → estado de la macro, reutilización, `BAD_STATE` con precedencia
+sobre argumentos inválidos, struct cerrado «sucio» con punteros centinela
+que el rechazo no toca ni libera, y fallo de creación sobre struct de macro
+con la invariante de `last_hresult`.
+
 ## 5. Compatibilidad de compiladores
 
 | Compilador | Versión | Compilación | Ejecución |
 | --- | --- | --- | --- |
-| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 205 checks, 0 fallos |
-| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 205 checks, 0 fallos |
+| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 314 checks, 0 fallos |
+| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 314 checks, 0 fallos |
 
 - `d3d11.h` es **idéntico por MD5** (`99543847B249FD31417E0753691591C9`) en
   llvm-mingw y en MSYS2 mingw64; `libd3d11.a` existe en ambos. No se
@@ -141,7 +200,7 @@ la capa debug. Es la verificación de fugas disponible sin la capa debug
 
 ## 6. Resultados reales de las pruebas
 
-### 6.1 Batería automatizada
+### 6.1 Batería automatizada (314 checks)
 
 ```text
 warp: creating D3D_DRIVER_TYPE_WARP device...
@@ -150,32 +209,21 @@ bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
 debug layer: not available (hr=0x887A002D); failure was clean
 hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
 hardware: ok, feature level 11_1, flags 0x0
-205 checks, 0 failures, 0 skipped
+314 checks, 0 failures, 0 skipped
 ```
 
 Idéntico con Clang 22.1.8 y con GCC 16.1.0. Cobertura por bloques:
 
 1. **Nombres** de estados y feature levels (con desconocidos incluidos).
-2. **Argumentos y estado:** `init(NULL)`, driver inválido, doble `init`
-   (`BAD_STATE` sin tocar el vivo), `shutdown(NULL)` y `shutdown` de struct
-   a cero como no-ops.
-3. **WARP real:** creación, validación completa, uso real
-   (`CheckFormatSupport` de `R8G8B8A8_UNORM` devuelve `S_OK`; `ClearState`/
-   `Flush` a través de la vtable), cierre verificado, segundo cierre
-   idempotente, re-`init`, ciclo de 3 init/shutdown.
-4. **Dos dispositivos vivos a la vez** (punteros distintos, ambos operativos,
-   cierre independiente).
-5. **Feature level:** obtenido ∈ lista pedida y ≥ 9_1; nombre no «unknown».
-6. **Flags de creación:** eco exacto de `GetCreationFlags`.
-7. **COM:** contexto con 1 referencia; device estable y destrucción completa
-   vía referencia manual (§4), repetida en todos los caminos.
-8. **Fallos:** bits reservados `0xFFFFFFFF` → `E_INVALIDARG` (0x80070057) con
-   struct totalmente cerrado; capa debug ausente →
-   `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D) con fallo limpio (§6.3).
-9. **Hardware:** creación real, mismas verificaciones; si no hubiera GPU, el
-   bloque se **saltaría con aviso documentado** (`skipped`), nunca un
-   «pass» fingido — en esta máquina no hizo falta: la GPU existe y el
-   dispositivo se creó.
+2. **Contrato de inicialización (sin dispositivo):** macro `GEX_D3D11_DEVICE_INITIALIZER` ≡ cero campo a campo; literal compuesto; ciclo completo `init` → `shutdown` → estado macro; reutilización sin re-inicializar.
+3. **Argumentos y estado:** `init(NULL)`, driver inválido, doble `init` (`BAD_STATE` sin tocar el vivo), `shutdown(NULL)` y `shutdown` de struct a cero como no-ops; `BAD_STATE` precede a argumentos inválidos.
+4. **WARP real:** creación, validación completa, uso real (`CheckFormatSupport` de `R8G8B8A8_UNORM` devuelve `S_OK`; `ClearState`/`Flush` a través de la vtable), cierre verificado, segundo cierre idempotente, re-`init`, ciclo de 3 init/shutdown.
+5. **Dos dispositivos vivos a la vez** (punteros distintos, ambos operativos, cierre independiente).
+6. **Feature level:** obtenido ∈ lista pedida y ≥ 9_1; nombre no «unknown».
+7. **Flags de creación:** eco exacto de `GetCreationFlags`.
+8. **COM:** contexto con 1 referencia; device estable y destrucción completa vía referencia manual (§4), repetida en todos los caminos.
+9. **Fallos:** bits reservados `0xFFFFFFFF` → `E_INVALIDARG` (0x80070057) con struct totalmente cerrado; capa debug ausente → `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D) con fallo limpio (§6.3).
+10. **Hardware:** creación real, mismas verificaciones; si no hubiera GPU, el bloque se **saltaría con aviso documentado** (`skipped`), nunca un «pass» fingido — en esta máquina no hizo falta: la GPU existe y el dispositivo se creó.
 
 ### 6.2 Sonda de consola
 
@@ -209,8 +257,8 @@ limpio sin recursos abiertos. Consecuencias:
 ```text
 build.ps1 all (Clang 22.1.8):
 69305 + 60052 + 215 + 410 + 826 + 117 + 1009 + 50 checks previos, 0 fallos
-205 checks, 0 failures   test_d3d11_device (nuevo)
-Total: 132 189 checks, 0 fallos
+314 checks, 0 failures   test_d3d11_device (actualizado)
+Total: 132 298 checks, 0 fallos
 tools/m13-core: 120 checks, 0 fallos (loop_core intacto)
 tools/gexmap: 22/22
 ```

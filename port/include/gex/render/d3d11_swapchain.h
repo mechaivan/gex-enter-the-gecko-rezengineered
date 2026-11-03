@@ -90,6 +90,19 @@ typedef struct gex_d3d11_swapchain_config {
     UINT vsync_retraces;
 } gex_d3d11_swapchain_config;
 
+/*
+ * The config is an input struct: init reads every field of it, so it must be
+ * initialized too, with this macro or with zero. The macro leaves the
+ * defaults in place (2 buffers, R8G8B8A8_UNORM) and an explicit size of 0
+ * that init refuses, so a forgotten size fails loudly instead of silently
+ * creating a 0x0 swap chain.
+ */
+#define GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER                                \
+    {                                                                         \
+        .hwnd = NULL, .width = 0, .height = 0, .buffer_count = 0,              \
+        .format = 0, .vsync_retraces = 0                                       \
+    }
+
 typedef enum gex_d3d11_swapchain_status {
     GEX_D3D11_SWAPCHAIN_OK = 0,
     GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT,  /* NULL device/config, closed R-1
@@ -106,16 +119,63 @@ typedef struct gex_d3d11_swapchain {
     IDXGISwapChain *swapchain;   /* one live reference after init */
     ID3D11Texture2D *backbuffer; /* buffer 0, own reference, re-acquired on
                                   * resize (released before ResizeBuffers) */
-    DXGI_SWAP_CHAIN_DESC desc;   /* what DXGI actually created */
+    DXGI_SWAP_CHAIN_DESC desc;   /* what DXGI actually created (zero when
+                                  * the struct is closed) */
     HRESULT last_hresult;
-    int initialized;
+    int initialized;             /* 1 = live; the only field init reads
+                                  * before it owns the struct */
 } gex_d3d11_swapchain;
+
+/*
+ * PRE-CONDITION, identical to the device (docs/D3D11_SWAPCHAIN.md section 4):
+ * a gex_d3d11_swapchain must be initialized with
+ * GEX_D3D11_SWAPCHAIN_INITIALIZER (or zeroed) before the first init, and the
+ * gex_d3d11_device passed to it must be initialized the same way. init reads
+ * no field of the swap chain except `initialized`, and reads it only to tell
+ * a live swap chain (never touched) from a closed one (may be written).
+ *
+ *   gex_d3d11_swapchain sw = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+ *   if (gex_d3d11_swapchain_init(&sw, &dev, &cfg) ==
+ *       GEX_D3D11_SWAPCHAIN_OK) { ... gex_d3d11_swapchain_shutdown(&sw); }
+ *
+ * shutdown leaves the struct exactly in the initializer state, so it can be
+ * reused for another init (and a second shutdown is a no-op).
+ */
+#define GEX_D3D11_SWAPCHAIN_INITIALIZER                                       \
+    {                                                                         \
+        .swapchain = NULL, .backbuffer = NULL, .last_hresult = S_OK,           \
+        .initialized = 0                                                      \
+    }
 
 /*
  * Create the swap chain for `dev` (R-1 device, not owned, not duplicated)
  * on `cfg->hwnd`. The factory/adapter/dxgi interfaces used to reach the
  * factory are released before returning: only swap chain + backbuffer stay.
- * On any failure the struct is left zeroed.
+ *
+ * Exact outcome per case (also recorded in docs/D3D11_SWAPCHAIN.md section 4):
+ *
+ *   sw == NULL                         -> BAD_ARGUMENT; nothing read.
+ *   sw live (initialized != 0)         -> BAD_STATE; the swap chain, its
+ *                                         backbuffer and the caller's device
+ *                                         are left untouched, never released.
+ *                                         This check precedes every argument
+ *                                         check, so a live swap chain is never
+ *                                         even validated against.
+ *   sw closed + dev/cfg NULL           -> BAD_ARGUMENT; the struct is NOT
+ *                                         written.
+ *   sw closed + closed/absent device,
+ *   dead or fake HWND, zero size       -> BAD_ARGUMENT; the struct is NOT
+ *                                         written (a rejected init never
+ *                                         discards caller state).
+ *   sw closed + valid arguments        -> the struct is zeroed and creation
+ *                                         is attempted. On success it is live;
+ *                                         on failure it stays zeroed (no
+ *                                         partially open resources) with
+ *                                         last_hresult carrying the HRESULT.
+ *
+ * A creation failure always leaves FAILED(last_hresult), including the
+ * defensive "DXGI reported success but delivered no object" case, which
+ * records E_FAIL.
  */
 gex_d3d11_swapchain_status gex_d3d11_swapchain_init(
     gex_d3d11_swapchain *sw, const gex_d3d11_device *dev,

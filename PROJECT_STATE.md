@@ -151,8 +151,8 @@ obtenido, entrega el contexto inmediato y cierra sin referencias COM
 pendientes (verificación conductual: referencia manual + `Release` final a 0,
 porque el runtime mantiene referencias internas al device). Fallos medidos y
 limpios: bits reservados → `E_INVALIDARG`; capa debug no instalada →
-`DXGI_ERROR_SDK_COMPONENT_MISSING`. 205 checks nuevos, 0 fallos, con Clang
-22.1.8 y GCC 16.1.0; batería completa 132 189 checks. **No hay swapchain,
+`DXGI_ERROR_SDK_COMPONENT_MISSING`. **314 checks nuevos**, 0 fallos, con Clang
+22.1.8 y GCC 16.1.0; **batería completa 132 298 checks**. **No hay swapchain,
 ventana ni dibujo** (R-2 y siguientes). Detalle en `docs/D3D11_DEVICE.md`.
 
 R-2 (2026-11-03) **conecta el dispositivo con la ventana de I-4**: el módulo
@@ -163,9 +163,9 @@ MSAA), expone el backbuffer para R-3, redimensiona con `ResizeBuffers`
 dispositivo. Referencias medidas: dispositivo 2→3→2 al crear/destruir la
 swapchain; swapchain 2 (una la retiene su backbuffer) y backbuffer 1; todas
 llegan a 0 al liberar en orden. **No hay `Present`, ni clear, ni dibujo** (R-3
-y siguientes), y `gexloop` sigue con el renderer nulo. 429 checks nuevos, 0
-fallos, hardware y WARP, Clang 22.1.8 y GCC 16.1.0; batería completa 132 618
-checks. Detalle en `docs/D3D11_SWAPCHAIN.md`.
+y siguientes), y `gexloop` sigue con el renderer nulo. **572 checks nuevos**, 0
+fallos, hardware y WARP, Clang 22.1.8 y GCC 16.1.0; **batería completa 132 775
+checks**. Detalle en `docs/D3D11_SWAPCHAIN.md`.
 
 I-4 (2026-11-02) conecta la ventana, la entrada y el reloj real, pero **sigue
 sin jugar**: `pre_frame` y `update` solo cuentan llamadas y `present` usa un

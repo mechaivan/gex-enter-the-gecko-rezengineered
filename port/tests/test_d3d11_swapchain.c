@@ -5,8 +5,13 @@
  * hardware when the machine has one. Nothing presents: Present belongs to
  * R-3 (docs/D3D11_SWAPCHAIN.md). What each group verifies:
  *
+ *   - initialization contract: GEX_D3D11_SWAPCHAIN_INITIALIZER produces the
+ *     same state as a zeroed struct, init accepts it, shutdown returns the
+ *     struct to exactly that state, and the struct is reusable afterwards;
  *   - argument/state errors: NULLs, a dead HWND, zero sizes, a closed R-1
- *     device, double init (without touching the live swap chain);
+ *     device, double init (without touching the live swap chain); a live
+ *     swap chain answers BAD_STATE even when the other arguments are NULL,
+ *     and a rejected init on a closed struct never writes to it;
  *   - WARP: creation on the real window, DXGI_SWAP_CHAIN_DESC matches the
  *     request (size, format, 2 buffers, windowed, bitblt, render-target
  *     usage), backbuffer obtained with the right texture desc and exactly
@@ -59,8 +64,8 @@ static int make_window(gex_win32_window *win, int width, int height)
 static gex_d3d11_swapchain_config
 fill_config(HWND hwnd, UINT width, UINT height)
 {
-    gex_d3d11_swapchain_config cfg;
-    memset(&cfg, 0, sizeof(cfg));
+    gex_d3d11_swapchain_config cfg = GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER;
+
     cfg.hwnd = hwnd;
     cfg.width = width;
     cfg.height = height;
@@ -76,6 +81,25 @@ static ULONG device_refs(ID3D11Device *device)
     ULONG refs = ID3D11Device_AddRef(device);
     (void)ID3D11Device_Release(device);
     return refs - 1;
+}
+
+/*
+ * The closed state must be exactly the one GEX_D3D11_SWAPCHAIN_INITIALIZER
+ * produces, so shutdown output and macro input are the same value and a
+ * struct can be reused without ceremony. Field by field, not memcmp: a
+ * struct may hold padding.
+ */
+static void check_initializer_state(const gex_d3d11_swapchain *sw)
+{
+    CHECK(sw->swapchain == NULL);
+    CHECK(sw->backbuffer == NULL);
+    CHECK(sw->initialized == 0);
+    CHECK(sw->last_hresult == S_OK);
+    CHECK(sw->desc.BufferCount == 0);
+    CHECK(sw->desc.OutputWindow == NULL);
+    CHECK(sw->desc.BufferDesc.Width == 0);
+    CHECK(sw->desc.BufferDesc.Height == 0);
+    CHECK(sw->desc.Windowed == FALSE);
 }
 
 /* Everything that must hold right after a successful init. */
@@ -208,6 +232,48 @@ int main(void)
     CHECK(make_window(&win, 480, 360) == 1);
     CHECK(win.hwnd != NULL && IsWindow(win.hwnd));
 
+    /* ---- initialization contract (macro == zero, no device needed) ----- */
+    {
+        gex_d3d11_swapchain from_macro = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+        gex_d3d11_swapchain from_zero;
+
+        memset(&from_zero, 0, sizeof(from_zero));
+        check_initializer_state(&from_macro);
+        CHECK(from_macro.swapchain == from_zero.swapchain);
+        CHECK(from_macro.backbuffer == from_zero.backbuffer);
+        CHECK(from_macro.initialized == from_zero.initialized);
+        CHECK(from_macro.last_hresult == from_zero.last_hresult);
+        CHECK(from_macro.desc.BufferCount == from_zero.desc.BufferCount);
+        CHECK(from_macro.desc.BufferDesc.Width ==
+              from_zero.desc.BufferDesc.Width);
+        CHECK(from_macro.desc.OutputWindow == from_zero.desc.OutputWindow);
+        {
+            gex_d3d11_swapchain literal =
+                (gex_d3d11_swapchain)GEX_D3D11_SWAPCHAIN_INITIALIZER;
+            CHECK(literal.swapchain == NULL);
+            CHECK(literal.backbuffer == NULL);
+            CHECK(literal.initialized == 0);
+            CHECK(literal.last_hresult == S_OK);
+        }
+        /* The config is an input struct: same rule, same equivalence. */
+        {
+            gex_d3d11_swapchain_config cfg_macro =
+                GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER;
+            gex_d3d11_swapchain_config cfg_zero;
+
+            memset(&cfg_zero, 0, sizeof(cfg_zero));
+            CHECK(cfg_macro.hwnd == NULL);
+            CHECK(cfg_macro.width == 0);
+            CHECK(cfg_macro.height == 0);
+            CHECK(cfg_macro.buffer_count == 0);
+            CHECK(cfg_macro.format == 0);
+            CHECK(cfg_macro.vsync_retraces == 0);
+            CHECK(cfg_macro.hwnd == cfg_zero.hwnd);
+            CHECK(cfg_macro.buffer_count == cfg_zero.buffer_count);
+            CHECK(cfg_macro.vsync_retraces == cfg_zero.vsync_retraces);
+        }
+    }
+
     /* ---- argument and state errors ------------------------------------ */
     cfg = fill_config(win.hwnd, 320, 240);
     memset(&dev, 0, sizeof(dev));
@@ -222,18 +288,27 @@ int main(void)
     /* closed (zeroed) R-1 device */
     CHECK(gex_d3d11_swapchain_init(&sw, &dev, &cfg) ==
           GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT);
-    /* A closed but dirty struct is zeroed on failure (documented contract):
-     * nothing half-open survives an init that never reached DXGI. */
+    /* A closed struct is NEVER written by a rejected init: the sentinel
+     * pointers prove that nothing is overwritten or released. */
     {
         gex_d3d11_swapchain dirty;
-        memset(&dirty, 0xAB, sizeof(dirty));
-        dirty.initialized = 0;
+
+        memset(&dirty, 0, sizeof(dirty));
+        dirty.swapchain = (IDXGISwapChain *)(uintptr_t)0x1;
+        dirty.backbuffer = (ID3D11Texture2D *)(uintptr_t)0x1;
+        dirty.desc.BufferCount = 3;
+        dirty.desc.OutputWindow = (HWND)(uintptr_t)0x1;
+        dirty.last_hresult = E_FAIL;
+        dirty.initialized = 0; /* closed, by contract */
+
         CHECK(gex_d3d11_swapchain_init(&dirty, &dev, &cfg) ==
               GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT);
-        CHECK(dirty.swapchain == NULL);
-        CHECK(dirty.backbuffer == NULL);
-        CHECK(dirty.last_hresult == 0);
+        CHECK(dirty.swapchain == (IDXGISwapChain *)(uintptr_t)0x1);
+        CHECK(dirty.backbuffer == (ID3D11Texture2D *)(uintptr_t)0x1);
+        CHECK(dirty.desc.BufferCount == 3);
+        CHECK(dirty.last_hresult == E_FAIL);
         CHECK(dirty.initialized == 0);
+        /* Never shutdown `dirty`: its pointers are sentinels by design. */
     }
 
     cfg = fill_config(NULL, 320, 240);
@@ -344,10 +419,21 @@ int main(void)
                   GEX_D3D11_SWAPCHAIN_BAD_STATE);
             CHECK(sw.swapchain == same);
             CHECK(sw.initialized == 1);
+
+            /* State precedes argument validation: a live swap chain is
+             * BAD_STATE even with both other arguments NULL, and neither
+             * the swap chain nor the caller's device is touched. */
+            CHECK(gex_d3d11_swapchain_init(&sw, NULL, NULL) ==
+                  GEX_D3D11_SWAPCHAIN_BAD_STATE);
+            CHECK(sw.swapchain == same);
+            CHECK(sw.backbuffer != NULL);
+            CHECK(sw.initialized == 1);
+            CHECK(dev.initialized == 1);
         }
 
         /* full COM release: swap chain first, device stays with the caller */
         check_full_release(&sw);
+        check_initializer_state(&sw); /* shutdown output == macro input */
         refs_with_sw = device_refs(dev.device);
         printf("device refs after full release: %lu\n",
                (unsigned long)refs_with_sw);
@@ -370,6 +456,29 @@ int main(void)
                (unsigned long)sw.last_hresult,
                gex_d3d11_swapchain_status_name(st));
         failures++; /* WARP is the guaranteed baseline */
+    }
+
+    /* ---- initialization from the macro, and reuse after shutdown ------- */
+    {
+        gex_d3d11_swapchain m = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+
+        check_initializer_state(&m);
+        cfg = fill_config(win.hwnd, 320, 240);
+        if (gex_d3d11_swapchain_init(&m, &dev, &cfg) ==
+            GEX_D3D11_SWAPCHAIN_OK) {
+            check_live_swapchain(&m, win.hwnd, 320, 240);
+            gex_d3d11_swapchain_shutdown(&m);
+            check_initializer_state(&m);
+            /* Reuse without re-initializing: shutdown already left the
+             * documented closed state. */
+            CHECK(gex_d3d11_swapchain_init(&m, &dev, &cfg) ==
+                  GEX_D3D11_SWAPCHAIN_OK);
+            check_live_swapchain(&m, win.hwnd, 320, 240);
+            check_full_release(&m);
+            check_initializer_state(&m);
+        } else {
+            failures++; /* same WARP baseline as above */
+        }
     }
 
     /* ---- two swap chains over two windows, one device ------------------ */
@@ -403,13 +512,30 @@ int main(void)
     /* ---- absurd buffer count: DXGI rejects, struct stays closed ------- */
     CHECK(gex_d3d11_device_init(&dev, GEX_D3D11_DRIVER_WARP, 0) ==
           GEX_D3D11_DEVICE_OK);
+    {
+        /* Creation failure with a macro-initialized struct: identical
+         * contract, and CREATE_FAILED always carries FAILED(last_hresult). */
+        gex_d3d11_swapchain m = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+
+        cfg = fill_config(win.hwnd, 320, 240);
+        cfg.buffer_count = 1000;
+        st = gex_d3d11_swapchain_init(&m, &dev, &cfg);
+        printf("buffer_count=1000: status=%s hr=0x%08lX\n",
+               gex_d3d11_swapchain_status_name(st),
+               (unsigned long)m.last_hresult);
+        CHECK(st == GEX_D3D11_SWAPCHAIN_CREATE_FAILED);
+        CHECK(m.swapchain == NULL);
+        CHECK(m.backbuffer == NULL);
+        CHECK(m.initialized == 0);
+        CHECK(FAILED(m.last_hresult));
+        /* shutdown after the failure is a no-op reaching the closed state */
+        gex_d3d11_swapchain_shutdown(&m);
+        check_initializer_state(&m);
+    }
     memset(&sw, 0, sizeof(sw));
     cfg = fill_config(win.hwnd, 320, 240);
     cfg.buffer_count = 1000;
     st = gex_d3d11_swapchain_init(&sw, &dev, &cfg);
-    printf("buffer_count=1000: status=%s hr=0x%08lX\n",
-           gex_d3d11_swapchain_status_name(st),
-           (unsigned long)sw.last_hresult);
     CHECK(st == GEX_D3D11_SWAPCHAIN_CREATE_FAILED);
     CHECK(sw.swapchain == NULL);
     CHECK(sw.backbuffer == NULL);

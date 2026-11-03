@@ -80,16 +80,73 @@ typedef struct gex_d3d11_device {
     UINT creation_flags;             /* echo of GetCreationFlags */
     gex_d3d11_driver driver;
     HRESULT last_hresult;            /* S_OK or the creation failure */
-    int initialized;
+    int initialized;                 /* 1 = live; the only field init reads
+                                      * before it owns the struct */
 } gex_d3d11_device;
+
+/*
+ * PRE-CONDITION, stated once and relied on everywhere: a gex_d3d11_device
+ * must be initialized with GEX_D3D11_DEVICE_INITIALIZER (or zeroed) before
+ * it is passed to gex_d3d11_device_init for the first time, and before
+ * gex_d3d11_device_shutdown.
+ *
+ *   gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
+ *   if (gex_d3d11_device_init(&dev, GEX_D3D11_DRIVER_WARP, 0) ==
+ *       GEX_D3D11_DEVICE_OK) { ... gex_d3d11_device_shutdown(&dev); }
+ *
+ * This is not a formality: init has to know whether the struct already holds
+ * a live device before it may touch it, and the only way to know is to read
+ * a field. "Is this struct initialized?" cannot be answered in C for a struct
+ * the caller never wrote: reading those bytes is undefined behaviour
+ * (indeterminate values), and a magic-cookie field reads the very same
+ * indeterminate memory, so it adds a field without adding a guarantee. The
+ * alternative - a separate "create" entry point that never inspects the
+ * struct - would remove the documented double-init protection (BAD_STATE)
+ * that R-1 tests, so it was rejected.
+ *
+ * The contract therefore is: the caller initializes, the module reads only
+ * `initialized` (never a pointer) to decide, and every other field is
+ * consumed only when the struct is known to be live.
+ *
+ * shutdown leaves the struct exactly in the initializer state, so a struct
+ * can be reused for another init with no extra work (and a second shutdown
+ * is a no-op).
+ */
+#define GEX_D3D11_DEVICE_INITIALIZER                                          \
+    {                                                                        \
+        .device = NULL, .context = NULL,                                      \
+        .feature_level = (D3D_FEATURE_LEVEL)0, .creation_flags = 0u,          \
+        .driver = GEX_D3D11_DRIVER_HARDWARE, .last_hresult = S_OK,            \
+        .initialized = 0                                                      \
+    }
 
 /*
  * Create the device. `extra_flags` is passed to D3D11CreateDevice verbatim
  * (0 by default; e.g. D3D11_CREATE_DEVICE_DEBUG needs the SDK layers
  * installed and fails cleanly with DXGI_ERROR_SDK_COMPONENT_MISSING when
- * they are absent). On any failure the struct is left zeroed: no partially
- * open resources. A second init on an initialized device is refused with
- * GEX_D3D11_DEVICE_BAD_STATE and changes nothing.
+ * they are absent).
+ *
+ * Exact outcome per case (also recorded in docs/D3D11_DEVICE.md):
+ *
+ *   dev == NULL                   -> BAD_ARGUMENT; nothing is read or
+ *                                    written (there is no struct).
+ *   dev live (initialized != 0)   -> BAD_STATE; the struct and its COM
+ *                                    resources are left untouched, never
+ *                                    released. This check precedes every
+ *                                    scalar argument check, so a live device
+ *                                    is never even validated against.
+ *   dev closed + unknown driver   -> BAD_ARGUMENT; the struct is NOT
+ *                                    written: a rejected init never
+ *                                    discards caller state.
+ *   dev closed + valid arguments  -> the struct is zeroed and creation is
+ *                                    attempted. On success the struct is
+ *                                    live; on failure it stays zeroed (no
+ *                                    partially open resources) and
+ *                                    last_hresult carries the HRESULT.
+ *
+ * A creation failure always leaves FAILED(last_hresult), including the
+ * defensive "runtime reported success but delivered nothing usable" case,
+ * which records E_FAIL.
  */
 gex_d3d11_device_status gex_d3d11_device_init(gex_d3d11_device *dev,
                                               gex_d3d11_driver driver,

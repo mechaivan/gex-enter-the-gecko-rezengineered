@@ -62,16 +62,24 @@ gex_d3d11_device_status gex_d3d11_device_init(gex_d3d11_device *dev,
     ID3D11DeviceContext *context = NULL;
     D3D_FEATURE_LEVEL obtained = 0;
 
-    if (dev == NULL ||
-        (driver != GEX_D3D11_DRIVER_HARDWARE &&
-         driver != GEX_D3D11_DRIVER_WARP)) {
+    if (dev == NULL) {
         return GEX_D3D11_DEVICE_BAD_ARGUMENT;
     }
+    /*
+     * State first: a live device is never touched, not even to validate the
+     * remaining arguments. `initialized` is the only field read before the
+     * module owns the struct (see the pre-condition in the header).
+     */
     if (dev->initialized) {
         return GEX_D3D11_DEVICE_BAD_STATE;
     }
+    if (driver != GEX_D3D11_DRIVER_HARDWARE &&
+        driver != GEX_D3D11_DRIVER_WARP) {
+        return GEX_D3D11_DEVICE_BAD_ARGUMENT; /* struct untouched */
+    }
 
-    /* Zero first, so a failed creation leaves nothing half-open. */
+    /* Closed struct with valid arguments: from here on every failure leaves
+     * it closed (zeroed), never half-open. */
     memset(dev, 0, sizeof(*dev));
 
     hr = D3D11CreateDevice(NULL, driver_type(driver), NULL, extra_flags,
@@ -85,9 +93,11 @@ gex_d3d11_device_status gex_d3d11_device_init(gex_d3d11_device *dev,
     }
     if (device == NULL || context == NULL || obtained == 0) {
         /* The runtime reported success but did not deliver a usable triple;
-         * treat it as a creation failure, not as a valid device. */
+         * treat it as a creation failure, not as a valid device. E_FAIL keeps
+         * the invariant "CREATE_FAILED => FAILED(last_hresult)" true. */
         release_partial(context, device);
         memset(dev, 0, sizeof(*dev));
+        dev->last_hresult = E_FAIL;
         return GEX_D3D11_DEVICE_CREATE_FAILED;
     }
 

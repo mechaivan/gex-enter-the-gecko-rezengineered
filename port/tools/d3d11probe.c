@@ -16,11 +16,10 @@
 
 static void probe(gex_d3d11_driver driver, const char *label)
 {
-    gex_d3d11_device dev;
+    gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
     gex_d3d11_device_status status;
     HRESULT hr;
 
-    memset(&dev, 0, sizeof(dev));
     status = gex_d3d11_device_init(&dev, driver, 0);
     hr = dev.last_hresult;
     if (status == GEX_D3D11_DEVICE_OK) {
@@ -53,9 +52,8 @@ int main(void)
     /* The WARP baseline decides the exit code: hardware may be absent, the
      * software rasterizer may not (Windows 8+). */
     {
-        gex_d3d11_device dev;
+        gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
         gex_d3d11_device_status status;
-        memset(&dev, 0, sizeof(dev));
         status = gex_d3d11_device_init(&dev, GEX_D3D11_DRIVER_WARP, 0);
         gex_d3d11_device_shutdown(&dev);
         printf("baseline: %s\n", gex_d3d11_device_status_name(status));

@@ -71,18 +71,21 @@ gex_d3d11_swapchain_status gex_d3d11_swapchain_init(
     DXGI_FORMAT format;
     HRESULT hr;
 
-    if (sw == NULL || dev == NULL || cfg == NULL) {
+    if (sw == NULL) {
         return GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT;
     }
+    /*
+     * State first: a live swap chain is never touched, not even to validate
+     * the remaining arguments. `initialized` is the only field read before
+     * the module owns the struct (see the pre-condition in the header).
+     */
     if (sw->initialized) {
         /* A live swap chain must not be touched by a failed init. */
         return GEX_D3D11_SWAPCHAIN_BAD_STATE;
     }
-
-    /* Closed struct: zero it first, so any failure below leaves nothing
-     * half-open and the documented "zeroed on failure" contract holds. */
-    memset(sw, 0, sizeof(*sw));
-
+    if (dev == NULL || cfg == NULL) {
+        return GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT; /* struct untouched */
+    }
     if (!dev->initialized || dev->device == NULL) {
         return GEX_D3D11_SWAPCHAIN_BAD_ARGUMENT; /* closed R-1 device */
     }
@@ -97,6 +100,10 @@ gex_d3d11_swapchain_status gex_d3d11_swapchain_init(
                                             : GEX_D3D11_SWAPCHAIN_DEFAULT_BUFFER_COUNT;
     format = (cfg->format != 0) ? cfg->format
                                 : GEX_D3D11_SWAPCHAIN_DEFAULT_FORMAT;
+
+    /* Closed struct with valid arguments: from here on every failure leaves
+     * it closed (zeroed), never half-open. */
+    memset(sw, 0, sizeof(*sw));
 
     hr = ID3D11Device_QueryInterface(dev->device, &IID_IDXGIDevice,
                                      (void **)&dxgi_device);
@@ -144,12 +151,23 @@ gex_d3d11_swapchain_status gex_d3d11_swapchain_init(
         release_partial(NULL, swapchain);
         return GEX_D3D11_SWAPCHAIN_CREATE_FAILED;
     }
+    if (swapchain == NULL) {
+        /* DXGI reported success but delivered no object: fail closed with
+         * E_FAIL, keeping "CREATE_FAILED => FAILED(last_hresult)" true. */
+        sw->last_hresult = E_FAIL;
+        return GEX_D3D11_SWAPCHAIN_CREATE_FAILED;
+    }
 
     hr = IDXGISwapChain_GetBuffer(swapchain, 0, &IID_ID3D11Texture2D,
                                   (void **)&backbuffer);
     sw->last_hresult = hr;
     if (FAILED(hr)) {
         release_partial(NULL, swapchain);
+        return GEX_D3D11_SWAPCHAIN_CREATE_FAILED;
+    }
+    if (backbuffer == NULL) {
+        release_partial(NULL, swapchain);
+        sw->last_hresult = E_FAIL;
         return GEX_D3D11_SWAPCHAIN_CREATE_FAILED;
     }
 

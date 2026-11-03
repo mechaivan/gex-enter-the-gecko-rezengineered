@@ -28,14 +28,13 @@ static void pump(gex_win32_window *win)
 
 static int report(gex_d3d11_driver driver, const char *label, HWND hwnd)
 {
-    gex_d3d11_device dev;
-    gex_d3d11_swapchain sw;
-    gex_d3d11_swapchain_config cfg;
+    gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
+    gex_d3d11_swapchain sw = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+    gex_d3d11_swapchain_config cfg = GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER;
     gex_d3d11_swapchain_status st;
     D3D11_TEXTURE2D_DESC tex;
     int failures = 0;
 
-    memset(&dev, 0, sizeof(dev));
     if (gex_d3d11_device_init(&dev, driver, 0) != GEX_D3D11_DEVICE_OK) {
         printf("%s: device FAILED hr=0x%08lX\n", label,
                (unsigned long)dev.last_hresult);
@@ -44,8 +43,6 @@ static int report(gex_d3d11_driver driver, const char *label, HWND hwnd)
     printf("%s: device ok, feature level %s\n", label,
            gex_d3d11_feature_level_name(dev.feature_level));
 
-    memset(&sw, 0, sizeof(sw));
-    memset(&cfg, 0, sizeof(cfg));
     cfg.hwnd = hwnd;
     cfg.width = 512;
     cfg.height = 384;
