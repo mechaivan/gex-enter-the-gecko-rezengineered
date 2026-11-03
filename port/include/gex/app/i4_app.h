@@ -26,15 +26,27 @@
 #include "gex/core/frame.h"
 #include "gex/input/key_state.h"
 #include "gex/render/null_renderer.h"
+#if defined(_WIN32)
+#include "gex/render/d3d11_renderer.h"
+#endif
+
+/* Union to hold either null or D3D11 renderer */
+typedef union {
+    gex_null_renderer null_renderer;
+    gex_d3d11_renderer d3d11_renderer;
+} gex_renderer_union;
 
 typedef struct gex_i4_app {
     gex_frame frame;
     gex_input input;
-    gex_null_renderer renderer;
+    gex_renderer_union renderer;
     uint64_t pre_calls; /* pre_frame hook invocations */
     uint64_t updates;   /* update hook invocations */
     int quit;           /* set by Escape, or by the platform */
     int initialized;
+#if defined(_WIN32)
+    int d3d11_enabled;  /* whether D3D11 renderer is active */
+#endif
 } gex_i4_app;
 
 /* Validates the frame config through gex_frame_init; audio is not attached. */
@@ -54,5 +66,19 @@ int gex_i4_app_should_quit(const gex_i4_app *app);
 
 /* Idempotent: shuts the frame down and marks the app uninitialised. */
 void gex_i4_app_shutdown(gex_i4_app *app);
+
+#if defined(_WIN32)
+/* Enable D3D11 rendering with the specified device and swapchain */
+gex_d3d11_renderer_status gex_i4_app_enable_d3d11(gex_i4_app *app,
+                                                 const gex_d3d11_device *device,
+                                                 const gex_d3d11_swapchain *swapchain,
+                                                 const float clear_color[4]);
+
+/* Disable D3D11 rendering and switch back to null renderer */
+void gex_i4_app_disable_d3d11(gex_i4_app *app);
+
+/* Check if D3D11 rendering is enabled */
+int gex_i4_app_is_d3d11_enabled(const gex_i4_app *app);
+#endif
 
 #endif /* GEX_APP_I4_APP_H */

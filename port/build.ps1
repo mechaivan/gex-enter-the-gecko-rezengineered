@@ -60,6 +60,7 @@ $inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
 $renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
 $d3d11Src = @((Join-Path $PSScriptRoot 'src/render/d3d11_device.c'))
 $d3d11SwapSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_swapchain.c'))
+$d3d11RenderSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_renderer.c'))
 $appSrc = @((Join-Path $PSScriptRoot 'src/app/i4_app.c'))
 $clockSrc = @((Join-Path $PSScriptRoot 'src/platform/clock.c'))
 $win32TimeSrc = @((Join-Path $PSScriptRoot 'src/platform/win32_time.c'))
@@ -94,15 +95,16 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_input.c') 'test_input.exe' $inputSrc) 'input state checks'
-    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_app.c') 'test_i4_app.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc)) 'I-4 app checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_app.c') 'test_i4_app.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc) @('-ld3d11', '-luuid')) 'I-4 app checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_win32_time.c') 'test_win32_time.exe' ($clockSrc + $win32TimeSrc)) 'Win32 clock checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_device.c') 'test_d3d11_device.exe' $d3d11Src @('-ld3d11')) 'D3D11 device checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_swapchain.c') 'test_d3d11_swapchain.exe' ($d3d11Src + $d3d11SwapSrc + $inputSrc + $win32WindowSrc) @('-ld3d11', '-luuid')) 'D3D11 swapchain checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_renderer.c') 'test_d3d11_renderer.exe' ($d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')) 'D3D11 renderer checks'
 }
 
 if ($Target -in @('loop', 'all')) {
-    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc) @('-luser32', '-lgdi32', '-lwinmm')
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')
     Write-Host "built $exe (run it from a console; Escape or close the window)"
 }
 

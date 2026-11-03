@@ -7,6 +7,12 @@
  */
 
 #include "gex/app/i4_app.h"
+#include "gex/core/frame.h"
+#include "gex/input/key_state.h"
+#include "gex/render/null_renderer.h"
+#if defined(_WIN32)
+#include "gex/render/d3d11_renderer.h"
+#endif
 
 #include <string.h>
 
@@ -32,7 +38,15 @@ static int app_present(void *ctx, const gex_frame_tick *tick)
 {
     gex_i4_app *app = (gex_i4_app *)ctx;
 
-    return gex_null_renderer_present(&app->renderer, tick);
+#if defined(_WIN32)
+    if (app->d3d11_enabled) {
+        return gex_d3d11_renderer_present(&app->renderer.d3d11_renderer, tick);
+    } else {
+        return gex_null_renderer_present(&app->renderer.null_renderer, tick);
+    }
+#else
+    return gex_null_renderer_present(&app->renderer.null_renderer, tick);
+#endif
 }
 
 gex_frame_status gex_i4_app_init(gex_i4_app *app,
@@ -47,7 +61,13 @@ gex_frame_status gex_i4_app_init(gex_i4_app *app,
     }
     memset(app, 0, sizeof(*app));
     gex_input_init(&app->input);
-    gex_null_renderer_init(&app->renderer);
+    
+#if defined(_WIN32)
+    app->d3d11_enabled = 0; /* start with null renderer */
+    gex_null_renderer_init(&app->renderer.null_renderer);
+#else
+    gex_null_renderer_init(&app->renderer.null_renderer);
+#endif
 
     hooks.pre_frame = app_pre_frame;
     hooks.update = app_update;
@@ -94,6 +114,59 @@ void gex_i4_app_shutdown(gex_i4_app *app)
         return;
     }
     gex_frame_shutdown(&app->frame);
-    gex_null_renderer_shutdown(&app->renderer);
+    
+#if defined(_WIN32)
+    if (app->d3d11_enabled) {
+        gex_d3d11_renderer_shutdown(&app->renderer.d3d11_renderer);
+    } else {
+        gex_null_renderer_shutdown(&app->renderer.null_renderer);
+    }
+#else
+    gex_null_renderer_shutdown(&app->renderer.null_renderer);
+#endif
     app->initialized = 0;
 }
+
+#if defined(_WIN32)
+gex_d3d11_renderer_status gex_i4_app_enable_d3d11(gex_i4_app *app,
+                                                 const gex_d3d11_device *device,
+                                                 const gex_d3d11_swapchain *swapchain,
+                                                 const float clear_color[4])
+{
+    if (app == NULL || !app->initialized) {
+        return GEX_D3D11_RENDERER_BAD_STATE;
+    }
+    
+    if (app->d3d11_enabled) {
+        return GEX_D3D11_RENDERER_BAD_STATE;
+    }
+    
+    gex_d3d11_renderer_status status = gex_d3d11_renderer_init(&app->renderer.d3d11_renderer, 
+                                                             device, 
+                                                             swapchain, 
+                                                             clear_color);
+    if (status == GEX_D3D11_RENDERER_OK) {
+        app->d3d11_enabled = 1;
+    }
+    
+    return status;
+}
+
+void gex_i4_app_disable_d3d11(gex_i4_app *app)
+{
+    if (app == NULL || !app->initialized || !app->d3d11_enabled) {
+        return;
+    }
+    
+    gex_d3d11_renderer_shutdown(&app->renderer.d3d11_renderer);
+    app->d3d11_enabled = 0;
+    
+    /* Reinitialize with null renderer */
+    gex_null_renderer_init(&app->renderer.null_renderer);
+}
+
+int gex_i4_app_is_d3d11_enabled(const gex_i4_app *app)
+{
+    return (app != NULL && app->initialized && app->d3d11_enabled) ? 1 : 0;
+}
+#endif

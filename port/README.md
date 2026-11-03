@@ -27,19 +27,17 @@ R-2 la swapchain DXGI, todavía sin presentar ni dibujar:
 | Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
 | Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
 | Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 314 checks; hardware y WARP a FL 11_1; sin swapchain |
-| Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 572 checks; bitblt, 2 buffers, 512×384, resize; sin `Present` |
-| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado aún**: R-3+ (clear, presentación, geometría) |
+| Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 572 checks; bitblt, 2 buffers, 960×540, resize; con `Present` |
+| Renderer Direct3D 11 (R-3) | `grDrawBuffer`, `grBufferClear`, `grSwapBuffers` | `gex/render/d3d11_renderer.h` | funcional (Windows), 28 checks; clear color, Present, resize; integrado con I-4; validado visualmente |
 
-No hay motor, ni render, ni lógica de juego. La ventana, el teclado, el reloj
-QPC y el frame loop **sí** son reales: `gexloop.exe` abre una ventana, responde
-a teclas, libera el estado al perder foco y sale con Escape o al cerrar. El
-audio sigue siendo audible por separado: `sagplay --device` entrega el PCM a un
-`IDirectSoundBuffer` real. Lo que **no** está verificado es la audición humana
-(el agente no puede oír); la confirmación por oído es del mantenedor.
+No hay motor, ni lógica de juego. La ventana, el teclado, el reloj QPC, el frame loop
+y el renderizado **sí** son reales: `gexloop.exe` abre una ventana, responde a teclas,
+libera el estado al perder foco, sale con Escape o al cerrar, y muestra un color de limpieza
+mediante Direct3D 11. El audio sigue siendo audible por separado: `sagplay --device` 
+entrega el PCM a un `IDirectSoundBuffer` real. Lo que **no** está verificado es la audición
+humana (el agente no puede oír); la confirmación por oído es del mantenedor.
 
-`gexloop` no es un build jugable: `pre_frame` y `update` solo cuentan llamadas
-y `present` usa un renderer nulo que no dibuja. Es el primer «prototipo
-ejecutable», no el juego.
+`gexloop` es un build funcional con la primera presentación visible: `pre_frame` y `update` solo cuentan llamadas pero `present` ahora usa Direct3D 11 para mostrar un color de limpieza en la ventana. Es el primer «prototipo ejecutable con renderizado», no el juego.
 
 ## Estructura
 

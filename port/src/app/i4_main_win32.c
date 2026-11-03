@@ -21,6 +21,12 @@
 #include "gex/platform/win32_time.h"
 #include "gex/platform/win32_window.h"
 
+#if defined(_WIN32)
+#include "gex/render/d3d11_device.h"
+#include "gex/render/d3d11_swapchain.h"
+#include "gex/render/d3d11_renderer.h"
+#endif
+
 #include <mmsystem.h> /* timeBeginPeriod/timeEndPeriod (winmm) */
 
 #include <inttypes.h>
@@ -173,8 +179,17 @@ static void print_stats(const char *prefix, const gex_i4_app *app,
            " steps/s=%.1f last_steps=%u acc=%" PRIu64 "us discards=%" PRIu64
            " aborted=%" PRIu64 " backwards=%" PRIu64 " pre=%" PRIu64
            " updates=%" PRIu64 "\n",
-           prefix, elapsed, app->renderer.presents,
-           (elapsed > 0.0) ? (double)app->renderer.presents / elapsed : 0.0,
+           prefix, elapsed, 
+#if defined(_WIN32)
+            app->renderer.d3d11_renderer.presents,
+#else
+            app->renderer.null_renderer.presents,
+#endif
+           #if defined(_WIN32)
+            (elapsed > 0.0) ? (double)app->renderer.d3d11_renderer.presents / elapsed : 0.0,
+#else
+            (elapsed > 0.0) ? (double)app->renderer.null_renderer.presents / elapsed : 0.0,
+#endif
            frame->steps,
            (elapsed > 0.0) ? (double)frame->steps / elapsed : 0.0,
            frame->last_steps, frame->core.acc_us,
@@ -232,7 +247,7 @@ int main(int argc, char **argv)
     }
 
     if (!gex_win32_window_create(&window, &app.input,
-                                 L"Gex native loop - I-4 (null renderer)", 960,
+                                 L"Gex native loop - I-4", 960,
                                  540)) {
         fprintf(stderr, "error: could not create the Win32 window "
                         "(GetLastError=%lu)\n",
@@ -255,7 +270,71 @@ int main(int argc, char **argv)
                                 : "default resolution (present rate will be "
                                   "coarser)");
     printf("window: class=%ls, 960x540 client area\n", GEX_WINDOW_CLASS_NAME);
+    
+#if defined(_WIN32)
+    /* Initialize D3D11 device and swapchain for R-3 */
+    gex_d3d11_device d3d11_dev = GEX_D3D11_DEVICE_INITIALIZER;
+    gex_d3d11_swapchain d3d11_sw = GEX_D3D11_SWAPCHAIN_INITIALIZER;
+    gex_d3d11_swapchain_config sw_cfg = GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER;
+    float clear_color[4] = {0.2f, 0.2f, 0.8f, 1.0f}; /* Blue color */
+    
+    /* Configure swapchain for the window */
+    sw_cfg.hwnd = window.hwnd;
+    sw_cfg.width = 960;
+    sw_cfg.height = 540;
+    sw_cfg.vsync_retraces = 1; /* Vsync enabled */
+    
+    /* Create D3D11 device */
+    gex_d3d11_device_status dev_status = gex_d3d11_device_init(&d3d11_dev, 
+                                                              GEX_D3D11_DRIVER_HARDWARE, 
+                                                              0);
+    if (dev_status != GEX_D3D11_DEVICE_OK) {
+        fprintf(stderr, "error: D3D11 device init failed: %s (HRESULT=0x%08lX)\n",
+                gex_d3d11_device_status_name(dev_status), d3d11_dev.last_hresult);
+        gex_win32_window_destroy(&window);
+        gex_i4_app_shutdown(&app);
+        return 1;
+    }
+    
+    /* Create swapchain */
+    gex_d3d11_swapchain_status sw_status = gex_d3d11_swapchain_init(&d3d11_sw, 
+                                                                   &d3d11_dev, 
+                                                                   &sw_cfg);
+    if (sw_status != GEX_D3D11_SWAPCHAIN_OK) {
+        fprintf(stderr, "error: D3D11 swapchain init failed: %s (HRESULT=0x%08lX)\n",
+                gex_d3d11_swapchain_status_name(sw_status), d3d11_sw.last_hresult);
+        gex_d3d11_device_shutdown(&d3d11_dev);
+        gex_win32_window_destroy(&window);
+        gex_i4_app_shutdown(&app);
+        return 1;
+    }
+    
+    /* Enable D3D11 rendering in the app */
+    gex_d3d11_renderer_status renderer_status = gex_i4_app_enable_d3d11(&app, 
+                                                                       &d3d11_dev, 
+                                                                       &d3d11_sw, 
+                                                                       clear_color);
+    if (renderer_status != GEX_D3D11_RENDERER_OK) {
+        fprintf(stderr, "error: D3D11 renderer init failed: %s (HRESULT=0x%08lX)\n",
+                gex_d3d11_renderer_status_name(renderer_status), app.renderer.d3d11_renderer.last_hresult);
+        gex_d3d11_swapchain_shutdown(&d3d11_sw);
+        gex_d3d11_device_shutdown(&d3d11_dev);
+        gex_win32_window_destroy(&window);
+        gex_i4_app_shutdown(&app);
+        return 1;
+    }
+    
+    printf("renderer: Direct3D 11 (hardware)\n");
+    /* Update window title to reflect D3D11 renderer */
+    SetWindowTextW(window.hwnd, L"Gex native loop - I-4 (Direct3D 11)");
+    printf("backbuffer: %u x %u, %u buffers\n", 
+           (unsigned)sw_cfg.width, (unsigned)sw_cfg.height, 
+           (unsigned)d3d11_sw.desc.BufferCount);
+    printf("clear color: RGB(%.1f, %.1f, %.1f)\n", clear_color[0], clear_color[1], clear_color[2]);
+#else
     printf("renderer: null (draws nothing)\n");
+#endif
+    
     printf("audio: none attached\n");
     printf("controls: Escape or close the window to exit\n");
 
@@ -306,9 +385,15 @@ int main(int argc, char **argv)
         }
 
         if (options.frame_limit > 0 &&
-            app.renderer.presents >= options.frame_limit) {
+#if defined(_WIN32)
+            app.renderer.d3d11_renderer.presents >= options.frame_limit) {
             printf("frame limit reached (%" PRIu64 " presents)\n",
-                   app.renderer.presents);
+                   app.renderer.d3d11_renderer.presents);
+#else
+            app.renderer.null_renderer.presents >= options.frame_limit) {
+            printf("frame limit reached (%" PRIu64 " presents)\n",
+                   app.renderer.null_renderer.presents);
+#endif
             break;
         }
         if (options.second_limit > 0 && now_us >= deadline_us) {
@@ -330,6 +415,16 @@ int main(int argc, char **argv)
     if (timer_resolution_set) {
         timeEndPeriod(1);
     }
+    
+#if defined(_WIN32)
+    /* Shutdown D3D11 resources in the correct order */
+    if (gex_i4_app_is_d3d11_enabled(&app)) {
+        gex_i4_app_disable_d3d11(&app);
+        gex_d3d11_swapchain_shutdown(&d3d11_sw);
+        gex_d3d11_device_shutdown(&d3d11_dev);
+    }
+#endif
+    
     gex_win32_window_destroy(&window);
     gex_i4_app_shutdown(&app);
     return exit_code;
