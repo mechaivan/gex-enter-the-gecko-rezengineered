@@ -39,7 +39,7 @@
 | Versión               | 0.0.0 |
 | Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`) |
 | Reverse engineering   | **Iniciado** — análisis estático, mapa de funciones, segmentación por subsistemas, traza dinámica del frame y reconstrucción de la ruta de audio. Investigación progresiva en curso. |
-| Implementación        | **Iniciada** — port nativo C11 con lector SLAG, audio DirectSound, frame loop, ventana Win32, teclado y reloj real. Renderer nativo en desarrollo: dispositivo Direct3D 11 (R-1) y swapchain DXGI sobre la ventana (R-2), todavía sin presentar. |
+| Implementación        | **Iniciada** — port nativo C11 con lector SLAG, audio DirectSound, frame loop, ventana Win32, teclado y reloj real. Renderer Direct3D 11 (R-1/R-2/R-3) con primera salida gráfica visible; R-4 investiga estabilidad y diagnóstico de presentación. El juego todavía no está integrado ni es jugable. |
 | Testing               | Hito 1 ejecutado (F-05 + arranque EU en Win11). Componentes del port nativo validados mediante pruebas automatizadas y pruebas reales en Windows. |
 | Ruta corta            | Hitos R → K → P + Olas 1–3 (ver `ROADMAP.md`). La vía de implementación nativa avanza en paralelo y no altera el progreso de MAIN. |
 
