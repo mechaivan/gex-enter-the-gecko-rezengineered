@@ -6,8 +6,9 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 
 - **Tercera y última pieza del renderer real, con primera salida gráfica visible.**
   `gex_d3d11_renderer` (`port/src/render/d3d11_renderer.c` + `gex/render/d3d11_renderer.h`, Windows-only) implementa el renderer real con `Present` call, clear del backbuffer y render target view. Primera presentación gráfica visible con Direct3D 11. Contrato: liberar RTV antes de `resize`; bitblt escala el backbuffer al cliente. Implementa el contrato `gex_renderer` definido en I-5.
-- **Resultados:** 145 checks, 0 fallos con Clang 22.1.8; batería completa 133 015 checks, 0 fallos en las 12 suites de Clang.
-- **Hallazgos:** primera salida gráfica visible confirmada; sin errores de presentación; sin pérdida de dispositivo; sin problemas de sincronización inicial.
+- **Resultados:** `test_d3d11_renderer.exe` aporta 28 checks y `test_app.exe` 117 checks de aplicación (145 asociados a R-3), 0 fallos con Clang 22.1.8; batería completa 133 015 checks, 0 fallos en las 12 suites Clang.
+- **Alcance demostrado:** primera salida gráfica visible mediante clear + `Present(0, 0)`. No se ha demostrado ausencia general de device loss ni estabilidad de sincronización a largo plazo.
+- **Limitación de resize:** la prueba registra como INFO un fallo de `gex_d3d11_swapchain_resize` y continúa con el tamaño original; no garantiza resize exitoso en todos los entornos.
 - **Decisión:** se confirma Direct3D 11 como API de renderizado principal para el proyecto.
 
 ## 2026-11-03 - 0.0.0 - R-4: Inicio de investigación sobre VSync, DXGI, Debug Layer y pérdida del dispositivo
@@ -15,7 +16,7 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 - **Investigación inicial sobre VSync, DXGI, Debug Layer y pérdida del dispositivo.**
   Inicia la fase de investigación diagnóstica para R-4, enfocada en VSync, DXGI, Debug Layer y pérdida del dispositivo. Documenta problemas y soluciones técnicas basadas en evidencias.
 - **Objetivos:** identificar y documentar problemas potenciales de VSync, DXGI, Debug Layer y pérdida del dispositivo; proponer soluciones técnicas basadas en evidencias.
-- **Estado:** investigación iniciada; 0 checks realizados; documentación inicial creada en `docs/R4_DIAGNOSTIC.md`.
+- **Estado:** investigación iniciada; 0 checks de implementación; documentación inicial en `docs/R4_DIAGNOSTIC.md`. VSync configurable, tearing y recuperación siguen pendientes; R-3 usa `Present(0, 0)`.
 - **Próximos pasos:** continuar la investigación con pruebas adicionales y validación de soluciones.
 
 ## 2026-11-03 - 0.0.0 - R-2: swapchain DXGI sobre la ventana Win32 (sin presentar)
