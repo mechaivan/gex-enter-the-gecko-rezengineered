@@ -126,9 +126,11 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 .\build.ps1 test -Compiler 'C:\msys64\mingw64\bin\gcc.exe'
 ```
 
-I-4, R-1 y R-2 se validaron con ambos compiladores: misma batería (I-4: 131 984
+I-4, R-1 y R-2 se validaron con Clang: misma batería (I-4: 131 984
 checks; R-1: 132 298 con la prueba D3D11 integrada; R-2: 132 870 con la de
-swapchain), 0 fallos, sin avisos.
+swapchain), 0 fallos, sin avisos. Con GCC, test_sag.exe no compila (error
+de compilación, no de ejecución), por lo que la batería completa no se ha
+validado con este compilador.
 
 ## Resto del proyecto — pendiente
 

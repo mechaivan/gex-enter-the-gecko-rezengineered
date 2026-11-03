@@ -1785,7 +1785,7 @@ en ventana mayor sin medir; la capa debug D3D11 sigue sin instalar; el
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 132 870 checks, 0 fallos (incl. D3D11 device y swapchain)
+cd port; .\build.ps1 all            # 132 870 checks, 0 fallos (Clang, GCC no compila test_sag.exe)
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
 cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1
