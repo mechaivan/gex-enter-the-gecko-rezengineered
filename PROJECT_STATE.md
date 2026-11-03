@@ -164,7 +164,7 @@ dispositivo. Referencias medidas: dispositivo 2→3→2 al crear/destruir la
 swapchain; swapchain 2 (una la retiene su backbuffer) y backbuffer 1; todas
 llegan a 0 al liberar en orden. **No hay `Present`, ni clear, ni dibujo** (R-3
 y siguientes), y `gexloop` sigue con el renderer nulo. **572 checks nuevos**, 0
-fallos, hardware y WARP, Clang 22.1.8 y GCC 16.1.0; **batería completa 132 775
+fallos, hardware y WARP, Clang 22.1.8 y GCC 16.1.0; **batería completa 132 870
 checks**. Detalle en `docs/D3D11_SWAPCHAIN.md`.
 
 I-4 (2026-11-02) conecta la ventana, la entrada y el reloj real, pero **sigue

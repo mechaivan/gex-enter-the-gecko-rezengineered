@@ -205,7 +205,7 @@ mods/parches.
   `ResizeBuffers` no valida el `HWND` (devuelve `S_OK` tras destruirlo). Prueba:
   `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos**, hardware y WARP,
   **Clang 22.1.8 y GCC 16.1.0**; sonda `swapprobe.exe`; batería completa
-  **132 775 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
+  **132 870 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
   `docs/D3D11_SWAPCHAIN.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible

@@ -41,7 +41,7 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   Sonda nueva `swapprobe.exe` (ventana real, WARP y hardware). Enlace
   `-ld3d11 -luuid` (los IID de DXGI viven en `libuuid.a`; no se necesita
   `-ldxgi` porque no se llama a `CreateDXGIFactory`). Batería completa:
-  **132 775 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
+  **132 870 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
 - **Errores encontrados y resueltos (todos de la prueba, no del módulo):**
   suponer 1 referencia en la swapchain (son 2 por el backbuffer), re-iniciar
   un dispositivo vivo en el bloque de dos ventanas (`BAD_STATE` correcto de

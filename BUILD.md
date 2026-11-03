@@ -21,7 +21,7 @@ Windows, **no hay dependencias de terceros que descargar**.
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 132 775 checks, las sondas D3D11 y las demos
+.\build.ps1 all      # compila, ejecuta 132 870 checks, las sondas D3D11 y las demos
 .\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame loop + entrada + app + reloj + audio-device + D3D11 device + swapchain)
 .\build.ps1 loop     # solo gexloop.exe (ventana Win32 real; Windows)
 .\build.ps1 probe    # d3d11probe.exe y swapprobe.exe (dispositivo y swapchain; Windows)
@@ -127,7 +127,7 @@ $env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
 ```
 
 I-4, R-1 y R-2 se validaron con ambos compiladores: misma batería (I-4: 131 984
-checks; R-1: 132 298 con la prueba D3D11 integrada; R-2: 132 775 con la de
+checks; R-1: 132 298 con la prueba D3D11 integrada; R-2: 132 870 con la de
 swapchain), 0 fallos, sin avisos.
 
 ## Resto del proyecto — pendiente
