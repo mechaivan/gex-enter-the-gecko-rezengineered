@@ -6,11 +6,12 @@
 #   make clean  remove build/ (only files this build produced)
 #
 # The DirectSound device backend (src/audio/backend_dsound.c, test_device.c),
-# the D3D11 device (src/render/d3d11_device.c, test_d3d11_device.c,
-# tools/d3d11probe.c) and the Win32 layer (src/platform/win32_*.c,
-# test_win32_time.c, gexloop) are Windows-only and are built by build.ps1.
-# Everything else here is portable C11, including the I-4 input tables, app
-# core and clock conversion.
+# the D3D11 device and swap chain (src/render/d3d11_device.c,
+# src/render/d3d11_swapchain.c, test_d3d11_device.c,
+# test_d3d11_swapchain.c, tools/d3d11probe.c, tools/swapprobe.c) and the Win32
+# layer (src/platform/win32_*.c, test_win32_time.c, gexloop) are Windows-only
+# and are built by build.ps1. Everything else here is portable C11, including
+# the I-4 input tables, app core and clock conversion.
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wpedantic -Iinclude

@@ -9,6 +9,12 @@
 > implementación de prueba. La verificación final de la recomendación (crear
 > un dispositivo) es el primer paso del hito de implementación (§7, R-1).
 >
+> **Actualización 2026-11-03:** R-1 (dispositivo D3D11, hardware y WARP) y R-2
+> (swapchain DXGI sobre el `HWND` de I-4) están ejecutados; el resto de §7 sigue
+> pendiente. El diseño de este documento no cambió: R-1 confirmó la elección y
+> R-2 implementó la presentación **sin** `Present` ni clear. Ver
+> `docs/D3D11_DEVICE.md` y `docs/D3D11_SWAPCHAIN.md`.
+>
 > Base de evidencia: `docs/FRAME_STEP_TRACE.md` (traza dinámica),
 > `docs/SUBSYSTEM_SEGMENTS.md` §S2/S4, `docs/TIMING_GAME_LOOP_ANALYSIS.md` §2,
 > `docs/F03_VS_ORIGINAL.md` §4, `docs/ORIGINAL_ARTIFACT_INVENTORY.md` §4.1,
@@ -452,6 +458,15 @@ port/src/app/i4_main_win32.c                pasaría el HWND en el config
 en estadísticas y salida. El Makefile POSIX compila `renderer.c` (portable)
 y no compila `backend_d3d11.c` (como ya hace con `backend_dsound.c`).
 
+Estado real a 2026-11-03: existen ya `port/include/gex/render/d3d11_device.h`
+y `port/src/render/d3d11_device.c` (R-1) y
+`port/include/gex/render/d3d11_swapchain.h` /
+`port/src/render/d3d11_swapchain.c` (R-2). El contrato `renderer.h`, la vtable
+`renderer_backend.h` y el backend `backend_d3d11.c` **siguen sin existir**:
+llegan con la integración de R-3, cuando haya algo que presentar. La swapchain
+se construyó como módulo propio, no como backend, para no adelantar ese
+contrato.
+
 ### 6.4 Flujo por frame (futuro renderer real)
 
 ```text
@@ -515,7 +530,7 @@ del backend en la carga, con fixtures `.3df` sintéticos generados por script
 | Paso | Qué demuestra | Sin assets del juego | Estado |
 | --- | --- | --- | --- |
 | R-1 | Crear/destruir dispositivo D3D11 (HW y WARP); verifica la decisión de §5.6 | sí | **ejecutado 2026-11-02**: ambos modos a FL 11_1, 205 checks, 0 fallos, Clang y GCC; `docs/D3D11_DEVICE.md` |
-| R-2 | Crear swapchain sobre el HWND de I-4 (512×384) y presentarla | sí | pendiente |
+| R-2 | Crear swapchain sobre el HWND de I-4 (512×384) y presentarla | sí | **ejecutado 2026-11-03**: swapchain DXGI bitblt (`DISCARD`, 2 buffers, `R8G8B8A8_UNORM`, ventana) sobre el `HWND` de I-4, con `ResizeBuffers` y COM verificado; **sin `Present`** (eso es R-3); 429 checks, 0 fallos, Clang y GCC; `docs/D3D11_SWAPCHAIN.md` |
 | R-3 | `begin_frame` con clear de color uniforme; comprobación visual programática (`CopyResource` + hash del backbuffer bajo WARP) | sí | pendiente |
 | R-4 | Presentación estable: cadencia del bucle intacta (~105–108 presents/s con nulo; medir el cambio con Present real), sin fugas (contador de objetos vivos del debug layer) | sí | pendiente |
 | R-5 | Sincronización: `SyncInterval` 0/1/3 medidos con QPC; comparar el efecto de cola frente al drenaje+swap(3) del original (referencia: glide-shim CSVs, 8 318 swaps) | sí | pendiente |
@@ -523,9 +538,11 @@ del backend en la carga, con fixtures `.3df` sintéticos generados por script
 | R-7 | Geometría de prueba (triángulo con `w`, textura sintética `.3df` rgb332 + paleta NCC), luego recursos reales | triángulo/textura: sí; assets reales: requiere material del juego | pendiente |
 | R-8 | A/B visual contra el original (PC mantenedor, nGlide): solamente comparación humana de referencia, nunca un check automatizado | **requiere el juego** | pendiente |
 
-Notas honestas: R-1…R-6 **no se han ejecutado**; hoy solo está verificado que
-el toolchain tiene cabeceras y librerías (§5.1). WARP permite automatizar
-R-3/R-6 sin GPU; R-8 depende del mantenedor por diseño del proyecto.
+Notas honestas: **R-1 y R-2 se han ejecutado** (dispositivo y swapchain
+reales, sin dibujo). R-3…R-6 **no se han ejecutado**: no hay clear, ni
+`Present`, ni medición de cadencia, ni recuperación ante device-removed. WARP
+permite automatizar R-3/R-6 sin GPU; R-8 depende del mantenedor por diseño del
+proyecto.
 
 ## 8. Riesgos, incógnitas y decisiones pendientes
 
@@ -539,7 +556,7 @@ R-3/R-6 sin GPU; R-8 depende del mantenedor por diseño del proyecto.
 | U-5 | Papel de `grSstControl` y de `grGlideGetState/SetState` fuera del cine | bajo | no se inventa semántica |
 | U-6 | `GEX.VFX` (rampa tipo gamma) y su relación con el render | bajo | UNKNOWN-PENDING en inventario |
 | U-7 | Tasa real de refresco en runtime bajo wrapper (75 Hz pedidos) | bajo | ya medible con glide-shim; no bloquea el port |
-| D-1 | Elección definitiva flip-model vs bitblt-model | medio | se decide en R-2 con medición de latencia/composición |
+| D-1 | Elección definitiva flip-model vs bitblt-model | medio | **parcialmente resuelta en R-2**: se usa bitblt (`DXGI_SWAP_EFFECT_DISCARD`) como base medida y portable; la comparación de latencia/cadencia con flip-model se hará en R-4 con `Present` real (`docs/D3D11_SWAPCHAIN.md` §3 y §10) |
 | D-2 | Política exacta de device-lost (reintentos, salida) | medio | se fija en R-6 con el backend real |
 | D-3 | Reproducir el drenaje doble del original | bajo | deliberadamente NO se replica: es un artefacto de cola de Voodoo, no semántica de juego (§2.4, §2.7) |
 

@@ -1721,14 +1721,73 @@ ramas para ambos casos y no se descarga nada para activarla.
 adaptador hardware no consultada (sin DXGI factory en R-1); el `Makefile` POSIX
 no se ejecuta aquí (sin `make`). Detalle en `docs/D3D11_DEVICE.md`.
 
+## Swapchain DXGI sobre la ventana Win32 (R-2, 2026-11-03, sin presentar)
+
+Segunda pieza del renderer real: crear la swapchain DXGI con el dispositivo de
+R-1 sobre el `HWND` real de I-4, obtener el backbuffer, redimensionar con
+`ResizeBuffers` y cerrar en orden backbuffer → swapchain → dispositivo. No hay
+`Present`, ni clear, ni render target, ni geometría (R-3+).
+
+```powershell
+cd port
+.\build.ps1 test      # incluye test_d3d11_swapchain
+.\build.ps1 probe     # d3d11probe.exe + swapprobe.exe
+```
+
+Salida medida (Windows 11, Clang 22.1.8 y GCC 16.1.0, `-std=c11 -O2 -Wall
+-Wextra -Wpedantic`, sin avisos; idéntica en ambos):
+
+```text
+warp: device ok, feature level 11_1
+device refs before swapchain: 2
+device refs with swapchain: 3
+warp: swapchain ok 320x240, 2 buffers, format 28
+refs before shutdown: swapchain 3, backbuffer 2
+device refs after full release: 2
+...
+buffer_count=1000: status=create failed hr=0x887A0001
+resize after window destroyed: status=ok hr=0x00000000
+...
+hardware: swapchain ok 320x240
+429 checks, 0 failures, 0 skipped
+```
+
+Qué cubren los 429 checks: nombres de estado; argumentos y estado (`NULL`,
+dispositivo R-1 cerrado, `HWND` nulo/falso, tamaño 0, doble `init` sin tocar el
+vivo, `shutdown` no-ops); **WARP real** (swapchain 2 buffers
+`R8G8B8A8_UNORM`, bitblt, ventana, `OutputWindow`, backbuffer 1 mip/1 array/
+`DEFAULT` y su referencia); **resize** válido, mismo tamaño, repetido, con
+ventana real redimensionada (`SetWindowPos` → área de cliente → `ResizeBuffers`),
+y 0×0
+rechazado sin tocar DXGI; **COM** (swapchain 2 referencias —una la retiene el
+backbuffer—, backbuffer 1, dispositivo 2→3→2; liberación completa a 0 en orden
+backbuffer → swapchain); ciclo de vida con dos re-inits; dos swapchains sobre
+dos ventanas con un dispositivo; error de creación (`BufferCount = 1000` →
+`DXGI_ERROR_INVALID_CALL`) con struct cerrado; `HWND` destruido antes
+(`BAD_ARGUMENT`) y después de crear (resize devuelve `S_OK`, cierre limpio);
+**hardware real** con las mismas comprobaciones.
+
+**Hallazgos:** el backbuffer referencia a la swapchain (por eso se libera
+primero); la swapchain retiene al dispositivo (+1 medido), lo que justifica el
+orden de destrucción; `ResizeBuffers` no valida el `HWND` (el fallo real
+aparecerá en `Present`, R-3); `-luuid` aporta los IID de DXGI y no hace falta
+`-ldxgi` (no se llama a `CreateDXGIFactory`).
+
+**Límite honesto:** sin `Present` ni verificación visual (por alcance); D-1
+(bitblt vs flip) queda parcialmente abierta hasta R-4; escalado del backbuffer
+en ventana mayor sin medir; la capa debug D3D11 sigue sin instalar; el
+`Makefile` POSIX no se ejecuta aquí (sin `make`). Detalle en
+`docs/D3D11_SWAPCHAIN.md`.
+
 ## Batería completa (regresión)
 
 ```powershell
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 132 189 checks, 0 fallos (incl. D3D11 device)
+cd port; .\build.ps1 all            # 132 618 checks, 0 fallos (incl. D3D11 device y swapchain)
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
 cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1
+cd port; .\build\swapprobe.exe --hardware               # swapchain 512x384, resize, cierre
 ```

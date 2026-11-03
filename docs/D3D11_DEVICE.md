@@ -73,7 +73,8 @@ typedef struct gex_d3d11_device {
 
 El módulo es deliberadamente **mínimo** (criterio del hito): nada de DXGI
 factory, adaptadores, colas ni swapchain. La identidad del adaptador físico
-quedará accesible en R-2 vía `IDXGIDevice::GetAdapter` si hace falta.
+quedó accesible en R-2 vía `IDXGIDevice::GetAdapter` (usado como paso hacia la
+factoría, sin registrar el nombre del adaptador).
 
 ## 3. Hardware y WARP: diferencias reales medidas
 
@@ -232,9 +233,10 @@ tools/gexmap: 22/22
 
 ## 8. Limitaciones y próximos pasos
 
-- **Sin swapchain, ventana ni presentación** (por alcance de R-1). El
-  siguiente paso es R-2: `IDXGIFactory`/`IDXGISwapChain` sobre el `HWND` de
-  I-4, con decisión flip-model vs bitblt (D-1 del doc de I-5).
+- **Sin swapchain, ventana ni presentación** (por alcance de R-1). R-2 **ya
+  ejecutado**: `IDXGIFactory`/`IDXGISwapChain` sobre el `HWND` de I-4, con
+  bitblt, resize y COM verificado, sin `Present` (`docs/D3D11_SWAPCHAIN.md`).
+  El paso siguiente es R-3: clear de color y presentación.
 - **Identidad del adaptador no consultada.** No hay DXGI factory aquí; qué
   GPU concreta sirve el modo hardware queda fuera del registro de R-1.
 - **Capa debug no instalada** en esta máquina (§6.3): el chequeo de objetos

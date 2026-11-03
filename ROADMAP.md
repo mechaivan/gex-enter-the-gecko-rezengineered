@@ -191,6 +191,22 @@ mods/parches.
   `test_d3d11_device` 205 checks, 0 fallos con **Clang 22.1.8 y GCC 16.1.0**;
   sonda `d3d11probe.exe`; batería completa 132 189 checks, 0 fallos. La
   decisión D3D11 de I-5 queda confirmada. Doc: `docs/D3D11_DEVICE.md`.
+- [x] **R-2 — Swapchain DXGI sobre la ventana de I-4 (sin presentar).**
+  `gex_d3d11_swapchain` (`port/src/render/d3d11_swapchain.c`, Windows-only)
+  obtiene la factoría desde el dispositivo de R-1 (`IDXGIDevice →
+  IDXGIAdapter → IDXGIFactory`), crea una swapchain **bitblt
+  `DXGI_SWAP_EFFECT_DISCARD`** de 2 buffers `R8G8B8A8_UNORM` en modo ventana
+  sobre el `HWND` existente, conserva el backbuffer para R-3 y lo renueva en
+  cada `ResizeBuffers`. Rechaza tamaños 0 sin tocar DXGI (ventana minimizada),
+  admite resize repetido y cierra en orden backbuffer → swapchain → dispositivo.
+  **Medido:** dispositivo 2→3→2 referencias al crear/destruir la swapchain;
+  swapchain 2 (una la retiene su backbuffer), backbuffer 1, todas a 0;
+  `BufferCount = 1000` → `DXGI_ERROR_INVALID_CALL` con struct cerrado;
+  `ResizeBuffers` no valida el `HWND` (devuelve `S_OK` tras destruirlo). Prueba:
+  `test_d3d11_swapchain` **429 checks, 0 fallos, 0 saltos**, hardware y WARP,
+  **Clang 22.1.8 y GCC 16.1.0**; sonda `swapprobe.exe`; batería completa
+  **132 618 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
+  `docs/D3D11_SWAPCHAIN.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
@@ -198,7 +214,8 @@ al primer bucle temporal nativo (2026-11-01); I-4 cierra el primer proceso
 ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02); I-5
 investiga y diseña el renderer real sin implementarlo (2026-11-02); R-1 verifica
 la decisión con el dispositivo D3D11 real, hardware y WARP, sin swapchain ni
-dibujo (2026-11-02). La
+dibujo (2026-11-02); R-2 conecta ese dispositivo con la ventana de I-4 mediante
+una swapchain DXGI, todavía sin presentar (2026-11-03). La
 llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
 por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
 `pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.

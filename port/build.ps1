@@ -59,6 +59,7 @@ $coreSrc = @(
 $inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
 $renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
 $d3d11Src = @((Join-Path $PSScriptRoot 'src/render/d3d11_device.c'))
+$d3d11SwapSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_swapchain.c'))
 $appSrc = @((Join-Path $PSScriptRoot 'src/app/i4_app.c'))
 $clockSrc = @((Join-Path $PSScriptRoot 'src/platform/clock.c'))
 $win32TimeSrc = @((Join-Path $PSScriptRoot 'src/platform/win32_time.c'))
@@ -97,6 +98,7 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_win32_time.c') 'test_win32_time.exe' ($clockSrc + $win32TimeSrc)) 'Win32 clock checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_device.c') 'test_d3d11_device.exe' $d3d11Src @('-ld3d11')) 'D3D11 device checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_swapchain.c') 'test_d3d11_swapchain.exe' ($d3d11Src + $d3d11SwapSrc + $inputSrc + $win32WindowSrc) @('-ld3d11', '-luuid')) 'D3D11 swapchain checks'
 }
 
 if ($Target -in @('loop', 'all')) {
@@ -108,6 +110,9 @@ if ($Target -in @('probe', 'all')) {
     $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/d3d11probe.c') 'd3d11probe.exe' $d3d11Src @('-ld3d11')
     & $exe
     if ($LASTEXITCODE -ne 0) { throw "d3d11probe failed (exit $LASTEXITCODE)" }
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'tools/swapprobe.c') 'swapprobe.exe' ($d3d11Src + $d3d11SwapSrc + $inputSrc + $win32WindowSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32')
+    & $exe --hardware
+    if ($LASTEXITCODE -ne 0) { throw "swapprobe failed (exit $LASTEXITCODE)" }
 }
 
 if ($Target -in @('demo', 'all')) {

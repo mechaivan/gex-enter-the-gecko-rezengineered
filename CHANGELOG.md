@@ -2,6 +2,57 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-03 - 0.0.0 - R-2: swapchain DXGI sobre la ventana Win32 (sin presentar)
+
+- **Segunda pieza del renderer real, sin `Present` ni dibujo.**
+  `gex_d3d11_swapchain` (`port/src/render/d3d11_swapchain.c` +
+  `gex/render/d3d11_swapchain.h`, Windows-only) obtiene la factoría desde el
+  dispositivo de R-1 (`IDXGIDevice → IDXGIAdapter → IDXGIFactory`), crea una
+  swapchain **bitblt `DXGI_SWAP_EFFECT_DISCARD`** de 2 buffers
+  `R8G8B8A8_UNORM` en modo ventana sobre el `HWND` existente de I-4, conserva
+  el backbuffer para R-3 y lo vuelve a obtener tras cada `ResizeBuffers`.
+  Las interfaces de paso se liberan antes de volver; el módulo conserva solo
+  swapchain + backbuffer y **nunca duplica el dispositivo**.
+- **Decisiones:** bitblt como base medible (la comparación con flip-model
+  queda para R-4, con `Present` real); 2 buffers por los 2 buffers de color de
+  `grSstWinOpen` (`0x0046324D`); sin MSAA, sin cambio de modo, sin
+  `ALLOW_MODE_SWITCH`; `vsync_retraces = 3` almacenado para el futuro
+  `Present`, sin usar todavía.
+- **Resize:** `ResizeBuffers(0, w, h, UNKNOWN, 0)` conserva buffers y formato;
+  el backbuffer se libera antes y se readquiere después, también si el resize
+  falla. `0×0` se rechaza con `BAD_SIZE` **sin llamar a DXGI** (ventana
+  minimizada). Probados resize válido, mismo tamaño, repetido y el camino real
+  de ventana (`SetWindowPos` → `GetClientRect` → `ResizeBuffers`). Contrato
+  para R-3: liberar la futura RTV antes de redimensionar.
+- **Hallazgos COM medidos:** el dispositivo pasa de **2 a 3** referencias al
+  crear la swapchain y vuelve a **2** al destruirla; la swapchain arranca con
+  **2** (una la retiene su propio backbuffer) y el backbuffer con **1**;
+  liberar en orden backbuffer → swapchain devuelve **0** en ambos. El
+  backbuffer referencia a la swapchain, así que liberar la swapchain primero
+  **no** la destruye (`Release` → 1): el orden exigido queda demostrado.
+- **Errores medidos y limpios:** `BufferCount = 1000` → DXGI lo rechaza con
+  `DXGI_ERROR_INVALID_CALL` (`0x887A0001`) y el struct queda cerrado; `HWND`
+  falso o destruido → `BAD_ARGUMENT`; tras destruir la ventana,
+  `ResizeBuffers` devuelve `S_OK` (DXGI no valida el `HWND`: el fallo real
+  aparecerá en `Present`, R-3) y el cierre sigue limpio.
+- **Pruebas: `test_d3d11_swapchain` 429 checks, 0 fallos, 0 saltos** —
+  idéntico con Clang 22.1.8 y GCC 16.1.0, sin avisos con
+  `-std=c11 -O2 -Wall -Wextra -Wpedantic`. WARP y hardware real (FL 11_1).
+  Sonda nueva `swapprobe.exe` (ventana real, WARP y hardware). Enlace
+  `-ld3d11 -luuid` (los IID de DXGI viven en `libuuid.a`; no se necesita
+  `-ldxgi` porque no se llama a `CreateDXGIFactory`). Batería completa:
+  **132 618 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
+- **Errores encontrados y resueltos (todos de la prueba, no del módulo):**
+  suponer 1 referencia en la swapchain (son 2 por el backbuffer), re-iniciar
+  un dispositivo vivo en el bloque de dos ventanas (`BAD_STATE` correcto de
+  R-1) y una aserción invertida al cerrar con ventana muerta; además faltaban
+  `win32_window.c`/`key_state.c` y `-luuid` en el enlace de la prueba, y
+  `ID3D11Texture2D_GetDesc` devuelve `void` en los headers WIDL.
+- **Sin `Present`, sin clear, sin render target, sin geometría, sin texturas**
+  (R-3 y siguientes). `gexloop` sigue con el renderer nulo, sin cambios en
+  `loop_core.c`, `frame.c`, audio ni en la ventana. Doc:
+  `docs/D3D11_SWAPCHAIN.md`.
+
 ## 2026-11-02 - 0.0.0 - R-1: dispositivo Direct3D 11 real (hardware y WARP)
 
 - **Primera pieza del renderer real, sin swapchain ni dibujo.**

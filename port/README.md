@@ -8,7 +8,8 @@ propia escrita a partir de la evidencia documentada en `docs/`.
 
 Cuatro subsistemas implementados y probados sin el juego; el último habla con el
 dispositivo de sonido real y, desde I-4, existe además un **proceso nativo con
-ventana Win32 real**:
+ventana Win32 real**. Sobre esa ventana, R-1 crea el dispositivo Direct3D 11 y
+R-2 la swapchain DXGI, todavía sin presentar ni dibujar:
 
 | Componente | Original | Cabecera | Estado |
 | --- | --- | --- | --- |
@@ -26,7 +27,8 @@ ventana Win32 real**:
 | Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
 | Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
 | Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 205 checks; hardware y WARP a FL 11_1; sin swapchain |
-| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado aún**: R-2+ (swapchain, presentación, geometría) |
+| Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 429 checks; bitblt, 2 buffers, 512×384, resize; sin `Present` |
+| Renderer real | semántica Glide del original (38 imports, `docs/RENDERER_ARCHITECTURE_RESEARCH.md`) | — | **no implementado aún**: R-3+ (clear, presentación, geometría) |
 
 No hay motor, ni render, ni lógica de juego. La ventana, el teclado, el reloj
 QPC y el frame loop **sí** son reales: `gexloop.exe` abre una ventana, responde
@@ -53,6 +55,7 @@ port/
   include/gex/input/key_state.h      teclado: nivel, flancos y pérdida de foco
   include/gex/render/null_renderer.h renderer nulo (present sin dibujar)
   include/gex/render/d3d11_device.h  dispositivo D3D11 real (sólo Windows, R-1)
+  include/gex/render/d3d11_swapchain.h swapchain DXGI sobre el HWND (sólo Windows, R-2)
   include/gex/app/i4_app.h           núcleo de aplicación (frame + input + present)
   include/gex/platform/clock.h       conversión portable ticks → µs
   include/gex/platform/win32_time.h  reloj QPC (sólo Windows)
@@ -67,6 +70,7 @@ port/
   src/input/key_state.c              tablas de teclado (C11 puro)
   src/render/null_renderer.c         present que contabiliza y no dibuja
   src/render/d3d11_device.c          D3D11CreateDevice + ciclo COM (sólo Windows)
+  src/render/d3d11_swapchain.c       DXGI factory/swapchain/backbuffer/resize (sólo Windows)
   src/app/i4_app.c                   orquestación portable (Escape, limpieza)
   src/app/i4_main_win32.c            ejecutable I-4 (bucle, espera, estadísticas)
   src/platform/clock.c               aritmética de ticks a microsegundos
@@ -81,11 +85,13 @@ port/
   tests/test_win32_time.c            QPC real: monotonía y avance (Windows)
   tests/test_device.c                dispositivo real (se omite si no hay tarjeta)
   tests/test_d3d11_device.c          dispositivo D3D11: HW+WARP, COM, errores (Windows)
+  tests/test_d3d11_swapchain.c       swapchain: ventana real, resize, COM, ciclo (Windows)
   tests/make_demo_sag.mjs            genera un contenedor sintético de 54 bytes
   tools/sagdump.c                    CLI que muestra lo que el lector entendió
   tools/sagplay.c                    demo: SLAG sintético -> PCM -> WAV o dispositivo
   tools/framedemo.c                  demo: frame loop con reloj guionizado
   tools/d3d11probe.c                 sonda del dispositivo D3D11 (R-1, Windows)
+  tools/swapprobe.c                  sonda de la swapchain sobre ventana real (R-2, Windows)
   build.ps1                          build en Windows (no hay make)
   Makefile                           equivalente POSIX (sin backend DirectSound)
 ```
@@ -101,7 +107,7 @@ cd port
 .\build.ps1 all      # compila, ejecuta los checks y las demos
 .\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame + entrada + app + reloj + dispositivos)
 .\build.ps1 loop     # solo gexloop.exe (ventana Win32 real)
-.\build.ps1 probe    # solo d3d11probe.exe (informe del dispositivo D3D11; Windows)
+.\build.ps1 probe    # d3d11probe.exe + swapprobe.exe (dispositivo y swapchain; Windows)
 .\build.ps1 audio    # solo la demo de audio (escribe build\tone.wav)
 .\build.ps1 demo     # fixture sintético + sagdump + framedemo + demo de audio
 .\build.ps1 clean    # borra build\ (solo lo que genera este script)
@@ -141,10 +147,13 @@ make demo
 El `Makefile` es el equivalente POSIX del script; **no se ha podido ejecutar en
 este entorno** porque el Windows del mantenedor no tiene `make`. El build que
 sí está verificado es `build.ps1` (clang y gcc). `make audio` enlaza con `-lm`
-porque la demo usa `sin`. El backend DirectSound y la capa Win32 son sólo
-Windows: el `Makefile` no compila `backend_dsound.c`, `win32_time.c`,
-`win32_window.c`, `test_device.c`, `test_win32_time.c` ni `gexloop`, así que
-`sagplay --device` y `gexloop` no existen en POSIX; `test_sag`, `test_adpcm`,
+porque la demo usa `sin`. El backend DirectSound, los módulos D3D11 y la capa
+Win32 son sólo Windows: el `Makefile` no compila `backend_dsound.c`,
+`d3d11_device.c`, `d3d11_swapchain.c`, `win32_time.c`,
+`win32_window.c`, `test_device.c`, `test_d3d11_device.c`,
+`test_d3d11_swapchain.c`, `test_win32_time.c`, `d3d11probe.c`, `swapprobe.c`
+ni `gexloop`, así que `sagplay --device`, `d3d11probe`, `swapprobe` y
+`gexloop` no existen en POSIX; `test_sag`, `test_adpcm`,
 `test_audio`, `test_frame`, `test_input`, `test_i4_app` y `framedemo` siguen
 siendo portables.
 
@@ -282,6 +291,28 @@ La prueba automatizada (`test_d3d11_device`) añade los caminos de error
 (`E_INVALIDARG` con bits reservados, capa debug ausente) y el ciclo de vida.
 Detalle en `docs/D3D11_DEVICE.md`.
 
+Swapchain DXGI sobre la ventana real (R-2, Windows; sin `Present`):
+
+```powershell
+.\build\swapprobe.exe --hardware
+```
+
+```text
+warp: swapchain 512x384, 2 buffers, format 28, windowed 1, swap effect 0
+warp: backbuffer texture 512x384, mips 1, array 1, usage 0
+warp: resize 512x384 ok
+warp: resize 640x480 ok
+warp: 0x0 refused without touching DXGI (minimized case)
+warp: closed (backbuffer, swapchain, device)
+hardware: swapchain 512x384, 2 buffers, format 28, windowed 1, swap effect 0
+hardware: closed (backbuffer, swapchain, device)
+```
+
+La prueba (`test_d3d11_swapchain`) añade el ciclo COM medido, resize repetido,
+errores de creación, doble `init`, dos ventanas con un dispositivo y el caso de
+ventana destruida. **No se presenta ningún frame ni se dibuja**: la ventana
+sigue vacía. Detalle en `docs/D3D11_SWAPCHAIN.md`.
+
 `sagdump` y `sagplay` aceptan cualquier ruta: si tienes un `.sag` propio,
 pásalo como argumento (`sagplay fichero.sag salida.wav`, o
 `sagplay --device fichero.sag`) y procesan ese. No se incluye ninguno.
@@ -295,9 +326,10 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   `clock`, lo que permite probarlas en cualquier plataforma y reutilizarlas
   después. La salida de audio es un *backend* con
   `submit`/`stop`/`cursor`/`pause`/`resume` que inyecta el llamante; la capa
-  Windows vive solo en `backend_dsound.c`, `win32_time.c`, `win32_window.c` e
-  `i4_main_win32.c`, y usa la API del sistema (`dsound.h`, `user32`, `gdi32`,
-  `winmm`), no una librería de terceros.
+  Windows vive solo en `backend_dsound.c`, `win32_time.c`, `win32_window.c`,
+  `d3d11_device.c`, `d3d11_swapchain.c` e `i4_main_win32.c`, y usa la API del
+  sistema (`dsound.h`, `d3d11.h`, `dxgi.h`, `user32`, `gdi32`, `winmm`), no una
+  librería de terceros.
 - **Las desviaciones se documentan.** Si el original confía en el contenedor y
   la implementación comprueba límites, se dice y se justifica en
   `docs/SAG_CONTAINER.md` §6 y en `docs/AUDIO_MIXER_RE.md` §11 (D1-D14).
@@ -334,5 +366,8 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   `gex_renderer` propuesto (sin implementar) y plan de validación R-1…R-8.
 - `docs/D3D11_DEVICE.md` - R-1: dispositivo D3D11 real, hardware y WARP,
   gestión COM, resultados medidos y límites.
+- `docs/D3D11_SWAPCHAIN.md` - R-2: swapchain DXGI sobre el HWND de I-4,
+  decisiones bitblt/formato/buffers, resize, COM, resultados medidos y
+  contrato para R-3.
 - `docs/FUNCTION_MAP.md` - mapa estático de funciones y grafo de llamadas.
 - `TESTING.md` - batería completa del repositorio.

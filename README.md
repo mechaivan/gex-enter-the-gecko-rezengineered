@@ -12,6 +12,10 @@
 > well-understood fixes — without redistributing proprietary game files.
 > Current phase: **1 — Research & Original PC Documentation**.
 > Original artifacts inventoried; no game modifications yet.
+> In parallel, a native C11 port is being built from the documented
+> evidence: SLAG audio reader, ADPCM/streaming path, frame loop, Win32
+> window/input/clock, a Direct3D 11 device (R-1) and a DXGI swapchain on that
+> window (R-2) — no frame is presented and nothing is drawn yet.
 
 ## Objetivo
 
@@ -34,7 +38,7 @@
 | Versión               | 0.0.0 |
 | Artefactos originales | Inventariados (ver `docs/ORIGINAL_ARTIFACT_INVENTORY.md`) |
 | Reverse engineering   | **Iniciado** — análisis estático, mapa de funciones, segmentación por subsistemas, traza dinámica del frame y reconstrucción de la ruta de audio. Investigación progresiva en curso. |
-| Implementación        | **Iniciada** — port nativo C11 con lector SLAG, audio DirectSound, frame loop, ventana Win32, teclado y reloj real. Renderer nativo en desarrollo (Direct3D 11). |
+| Implementación        | **Iniciada** — port nativo C11 con lector SLAG, audio DirectSound, frame loop, ventana Win32, teclado y reloj real. Renderer nativo en desarrollo: dispositivo Direct3D 11 (R-1) y swapchain DXGI sobre la ventana (R-2), todavía sin presentar. |
 | Testing               | Hito 1 ejecutado (F-05 + arranque EU en Win11). Componentes del port nativo validados mediante pruebas automatizadas y pruebas reales en Windows. |
 | Ruta corta            | Hitos R → K → P + Olas 1–3 (ver `ROADMAP.md`). La vía de implementación nativa avanza en paralelo y no altera el progreso de MAIN. |
 
@@ -99,6 +103,11 @@ implementado) están en [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md).
 | [docs/SAG_CONTAINER.md](docs/SAG_CONTAINER.md)         | Contenedor de audio `SLAG`: formato, lector nativo y pruebas |
 | [docs/AUDIO_MIXER_RE.md](docs/AUDIO_MIXER_RE.md)       | Ruta de audio: ADPCM, bomba, reproductor, backend DirectSound (estático + port) |
 | [docs/ENGINEERING_LOG_TEMPLATE.md](docs/ENGINEERING_LOG_TEMPLATE.md) | Plantilla del registro de ingeniería |
+| [docs/FRAME_LOOP_PORT.md](docs/FRAME_LOOP_PORT.md)     | Frame loop nativo: arquitectura, decisiones de tiempo y pruebas (I-3) |
+| [docs/WINDOW_INPUT_PORT.md](docs/WINDOW_INPUT_PORT.md) | Ventana Win32, mensajes, teclado, reloj QPC y renderer nulo (I-4) |
+| [docs/RENDERER_ARCHITECTURE_RESEARCH.md](docs/RENDERER_ARCHITECTURE_RESEARCH.md) | Evidencia Glide, comparativa de APIs y plan del renderer nativo (I-5) |
+| [docs/D3D11_DEVICE.md](docs/D3D11_DEVICE.md)           | Dispositivo Direct3D 11 real, hardware y WARP (R-1) |
+| [docs/D3D11_SWAPCHAIN.md](docs/D3D11_SWAPCHAIN.md)     | Swapchain DXGI sobre la ventana Win32, resize y COM (R-2) |
 | [BUILD.md](BUILD.md)                                   | Construcción (port parcial: `port/` funcional) |
 | [TESTING.md](TESTING.md)                               | Metodología + protocolo + matriz FA + Hito 1 |
 | [MODERNIZATION_GOALS.md](MODERNIZATION_GOALS.md)       | Objetivos futuros (todos PROPOSED)               |
@@ -127,9 +136,13 @@ planificador que la bombea desde el frame, desde I-3 el frame loop nativo
 —acumulador de paso fijo, orden de fases medido y reloj inyectado— y, desde
 I-4, el primer proceso ejecutable: ventana Win32 real, teclado, reloj
 `QueryPerformanceCounter` y renderer nulo, con `pre_frame` y `update` todavía
-como stubs. **No hay juego ni renderizado.** Ver
-[port/README.md](port/README.md), [docs/FRAME_LOOP_PORT.md](docs/FRAME_LOOP_PORT.md)
-y [docs/WINDOW_INPUT_PORT.md](docs/WINDOW_INPUT_PORT.md).
+como stubs. Sobre esa ventana, R-1 crea el dispositivo Direct3D 11 real y R-2 la
+swapchain DXGI con su backbuffer y `ResizeBuffers`; **todavía no se presenta
+ningún frame ni se dibuja nada**. **No hay juego ni renderizado.** Ver
+[port/README.md](port/README.md), [docs/FRAME_LOOP_PORT.md](docs/FRAME_LOOP_PORT.md),
+[docs/WINDOW_INPUT_PORT.md](docs/WINDOW_INPUT_PORT.md),
+[docs/D3D11_DEVICE.md](docs/D3D11_DEVICE.md) y
+[docs/D3D11_SWAPCHAIN.md](docs/D3D11_SWAPCHAIN.md).
 
 El repositorio contiene **únicamente** código propio, herramientas propias,
 documentación y material legalmente distribuible. Los archivos originales del
