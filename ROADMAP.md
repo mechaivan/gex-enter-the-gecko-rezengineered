@@ -205,8 +205,15 @@ mods/parches.
   `ResizeBuffers` no valida el `HWND` (devuelve `S_OK` tras destruirlo). Prueba:
   `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos**, hardware y WARP,
   **Clang 22.1.8 y GCC 16.1.0**; sonda `swapprobe.exe`; batería completa
-  **132 870 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
-  `docs/D3D11_SWAPCHAIN.md`.
+  **132 870 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3).
+- [x] **R-3 — Direct3D 11 renderer con primera salida gráfica visible.**
+  Implementa el renderer real con `Present` call, clear del backbuffer y render
+  target view. Primera presentación gráfica visible con Direct3D 11. **145 checks,
+  0 fallos** con Clang 22.1.8; batería completa **133 015 checks**. Doc:
+  `docs/D3D11_RENDERER.md`.
+- [ ] **R-4 — Investigación de VSync, DXGI, Debug Layer y pérdida del dispositivo.**
+  Inicia investigación sobre VSync, DXGI, Debug Layer y pérdida del dispositivo.
+  Documenta problemas y soluciones técnicas. **0 checks**. Doc: `docs/R4_DIAGNOSTIC.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
 (backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador

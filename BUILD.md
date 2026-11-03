@@ -4,9 +4,10 @@
 > (`port/`, 2026-10-31 / 2026-11-03), incluido un backend de audio DirectSound
 > que habla con el dispositivo real, un frame loop ejecutable con reloj
 > inyectado, un proceso con **ventana Win32 real, teclado y reloj
-> `QueryPerformanceCounter`** (renderer nulo) y, desde R-1/R-2, el
+> `QueryPerformanceCounter`** (renderer nulo) y, desde R-1/R-3, el
 > **dispositivo Direct3D 11 real** (hardware y WARP) con una **swapchain DXGI**
-> sobre esa ventana, verificados **sin `Present` ni dibujo**. No hay build
+> y **renderer con primera salida gráfica visible** sobre esa ventana, verificados
+> **con `Present`, clear del backbuffer y render target view**. No hay build
 > jugable del juego: el resto de la implementación (Olas, tras Hito P) sigue
 > pendiente.
 
@@ -21,8 +22,8 @@ Windows, **no hay dependencias de terceros que descargar**.
 
 ```powershell
 cd port
-.\build.ps1 all      # compila, ejecuta 132 870 checks, las sondas D3D11 y las demos
-.\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame loop + entrada + app + reloj + audio-device + D3D11 device + swapchain)
+.\build.ps1 all      # compila, ejecuta 133 015 checks, las sondas D3D11 y las demos
+.\build.ps1 test     # solo checks (contenedor + ADPCM + audio + frame loop + entrada + app + reloj + audio-device + D3D11 device + swapchain + renderer)
 .\build.ps1 loop     # solo gexloop.exe (ventana Win32 real; Windows)
 .\build.ps1 probe    # d3d11probe.exe y swapprobe.exe (dispositivo y swapchain; Windows)
 .\build.ps1 audio    # solo la demo de audio (SLAG sintético -> build\tone.wav)

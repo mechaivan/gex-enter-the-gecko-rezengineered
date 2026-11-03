@@ -1,7 +1,7 @@
 # TESTING — Metodología de pruebas
 
-> Estado: **Hito 1 ejecutado (2026-10-09, PC del mantenedor) + resto de
-> la matriz pendiente** (Fase 2 sin iniciar). Detalle en «Hito 1» más abajo.
+> Estado: **Hito 1 ejecutado (2026-10-09, PC del mantenedor) + R-3 completado
+> (2026-11-03) + R-4 iniciado (2026-11-03)**. Detalle en «Hito 1» más abajo.
 
 ## Principio
 
@@ -1785,7 +1785,7 @@ en ventana mayor sin medir; la capa debug D3D11 sigue sin instalar; el
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 132 870 checks, 0 fallos (Clang, GCC no compila test_sag.exe)
+cd port; .\build.ps1 all            # 133 015 checks, 0 fallos (Clang, GCC no compila test_sag.exe)
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
 cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1

@@ -14,8 +14,9 @@
 > Original artifacts inventoried; no game modifications yet.
 > In parallel, a native C11 port is being built from the documented
 > evidence: SLAG audio reader, ADPCM/streaming path, frame loop, Win32
-> window/input/clock, a Direct3D 11 device (R-1) and a DXGI swapchain on that
-> window (R-2) — no frame is presented and nothing is drawn yet.
+> window/input/clock, a Direct3D 11 device (R-1), a DXGI swapchain (R-2),
+> and a Direct3D 11 renderer with first visible graphics output (R-3) —
+> research on VSync, DXGI, Debug Layer and device loss started (R-4).
 
 ## Objetivo
 
