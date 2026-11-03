@@ -168,3 +168,8 @@ como batería del núcleo que usa el frame loop.
   seguridad, restauración y desinstalación para otros usuarios.
 - Separar en el diseño: código/herramientas/docs propios vs archivos del
   juego (el usuario los aporta; ver LICENSE.md §3).
+
+
+## Renderer Direct3D 11 (R-3)
+
+Arquitectura, ownership COM, ciclo de vida, pruebas y limitaciones: [docs/D3D11_RENDERER.md](docs/D3D11_RENDERER.md). La prueba específica aporta 28 checks; la integración de aplicación aporta 117 checks adicionales. La batería completa documentada corresponde a Clang; GCC sigue pendiente porque `test_sag.exe` no compila en el entorno registrado.
