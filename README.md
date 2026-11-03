@@ -152,7 +152,6 @@ juego **nunca** se subirán aquí (ver [LICENSE.md](LICENSE.md)).
 
 - **GitHub** → proyecto y fuente de verdad (código, docs, herramientas).
 - **Drive** → almacenamiento persistente (originales, backups, dumps, builds).
-- **Workspace de Arena (~125 MB)** → trabajo temporal. No es almacenamiento.
 
 ## Cómo contribuir
 
