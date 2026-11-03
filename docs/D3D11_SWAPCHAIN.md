@@ -3,9 +3,9 @@
 > Estado: **implementado y probado** el 2026-11-03. Es la segunda pieza del
 > renderer real: una swapchain DXGI creada con el dispositivo de R-1 sobre el
 > `HWND` que ya usa I-4, con backbuffer accesible, `ResizeBuffers` y ciclo de
-> vida COM verificado. **No se presenta ningún frame, no se limpia el
-> backbuffer, no se dibuja y no hay render target**: eso es R-3 y posteriores,
-> según `docs/RENDERER_ARCHITECTURE_RESEARCH.md` §7.
+> vida COM verificado. **En el cierre de R-2** todavía no se presentaba ningún frame ni se limpiaba
+> el backbuffer; R-3 añadió posteriormente RTV, clear y Present. El detalle
+> actual está en `docs/D3D11_RENDERER.md`.
 >
 > Documentación oficial consultada (Microsoft Learn, 2026-11-03):
 > [`IDXGISwapChain::ResizeBuffers`](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers)
@@ -423,3 +423,9 @@ módulo; se documentan porque cambiaron el contrato verificado:
 `docs/FRAME_STEP_TRACE.md` §3.1 (`grBufferSwap(3)`);
 `port/include/gex/render/d3d11_swapchain.h`;
 `port/tests/test_d3d11_swapchain.c`; `port/tools/swapprobe.c`.
+
+## Integración posterior R-3 (actualización 2026-11-03)
+
+R-3 consume el backbuffer prestado por este módulo, crea una RTV propia, limpia el target y llama a `Present(0, 0)`. Las referencias históricas de este documento que indican «sin Present» describen exclusivamente el estado al cierre de R-2, no el estado actual del port.
+
+Antes de `gex_d3d11_swapchain_resize`, R-3 libera su RTV; tras el resize obtiene el backbuffer actualizado y recrea la RTV. La prueba registra un fallo de resize como INFO y continúa con el tamaño original, por lo que no demuestra resize exitoso en todos los entornos. Véase [D3D11_RENDERER.md](D3D11_RENDERER.md) y [R4_DIAGNOSTIC.md](R4_DIAGNOSTIC.md).
