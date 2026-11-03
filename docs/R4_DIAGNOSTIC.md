@@ -1,134 +1,56 @@
-# R4_DIAGNOSTIC — Investigación inicial de VSync, DXGI, Debug Layer y pérdida del dispositivo
+# R4_DIAGNOSTIC — Investigación de presentación DXGI y estabilidad D3D11
 
 **Fecha:** 2026-11-03  
-**Fase:** Investigación diagnóstica inicial  
-**Estado:** Iniciado  
-**Responsable:** Equipo de REZengineered  
+**Estado:** investigación inicial; implementación pendiente
 
-## Objetivo
+## Contexto verificado
 
-Investigar y documentar problemas potenciales relacionados con:
-1. VSync (sincronización vertical)
-2. DXGI (DirectX Graphics Infrastructure)
-3. Debug Layer (capa de depuración de Direct3D)
-4. Pérdida del dispositivo (device loss)
+R-1 crea el dispositivo D3D11; R-2 crea una swapchain DXGI bitblt (`DXGI_SWAP_EFFECT_DISCARD`) de dos buffers; R-3 crea una RTV del backbuffer, limpia el target y presenta. La llamada actual es `IDXGISwapChain::Present(0, 0)`: `SyncInterval=0`, `Flags=0`.
 
-Basado en evidencias técnicas y documentación oficial de Microsoft.
+## VSync y tearing
 
-## Contexto
+VSync se controla mediante el primer parámetro de `Present`, `SyncInterval`, no mediante `DXGI_PRESENT_VSYNC` (esa constante no existe). `SyncInterval=0` no espera al siguiente refresco; `SyncInterval=1` sincroniza con el siguiente refresco. El segundo parámetro es `Flags`.
 
-Tras la implementación exitosa del renderer Direct3D 11 con primera salida gráfica visible (R-3), se inicia la fase de investigación diagnóstica para identificar y probar soluciones a problemas comunes en aplicaciones gráficas modernas que utilizan Direct3D 11.
+`DXGI_PRESENT_ALLOW_TEARING` solo se puede usar cuando el sistema informa soporte y la swapchain se creó con `DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING`, además de respetar las restricciones de presentación aplicables. La swapchain actual de R-2 no se creó con ese flag; tearing no está habilitado.
 
-## Áreas de investigación
+Pendiente: conectar `vsync_retraces` al parámetro `SyncInterval` y medir cadencia/latencia. No activar tearing sin comprobar soporte y cambiar deliberadamente la creación de swapchain.
 
-### 1. VSync (Vertical Synchronization)
+## Swapchain y resize
 
-#### Problema potencial
-- Sin control adecuado de VSync,可能出现 tearing (desgarro) en la imagen
-- FPS inestables o no deseados
-- Sincronización incorrecta con el monitor
+Antes de `ResizeBuffers` deben liberarse RTV y demás referencias al backbuffer; después se obtiene el nuevo backbuffer y se recrea la RTV. La prueba R-3 registra un fallo de `gex_d3d11_swapchain_resize` como INFO y continúa con el tamaño original. Por tanto, los resultados no demuestran resize exitoso en todos los entornos. Flip model queda pendiente de comparación técnica y medida.
 
-#### Soluciones propuestas
-- Utilizar `DXGI_PRESENT_VSYNC` en el parámetro `Flags` de `Present`
-- Implementar control de frame rate si es necesario
-- Monitorear el rendimiento con herramientas de profiling
+## Debug Layer
 
-#### Evidencias documentadas
-- El original utilizaba `vsync_retraces = 3` almacenado para futuro `Present`
-- La implementación actual de R-3 utiliza `Present` sin flags específicos de VSync
-- Se necesita investigación sobre el impacto en el rendimiento visual
+R-1 documentó `DXGI_ERROR_SDK_COMPONENT_MISSING` al solicitar la capa de depuración: no estaba instalada en el equipo de pruebas. Se activa mediante `D3D11_CREATE_DEVICE_DEBUG` en los flags de `D3D11CreateDevice`. Debe ser una opción diagnóstica, no un requisito de ejecución normal. No hay evidencia de que esté activa en el equipo documentado.
 
-### 2. DXGI (DirectX Graphics Infrastructure)
+## Pérdida del dispositivo
 
-#### Problema potencial
-- Gestión incorrecta de la swapchain
-- Problemas con el resize de ventanas
-- Pérdida de dispositivo o adaptador
+R-3 propaga el HRESULT de `Present`, pero no implementa recuperación. El diagnóstico futuro debe consultar `ID3D11Device::GetDeviceRemovedReason` y registrar el HRESULT concreto, por ejemplo `DXGI_ERROR_DEVICE_REMOVED` o `DXGI_ERROR_DEVICE_RESET`. Que no se haya observado una pérdida durante R-3 no demuestra que el caso esté resuelto.
 
-#### Soluciones propuestas
-- Implementar manejo adecuado de `ResizeBuffers`
-- Verificar el estado del dispositivo antes de operaciones críticas
-- Implementar recuperación ante fallos DXGI
+Una política futura deberá detener Present, liberar RTV y recursos dependientes, registrar HRESULT y motivo, recrear device/swapchain/recursos en orden y reanudar solo si todo tiene éxito.
 
-#### Evidencias documentadas
-- La implementación actual de R-2 ya incluye manejo básico de `ResizeBuffers`
-- Se ha medido el conteo de referencias COM durante la creación/destrucción
-- Se necesita investigación sobre manejo de errores avanzados
+## Instrumentación pendiente
 
-### 3. Debug Layer (Capa de depuración de Direct3D)
+- Medir tiempo entre frames con el reloj monotónico existente.
+- Registrar `SyncInterval`, flags, HRESULT de Present y resultados de resize.
+- Separar errores de inicialización, resize, Present y device removed.
+- Comparar VSync activado/desactivado en el mismo equipo.
+- Mantener WARP para cobertura y hardware para validación real.
 
-#### Problema potencial
-- Ausencia de capa de depuración impide detección temprana de errores
-- No se pueden identificar problemas de memoria o estado
-- Dificultad en el diagnóstico de problemas gráficos
+## Referencias oficiales
 
-#### Soluciones propuestas
-- Instalar e habilitar la capa de depuración de Direct3D
-- Implementar captura de mensajes de depuración
-- Utilizar herramientas de diagnóstico como PIX o Visual Studio Graphics Debugger
+- [IDXGISwapChain::Present](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-present)
+- [DXGI_PRESENT](https://learn.microsoft.com/en-us/windows/win32/direct3ddxgi/dxgi-present)
+- [D3D11_CREATE_DEVICE_FLAG](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/ne-d3d11-d3d11_create_device_flag)
+- [ID3D11Device::GetDeviceRemovedReason](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-getdeviceremovedreason)
+- [IDXGISwapChain::ResizeBuffers](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers)
 
-#### Evidencias documentadas
-- En el PC del mantenedor, `DXGI_ERROR_SDK_COMPONENT_MISSING` indica ausencia de debug layer
-- Se necesita habilitación explícita en tiempo de ejecución
-- Proporciona información valiosa pero no crítica para la versión final
+## Referencias internas
 
-### 4. Pérdida del dispositivo (Device Loss)
-
-#### Problema potencial
-- Pérdida inesperada del dispositivo gráfico
-- Fallo en operaciones de renderizado
-- Necesidad de recuperación automática
-
-#### Soluciones propuestas
-- Implementar detección de pérdida del dispositivo
-- Recuperación automática del dispositivo y recursos asociados
-- Manejo adecuado de errores en operaciones críticas
-
-#### Evidencias documentadas
-- No se han observado pérdidas de dispositivo en la implementación actual
-- Es un problema común en aplicaciones gráficas modernas
-- Se necesita investigación sobre patrones de recuperación
-
-## Plan de trabajo
-
-### Fase 1: Investigación (2026-11-03)
-- [x] Documentar problemas potenciales
-- [ ] Investigar soluciones técnicas
-- [ ] Revisar documentación oficial de Microsoft
-- [ ] Analizar casos de estudio similares
-
-### Fase 2: Implementación (pendiente)
-- [ ] Implementar solución para VSync
-- [ ] Mejorar manejo de DXGI
-- [ ] Integrar Debug Layer (opcional)
-- [ ] Implementar manejo de pérdida de dispositivo
-
-### Fase 3: Pruebas (pendiente)
-- [ ] Pruebas funcionales de cada solución
-- [ ] Pruebas de regresión
-- [ ] Pruebas de rendimiento
-- [ ] Documentación de resultados
-
-## Resultados esperados
-
-1. Documentación completa de problemas y soluciones
-2. Implementación robusta de manejo de errores
-3. Mejora en la estabilidad de la aplicación
-4. Base para futuras mejoras de rendimiento
-
-## Restricciones y limitaciones
-
-- La investigación se basa únicamente en evidencias técnicas documentadas
-- No se realizarán suposiciones sin evidencia
-- Las soluciones deben ser compatibles con el diseño existente
-- Se prioriza la estabilidad sobre el rendimiento inicial
-
-## Referencias
-
-- Documentación oficial de Microsoft Direct3D 11
-- DXGI best practices
-- Direct3D Debug Layer documentation
-- Estudios de caso sobre manejo de errores en gráficos
+- `docs/D3D11_DEVICE.md` — R-1.
+- `docs/D3D11_SWAPCHAIN.md` — R-2.
+- `docs/D3D11_RENDERER.md` — implementación R-3.
+- `port/tests/test_d3d11_renderer.c` — cobertura y limitación del resize.
 
 ## Implementación (2026-11-03)
 
@@ -214,4 +136,4 @@ Tras la implementación exitosa del renderer Direct3D 11 con primera salida grá
 
 - Continuar con la optimización del rendimiento
 - Implementar características adicionales según sea necesario
-- Expandir la cobertura de pruebas si se descubren nuevos escenarios
+- Expandir la cobertura de pruebas si se descubren nuevos escenarios 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d

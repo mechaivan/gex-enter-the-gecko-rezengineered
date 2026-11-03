@@ -9,7 +9,7 @@ propia escrita a partir de la evidencia documentada en `docs/`.
 Cuatro subsistemas implementados y probados sin el juego; el último habla con el
 dispositivo de sonido real y, desde I-4, existe además un **proceso nativo con
 ventana Win32 real**. Sobre esa ventana, R-1 crea el dispositivo Direct3D 11 y
-R-2 la swapchain DXGI, todavía sin presentar ni dibujar:
+R-2 la swapchain DXGI y R-3 la primera salida visible mediante clear + Present:
 
 | Componente | Original | Cabecera | Estado |
 | --- | --- | --- | --- |
@@ -29,8 +29,7 @@ R-2 la swapchain DXGI, todavía sin presentar ni dibujar:
 | Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 314 checks; hardware y WARP a FL 11_1; sin swapchain |
 | Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 572 checks; bitblt, 2 buffers, 960×540, resize; sin `Present` |
 | Renderer Direct3D 11 (R-3) | implementación del contrato `gex_renderer` | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; primera salida gráfica visible con `Present`, clear del backbuffer y render target view |
-| Estabilidad y diagnóstico R-4 | VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo entre frames |
-| Renderer Direct3D 11 (R-3) | `grDrawBuffer`, `grBufferClear`, `grSwapBuffers` | `gex/render/d3d11_renderer.h` | funcional (Windows), 28 checks; clear color, Present, resize; integrado con I-4; validado visualmente |
+| Estabilidad y diagnóstico R-4 | VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo entre frames | 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
 
 No hay motor, ni lógica de juego. La ventana, el teclado, el reloj QPC, el frame loop
 y el renderizado **sí** son reales: `gexloop.exe` abre una ventana, responde a teclas,
@@ -39,7 +38,7 @@ mediante Direct3D 11. El audio sigue siendo audible por separado: `sagplay --dev
 entrega el PCM a un `IDirectSoundBuffer` real. Lo que **no** está verificado es la audición
 humana (el agente no puede oír); la confirmación por oído es del mantenedor.
 
-`gexloop` es un build funcional con la primera presentación visible: `pre_frame` y `update` solo cuentan llamadas pero `present` ahora usa Direct3D 11 para mostrar un color de limpieza en la ventana. Es el primer «prototipo ejecutable con renderizado», no el juego.
+`gexloop` integra la primera presentación visible: `pre_frame` y `update` siguen siendo stubs, pero `present` usa Direct3D 11 para mostrar un color de limpieza en la ventana. Es un prototipo con salida gráfica, no el juego.
 
 ## Estructura
 
@@ -371,3 +370,6 @@ pásalo como argumento (`sagplay fichero.sag salida.wav`, o
   contrato para R-3.
 - `docs/FUNCTION_MAP.md` - mapa estático de funciones y grafo de llamadas.
 - `TESTING.md` - batería completa del repositorio.
+
+
+Detalle del renderer R-3, ownership y limitaciones: `docs/D3D11_RENDERER.md`. Investigación R-4: `docs/R4_DIAGNOSTIC.md`.
