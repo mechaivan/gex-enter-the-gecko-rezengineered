@@ -91,10 +91,10 @@ gex_d3d11_device (R-1, prestado, nunca duplicado)
         │  QueryInterface(IID_IDXGIDevice)
         ▼
    IDXGIDevice ──GetParent──► IDXGIAdapter ──GetParent──► IDXGIFactory
-                                                              │
-                        CreateSwapChain(device, desc, &sc) ◄──┘
-                                                              │
-                        GetBuffer(0, IID_ID3D11Texture2D) ◄───┘
+                                                               │
+                         CreateSwapChain(device, desc, &sc) ◄──┘
+                                                               │
+                         GetBuffer(0, IID_ID3D11Texture2D) ◄───┘
 ```
 
 Las tres interfaces de paso (`IDXGIDevice`, `IDXGIAdapter`, `IDXGIFactory`) se
@@ -142,7 +142,7 @@ la única que respeta el contrato de R-1.
 | Ventana | el `HWND` existente | validado con `IsWindow`; no se crea ninguna ventana |
 | Resize | `ResizeBuffers(0, w, h, DXGI_FORMAT_UNKNOWN, 0)` | conserva número de buffers y formato; solo cambia el tamaño |
 | Tamaño 0 | rechazado con `BAD_SIZE`, sin llamar a DXGI | ventana minimizada: el área de cliente es 0×0 y DXGI no puede crear buffers de tamaño cero |
-| Error | cualquier fallo deja el struct a cero | sin estados a medias; `last_hresult` conserva el HRESULT |
+| Error | `BAD_ARGUMENT`: no se escribe; `BAD_STATE`: swapchain viva intacta; `CREATE_FAILED`: struct cerrado a cero, `last_hresult` fallido; `OK`: struct vivo | sin estados a medias; `last_hresult` conserva el HRESULT |
 
 **D-1 (flip-model vs bitblt) no se cierra aquí.** La elección de R-2 es bitblt
 porque es la base mínima y medible, y porque el modelo flip cambia la latencia
@@ -244,7 +244,6 @@ refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
 refs before shutdown: swapchain 3, backbuffer 2
-refs before shutdown: swapchain 3, backbuffer 2
 buffer_count=1000: status=create failed hr=0x887A0001
 resize after window destroyed: status=ok hr=0x00000000
 refs before shutdown: swapchain 3, backbuffer 2
@@ -264,14 +263,8 @@ Cobertura por bloques:
 6. **COM:** referencias medidas (§4.1), liberación completa a 0, idempotencia y dos ciclos completos de `init → resize → cierre`.
 7. **Dos swapchains sobre dos ventanas con un solo dispositivo:** punteros distintos, ambas operativas, resize independiente, cierre independiente.
 8. **Error de creación:** `BufferCount = 1000` → DXGI lo rechaza con `DXGI_ERROR_INVALID_CALL` (`0x887A0001`) y el struct queda **totalmente cerrado** (sin swapchain, sin backbuffer, `initialized = 0`).
-9. **Ventana no válida:** creación con `HWND` destruido → `BAD_ARGUMENT`; swapchain viva cuya ventana muere → `ResizeBuffers` devuelve `S_OK` (DXGI no valida), struct coherente y cierre limpio.
+9. **Ventana no válida:** creación con `HWND` destruido → `BAD_ARGUMENT`; swapchain viva cuya ventana muere → `ResizeBuffers` devuelve `S_OK` (DXGI no valida), struct coherente y cierre limpio con todas las referencias a 0.
 10. **Hardware:** las mismas comprobaciones cuando hay GPU (aquí la hay, FL 11_1); si no la hubiera, el bloque se marca `skipped` con aviso, nunca un «pass» fingido.
-   creación válida y destrucción posterior de la ventana → `ResizeBuffers`
-   devuelve `OK`, struct coherente y cierre limpio con todas las referencias
-   a 0.
-10. **Hardware:** las mismas comprobaciones cuando hay GPU (aquí la hay, FL
-    11_1); si no la hubiera, el bloque se marca `skipped` con aviso, nunca un
-    «pass» fingido.
 
 ### 7.2 Sonda de consola (ventana real, WARP + hardware)
 
