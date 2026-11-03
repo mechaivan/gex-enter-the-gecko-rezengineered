@@ -82,6 +82,9 @@ typedef struct gex_d3d11_device {
     HRESULT last_hresult;            /* S_OK or the creation failure */
     int initialized;                 /* 1 = live; the only field init reads
                                       * before it owns the struct */
+    int debug_layer_requested;       /* 1 if debug layer was requested */
+    int debug_layer_enabled;        /* 1 if debug layer is actually enabled */
+    int debug_layer_fallback;       /* 1 if fallback was executed */
 } gex_d3d11_device;
 
 /*
@@ -117,7 +120,7 @@ typedef struct gex_d3d11_device {
         .device = NULL, .context = NULL,                                      \
         .feature_level = (D3D_FEATURE_LEVEL)0, .creation_flags = 0u,          \
         .driver = GEX_D3D11_DRIVER_HARDWARE, .last_hresult = S_OK,            \
-        .initialized = 0                                                      \
+        .initialized = 0, .debug_layer_requested = 0, .debug_layer_enabled = 0, .debug_layer_fallback = 0 \
     }
 
 /*

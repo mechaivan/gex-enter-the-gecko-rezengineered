@@ -22,6 +22,7 @@
 #if defined(_WIN32)
 
 #include <string.h>
+#include <d3d11.h>
 
 const D3D_FEATURE_LEVEL
     gex_d3d11_feature_levels[GEX_D3D11_FEATURE_LEVEL_COUNT] = {
@@ -82,10 +83,34 @@ gex_d3d11_device_status gex_d3d11_device_init(gex_d3d11_device *dev,
      * it closed (zeroed), never half-open. */
     memset(dev, 0, sizeof(*dev));
 
-    hr = D3D11CreateDevice(NULL, driver_type(driver), NULL, extra_flags,
-                           gex_d3d11_feature_levels,
-                           GEX_D3D11_FEATURE_LEVEL_COUNT, D3D11_SDK_VERSION,
-                           &device, &obtained, &context);
+    /* Check if debug layer was requested */
+    dev->debug_layer_requested = (extra_flags & D3D11_CREATE_DEVICE_DEBUG) ? 1 : 0;
+    dev->debug_layer_fallback = 0; /* Initially no fallback */
+    
+    /* Try to create device with debug layer first if requested */
+    if (extra_flags & D3D11_CREATE_DEVICE_DEBUG) {
+        hr = D3D11CreateDevice(NULL, driver_type(driver), NULL, extra_flags,
+                               gex_d3d11_feature_levels,
+                               GEX_D3D11_FEATURE_LEVEL_COUNT, D3D11_SDK_VERSION,
+                               &device, &obtained, &context);
+        
+        /* If debug layer is not available, try without it */
+        if (hr == DXGI_ERROR_SDK_COMPONENT_MISSING) {
+            /* Remove debug flag and try again */
+            extra_flags &= ~D3D11_CREATE_DEVICE_DEBUG;
+            dev->debug_layer_fallback = 1; /* Mark that fallback was executed */
+            hr = D3D11CreateDevice(NULL, driver_type(driver), NULL, extra_flags,
+                                   gex_d3d11_feature_levels,
+                                   GEX_D3D11_FEATURE_LEVEL_COUNT, D3D11_SDK_VERSION,
+                                   &device, &obtained, &context);
+        }
+    } else {
+        hr = D3D11CreateDevice(NULL, driver_type(driver), NULL, extra_flags,
+                               gex_d3d11_feature_levels,
+                               GEX_D3D11_FEATURE_LEVEL_COUNT, D3D11_SDK_VERSION,
+                               &device, &obtained, &context);
+    }
+    
     dev->last_hresult = hr;
     if (FAILED(hr)) {
         release_partial(context, device);
@@ -104,9 +129,13 @@ gex_d3d11_device_status gex_d3d11_device_init(gex_d3d11_device *dev,
     dev->device = device;
     dev->context = context;
     dev->feature_level = obtained;
-    dev->creation_flags = ID3D11Device_GetCreationFlags(device);
+    dev->creation_flags = ID3D11Device_GetCreationFlags(device); /* Store the actual flags used */
     dev->driver = driver;
     dev->initialized = 1;
+    
+    /* Check if debug layer was actually enabled (based on actual flags used) */
+    dev->debug_layer_enabled = (dev->creation_flags & D3D11_CREATE_DEVICE_DEBUG) ? 1 : 0;
+   
     return GEX_D3D11_DEVICE_OK;
 }
 

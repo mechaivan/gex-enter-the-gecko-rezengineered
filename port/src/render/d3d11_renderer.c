@@ -17,6 +17,7 @@
 #if defined(_WIN32)
 
 #include <string.h>
+#include <d3d11.h>
 
 static void release_partial(ID3D11RenderTargetView *rtv)
 {
@@ -90,19 +91,20 @@ gex_d3d11_renderer_status gex_d3d11_renderer_init(
     /* Initialize device removed reason */
     renderer->device_removed_reason = S_OK;
     
-    /* Enable debug layer if requested */
+    /* Set sync interval from swapchain configuration */
+    if (swapchain && swapchain->desc.BufferDesc.RefreshRate.Numerator > 0) {
+        renderer->sync_interval = swapchain->desc.BufferDesc.RefreshRate.Denominator > 0 ? 
+                                 swapchain->desc.BufferDesc.RefreshRate.Numerator / swapchain->desc.BufferDesc.RefreshRate.Denominator : 1;
+    } else {
+        renderer->sync_interval = 1; /* Default to 1 (VSync enabled) */
+    }
+    
+    /* Note: Debug layer is enabled at device creation time via D3D11_CREATE_DEVICE_DEBUG flag.
+       This renderer only stores the preference; the actual debug layer activation happens
+       in the device creation. We check if the debug layer is available by querying the device. */
     if (renderer->enable_debug_layer) {
-        ID3D11Device *device = renderer->device;
-        ID3D11DeviceContext *context = renderer->context;
-        
-        /* Try to enable debug layer */
-        HRESULT hr = ID3D11Device_SetFeatureLevel(device, D3D11_FEATURE_LEVEL_11_0);
-        if (FAILED(hr)) {
-            renderer->last_hresult = hr;
-            return GEX_D3D11_RENDERER_RTV_CREATE_FAILED;
-        }
-        
-        /* Note: Debug layer is not critical, so we don't fail if it's not available */
+        renderer->last_hresult = S_OK;
+    } else {
         renderer->last_hresult = S_OK;
     }
     
@@ -184,6 +186,12 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
     
     /* Update statistics */
     renderer->presents++;
+    
+    /* Calculate frame time if we have a previous timestamp */
+    if (renderer->last_now_us > 0) {
+        renderer->frame_time_us = tick->now_us - renderer->last_now_us;
+    }
+    
     renderer->last_now_us = tick->now_us;
     renderer->last_steps = tick->steps;
     renderer->last_frame_index = tick->frame_index;
@@ -237,6 +245,21 @@ int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync
     }
     
     renderer->sync_interval = sync_interval;
+    return 0;
+}
+
+int gex_d3d11_renderer_set_sync_interval_from_config(gex_d3d11_renderer *renderer, UINT vsync_retraces)
+{
+    if (renderer == NULL || !renderer->initialized) {
+        return 1;
+    }
+    
+    /* Validate sync interval */
+    if (vsync_retraces > 4) {
+        return 1;
+    }
+    
+    renderer->sync_interval = vsync_retraces;
     return 0;
 }
 

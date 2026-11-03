@@ -132,6 +132,14 @@ void gex_d3d11_renderer_shutdown(gex_d3d11_renderer *renderer);
 int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval);
 
 /*
+ * Set the VSync sync interval from swapchain configuration.
+ * This connects the vsync_retraces field from the swapchain config
+ * to the sync_interval used in IDXGISwapChain::Present.
+ * Returns 0 on success, non-zero on failure.
+ */
+int gex_d3d11_renderer_set_sync_interval_from_config(gex_d3d11_renderer *renderer, UINT vsync_retraces);
+
+/*
  * Enable or disable the debug layer for this renderer.
  * When enabled, debug messages will be output to the debug console.
  * Returns 0 on success, non-zero on failure.
