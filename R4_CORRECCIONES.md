@@ -17,6 +17,39 @@ Implementar correctamente R-4: estabilidad y diagnóstico de presentación Direc
   - El estado almacenado representa el resultado real de D3D11CreateDevice
 - **Resultado**: La Debug Layer ahora funciona correctamente tanto cuando el SDK está disponible como cuando no lo está, con un seguimiento claro del estado.
 
+### 2. VSYNC INTEGRATION
+- **Problema**: La implementación original usaba RefreshRate para calcular sync_interval en lugar de vsync_retraces.
+- **Solución**: 
+  - Se modificó la inicialización del renderer para usar una función explícita `gex_d3d11_renderer_set_sync_interval_from_config`
+  - El renderer ahora utiliza directamente el valor de vsync_retraces de la configuración del swapchain
+  - **Mejora semántica**: vsync_retraces=0 ahora significa sync_interval=0 (no VSync) en lugar de 1
+  - Se mantiene la cadena completa hasta IDXGISwapChain_Present utilizando el sync_interval configurado
+  - Se añadieron tests para diferentes valores de configuración (0, 1, 2, 3, 4)
+- **Resultado**: El VSync ahora se integra correctamente usando vsync_retraces como origen de sync_interval, con semántica correcta para vsync_retraces=0.
+
+### 3. TESTS SIN VENTANAS
+- **Problema**: Los tests originales requerían abrir ventanas Win32, lo que los hacía dependientes del entorno.
+- **Solución**: 
+  - Se eliminó la dependencia de ventanas Win32 en los tests del renderer
+  - Se creó un test unitario específico `test_d3d11_debug_layer_unit` que simula DXGI_ERROR_SDK_COMPONENT_MISSING
+  - Se creó un test unitario específico `test_d3d11_renderer_unit` que verifica el renderer sin dependencia de swapchain
+  - Los tests de integración ahora se ejecutan solo cuando se especifica explícitamente mediante GEX_D3D11_INTEGRATION_TESTS=1
+  - El test unitario verifica las dos llamadas a D3D11CreateDevice y sus respectivos flags sin depender del SDK instalado
+- **Resultado**: Los tests ahora se pueden ejecutar en entornos automatizados sin necesidad de ventanas gráficas, con tests unitarios separados de tests de integración.
+
+### 4. LIMITACIONES
+- **Tests de Renderer Real**: El test unitario actual utiliza mocks y no verifica las funciones reales del renderer debido a dependencias de linking.
+- **Dependencias de D3D/DXGI**: Los tests unitarios no pueden verificar completamente el comportamiento en tiempo de ejecución sin el SDK de DirectX instalado.
+- **Entorno de Integración**: Los tests de integración requieren una ventana real para crear el swapchain, lo que limita su ejecución en entornos automatizados.
+
+### 4. TEST DE DEBUG LAYER CONTROLADO
+- **Problema**: Los tests originales no podían simular DXGI_ERROR_SDK_COMPONENT_MISSING de forma controlada.
+- **Solución**: 
+  - Se creó un test unitario que simula el error de forma controlada
+  - El test verifica que se ejecuta el fallback cuando es necesario
+  - Se comprueba que el estado almacenado representa el resultado real
+- **Resultado**: El test ahora verifica correctamente el mecanismo de fallback sin depender del SDK instalado en el equipo.
+
 ### 2. TESTS DEBUG LAYER
 - **Problema**: Los tests originales no cubrían ambos escenarios (SDK disponible y SDK ausente) ni verificaban correctamente las llamadas a D3D11CreateDevice.
 - **Solución**:

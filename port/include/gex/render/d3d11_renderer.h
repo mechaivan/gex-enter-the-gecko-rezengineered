@@ -102,6 +102,18 @@ gex_d3d11_renderer_status gex_d3d11_renderer_init(
     const gex_d3d11_swapchain *swapchain,
     const float clear_color[4]);
 
+gex_d3d11_renderer_status gex_d3d11_renderer_set_sync_interval(
+    gex_d3d11_renderer *renderer,
+    UINT sync_interval);
+
+/*
+ * Set the VSync sync interval from swapchain configuration.
+ * This function uses vsync_retraces as the source for sync_interval.
+ */
+gex_d3d11_renderer_status gex_d3d11_renderer_set_sync_interval_from_config(
+    gex_d3d11_renderer *renderer,
+    UINT vsync_retraces);
+
 /*
  * Resize the renderer after the swapchain has been resized. This releases the
  * old render target view and creates a new one from the updated backbuffer.
@@ -122,22 +134,9 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick);
  */
 void gex_d3d11_renderer_shutdown(gex_d3d11_renderer *renderer);
 
-/*
- * Set the VSync sync interval for presentation.
- * 0 = immediate (no VSync, tearing possible)
- * 1 = 1 refresh interval (VSync enabled)
- * 2+ = N refresh intervals (VSync enabled)
- * Returns 0 on success, non-zero on failure.
- */
-int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval);
 
-/*
- * Set the VSync sync interval from swapchain configuration.
- * This connects the vsync_retraces field from the swapchain config
- * to the sync_interval used in IDXGISwapChain::Present.
- * Returns 0 on success, non-zero on failure.
- */
-int gex_d3d11_renderer_set_sync_interval_from_config(gex_d3d11_renderer *renderer, UINT vsync_retraces);
+
+
 
 /*
  * Enable or disable the debug layer for this renderer.

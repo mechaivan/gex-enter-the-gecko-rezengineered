@@ -92,9 +92,9 @@ gex_d3d11_renderer_status gex_d3d11_renderer_init(
     renderer->device_removed_reason = S_OK;
     
     /* Set sync interval from swapchain configuration */
-    if (swapchain && swapchain->desc.BufferDesc.RefreshRate.Numerator > 0) {
-        renderer->sync_interval = swapchain->desc.BufferDesc.RefreshRate.Denominator > 0 ? 
-                                 swapchain->desc.BufferDesc.RefreshRate.Numerator / swapchain->desc.BufferDesc.RefreshRate.Denominator : 1;
+    if (swapchain) {
+        /* Default to 1 (VSync enabled), will be set properly by set_sync_interval_from_config */
+        renderer->sync_interval = 1;
     } else {
         renderer->sync_interval = 1; /* Default to 1 (VSync enabled) */
     }
@@ -233,34 +233,33 @@ const char *gex_d3d11_renderer_status_name(gex_d3d11_renderer_status status)
     return "unknown";
 }
 
-int gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval)
+gex_d3d11_renderer_status gex_d3d11_renderer_set_sync_interval(gex_d3d11_renderer *renderer, UINT sync_interval)
 {
     if (renderer == NULL || !renderer->initialized) {
-        return 1;
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
     }
     
     /* Validate sync interval */
     if (sync_interval > 4) {
-        return 1;
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
     }
     
     renderer->sync_interval = sync_interval;
-    return 0;
+    return GEX_D3D11_RENDERER_OK;
 }
 
-int gex_d3d11_renderer_set_sync_interval_from_config(gex_d3d11_renderer *renderer, UINT vsync_retraces)
+gex_d3d11_renderer_status gex_d3d11_renderer_set_sync_interval_from_config(
+    gex_d3d11_renderer *renderer,
+    UINT vsync_retraces)
 {
     if (renderer == NULL || !renderer->initialized) {
-        return 1;
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
     }
     
-    /* Validate sync interval */
-    if (vsync_retraces > 4) {
-        return 1;
-    }
-    
+    /* Use vsync_retraces from the swapchain configuration */
+    /* vsync_retraces=0 means no VSync (sync_interval=0), other values are passed directly */
     renderer->sync_interval = vsync_retraces;
-    return 0;
+    return GEX_D3D11_RENDERER_OK;
 }
 
 int gex_d3d11_renderer_set_debug_layer(gex_d3d11_renderer *renderer, int enable)
