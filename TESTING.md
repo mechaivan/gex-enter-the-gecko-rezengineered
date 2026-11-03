@@ -1696,10 +1696,10 @@ bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
 debug layer: not available (hr=0x887A002D); failure was clean
 hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
 hardware: ok, feature level 11_1, flags 0x0
-205 checks, 0 failures, 0 skipped
+314 checks, 0 failures, 0 skipped
 ```
 
-Qué cubren los 205 checks: nombres de estados y niveles; argumentos y estado
+Qué cubren los 314 checks: nombres de estados y niveles; argumentos y estado
 (`NULL`, driver inválido, doble `init` sin tocar el vivo, `shutdown` no-ops);
 **WARP real** (creación + `CheckFormatSupport` + contexto inmediato + cierre +
 re-init + ciclo de 3 tandas); **hardware real** (idéntico); dos dispositivos
@@ -1749,10 +1749,10 @@ buffer_count=1000: status=create failed hr=0x887A0001
 resize after window destroyed: status=ok hr=0x00000000
 ...
 hardware: swapchain ok 320x240
-429 checks, 0 failures, 0 skipped
+572 checks, 0 failures, 0 skipped
 ```
 
-Qué cubren los 429 checks: nombres de estado; argumentos y estado (`NULL`,
+Qué cubren los 572 checks: nombres de estado; argumentos y estado (`NULL`,
 dispositivo R-1 cerrado, `HWND` nulo/falso, tamaño 0, doble `init` sin tocar el
 vivo, `shutdown` no-ops); **WARP real** (swapchain 2 buffers
 `R8G8B8A8_UNORM`, bitblt, ventana, `OutputWindow`, backbuffer 1 mip/1 array/
@@ -1785,7 +1785,7 @@ en ventana mayor sin medir; la capa debug D3D11 sigue sin instalar; el
 node --test tools/gexmap/test.mjs   # 22/22
 node tools/gexmap/cli.mjs check     # artefactos OK
 node tools/gexmap/cli.mjs segments  # 0 problemas
-cd port; .\build.ps1 all            # 132 618 checks, 0 fallos (incl. D3D11 device y swapchain)
+cd port; .\build.ps1 all            # 132 775 checks, 0 fallos (incl. D3D11 device y swapchain)
 cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
 cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
 cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1

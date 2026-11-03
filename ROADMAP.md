@@ -188,8 +188,8 @@ mods/parches.
   `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D), hallazgo documentado.
   Verificación de fugas conductual (referencia manual + `Release` final a 0)
   porque el runtime mantiene referencias internas al device. Prueba:
-  `test_d3d11_device` 205 checks, 0 fallos con **Clang 22.1.8 y GCC 16.1.0**;
-  sonda `d3d11probe.exe`; batería completa 132 189 checks, 0 fallos. La
+  `test_d3d11_device` **314 checks, 0 fallos** con **Clang 22.1.8 y GCC 16.1.0**;
+  sonda `d3d11probe.exe`; batería completa **132 298 checks, 0 fallos**. La
   decisión D3D11 de I-5 queda confirmada. Doc: `docs/D3D11_DEVICE.md`.
 - [x] **R-2 — Swapchain DXGI sobre la ventana de I-4 (sin presentar).**
   `gex_d3d11_swapchain` (`port/src/render/d3d11_swapchain.c`, Windows-only)
@@ -203,9 +203,9 @@ mods/parches.
   swapchain 2 (una la retiene su backbuffer), backbuffer 1, todas a 0;
   `BufferCount = 1000` → `DXGI_ERROR_INVALID_CALL` con struct cerrado;
   `ResizeBuffers` no valida el `HWND` (devuelve `S_OK` tras destruirlo). Prueba:
-  `test_d3d11_swapchain` **429 checks, 0 fallos, 0 saltos**, hardware y WARP,
+  `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos**, hardware y WARP,
   **Clang 22.1.8 y GCC 16.1.0**; sonda `swapprobe.exe`; batería completa
-  **132 618 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
+  **132 775 checks**. **No hay `Present`, ni clear, ni dibujo** (R-3). Doc:
   `docs/D3D11_SWAPCHAIN.md`.
 
 Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible

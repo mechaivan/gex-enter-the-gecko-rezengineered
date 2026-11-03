@@ -111,8 +111,8 @@ Estado:
 | Núcleo de aplicación | orden del frame de I-3 + Escape/foco | `port/src/app/i4_app.c` | `port/tests/test_app.c` (117 checks) |
 | Ventana Win32 + mensajes | shell S6 (`0x00463091`/`0x00463278`), adaptado | `port/src/platform/win32_window.c` | prueba real de ventana (Escape, `WM_CLOSE`) |
 | Ejecutable I-4 | — | `port/src/app/i4_main_win32.c` (`gexloop.exe`) | prueba real sostenida + CPU |
-| Dispositivo Direct3D 11 | no aplica: API del sistema (decisión I-5) | `port/src/render/d3d11_device.c` | `port/tests/test_d3d11_device.c` (205 checks, hardware y WARP) |
-| Swapchain DXGI sobre el HWND | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `port/src/render/d3d11_swapchain.c` | `port/tests/test_d3d11_swapchain.c` (429 checks, hardware y WARP) |
+| Dispositivo Direct3D 11 | no aplica: API del sistema (decisión I-5) | `port/src/render/d3d11_device.c` | `port/tests/test_d3d11_device.c` (314 checks, hardware y WARP) |
+| Swapchain DXGI sobre el HWND | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `port/src/render/d3d11_swapchain.c` | `port/tests/test_d3d11_swapchain.c` (572 checks, hardware y WARP) |
 
 Límites de esta vía, explícitos: no hay ficheros `.sag` reales disponibles y la
 equivalencia con el original es estática (transcripción instrucción a

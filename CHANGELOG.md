@@ -35,13 +35,13 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   falso o destruido → `BAD_ARGUMENT`; tras destruir la ventana,
   `ResizeBuffers` devuelve `S_OK` (DXGI no valida el `HWND`: el fallo real
   aparecerá en `Present`, R-3) y el cierre sigue limpio.
-- **Pruebas: `test_d3d11_swapchain` 429 checks, 0 fallos, 0 saltos** —
+- **Pruebas: `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos** —
   idéntico con Clang 22.1.8 y GCC 16.1.0, sin avisos con
   `-std=c11 -O2 -Wall -Wextra -Wpedantic`. WARP y hardware real (FL 11_1).
   Sonda nueva `swapprobe.exe` (ventana real, WARP y hardware). Enlace
   `-ld3d11 -luuid` (los IID de DXGI viven en `libuuid.a`; no se necesita
   `-ldxgi` porque no se llama a `CreateDXGIFactory`). Batería completa:
-  **132 618 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
+  **132 775 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
 - **Errores encontrados y resueltos (todos de la prueba, no del módulo):**
   suponer 1 referencia en la swapchain (son 2 por el backbuffer), re-iniciar
   un dispositivo vivo en el bloque de dos ventanas (`BAD_STATE` correcto de
@@ -78,12 +78,12 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   que libera las suyas, el objeto sobrevive solo con la manual y el
   `Release` final devuelve **0** (destrucción completa). Se ejecuta en WARP,
   hardware, ciclo de 3 re-inits, dos dispositivos simultáneos y rama debug.
-- **Pruebas: `test_d3d11_device` 205 checks, 0 fallos, 0 saltos** — idéntico
+- **Pruebas: `test_d3d11_device` **314 checks, 0 fallos, 0 saltos** — idéntico
   con Clang 22.1.8 (llvm-mingw) y con GCC de GNU 16.1.0 (MSYS2), sin avisos
   con `-std=c11 -O2 -Wall -Wextra -Wpedantic`. `d3d11.h` verificado idéntico
   por MD5 en ambos toolchains; enlace con `-ld3d11` (sin descargas).
   `build.ps1` integra la prueba en `test` y añade el target `probe` con la
-  sonda `d3d11probe.exe`. Batería completa: **132 189 checks, 0 fallos**.
+  sonda `d3d11probe.exe`. Batería completa: **132 298 checks, 0 fallos**.
   `m13-core` 120 checks y `gexmap` 22/22 sin cambios (núcleo intacto).
 - **Errores encontrados y resueltos:** las macros COM C de los headers WIDL
   requieren `COBJMACROS` antes de incluir `d3d11.h` (la cabecera lo define);
