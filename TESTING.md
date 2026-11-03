@@ -1791,3 +1791,15 @@ cd port; .\build\gexloop.exe --frames 360               # ventana real; sale lim
 cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1
 cd port; .\build\swapprobe.exe --hardware               # swapchain 512x384, resize, cierre
 ```
+
+
+## R-3 — Renderer Direct3D 11 (2026-11-03)
+
+- `test_d3d11_renderer.exe`: 28 checks específicos del renderer.
+- `test_app.exe`: 117 checks de aplicación; no son checks exclusivos del renderer.
+- Total asociado a R-3: 145 checks combinados, 0 fallos en la ejecución Clang documentada.
+- Batería global Clang: 133.015 checks, 0 fallos en 12 suites.
+- Resize: el test registra un fallo de `gex_d3d11_swapchain_resize` como INFO y continúa con el tamaño original; no garantiza resize exitoso en todos los entornos.
+- GCC: validación completa pendiente porque `test_sag.exe` no compila en el entorno documentado.
+- Alcance visual: color de limpieza; sin geometría, shaders, texturas, cámara ni lógica del juego.
+- Detalle: [docs/D3D11_RENDERER.md](docs/D3D11_RENDERER.md).
