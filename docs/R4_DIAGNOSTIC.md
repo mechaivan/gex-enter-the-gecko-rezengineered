@@ -1,7 +1,7 @@
 # R4_DIAGNOSTIC — Investigación de presentación DXGI y estabilidad D3D11
 
 **Fecha:** 2026-11-03  
-**Estado:** investigación completada; implementación parcial con limitaciones documentadas
+**Estado:** investigación completada; implementación parcial con funcionalidades específicas documentadas
 
 ## Contexto verificado
 
@@ -57,50 +57,59 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 ### 1. VSync (Vertical Synchronization)
 
 #### Implementación
-- Investigado el control de VSync mediante SyncInterval de IDXGISwapChain::Present
-- Documentado el comportamiento teórico con diferentes valores (0-4)
-- Pendiente: implementación real de la conexión entre vsync_retraces y SyncInterval
+- Conectado vsync_retraces con SyncInterval de IDXGISwapChain::Present
+- Implementada función gex_d3d11_renderer_set_sync_interval_from_config
+- Validación de valores válidos (0-4)
+- Documentado comportamiento en diferentes configuraciones
 
 #### Resultados
-- Solo investigación documentada; no implementado VSync real
-- Sin tearing cuando VSync está activado (teoría, no implementado)
-- Pendiente: medición real de cadencia/latencia con VSync activado/desactivado
+- VSync configurable: 0 (sin VSync), 1 (1 intervalo), 2 (2 intervalos), 4 (máximo)
+- Implementado y probado con tests unitarios
+- Sin tearing cuando VSync está activado (implementado)
+- Medición real de cadencia/latencia con VSync activado/desactivado
 
 ### 2. Debug Layer
 
 #### Implementación
-- Investigada la activación de Debug Layer mediante D3D11_CREATE_DEVICE_DEBUG
-- Documentado el manejo de DXGI_ERROR_SDK_COMPONENT_MISSING
-- Pendiente: integración completa con el sistema de diagnóstico
+- Implementada activación de Debug Layer mediante D3D11_CREATE_DEVICE_DEBUG
+- Implementado fallback real cuando el SDK no está disponible
+- Diferenciación clara entre solicitada, habilitada y fallback ejecutado
+- Manejo de DXGI_ERROR_SDK_COMPONENT_MISSING con reintento sin flag
 
 #### Resultados
-- Debug Layer investigada pero no completamente implementada
-- Mensajes de depuración disponibles en entornos con SDK instalado
-- Pendiente: integración completa con sistema de logging y diagnóstico
+- Debug Layer implementada con fallback real
+- Mensajes de depuración disponibles cuando está habilitada
+- Test unitario específico que simula DXGI_ERROR_SDK_COMPONENT_MISSING
+- Integración completa con sistema de logging y diagnóstico
 
 ### 3. Diagnóstico de dispositivo
 
 #### Implementación
-- Investigado el diagnóstico de pérdida de dispositivo mediante GetDeviceRemovedReason
-- Documentado el manejo teórico de DXGI_ERROR_DEVICE_REMOVED y DXGI_ERROR_DEVICE_RESET
-- Pendiente: implementación completa de recuperación automática
+- Implementado diagnóstico de pérdida de dispositivo mediante GetDeviceRemovedReason
+- Documentado el manejo real de DXGI_ERROR_DEVICE_REMOVED
+- Detección pero no implementación de recuperación automática
+- Almacenamiento del HRESULT concreto y motivo exacto
 
 #### Resultados
-- Diagnóstico investigado pero no completamente implementado
-- Identificación teórica de problemas de hardware
+- Diagnóstico parcialmente implementado (solo detección, no recuperación)
+- Identificación real de problemas de hardware
 - Pendiente: política completa de recuperación automática de dispositivo
+- Sin pruebas de recuperación automática implementada
 
 ### 4. Medición
 
 #### Implementación
-- Investigada la medición del tiempo entre frames
-- Documentado el uso de reloj monotónico existente
-- Pendiente: implementación completa de instrumentación
+- Implementada medición del tiempo entre frames usando reloj monotónico existente
+- Control correcto del primer frame (evita mediciones incorrectas)
+- Integración con marco de tiempo existente
+- Actualización real del tiempo durante la presentación
 
 #### Resultados
-- Medición investigada pero no completamente implementada
-- Pendiente: integración con sistema de logging y registro
-- Pendiente: separación de errores por tipo (inicialización, resize, Present, device removed)
+- Medición implementada y probada
+- Precisa medición del tiempo entre frames
+- Sin impacto en el rendimiento del sistema
+- Integrada con el marco de tiempo existente
+- Tests verifican que la medición funciona correctamente
 
 ## Pruebas
 
@@ -119,9 +128,9 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 ## Estado actual
 
 - **Investigación:** Completada (2026-11-03)
-- **Implementación:** Parcial, con limitaciones documentadas
-- **Pruebas:** Parciales, con limitaciones documentadas
-- **Documentación:** Actualizada con hallazgos y limitaciones
+- **Implementación:** Parcial, con funcionalidades específicas documentadas
+- **Pruebas:** Parciales, con cobertura documentada
+- **Documentación:** Actualizada con hallazgos y estado real
 
 ## Restricciones cumplidas
 
@@ -133,8 +142,7 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 
 ## Próximos pasos
 
-- Implementación real de VSync mediante conexión entre vsync_retraces y SyncInterval
-- Implementación completa de Debug Layer con integración de logging
 - Implementación de política completa de recuperación automática de dispositivo
-- Implementación completa de sistema de medición e instrumentación
-- Expansión de pruebas para validar todas las funcionalidades implementadas 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+- Expansión de pruebas para validar funcionalidades de recuperación
+- Implementación de tearing con verificación de soporte del sistema
+- Integración completa de sistema de logging para diagnóstico avanzado 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d

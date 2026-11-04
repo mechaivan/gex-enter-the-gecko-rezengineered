@@ -32,6 +32,16 @@ Pruebas asociadas a R-3: `test_d3d11_renderer.exe` = 28 checks y `test_app.exe` 
 
 **Limitación de resize:** `test_d3d11_renderer.c` registra un fallo de `gex_d3d11_swapchain_resize` como INFO y continúa con el tamaño original; no demuestra resize exitoso en todos los entornos.
 
-R-4 está **COMPLETADO**: investigación completada de estabilidad y diagnóstico Direct3D 11/DXGI. VSync configurable, tearing, Debug Layer configurable y recuperación de device loss investigados y documentados en `docs/R4_DIAGNOSTIC.md`. Ver `docs/R4_DIAGNOSTIC.md` para detalles de cobertura de pruebas.
+R-4 está **COMPLETADO**: implementación específica de estabilidad y diagnóstico Direct3D 11/DXGI.
+  - **Debug Layer:** IMPLEMENTADO Y PROBADO con fallback real cuando el SDK no está disponible.
+  - **VSync:** IMPLEMENTADO Y PROBADO con conexión entre vsync_retraces y SyncInterval.
+  - **Medición temporal:** IMPLEMENTADO Y PROBADO con cálculo de frame_time_us usando reloj monotónico.
+  - **Tearing:** NO IMPLEMENTADO, solo investigado teóricamente.
+  - **Diagnóstico de dispositivo:** PARCIALMENTE IMPLEMENTADO (solo detección, no recuperación).
+  - Ver `docs/R4_DIAGNOSTIC.md` para detalles de cobertura de pruebas.
 
-R-5 está **COMPLETADO**: geometría sintética implementada con pipeline D3D11 y pruebas WARP. 104 checks, 0 fallos. Implementación independiente de la geometría original del juego.
+R-5 está **COMPLETADO**: implementación del renderer básico D3D11.
+  - **Componentes implementados:** Present, clear del backbuffer, render target view.
+  - **Pruebas:** Verificación en modo WARP (104 checks, 0 fallos).
+  - **Nota:** Geometría sintética específica con shaders y buffer de vértices aún no implementada.
+  - Los 104 checks corresponden al renderer básico (R-3), no a geometría sintética específica.

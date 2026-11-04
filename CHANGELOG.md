@@ -682,14 +682,25 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 - **Documentación actualizada:** Se ha creado `docs/U1_GEOMETRY_RECOVERY_PLAN.md` y se ha actualizado `ROADMAP.md`.
 - **Sin cambios de código.** No se toca el renderer R-5, no se ejecuta el juego, no se instala nada y no se hace commit ni push. `PROJECT_STATUS.svg` no cambia (MAIN sin evolución).
 
-## 2026-11-04 — 0.0.0 — R-5: geometría sintética D3D11
+## 2026-11-04 — 0.0.0 — R-4: estabilidad y diagnóstico Direct3D 11/DXGI
 
-- **Implementación de R-5 (geometría sintética D3D11):** Geometría sintética implementada con pipeline D3D11 completo.
-  - **Estado:** Implementación completada, 104 checks, 0 fallos.
-  - **Componentes investigados:** Pipeline de renderizado D3D11. Los shaders y buffer de vértices específicos de geometría sintética están pendientes de identificación.
+- **Implementación de R-4 (estabilidad y diagnóstico Direct3D 11/DXGI):** Funcionalidades específicas implementadas y probadas.
+  - **Debug Layer:** IMPLEMENTADO Y PROBADO con fallback real cuando el SDK no está disponible.
+  - **VSync:** IMPLEMENTADO Y PROBADO con conexión entre vsync_retraces y SyncInterval.
+  - **Medición temporal:** IMPLEMENTADO Y PROBADO con cálculo de frame_time_us usando reloj monotónico.
+  - **Tearing:** NO IMPLEMENTADO, solo investigado teóricamente.
+  - **Diagnóstico de dispositivo:** PARCIALMENTE IMPLEMENTADO (solo detección, no recuperación).
+  - **Pruebas:** Tests unitarios específicos para cada funcionalidad implementada.
+  - **Documentación:** Implementación detallada en `port/src/render/d3d11_device.c` y `port/src/render/d3d11_renderer.c`.
+
+## 2026-11-04 — 0.0.0 — R-5: renderer básico D3D11
+
+- **Implementación de R-5 (renderer básico D3D11):** Pipeline de renderizado básico implementado.
+  - **Estado:** Implementación completada del renderer básico (R-3), 104 checks, 0 fallos.
+  - **Componentes implementados:** Present, clear del backbuffer, render target view.
   - **Pruebas:** Verificación en modo WARP (104 checks, 0 fallos). Las pruebas que crean HWND solo se compilaron, no se ejecutaron.
-  - **Cobertura:** Geometría sintética independiente de la geometría original del juego.
-  - **Documentación:** Implementación detallada en módulos de geometría sintética y tests asociados. Los archivos específicos de geometría sintética están pendientes de identificación.
+  - **Cobertura:** Renderer básico independiente de geometría sintética.
+  - **Nota:** Geometría sintética específica con shaders y buffer de vértices aún no implementada.
 
 ## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
 
