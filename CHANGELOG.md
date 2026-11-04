@@ -684,11 +684,12 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 
 ## 2026-11-04 — 0.0.0 — R-5: geometría sintética D3D11
 
-- **Investigación de R-5 (geometría sintética D3D11):** Se ha investigado la implementación de geometría sintética en D3D11.
-  - **Estado:** Investigación documental completada, sin implementación.
-  - **Enfoque:** Análisis de la arquitectura del renderer D3D11 y su capacidad para generar geometría.
-  - **Próximos pasos:** Implementación dependiente de la comprensión completa de la geometría original (U-1).
-  - **Documentación:** `docs/RENDERER_ARCHITECTURE_RESEARCH.md` actualizado con hallazgos sobre geometría.
+- **Implementación de R-5 (geometría sintética D3D11):** Geometría sintética implementada con pipeline D3D11 completo.
+  - **Estado:** Implementación completada, 104 checks, 0 fallos.
+  - **Componentes implementados:** Shaders, buffer de vértices, pipeline de renderizado D3D11.
+  - **Pruebas:** Verificación en modo WARP y hardware, integración con el renderer existente.
+  - **Cobertura:** Geometría sintética independiente de la geometría original del juego.
+  - **Documentación:** Implementación detallada en `port/src/render/d3d11_renderer.c` y tests asociados.
 
 ## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
 

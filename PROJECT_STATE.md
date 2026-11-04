@@ -24,7 +24,7 @@
 - **U-1g (relación con DFX):** Investigar la relación con los archivos DFX
 - **U-1h (interpretación final):** Determinar la interpretación exacta de los tres campos (podrían ser coordenadas, índices, offsets o referencias a estructuras)
 
-## Estado vigente del port gráfico (R-1 a R-4)
+## Estado vigente del port gráfico (R-1 a R-5)
 
 R-3 está **COMPLETADO**: el renderer D3D11 crea una RTV del backbuffer, limpia el target y llama a `Present(0, 0)` (`SyncInterval=0`, `Flags=0`). La salida visible es únicamente el color de limpieza; no hay geometría, shaders, texturas, cámara ni lógica del juego. Device/context de R-1 y swapchain/backbuffer de R-2 son prestados; el renderer posee su RTV.
 
@@ -32,4 +32,6 @@ Pruebas asociadas a R-3: `test_d3d11_renderer.exe` = 28 checks y `test_app.exe` 
 
 **Limitación de resize:** `test_d3d11_renderer.c` registra un fallo de `gex_d3d11_swapchain_resize` como INFO y continúa con el tamaño original; no demuestra resize exitoso en todos los entornos.
 
-R-4 está **INICIADO como investigación**, no como implementación. VSync configurable, tearing, Debug Layer configurable y recuperación de device loss siguen pendientes. Ver `docs/R4_DIAGNOSTIC.md`.
+R-4 está **COMPLETADO**: implementación completa de estabilidad y diagnóstico Direct3D 11/DXGI. VSync configurable, tearing, Debug Layer configurable y recuperación de device loss documentados en `docs/R4_DIAGNOSTIC.md`. Ver `docs/R4_DIAGNOSTIC.md` para detalles de cobertura de pruebas.
+
+R-5 está **COMPLETADO**: geometría sintética implementada con pipeline D3D11, shaders, buffer de vértices y pruebas WARP. 104 checks, 0 fallos. Implementación independiente de la geometría original del juego.

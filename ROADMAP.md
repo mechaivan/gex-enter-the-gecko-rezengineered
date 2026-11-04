@@ -49,6 +49,14 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [ ] U-1g: Relación con DFX (pendiente)
 - [ ] U-1h: Interpretación final (pendiente)
 
+### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)
+
+- [x] R-1: Dispositivo D3D11 (hardware y WARP) (2026-11-02)
+- [x] R-2: Swapchain DXGI sobre HWND (2026-11-03)
+- [x] R-3: Renderer básico con Present y clear (2026-11-03)
+- [x] R-4: Estabilidad y diagnóstico Direct3D 11/DXGI (2026-11-03)
+- [x] R-5: Geometría sintética con pipeline D3D11, shaders y buffer de vértices (2026-11-04)
+
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
