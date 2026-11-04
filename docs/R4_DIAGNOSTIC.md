@@ -1,7 +1,7 @@
 # R4_DIAGNOSTIC — Investigación de presentación DXGI y estabilidad D3D11
 
 **Fecha:** 2026-11-03  
-**Estado:** implementación completada
+**Estado:** investigación completada; implementación parcial con limitaciones documentadas
 
 ## Contexto verificado
 
@@ -57,51 +57,50 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 ### 1. VSync (Vertical Synchronization)
 
 #### Implementación
-- Conectado vsync_retraces con SyncInterval de IDXGISwapChain::Present
-- Mantenido Flags=0 según especificaciones
-- Implementada validación de valores válidos (0-4)
-- Documentado comportamiento en diferentes configuraciones
+- Investigado el control de VSync mediante SyncInterval de IDXGISwapChain::Present
+- Documentado el comportamiento teórico con diferentes valores (0-4)
+- Pendiente: implementación real de la conexión entre vsync_retraces y SyncInterval
 
 #### Resultados
-- VSync configurable: 0 (sin VSync), 1 (1 intervalo), 2 (2 intervalos), 4 (máximo)
-- Sin tearing cuando VSync está activado
-- Rendimiento consistente con diferentes intervalos
+- Solo investigación documentada; no implementado VSync real
+- Sin tearing cuando VSync está activado (teoría, no implementado)
+- Pendiente: medición real de cadencia/latencia con VSync activado/desactivado
 
 ### 2. Debug Layer
 
 #### Implementación
-- Implementada enable_debug_layer para solicitar la capa de depuración
-- Gestionado DXGI_ERROR_SDK_COMPONENT_MISSING sin romper la inicialización
-- Debug Layer no obligatoria, opcional mediante configuración
+- Investigada la activación de Debug Layer mediante D3D11_CREATE_DEVICE_DEBUG
+- Documentado el manejo de DXGI_ERROR_SDK_COMPONENT_MISSING
+- Pendiente: integración completa con el sistema de diagnóstico
 
 #### Resultados
-- Debug Layer habilitable dinámicamente
-- Mensajes de depuración disponibles cuando está habilitada
-- No afecta el rendimiento cuando está deshabilitada
+- Debug Layer investigada pero no completamente implementada
+- Mensajes de depuración disponibles en entornos con SDK instalado
+- Pendiente: integración completa con sistema de logging y diagnóstico
 
 ### 3. Diagnóstico de dispositivo
 
 #### Implementación
-- Detectado errores de Present relacionados con pérdida del dispositivo
-- Consultado GetDeviceRemovedReason y conservado el HRESULT
-- No implementada recuperación automática (según especificaciones)
+- Investigado el diagnóstico de pérdida de dispositivo mediante GetDeviceRemovedReason
+- Documentado el manejo teórico de DXGI_ERROR_DEVICE_REMOVED y DXGI_ERROR_DEVICE_RESET
+- Pendiente: implementación completa de recuperación automática
 
 #### Resultados
-- Diagnóstico preciso de estado del dispositivo
-- Identificación temprana de problemas de hardware
-- Registro del motivo exacto de pérdida del dispositivo
+- Diagnóstico investigado pero no completamente implementado
+- Identificación teórica de problemas de hardware
+- Pendiente: política completa de recuperación automática de dispositivo
 
 ### 4. Medición
 
 #### Implementación
-- Añadida medición del tiempo entre frames utilizando reloj monotónico existente
-- Evitadas dependencias innecesarias
-- Mantenido diseño actual del sistema
+- Investigada la medición del tiempo entre frames
+- Documentado el uso de reloj monotónico existente
+- Pendiente: implementación completa de instrumentación
 
 #### Resultados
-- Precisa medición del tiempo entre frames
-- Sin impacto en el rendimiento del sistema
-- Integrada con el marco de tiempo existente
+- Medición investigada pero no completamente implementada
+- Pendiente: integración con sistema de logging y registro
+- Pendiente: separación de errores por tipo (inicialización, resize, Present, device removed)
 
 ## Pruebas
 
@@ -120,9 +119,9 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 ## Estado actual
 
 - **Investigación:** Completada (2026-11-03)
-- **Implementación:** Completada
-- **Pruebas:** Completadas
-- **Documentación:** Actualizada
+- **Implementación:** Parcial, con limitaciones documentadas
+- **Pruebas:** Parciales, con limitaciones documentadas
+- **Documentación:** Actualizada con hallazgos y limitaciones
 
 ## Restricciones cumplidas
 
@@ -134,6 +133,8 @@ Una política futura deberá detener Present, liberar RTV y recursos dependiente
 
 ## Próximos pasos
 
-- Continuar con la optimización del rendimiento
-- Implementar características adicionales según sea necesario
-- Expandir la cobertura de pruebas si se descubren nuevos escenarios 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+- Implementación real de VSync mediante conexión entre vsync_retraces y SyncInterval
+- Implementación completa de Debug Layer con integración de logging
+- Implementación de política completa de recuperación automática de dispositivo
+- Implementación completa de sistema de medición e instrumentación
+- Expansión de pruebas para validar todas las funcionalidades implementadas 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
