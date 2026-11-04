@@ -687,9 +687,9 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 - **Implementación de R-5 (geometría sintética D3D11):** Geometría sintética implementada con pipeline D3D11 completo.
   - **Estado:** Implementación completada, 104 checks, 0 fallos.
   - **Componentes implementados:** Shaders, buffer de vértices, pipeline de renderizado D3D11.
-  - **Pruebas:** Verificación en modo WARP y hardware, integración con el renderer existente.
+  - **Pruebas:** Verificación en modo WARP (104 checks, 0 fallos). Las pruebas que crean HWND solo se compilaron, no se ejecutaron.
   - **Cobertura:** Geometría sintética independiente de la geometría original del juego.
-  - **Documentación:** Implementación detallada en `port/src/render/d3d11_renderer.c` y tests asociados.
+  - **Documentación:** Implementación detallada en módulos de geometría sintética y tests asociados.
 
 ## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
 

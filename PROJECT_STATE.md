@@ -34,4 +34,4 @@ Pruebas asociadas a R-3: `test_d3d11_renderer.exe` = 28 checks y `test_app.exe` 
 
 R-4 está **COMPLETADO**: implementación completa de estabilidad y diagnóstico Direct3D 11/DXGI. VSync configurable, tearing, Debug Layer configurable y recuperación de device loss documentados en `docs/R4_DIAGNOSTIC.md`. Ver `docs/R4_DIAGNOSTIC.md` para detalles de cobertura de pruebas.
 
-R-5 está **COMPLETADO**: geometría sintética implementada con pipeline D3D11, shaders, buffer de vértices y pruebas WARP. 104 checks, 0 fallos. Implementación independiente de la geometría original del juego.
+R-5 está **COMPLETADO**: geometría sintética implementada con pipeline D3D11 y pruebas WARP. 104 checks, 0 fallos. Implementación independiente de la geometría original del juego.

@@ -55,7 +55,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] R-2: Swapchain DXGI sobre HWND (2026-11-03)
 - [x] R-3: Renderer básico con Present y clear (2026-11-03)
 - [x] R-4: Estabilidad y diagnóstico Direct3D 11/DXGI (2026-11-03)
-- [x] R-5: Geometría sintética con pipeline D3D11, shaders y buffer de vértices (2026-11-04)
+- [x] R-5: Geometría sintética con pipeline D3D11 (2026-11-04)
 
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 

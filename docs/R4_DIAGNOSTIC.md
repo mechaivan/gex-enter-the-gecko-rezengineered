@@ -1,7 +1,7 @@
 # R4_DIAGNOSTIC — Investigación de presentación DXGI y estabilidad D3D11
 
 **Fecha:** 2026-11-03  
-**Estado:** investigación inicial; implementación pendiente
+**Estado:** implementación completada
 
 ## Contexto verificado
 
