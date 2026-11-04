@@ -4,11 +4,25 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE not started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization — no Ghidra/decomp/dynamic)
+**Reverse Engineering:** Deep RE in progress (U-1 subfase completada hasta U-1e, pendiente U-1f)
 **Implementation:** Not started (only via Hito P after Fase 3 method + authorization)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-10-11
+**Last updated:** 2026-11-04
+
+### Avances recientes (U-1 - Geometría Original)
+
+- **U-1a (stride y campos):** Identificado stride constante (12 bytes) y campos ([ebp + 0x8], [ebp + 0xc], [ebp + 0x10])
+- **U-1b (cálculo de w):** Confirmado w = 1.0f (2D) y w = valor + 8.0f (3D)
+- **U-1c (geometría completa):** Investigada la construcción de los cuatro vértices, verificado el stride de 12 bytes
+- **U-1d (recuperación de índices):** Seguido el origen de los tres argumentos, identificado operaciones de multiplicación por stride
+- **U-1e (relación geometría-índices):** Analizado cómo se relacionan los vértices con los índices, determinado que los vértices se generan directamente a partir de los argumentos
+
+### Pendientes
+
+- **U-1f (relación índices-recursos):** Analizar cómo se relacionan los índices con los recursos (texturas, etc.)
+- **U-1g (relación con DFX):** Investigar la relación con los archivos DFX
+- **U-1h (interpretación final):** Determinar la interpretación exacta de los tres campos (podrían ser coordenadas, índices, offsets o referencias a estructuras)
 
 ## Ampliación de objetivos (2026-10-08, solo documentación)
 

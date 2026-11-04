@@ -2,6 +2,18 @@
 
 Formato: `YYYY-MM-DD — versión — descripción`.
 
+## 2026-11-04 — 0.0.0 — U-1e: relación geometría-índices
+
+- **Análisis de U-1e (relación geometría-índices):** Se ha completado el análisis de la relación entre vértices e índices.
+  - **Relación vértices-índices:** Los vértices se generan directamente a partir de los argumentos, sin secuencia de índices intermediaria.
+  - **Tipo de datos de los argumentos:** Hay evidencia mixta que apunta a diferentes interpretaciones - la multiplicación por stride sugiere índices u offsets, mientras que el procesamiento a flotante sugiere coordenadas.
+  - **Relación datos de entrada-vértices finales:** Los vértices finales se generan directamente a partir de los argumentos, sin dependencia de datos externos durante la construcción.
+  - **Comparación de rutas 2D y 3D:** Las rutas comparten la misma estructura básica, con diferencias en el procesamiento de los argumentos.
+  - **Hipótesis confirmadas:** H1 y H6 han sido verificadas mediante evidencia directa del código.
+  - **Cuestiones pendientes:** Queda por resolver U-1f.
+- **Documentación actualizada:** Se ha creado `docs/U1_GEOMETRY_RECOVERY_PLAN.md` y se ha actualizado `ROADMAP.md`.
+- **Sin cambios de código.** No se toca el renderer R-5, no se ejecuta el juego, no se instala nada y no se hace commit ni push. `PROJECT_STATUS.svg` no cambia (MAIN sin evolución).
+
 ## 2026-10-21 — 0.0.0 — ByteMatch: informe base verificado + corrección de la configuración inventada
 
 - **Nuevo:** `tools/bytematch-report.mjs` — genera `report/EU/report.json` (esquema de

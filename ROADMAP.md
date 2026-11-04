@@ -38,6 +38,17 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [ ] Probar `tools/setup-re-env.sh` en máquina sin restricciones.
 - [ ] Cierre Fase 1 → autorización Fase 2.
 
+### Subfase C — Geometría Original (U-1) 🔄 (2026-11-04 a 2026-12-31)
+
+- [x] U-1a: Stride y campos (2026-11-04)
+- [x] U-1b: Cálculo de w (2026-11-04)
+- [x] U-1c: Geometría completa (2026-11-04)
+- [x] U-1d: Recuperación de índices (2026-11-04)
+- [x] U-1e: Relación geometría-índices (2026-11-04)
+- [ ] U-1f: Relación índices-recursos (pendiente)
+- [ ] U-1g: Relación con DFX (pendiente)
+- [ ] U-1h: Interpretación final (pendiente)
+
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
