@@ -18,6 +18,7 @@
 *.str
 *.xa
 *.vag
+*.sag
 # ...but keep our own scripts/tools (un-ignore by path when needed, e.g. tools/)
 !tools/**
 

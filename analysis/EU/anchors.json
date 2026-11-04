@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "source": "documented anchors in REVERSE_ENGINEERING.md / TESTING.md",
+  "anchors": [
+    {
+      "addr": "0x00541b20",
+      "label": "PE entry point",
+      "function_start": "0x00541b20",
+      "function_symbol": "FUN_00541B20",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x00463278",
+      "label": "WinMain (E-3)",
+      "function_start": "0x00463278",
+      "function_symbol": "FUN_00463278",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0043b11d",
+      "label": "init temporal por nivel (M-13)",
+      "function_start": "0x0043b11d",
+      "function_symbol": "FUN_0043B11D",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0043b36d",
+      "label": "reset + t0 = GetTickCount (M-13)",
+      "function_start": "0x0043b11d",
+      "function_symbol": "FUN_0043B11D",
+      "offset_in_function": 592,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x0043e1ba",
+      "label": "update por frame (M-13)",
+      "function_start": "0x0043e1ba",
+      "function_symbol": "FUN_0043E1BA",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0043e5dd",
+      "label": "sello elapsed/16.666 -> +0x10C (M-13)",
+      "function_start": "0x0043e1ba",
+      "function_symbol": "FUN_0043E1BA",
+      "offset_in_function": 1059,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x0043dc3a",
+      "label": "envio de render + drenaje de cola (M-13)",
+      "function_start": "0x0043dc3a",
+      "function_symbol": "FUN_0043DC3A",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0043ea51",
+      "label": "espera grBufferNumPending -> grBufferSwap(3) (M-13)",
+      "function_start": "0x0043ea36",
+      "function_symbol": "FUN_0043EA36",
+      "offset_in_function": 27,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x0053fcb7",
+      "label": "housekeeping de voz (M-13)",
+      "function_start": "0x0053fcb7",
+      "function_symbol": "FUN_0053FCB7",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x004622d7",
+      "label": "grBufferSwap(2) durante init (M-13)",
+      "function_start": "0x00461fbd",
+      "function_symbol": "FUN_00461FBD",
+      "offset_in_function": 794,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x00424c7f",
+      "label": "grBufferSwap(1) (ruta 0x424C0F)",
+      "function_start": "0x00424c0f",
+      "function_symbol": "FUN_00424C0F",
+      "offset_in_function": 112,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x00537e6e",
+      "label": "grBufferSwap(1) wrapper cine",
+      "function_start": "0x00537e69",
+      "function_symbol": "FUN_00537E69",
+      "offset_in_function": 5,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x00418ff8",
+      "label": "handler pantalla TV (estatico: 0 llamadores)",
+      "function_start": "0x00418ff8",
+      "function_symbol": "FUN_00418FF8",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x00412f8b",
+      "label": "cuenta atras por frame (+0x4BC--)",
+      "function_start": "0x00412f8b",
+      "function_symbol": "FUN_00412F8B",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0046324d",
+      "label": "grSstWinOpen 512x384@75Hz",
+      "function_start": "0x0046324d",
+      "function_symbol": "FUN_0046324D",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x00537ea6",
+      "label": "grSstWinOpen 640x480@60Hz (cine)",
+      "function_start": "0x00537ea6",
+      "function_symbol": "FUN_00537EA6",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x0053fed4",
+      "label": "R1: snapshot del cociente (M-13)",
+      "function_start": "0x0053fe80",
+      "function_symbol": "FUN_0053FE80",
+      "offset_in_function": 84,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x00451a0c",
+      "label": "R2: delta -> tabla -> WORD (M-13)",
+      "function_start": "0x004519de",
+      "function_symbol": "FUN_004519DE",
+      "offset_in_function": 46,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x00423cfe",
+      "label": "snapshot contador +0x104 (M-13)",
+      "function_start": "0x00423afe",
+      "function_symbol": "FUN_00423AFE",
+      "offset_in_function": 512,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x004721b6",
+      "label": "lector extra del contador +0x104 (M-13)",
+      "function_start": "0x00471e5f",
+      "function_symbol": "FUN_00471E5F",
+      "offset_in_function": 855,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x0043dcee",
+      "label": "segunda lectura del contador (M-13)",
+      "function_start": "0x0043dc3a",
+      "function_symbol": "FUN_0043DC3A",
+      "offset_in_function": 180,
+      "at_function_start": false
+    },
+    {
+      "addr": "0x0053ff0d",
+      "label": "ruta de voz <InstallDir>\\audio\\voiceuk",
+      "function_start": "0x0053ff0d",
+      "function_symbol": "FUN_0053FF0D",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x00442f41",
+      "label": "lecturas de registro InstallDir/CDDriveName",
+      "function_start": "0x00442f41",
+      "function_symbol": "FUN_00442F41",
+      "offset_in_function": 0,
+      "at_function_start": true
+    },
+    {
+      "addr": "0x00537bb0",
+      "label": "wrapper de cine (E-3)",
+      "function_start": "0x00537bb0",
+      "function_symbol": "FUN_00537BB0",
+      "offset_in_function": 0,
+      "at_function_start": true
+    }
+  ]
+}

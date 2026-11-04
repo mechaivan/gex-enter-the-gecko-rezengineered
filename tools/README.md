@@ -26,6 +26,23 @@ python -c "import pefile; pe = pefile.PE('copia_de_trabajo.exe'); print(pe.dump_
 
 ## Prototipos e instrumentación
 
+- **`gexmap/`** - Mapa estático del `GEX3D.EXE` EU: inicios confirmados,
+  candidatos por prólogo, stubs `jmp [IAT]`, grafo de llamadas e imports por
+  función. `map` (requiere el exe original), `check` (sin binario, para CI),
+  `query` (consulta una función), `segments` (primera segmentación por
+  subsistemas HYPOTHESIS, con validación de evidencia) y tests offline con
+  `node --test`. `frame.mjs` fija además la traza dinámica del frame step como
+  datos validables sin binario; `audio.mjs` fija las rutas de inicialización
+  de DirectSound (3 alcanzables + 1 sin llamantes) con `validateAudio()`.
+  Resultados en `analysis/EU/`; método/límites en `docs/FUNCTION_MAP.md`,
+  `docs/SUBSYSTEM_SEGMENTS.md`, `docs/FRAME_STEP_TRACE.md` y
+  `docs/AUDIO_INIT_PATHS.md`. Ver README propio.
+- **`frame-trace/`** - Depurador mínimo (C#, `WaitForDebugEvent`) que mide
+  cuántas veces se ejecuta cada función por frame **sin parchear el binario**,
+  con breakpoints de hardware `Dr0`–`Dr3` y `0x0043E1BA` como ancla de frame.
+  Incluye `summarize.mjs` para convertir el log TSV en llamadas/frames por
+  sitio. Reproduce `docs/FRAME_STEP_TRACE.md`; los binarios y logs no se
+  publican. Ver README propio.
 - **`m13-core/`** — Núcleo C11 del acumulador de paso fijo
   (`docs/M13_DECOUPLE_PROPOSAL.md` §4): reloj inyectado, sin
   plataforma, harness propio. Verificado 2026-10-10 (120 checks,

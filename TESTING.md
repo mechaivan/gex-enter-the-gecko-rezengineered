@@ -1,7 +1,7 @@
 # TESTING — Metodología de pruebas
 
-> Estado: **Hito 1 ejecutado (2026-10-09, PC del mantenedor) + resto de
-> la matriz pendiente** (Fase 2 sin iniciar). Detalle en «Hito 1» más abajo.
+> Estado: **Hito 1 ejecutado (2026-10-09, PC del mantenedor) + R-3 completado
+> (2026-11-03) + R-4 iniciado (2026-11-03)**. Detalle en «Hito 1» más abajo.
 
 ## Principio
 
@@ -1164,3 +1164,642 @@ Principio aplicable: **Original → Fix existente → REZengineered**.
   toolchain (MSYS2 GCC 16.1.0). La propuesta
   `-D__USE_MINGW_ANSI_STDIO=1` queda como contingencia si otra
   toolchain lo mangla; código sin cambios.
+
+## Mapa estático de funciones (2026-10-25, validación offline)
+
+**Qué se prueba:** que el mapa publicado en `analysis/EU/` se puede regenerar de
+forma determinista desde el `GEX3D.EXE` EU verificado y que sus artefactos son
+internamente coherentes sin el binario. No se prueba semántica, ni ejecución, ni
+emparejamiento con código reimplementado.
+
+**Entorno de la corrida:** host Windows, Node.js 26.7.0, `llvm-objdump` 22.1.8
+(LLVM). Binario: EU, 1 557 504 B, MD5 `692b12825003417cc4a5a9d4db13eebe`,
+SHA-256 `d0932549613f9c08fb895c5f8a6461ce044e1863b4cba42da4715c2b41e73886`.
+
+**Comandos:**
+
+```powershell
+node tools/gexmap/cli.mjs map --exe <copia>\GEX3D.EXE --objdump <ruta>\llvm-objdump.exe
+node tools/gexmap/cli.mjs check
+node --test tools/gexmap/test.mjs
+```
+
+**Resultado 2026-10-25:**
+
+- `map`: 2 655 inicios (1 448 `call`, 1 `entry`, 1 `text-start`, 1 113
+  `prologue`, 92 `thunk`), 132 stubs de importación, 5 097 aristas, 24 regiones
+  reparadas, 0 llamadas directas sin resolver.
+- `check`: **ok** (2 655 inicios, 5 097 aristas, 1 354 462/1 354 462 B de
+  `.text`, 24 anclas; SHA-256 de los tres artefactos coincide con el fijado en
+  `summary.json`).
+- `node --test`: **9/9** (4 sintéticos + 5 invariantes de los artefactos).
+- **Determinismo:** dos ejecuciones completas en directorios distintos
+  produjeron hashes idénticos de `functions.tsv`, `calls.tsv`, `anchors.json` y
+  `summary.json`.
+- **Anclas:** 24 documentadas; 13 en el inicio exacto de una función, 11 dentro,
+  0 fuera.
+- **Validación cruzada no trivial:** la entrada PE `0x00541B20` llama a
+  `0x00463278`, la dirección que la documentación identifica como `WinMain`.
+
+**Regresión encontrada y corregida antes de publicar:** los stubs
+`jmp dword ptr [IAT]` se absorbían en la función anterior; `0x0054038E` aparecía
+con 52 imports que no usaba. Ahora hay 132 filas `kind=thunk` y `0x0054038E`
+tiene 0 imports directos. El caso queda como test sintético («an import jump
+inside a function is not a thunk»).
+
+**Resultados negativos / límites:** los 1 113 inicios por prólogo son
+**HYPOTHESIS** y no se promueven; el mapa no sustituye al splitter ni al
+`symbols.txt`; el porcentaje de ByteMatch sigue en 0,00 %; no se usó Ghidra ni
+REA. Detalle completo en `docs/FUNCTION_MAP.md`.
+
+## Segmentación estática por subsistemas (2026-10-30, validación offline)
+
+**Qué se prueba:** que la primera agrupación publicada en
+`docs/SUBSYSTEM_SEGMENTS.md` (65 inicios, siete grupos **HYPOTHESIS**) se puede
+recalcular desde `analysis/EU/` sin el binario, y que cada pertenencia,
+evidencia y nivel de confianza se sostiene contra los artefactos. No se prueba
+semántica ni ejecución.
+
+**Comandos:**
+
+```powershell
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs segments --json
+node --test tools/gexmap/test.mjs
+```
+
+**Resultado 2026-10-30:**
+
+- `segments`: **0 problemas**. 65 miembros (2,58 % de los 2 523 inicios de
+  juego), 7 grupos, **35 ALTA / 22 MEDIA / 8 BAJA**, 20 de las 24 anclas dentro
+  de un miembro, 20 aristas entre grupos, 840 filas alcanzables desde `WinMain`
+  solo por llamadas directas.
+- `node --test`: **16/16** (4 sintéticos + 5 invariantes del mapa + 3 de
+  segmentación + 4 del frame step, añadidos con la traza dinámica). Los tests
+  fijan los recuentos, comprueban que ningún candidato por prólogo es ALTA y que
+  el validador **rechaza** una confianza inflada y un código de evidencia
+  inventado.
+- **Resultado negativo medido:** de los 24 callees directos del update
+  `0x0043E1BA`, solo 2 alcanzan una API del sistema a profundidad ≤3 y **18 no
+  alcanzan ninguna ni a profundidad 12**. La segmentación no asigna esos roles.
+
+**Límites:** los nombres de subsistema son **HYPOTHESIS**; `W=no` (sin camino de
+llamadas directas desde `WinMain`) no prueba código muerto (callbacks, llamadas
+indirectas); las capas `S` y `R` son lecturas manuales del binario y no se
+re-verifican en CI. El porcentaje de ByteMatch sigue en **0,00 %**.
+
+## Traza dinámica del frame step (2026-10-30, ejecución instrumentada)
+
+**Qué se prueba:** que el orden de las cinco llamadas de `0x0043EA36` y la
+frecuencia de los 25 sitios de llamada del update `0x0043E1BA` son los que
+publica `docs/FRAME_STEP_TRACE.md`. Es la primera prueba **en ejecución** de este
+proyecto; no sustituye a las estáticas.
+
+**Instrumentación:** `tools/frame-trace/tracer.cs`, depurador propio sobre
+`WaitForDebugEvent` con **breakpoints de hardware** (`Dr0`–`Dr3`) y `RF` tras
+cada hit, para no parchear ni un byte del ejecutable. Cada sesión incluye
+`0x0043E1BA` como **ancla de frame**: se llama una vez por frame, así que el
+denominador es exacto. Teclas inyectadas con `PostMessage` (`Escape` salta las
+FMV; el bucle de cine solo cuenta `VK_ESCAPE`).
+
+**Por qué no `INT3`:** el primer trazador con `0xCC` + single-step mata el
+proceso con `0xC000041D`/`0xC0000005` dentro de los callbacks de tiempo antes del
+primer frame de juego. Queda como resultado negativo de método, no del binario.
+
+**Comandos:**
+
+```powershell
+# compilar (sin binarios en el repo)
+& "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /platform:x64 `
+  /optimize+ /out:tracer.exe tools\frame-trace\tracer.cs
+
+# una sesión: ancla + 3 sitios
+.\tracer.exe C:\gex-run\GEX3D.EXE C:\gex-run trace.log 45000 `
+  hw:43e1ba,540650,465530,43e719 1B,1B,1B,1B,0D,0D,28,0D,0D,20,0D
+
+node tools\frame-trace\summarize.mjs trace.log
+node --test tools\gexmap\test.mjs
+```
+
+**Resultado 2026-10-30:** 9 sesiones de 600–611 frames con ancla (m1–m9) + 2
+sesiones largas (1 723 y 1 104 frames). Orden del frame idéntico en 1 723/1 724;
+periodo p50 = 40 ms (25 FPS); 25 sitios → 24 destinos, **23 con exactamente 1
+llamada por frame**; `0x0047344B` **0/606**; `0x0043E63D`, `0x00423AFE` y
+`0x00423A6A` **0/611**. `frame.mjs` valida los datos contra `analysis/EU/` con
+**0 problemas** y `node --test` pasa **16/16**.
+
+**Límites:** un nivel, bajo nGlide, hilo principal; cuatro breakpoints por
+sesión; los logs crudos no se publican (rutas locales) y los recuentos quedan
+fijados en `tools/gexmap/frame.mjs` para poder validarlos sin binario. Los
+tiempos absolutos dependen del wrapper; las frecuencias por frame no.
+
+## Rutas de inicialización de DirectSound (2026-10-31, estático)
+
+**Qué se prueba:** que las cuatro cadenas que publica
+`docs/AUDIO_INIT_PATHS.md` existen en el mapa y encajan con el desensamblado,
+sin afirmar que se ejecuten. No hay instrumentación: la imagen de referencia ya
+no está disponible.
+
+**Comandos:**
+
+```bash
+node --test tools/gexmap/test.mjs
+node tools/gexmap/cli.mjs segments
+node tools/gexmap/cli.mjs check
+```
+
+**Resultado 2026-10-31:**
+
+- `node --test`: **22/22** (6 nuevas de audio). Comprueban que `0x00538551`
+  tiene exactamente dos llamantes y ambos están en una ruta declarada; que
+  `0x00538FD5` sigue con **0** llamantes y `0x00538CB0` con uno solo; que la
+  ruta sin llamantes **no** declara `CreateSoundBuffer` ni `SetFormat`; que
+  viva y muerta solo comparten `0x005404F0`; que ningún global nombra un
+  escritor inexistente ni se repite; que todo sitio de vtable cae dentro de su
+  dueño y su slot es múltiplo de 4; y que ninguna ruta declara `calls`/`frames`
+  sin sesión.
+- `segments`: **0 problemas** (65 miembros, sin cambios de pertenencia).
+- `check`: artefactos OK (sin cambios).
+
+**Resultado negativo:** el segundo `DirectSoundCreate` (`0x00538CB0`) no tiene
+camino de llamadas directas desde la entrada, no crea buffer primario, no
+comprueba el `HRESULT` de `SetCooperativeLevel` y le pasa un solo argumento de
+pila. No se declara código muerto: `W=no` no lo prueba.
+
+**Límites:** toda la evidencia es estática (desensamblado + `analysis/EU/`); el
+contenido de `0x5582E0` y de los formatos `0x55811C`/`0x558124` no se puede
+leer sin la imagen original; los nombres CRT (`fopen`, `fread`, `malloc`…) son
+HYPOTHESIS. La build modificada presente (MD5 `3198350e…`) no sirve para
+instrumentar estas direcciones.
+
+## Lector nativo del contenedor `SLAG` (2026-10-31, validación offline)
+
+Primera prueba de un componente **implementado**, no de una herramienta de
+análisis. No necesita el ejecutable original, ni assets del juego, ni
+DirectSound.
+
+```powershell
+cd port
+.\build.ps1 all
+```
+
+Salida medida (clang 22.1.8 y gcc, `-std=c11 -O2 -Wall -Wextra -Wpedantic`,
+sin avisos):
+
+```text
+compile test_sag.exe (clang)
+fuzz: 20000 random buffers, 0 accepted
+69305 checks, 0 failures
+compile sagdump.exe (clang)
+demo.sag: 54 bytes (synthetic)
+file:   build/demo.sag
+size:   54 bytes
+form:   SLAG size=0x0000002E (46)
+format: chunk=18 copied=18
+        wFormatTag=0x0001 nChannels=1 nSamplesPerSec=22050
+        nAvgBytesPerSec=22050 nBlockAlign=1 wBitsPerSample=8 cbSize=0
+data:   offset=46 size=8 complete
+```
+
+Qué se comprueba:
+
+- cabecera `SLAG` / dword != `0xFFFFFFFF` / `WAVE`, y sus rechazos;
+- recorrido de chunks con tag desconocido, `fmt ` de 16/18/20 bytes, dos
+  `fmt ` (gana el último), `data` antes de `fmt `;
+- `data` de tamaño 0, `data` truncado (`data_complete = 0`), tamaño
+  `0xFFFFFFFE`;
+- `fmt ` de tamaño 0 en medio y al final;
+- carga real de fichero temporal y errores (inexistente, vacío);
+- 20 000 buffers aleatorios y 20 000 mutaciones, con invariantes
+  (`data_offset <= size`, `format_bytes <= 18`, coherencia de `has_format`).
+
+**Resultado negativo:** de 20 000 buffers aleatorios, **0** fueron aceptados
+(ningún falso positivo del parser). En las mutaciones no apareció ninguna
+lectura fuera de rango ni campo incoherente.
+
+**Límites:** los fixtures son sintéticos; no hay ningún `.sag` real
+disponible en el repositorio ni en disco, así que no se ha comparado contra
+un fichero del juego. La equivalencia con `0x0053899C` es estática
+(transcripción instrucción a instrucción), no dinámica.
+
+## Ruta de audio nativa (2026-10-31, validación offline)
+
+Prueba de la ruta completa `SLAG` → PCM sin el juego, sin assets y sin
+DirectSound. Dos suites nuevas y una demo:
+
+```powershell
+cd port
+.\build.ps1 test     # contenedor + ADPCM + ruta de audio
+.\build.ps1 audio    # demo: SLAG sintético -> build\tone.wav
+```
+
+Salida medida (clang 22.1.8, `-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin
+avisos):
+
+```text
+compile test_sag.exe (clang)
+compile test_adpcm.exe (clang)
+compile test_audio.exe (clang)
+compile test_device.exe (clang)
+ok
+fuzz: 20000 random buffers, 0 accepted
+69305 checks, 0 failures
+60052 checks, 0 failures
+215 checks, 0 failures
+```
+
+```text
+source:  synthetic SLAG (440 Hz, 0.5 s, 22050 Hz, built in memory)
+bytes:   5558
+format:  PCM mono 22050 Hz, 16-bit (declared by "fmt ")
+payload: 5512 bytes of 4-bit ADPCM (11024 samples)
+pumps:   4 calls of 0x005380B3
+chunks:  2 read, 1 short
+decoded: 11024 samples
+halves:  3 submitted, 24576 samples (1.115 s)
+stops:   1
+pcm:     peak=12241 fnv1a=0x80D4F719 over 24576 delivered samples
+wav:     build/tone.wav (written, 24576 samples)
+```
+
+`test_adpcm` comprueba el decodificador `0x00538285`:
+
+- vector dorado calculado a mano: bytes `07 F0` → muestras `{0, 11, −19, −15}`,
+  estado final `history = −15`, `step_index = 15`;
+- orden de nibbles (alto primero) y conmutación por byte;
+- continuidad del estado al partir el flujo en dos llamadas;
+- saturación a `32767` / `−32768` y límites del índice (0 y 88);
+- fuente corta y fuente vacía, argumentos `NULL`, máscara de nibble;
+- tablas alternativas (el algoritmo no depende de las recuperadas);
+- 20 000 flujos aleatorios con invariantes (índice e historia en rango,
+  muestras = bytes × 2).
+
+`test_audio` comprueba el buffer y la bomba `0x005380B3`:
+
+- creación, lock, doble lock rechazado, unlock, conmutación de mitades,
+  play/stop y liberación;
+- fallo del *backend* en `submit` → `GEX_AUDIO_ERR_BACKEND`;
+- rechazo de formatos (sin `fmt `, estéreo, 8 bits, rate 0, payload vacío);
+- payload corto: cola a cero, mitad de silencio y `Stop()` (y `Stop()` de
+  nuevo en cada llamada posterior);
+- payload múltiplo exacto de `0x1000`: la fuente se cierra con `want == 0` y
+  **no** se escribe fuera de la mitad (el original corrompe memoria aquí);
+- equivalencia muestra a muestra con una decodificación de una sola pasada;
+- payload truncado (`data_size` > fichero) → se reproduce lo disponible;
+- *gate* del cursor: el prefill no espera, la segunda mitad se rellena con el
+  cursor en 0 y la primera espera a `0x4000` (`deferred` = 1);
+- ninguna muestra obsoleta después de la señal (regresión de un fallo real del
+  port: el `Unlock` de la rama de parada entregaba la mitad anterior);
+- planificador (I-2b): no bombea antes de `play`, respeta el *gate* leyendo el
+  cursor del *sink*, cuenta `fills`/`deferred`, cierra en `Stop`, drena sin
+  cursor, pausa/reanudación idempotentes, propaga el error del backend y valida
+  argumentos.
+
+Verificación independiente del WAV (script aparte, no parte del build): periodo
+mediano de 50 muestras a 22 050 Hz → **441 Hz** para un tono pedido de 440 Hz
+(22 050/440 = 50,11 muestras por periodo), pico 12 241 y **0** muestras no
+nulas después de la señal.
+
+**Límites:** no hay `.sag` reales; el tono lo genera un codificador ADPCM escrito
+para la demo (el motor original sólo decodifica). La equivalencia con
+`0x00538285`/`0x005380B3` es estática. Detalle en `docs/AUDIO_MIXER_RE.md`.
+
+## Audio audible: backend DirectSound y planificador (2026-11-01, hardware real)
+
+Primera prueba del port que habla con **hardware de sonido**. Sigue sin
+necesitar el ejecutable original ni assets del juego, y no necesita tarjeta:
+sin dispositivo, `test_device` imprime `skipped` y devuelve 0.
+
+```powershell
+cd port
+.\build.ps1 test                 # incluye test_device
+.\build\sagplay.exe --device     # reproduce el tono sintético
+```
+
+Salida medida (Windows 11, DirectSound emulado, clang 22.1.8,
+`-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin avisos):
+
+```text
+device: cursor after pause = 0 bytes
+device: cursor moved 8446 bytes in 219 ms (expected ~9657)
+device checks: 50, 0 failures
+```
+
+```text
+source:  synthetic SLAG (440 Hz, 0.5 s, 22050 Hz, built in memory)
+payload: 5512 bytes of 4-bit ADPCM (11024 samples)
+pumps:   60 calls of 0x005380B3 (56 deferred by the gate)
+decoded: 11024 samples
+halves:  3 submitted, 24576 samples (1.115 s)
+stops:   1
+device:  DirectSound default, DSSCL_NORMAL, 22050 Hz mono 16-bit
+submits: 3 halves, 0 restores, 0 lock failures
+cursor:  16384 bytes before the stop, 390 ms wall
+note:    the PCM was handed to the device; confirm by ear
+```
+
+`test_device` comprueba:
+
+- apertura/cierre (incluido doble cierre) y rechazo de formatos no mono/16
+  bits/rate 0 antes de crear el dispositivo;
+- prefill → `submits == 1`, `playing == 1` (`Play(looping)` en el primer envío);
+- **contenido**: la mitad escrita se lee con `IDirectSoundBuffer::Lock` y se
+  compara muestra a muestra con `gex_adpcm_decode` del mismo chunk;
+- **cursor**: avanza a ≈44 100 B/s con tolerancia de un tercio (evidencia de
+  que el dispositivo consume el PCM del port);
+- *gate*: con el dispositivo pausado el cursor está congelado y la bomba difiere
+  la mitad que lo sobrescribiría;
+- pausa/reanudación (el cursor sigue desde donde se congeló) y `Stop` (el cursor
+  queda congelado);
+- volumen `100 → 0 dB`, `0 → -3000 dB` (`0x0053886c`);
+- reinicio: un segundo flujo sobre el mismo dispositivo vuelve a hacer prefill y
+  `Play`.
+
+**Resultado negativo / límite honesto:** lo verificado es que el dispositivo
+acepta los buffers y que su cursor avanza a la frecuencia del flujo. **No** se ha
+verificado que una persona oiga el tono: el agente no tiene acceso a la salida de
+audio. La confirmación auditiva es del mantenedor con `sagplay --device`.
+
+**Límites:** backend sólo Windows (`_WIN32`; el `Makefile` POSIX no lo compila);
+un solo flujo (sin mezcla multi-voz); sin `.sag` reales; las tablas ADPCM siguen
+siendo HIPÓTESIS para la imagen de referencia. Detalle en
+`docs/AUDIO_MIXER_RE.md` §16.
+
+## Frame loop nativo (I-3, 2026-11-01, sin el juego)
+
+Primera prueba del **bucle** del port: reloj inyectado, acumulador de paso
+fijo, orden de fases y planificador de audio. No hay ventana, entrada ni
+renderer; `pre_frame`, `update` y `present` son stubs que graban llamadas.
+
+```powershell
+cd port
+.\build.ps1 test                  # incluye test_frame
+.\build\framedemo.exe --frames 4
+.\build\framedemo.exe --decoupled --frames 3 --dt 60000 --audio
+```
+
+```powershell
+cd tools\m13-core
+clang -std=c11 -Wall -Wextra -Wpedantic -O2 -I..\..\port\include `
+    -o ..\..\port\build\test_m13_core.exe test_m13_core.c `
+    ..\..\port\src\core\loop_core.c
+..\..\port\build\test_m13_core.exe
+```
+
+Salida medida (Windows 11, clang 22.1.8, `-std=c11 -O2 -Wall -Wextra
+-Wpedantic`, sin avisos):
+
+```text
+410 checks, 0 failures
+120 checks, 0 failures
+```
+
+`framedemo --frames 4` (Original 1:1, 40 ms por pasada):
+
+```text
+frame  0: now=   40000 us  steps=1  present
+frame  3: now=  160000 us  steps=1  present
+totals:  frames=4 steps=4 presents=4 audio_ticks=0 discards=0 aborted=0 backwards=0
+```
+
+`framedemo --decoupled --frames 3 --dt 60000 --audio` (catch-up + scheduler):
+
+```text
+frame  0: now=   60000 us  steps=3  present
+frame  1: now=  120000 us  steps=4  present
+frame  2: now=  180000 us  steps=3  present
+totals:  frames=3 steps=10 presents=3 audio_ticks=3 discards=0 aborted=0 backwards=0
+audio:   3 halves submitted, 0 stops, finished=0
+```
+
+`test_frame` comprueba: orden exacto `pre → update → audio → present`; un
+update y un present en Original 1:1; varias actualizaciones con un solo present
+y **un solo tick** de audio en catch-up; que el tick ya ocurrió cuando corre
+`present`; que un error de pre-frame/update/audio no llega a fases posteriores;
+clamp de 250 ms; tope de 5 pasos y contador de descartes; reloj invertido;
+pausa/reanudación sin ráfaga de recuperación; cierre idempotente y
+reinicialización; e independencia de la tasa lógica respecto a la cadencia de
+presentación (400 ms a 25 Hz y a 200 Hz ⇒ 23 pasos en ambos).
+
+**Regresión T6b (2026-11-02):** el fallo de `pre_frame` deja
+`core.acc_us == 0` y `core.t_prev_us == now_us`. La secuencia es determinista:
+15 ms acumulados → fallo en 20 000 µs → 0 updates a 32 000 µs (12 ms desde el
+nuevo ancla; sin reanclaje serían 17 ms y habría 1) → 1 update a 48 667 µs.
+Se comprobó por mutación que quitar `acc_us = 0` o `t_prev_us = now_us` produce
+11 fallos cada una; el código se restauró y `git diff` quedó vacío.
+
+**Límite honesto:** esto prueba el bucle, no el juego. No hay lógica del juego,
+renderer ni reloj real; las tres fases son callbacks. En I-3 no se usó un GCC de
+GNU: el `gcc.exe` del `PATH` es un driver de Clang 22.1.8, así que la
+compilación "con GCC" usaba el mismo frontend. **Actualización 2026-11-02:** el
+GCC de GNU 16.1.0 de MSYS2 (fuera del `PATH`) validó la batería de I-4; ver la
+sección siguiente. Detalle y discrepancias F1–F6 en `docs/FRAME_LOOP_PORT.md`.
+
+## Ventana, entrada y reloj nativos (I-4, 2026-11-02, ventana real)
+
+Primer proceso nativo del port: ventana Win32, mensajes de teclado, reloj
+`QueryPerformanceCounter` y frame loop de I-3 con **renderer nulo**. No hay
+juego, renderizado ni audio adjunto; `pre_frame`/`update` son stubs.
+
+```powershell
+cd port
+.\build.ps1 all
+.\build.ps1 loop
+.\build\gexloop.exe --frames 360
+```
+
+Salida medida (Windows 11, clang 22.1.8, `-std=c11 -O2 -Wall -Wextra
+-Wpedantic`, sin avisos):
+
+```text
+826 checks, 0 failures     test_input
+117 checks, 0 failures     test_i4_app
+1009 checks, 0 failures    test_win32_time
+131984 checks, 0 failures  total de build.ps1 all
+```
+
+`gexloop --frames 360` (sin mensajes, ventana real):
+
+```text
+clock: QueryPerformanceCounter, 10000000 Hz
+frame: decoupled, step=16667 us (60 Hz), max_dt=250000 us, max_steps=5
+present: target 8333 us (120 Hz), logical and present cadences independent
+timer: 1 ms resolution (timeBeginPeriod(1))
+stats: t=2.01s presents=214 fps=106.6 steps=120 steps/s=59.7 ...
+frame limit reached (360 presents)
+final: t=3.65s presents=360 fps=98.6 steps=219 steps/s=60.0 ...
+exit: clean, frame errors=0, clock warnings=0
+```
+
+Prueba de ventana con mensajes (`FindWindowEx` + `PostMessage`; **no** teclado
+físico):
+
+| Caso | Ventana | Código | Duración | Presents/s | Pasos/s | CPU |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| W↓/W↑, A↓, `WM_KILLFOCUS`, Escape | sí | 0 | 2,20 s | 107,7 | 60,0 | 1,38 % |
+| `WM_CLOSE` | sí | 0 | 1,56 s | 104,9 | 59,5 | 1,93 % |
+| 360 presents sin mensajes | sí | 0 | 3,65 s | 98,6 | 60,0 | 0,85 % |
+
+En las tres: `exit: clean`, `frame errors=0`, `clock warnings=0`,
+`discards=0`, `aborted=0`, `backwards=0`. La entrada se registró como
+`key down W`, `key up W`, `key down A`, `focus lost`, `key up A`,
+`key down Escape`.
+
+**Hallazgo:** sin `timeBeginPeriod(1)`, la granularidad de ~15,6 ms de Windows
+limitaba la presentación a ~65/s (el paso lógico seguía en ~60/s). Con 1 ms se
+alcanzan 104,9–107,7 presents/s; el resto hasta 120 es el redondeo a
+milisegundos de `MsgWaitForMultipleObjectsEx`. Se restaura con
+`timeEndPeriod(1)` al salir.
+
+**Validación independiente con GCC de GNU 16.1.0 (MSYS2, fuera del `PATH`):**
+
+```powershell
+$env:PATH = 'C:\msys64\mingw64\bin;' + $env:PATH
+cd port
+.\build.ps1 test -Compiler 'C:\msys64\mingw64\bin\gcc.exe'
+.\build.ps1 loop -Compiler 'C:\msys64\mingw64\bin\gcc.exe'
+```
+
+Misma batería: **131 984 checks, 0 fallos**, sin avisos con
+`-std=c11 -O2 -Wall -Wextra -Wpedantic`. `gexloop --frames 20` compilado con
+GCC: 108,4 presents/s, 59,6 pasos/s, `exit: clean, frame errors=0`. El
+`gcc.exe` del `PATH` es un driver de Clang 22.1.8 y no se usó como validación
+independiente. `build.ps1` coloca ahora las librerías después de las fuentes
+(antes GNU ld no las resolvía; Clang/LLD sí).
+
+**Límite honesto:** la ventana se comprobó programáticamente; no se inyectó
+teclado físico ni se verificó visualmente (está vacía por diseño). La ruta de
+entrada del original (S5) es HYPOTHESIS y su fuente exacta de teclado no está
+confirmada. `0x0043E719` no es entrada: la traza lo sitúa en el update como
+máquina de estados de acción. Detalle en `docs/WINDOW_INPUT_PORT.md`.
+
+## Dispositivo Direct3D 11 (R-1, 2026-11-02, sin swapchain ni dibujo)
+
+Primera pieza del renderer real: crear, usar y destruir el dispositivo
+`D3D11CreateDevice` en modo **hardware** y en modo **WARP**, con el feature
+level obtenido registrado y cierre COM completo. No hay ventana, swapchain,
+geometría ni presentación (R-2+).
+
+```powershell
+cd port
+.\build.ps1 test      # incluye test_d3d11_device
+.\build.ps1 probe     # d3d11probe.exe
+```
+
+Salida medida (Windows 11, clang 22.1.8 y gcc 16.1.0, `-std=c11 -O2 -Wall
+-Wextra -Wpedantic`, sin avisos):
+
+```text
+warp: creating D3D_DRIVER_TYPE_WARP device...
+warp: ok, feature level 11_1, flags 0x0
+bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
+debug layer: not available (hr=0x887A002D); failure was clean
+hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
+hardware: ok, feature level 11_1, flags 0x0
+314 checks, 0 failures, 0 skipped
+```
+
+Qué cubren los 314 checks: nombres de estados y niveles; argumentos y estado
+(`NULL`, driver inválido, doble `init` sin tocar el vivo, `shutdown` no-ops);
+**WARP real** (creación + `CheckFormatSupport` + contexto inmediato + cierre +
+re-init + ciclo de 3 tandas); **hardware real** (idéntico); dos dispositivos
+vivos a la vez; feature level ∈ lista pedida; eco de flags de creación; COM
+(contexto con 1 referencia; device verificado por comportamiento: referencia
+manual retenida, `shutdown`, el objeto vive solo en la manual y el `Release`
+final devuelve 0); fallos limpios con bits reservados (`E_INVALIDARG`) y con
+la capa debug ausente (`DXGI_ERROR_SDK_COMPONENT_MISSING`).
+
+**Hallazgos:** el runtime mantiene referencias internas al device (el contexto
+inmediato lo mantiene vivo), así que «device refcount == 1» no es un
+invariante; se verifica la destrucción completa por comportamiento. Las macros
+COM C de los headers WIDL requieren `COBJMACROS`. `d3d11.h` es idéntico por
+MD5 en llvm-mingw y MSYS2; enlace con `-ld3d11`, sin descargas. La capa debug
+(`D3D11SDKLayers.dll`) no está instalada en el PC mantenedor: la prueba tiene
+ramas para ambos casos y no se descarga nada para activarla.
+
+**Límite honesto:** sin swapchain ni presentación (por alcance); identidad del
+adaptador hardware no consultada (sin DXGI factory en R-1); el `Makefile` POSIX
+no se ejecuta aquí (sin `make`). Detalle en `docs/D3D11_DEVICE.md`.
+
+## Swapchain DXGI sobre la ventana Win32 (R-2, 2026-11-03, sin presentar)
+
+Segunda pieza del renderer real: crear la swapchain DXGI con el dispositivo de
+R-1 sobre el `HWND` real de I-4, obtener el backbuffer, redimensionar con
+`ResizeBuffers` y cerrar en orden backbuffer → swapchain → dispositivo. No hay
+`Present`, ni clear, ni render target, ni geometría (R-3+).
+
+```powershell
+cd port
+.\build.ps1 test      # incluye test_d3d11_swapchain
+.\build.ps1 probe     # d3d11probe.exe + swapprobe.exe
+```
+
+Salida medida (Windows 11, Clang 22.1.8 y GCC 16.1.0, `-std=c11 -O2 -Wall
+-Wextra -Wpedantic`, sin avisos; idéntica en ambos):
+
+```text
+warp: device ok, feature level 11_1
+device refs before swapchain: 2
+device refs with swapchain: 3
+warp: swapchain ok 320x240, 2 buffers, format 28
+refs before shutdown: swapchain 3, backbuffer 2
+device refs after full release: 2
+...
+buffer_count=1000: status=create failed hr=0x887A0001
+resize after window destroyed: status=ok hr=0x00000000
+...
+hardware: swapchain ok 320x240
+572 checks, 0 failures, 0 skipped
+```
+
+Qué cubren los 572 checks: nombres de estado; argumentos y estado (`NULL`,
+dispositivo R-1 cerrado, `HWND` nulo/falso, tamaño 0, doble `init` sin tocar el
+vivo, `shutdown` no-ops); **WARP real** (swapchain 2 buffers
+`R8G8B8A8_UNORM`, bitblt, ventana, `OutputWindow`, backbuffer 1 mip/1 array/
+`DEFAULT` y su referencia); **resize** válido, mismo tamaño, repetido, con
+ventana real redimensionada (`SetWindowPos` → área de cliente → `ResizeBuffers`),
+y 0×0
+rechazado sin tocar DXGI; **COM** (swapchain 2 referencias —una la retiene el
+backbuffer—, backbuffer 1, dispositivo 2→3→2; liberación completa a 0 en orden
+backbuffer → swapchain); ciclo de vida con dos re-inits; dos swapchains sobre
+dos ventanas con un dispositivo; error de creación (`BufferCount = 1000` →
+`DXGI_ERROR_INVALID_CALL`) con struct cerrado; `HWND` destruido antes
+(`BAD_ARGUMENT`) y después de crear (resize devuelve `S_OK`, cierre limpio);
+**hardware real** con las mismas comprobaciones.
+
+**Hallazgos:** el backbuffer referencia a la swapchain (por eso se libera
+primero); la swapchain retiene al dispositivo (+1 medido), lo que justifica el
+orden de destrucción; `ResizeBuffers` no valida el `HWND` (el fallo real
+aparecerá en `Present`, R-3); `-luuid` aporta los IID de DXGI y no hace falta
+`-ldxgi` (no se llama a `CreateDXGIFactory`).
+
+**Límite honesto:** sin `Present` ni verificación visual (por alcance); D-1
+(bitblt vs flip) queda parcialmente abierta hasta R-4; escalado del backbuffer
+en ventana mayor sin medir; la capa debug D3D11 sigue sin instalar; el
+`Makefile` POSIX no se ejecuta aquí (sin `make`). Detalle en
+`docs/D3D11_SWAPCHAIN.md`.
+
+## Batería completa (regresión)
+
+```powershell
+node --test tools/gexmap/test.mjs   # 22/22
+node tools/gexmap/cli.mjs check     # artefactos OK
+node tools/gexmap/cli.mjs segments  # 0 problemas
+cd port; .\build.ps1 all            # 133 160 checks, 0 fallos (Clang, GCC no compila test_sag.exe)
+cd tools\m13-core; ..\..\port\build\test_m13_core.exe   # 120 checks, 0 fallos
+cd port; .\build\gexloop.exe --frames 360               # ventana real; sale limpio
+cd port; .\build\d3d11probe.exe                         # HW+WARP ok, FL 11_1
+cd port; .\build\swapprobe.exe --hardware               # swapchain 512x384, resize, cierre
+```
+
+
+## R-3 — Renderer Direct3D 11 (2026-11-03)
+
+- `test_d3d11_renderer.exe`: 28 checks específicos del renderer.
+- `test_app.exe`: 117 checks de aplicación; no son checks exclusivos del renderer.
+- Total asociado a R-3: 145 checks combinados, 0 fallos en la ejecución Clang documentada.
+- Batería global Clang: 133.015 checks, 0 fallos en 12 suites.
+- Resize: el test registra un fallo de `gex_d3d11_swapchain_resize` como INFO y continúa con el tamaño original; no garantiza resize exitoso en todos los entornos.
+- GCC: validación completa pendiente porque `test_sag.exe` no compila en el entorno documentado.
+- Alcance visual: color de limpieza; sin geometría, shaders, texturas, cámara ni lógica del juego.
+- Detalle: [docs/D3D11_RENDERER.md](docs/D3D11_RENDERER.md).

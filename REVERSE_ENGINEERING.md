@@ -4,6 +4,28 @@
 > binarios EU inventariados + análisis estático básico registrado en
 > [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md).
 > RE profundo (Etapas B+) **no iniciado** (bloqueado hasta cambio de fase).
+>
+> **Nota (2026-10-31):** se ha abierto una vía de implementación nativa en
+> `port/` que consume esta evidencia sin esperar al cierre de la Fase 3. No
+> cambia la metodología: el RE sigue siendo la fuente de cada pieza
+> implementada, y nada se implementa sin semántica demostrada por instrucción.
+> Primer componente: lector `SLAG` ([docs/SAG_CONTAINER.md](docs/SAG_CONTAINER.md)).
+
+## 0. Regla de paso a implementación (2026-10-31)
+
+Una función del binario puede implementarse cuando se cumplen **las cuatro**
+condiciones:
+
+1. su flujo se ha leído **entero**, incluyendo todos los bucles internos;
+2. se conoce qué escribe en memoria y qué devuelve, con las instrucciones que
+   lo demuestran;
+3. sus dependencias son nulas o aislables (sin DirectSound/Glide/Win32, o con
+   una interfaz que se pueda sustituir en la prueba);
+4. existe una prueba que no necesita el juego completo.
+
+Si falta una, la pieza queda **bloqueada** y se documenta qué evidencia
+concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
+`0x00538285` sin leer) y el frame step (necesita render/update y reloj real).
 
 ## 1. Principios
 
@@ -43,6 +65,17 @@
 
 ### Etapa B — Proyecto Ghidra + naming inicial
 
+> **Alternativa estática operativa (2026-10-25):** `tools/gexmap` desensambla el
+> ejecutable EU con `llvm-objdump`, repara las 24 regiones donde el barrido
+> lineal se desincroniza y publica inicios confirmados, candidatos por prólogo,
+> grafo de llamadas e imports por función: `docs/FUNCTION_MAP.md`. No sustituye
+> a Ghidra (no hay decompilación, tipos ni nombres originales), pero cubre el
+> prerrequisito del *splitter* y valida mecánicamente las anclas documentales
+> (24 anclas: 13 en inicio exacto, 11 dentro, 0 fuera). Sobre ese mapa,
+> `segments` publica una primera agrupación por subsistemas **HYPOTHESIS**
+> (`docs/SUBSYSTEM_SEGMENTS.md`): 65 inicios, siete grupos, evidencia y
+> confianza por miembro; no sustituye al naming ni a la decompilación.
+
 - [ ] Crear proyecto (fuera del repo; artefactos grandes a Drive).
 - [ ] Auto-análisis, identificar `WinMain`, game-loop, init/shutdown.
 - [ ] Nombrar imports clave y callbacks (ventana, timer, audio).
@@ -53,6 +86,28 @@
 > Comparativa consolidada F-03 vs original EU: `docs/F03_VS_ORIGINAL.md`.
 > Comparativa consolidada F-02 (2013 NTSC-D3D) vs original EU: `docs/F02_VS_ORIGINAL.md`.
 > **Análisis motor timing/game loop (Ghidra/REA): `docs/TIMING_GAME_LOOP_ANALYSIS.md`.**
+> **Mapa estático de funciones (2026-10-25):** `0x43E1BA` tiene 24 callees
+> directos y 40 imports transitivos medidos; tabla en
+> `docs/FUNCTION_MAP.md` §8. Los roles de esos callees siguen sin asignar.
+> **Primera segmentación (2026-10-30):** `docs/SUBSYSTEM_SEGMENTS.md` agrupa 65
+> inicios en siete subsistemas HYPOTHESIS y mide qué se puede y qué no se puede
+> afirmar de cada uno (35 ALTA / 22 MEDIA / 8 BAJA; 18 de los 24 callees del
+> update no alcanzan ninguna API ni a profundidad 12). No asigna roles.
+> **Traza dinámica del frame step (2026-10-30):** `docs/FRAME_STEP_TRACE.md`
+> ejecuta el binario EU con breakpoints de hardware (sin parchear código) y mide
+> el ciclo `0x0043EA36` en 2 326 frames: entrada → update → drenaje de cola →
+> `swap(3)` → hoja, periodo p50 = 40 ms (25 FPS), y los 25 sitios del update
+> (23 de 24 callees exactamente 1 vez/frame; `0x0047344B` no se ejecuta).
+> 19 destinos tienen semántica **mecánica** CONFIRMED/HYPOTHESIS; los roles de
+> juego siguen sin asignar. Datos: `tools/gexmap/frame.mjs`; herramientas:
+> `tools/frame-trace/`.
+> **Rutas de inicialización de DirectSound (2026-10-31, estático):**
+> `docs/AUDIO_INIT_PATHS.md` documenta tres cadenas alcanzables desde la entrada
+> (arranque, reproducción por nombre y voz) y una cuarta sin llamantes
+> (`0x00538FD5` → `0x00538CB0`). `0x00538551` es el único creador vivo del
+> dispositivo (2 llamantes). No hay traza: la imagen de referencia ya no está en
+> la máquina de análisis y la build presente es un mod distinto. Datos:
+> `tools/gexmap/audio.mjs`.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/
@@ -227,6 +282,11 @@ entorno; Ghidra + Java 21 pendientes de instalar (el host Windows tiene Java 8
 y ningún proveedor nativo); REA (CLI/MCP) adopta un proveedor **aportado**
 (Hopper o Ghidra) y **no** se ha demostrado aún sobre binarios de GEX — ver
 `docs/REA_WINDOWS_ENABLEMENT.md`; testing dinámico requiere Windows.
+
+Herramienta propia operativa: [`tools/gexmap`](tools/gexmap/README.md) — mapa
+estático de funciones, grafo de llamadas e imports sobre el exe EU, con
+validación sin binario (`check`) y tests offline. Resultados y límites en
+[docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md).
 
 ## 5. Registro
 

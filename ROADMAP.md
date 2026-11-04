@@ -53,7 +53,23 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):
 - [x] Estático adelantado en Fase 1 (inventario §4.1 + E-1 + E-3/M-13 timing).
-- Proyecto Ghidra + naming (`WinMain`, game-loop).
+- Proyecto Ghidra + naming (`WinMain`, game-loop). Mapa estático
+  2026-10-25: `tools/gexmap` identifica inicios confirmados, grafo de
+  llamadas e imports, y `WinMain` por la arista desde la entrada PE;
+  Ghidra, decompilación y nombres originales siguen pendientes
+  (`docs/FUNCTION_MAP.md`). Primera segmentación por subsistemas
+  2026-10-30: 65 inicios, 7 grupos HYPOTHESIS, evidencia y confianza
+  validadas (`docs/SUBSYSTEM_SEGMENTS.md`); no asigna roles. Traza
+  dinámica del frame step 2026-10-30 (breakpoints de hardware, 2 326
+  frames): orden del frame y 25 sitios del update medidos, 19 destinos
+  con semántica mecánica (`docs/FRAME_STEP_TRACE.md`). Rutas de inicialización de DirectSound
+  2026-10-31 (estático, sin traza): `0x00538551` es el único creador vivo
+  (2 llamantes conectados a la entrada) y `0x00538FD5` -> `0x00538CB0`
+  sigue sin llamantes (`docs/AUDIO_INIT_PATHS.md`). Ruta de audio
+  reconstruida el mismo día: `0x00538285` es un decodificador IMA ADPCM
+  de 4 bits, `0x005380B3` una bomba de streaming y `0x00538731` el
+  reproductor (`docs/AUDIO_MIXER_RE.md`); ya no queda ningún bucle de
+  audio sin leer.
 - C mínima: timing FA-04/05, ruta/registro FA-11 (I-23 causa
   identificada estática 2026-10-10; dinámica pendiente), init FA-03.
 - D mínima: diffs F-02/F-03 vs original (pistas timing).
@@ -96,6 +112,136 @@ dependencia real, no por número.
 
 ### Ola 3 — Integración y resto
 M-18/M-19/M-20, M-22…M-26. X-01/X-02 siguen DEFERRED.
+
+## Vía de implementación nativa (abierta 2026-10-31)
+
+Ruta paralela a Hitos R/K/P, decidida por el mantenedor: implementar ya las
+piezas cuyo comportamiento está demostrado por instrucción, sin esperar a la
+Fase 3. El port vive en `port/` y cada pieza trae su prueba ejecutable sin el
+juego. **No** altera el panel: Hito P y MAIN siguen midiendo la ruta de
+mods/parches.
+
+- [x] **I-1 — Lector del contenedor de audio `SLAG`.** Parser `0x0053899C` +
+  carga `0x005388AC` transcritos a C11 (`port/src/asset/sag.c`), 29 casos y
+  fuzz, 69 305 checks. Doc: `docs/SAG_CONTAINER.md`.
+- [x] **I-2 — Ruta de audio (`SLAG` → PCM).** El «mezclador» `0x005380B3`
+  resultó ser una **bomba de streaming** y `0x00538285` un **decodificador IMA
+  ADPCM de 4 bits**; no hay mezcla de voces en esta ruta. Implementados
+  `port/src/audio/adpcm.c` (`0x00538285` + tablas `0x00558138`/`0x00558178`) y
+  `port/src/audio/stream.c` (buffer `0x8000`/`0x4000`, bomba `0x005380B3`,
+  reproductor `0x00538731`) con *backend* inyectable; 60 052 + 144 checks y demo
+  `port/tools/sagplay.c` (tono sintético → `build/tone.wav`). Doc:
+  `docs/AUDIO_MIXER_RE.md`. Backend de dispositivo y bucle de bombeo → I-2b.
+- [x] **I-2b — Audio audible en el port.** *Backend* de dispositivo con
+  DirectSound (la API del original: `dsound.h`/`-ldsound`, sin dependencias
+  nuevas; SDL2/SDL3 no está instalado y habría supuesto vendorizar código),
+  `port/src/audio/backend_dsound.c` + `port/include/gex/audio/backend_dsound.h`,
+  y programación del bombeo con `port/src/audio/sched.c` +
+  `port/include/gex/audio/sched.h` (el contrato de los llamantes de
+  `0x005380B3`: una llamada por frame tras el update). Volumen de `0x0053886c`
+  incluido. Pruebas: `test_audio` 215 checks y `test_device` 50 checks (esta
+  última se auto-omite sin tarjeta), con el cursor avanzando a 44 100 B/s y el
+  contenido de la mitad leído por `Lock` idéntico al decodificado. Doc:
+  `docs/AUDIO_MIXER_RE.md` §16. **Límite:** la audición humana no la verifica
+  el agente; `sagplay --device` queda para el mantenedor. El *gate* del cursor
+  se respeta (56 diferimientos medidos en una ejecución real).
+- [x] **I-3 — Núcleo de tiempo / frame step.** El acumulador de paso fijo se
+  movió de `tools/m13-core` al port (`port/src/core/loop_core.c`, una sola
+  implementación; el harness del prototipo compila esa fuente y conserva sus
+  120 checks) y `port/src/core/frame.c` implementa `gex_frame_run()` con el
+  orden medido `pre_frame → update × N → gex_audio_sched_tick → present`, reloj
+  inyectado, catch-up acotado (5 pasos, clamp 250 ms), descartes
+  contabilizados, reloj invertido recuperado, pausas/reanudación y política de
+  errores explícita (incluida corrección: los errores de pre_frame limpian
+  acumulador y reanclan reloj, fijada por la regresión T6b). Preset Original
+  1:1 (40000 µs, un update por present) y preset desacoplado (16667 µs = 60 Hz,
+  la cuantía del sello `16.666` del update). Pruebas: `test_frame` 410 checks
+  + `framedemo`; sin ventana, entrada ni render (los tres callbacks son stubs).
+  Doc: `docs/FRAME_LOOP_PORT.md`.
+- [x] **I-4 — Ventana + entrada + renderer nulo.** Primer proceso nativo:
+  `gexloop.exe` abre una ventana Win32 real (clase `GexNativeLoopWindow`,
+  960×540), drena mensajes (`WM_KEYDOWN`/`WM_KEYUP`/`WM_KILLFOCUS`/`WM_CLOSE`),
+  mantiene estado de teclado con flancos y libera todo al perder foco, sale con
+  Escape o al cerrar, y conduce `gex_frame_run()` con
+  `QueryPerformanceCounter`. Paso lógico 60 Hz (16 667 µs) y presentación
+  objetivo 120 Hz (8 333 µs) con `MsgWaitForMultipleObjectsEx` y
+  `timeBeginPeriod(1)` restaurado al salir; medido ~105–108 presents/s,
+  59,5–60,0 pasos/s, 0,85–1,93 % de CPU y 0 errores. `present` es un renderer
+  nulo que no dibuja; `pre_frame`/`update` son stubs. La evidencia retira
+  `0x0043E719` como candidato de entrada (es una máquina de estados de acción
+  dentro del update); la ruta de entrada del original es S5 (HYPOTHESIS) y el
+  port usa mensajes Win32 como decisión explícita. Pruebas: 826 + 117 + 1 009
+  checks nuevos y prueba real de ventana (Escape y `WM_CLOSE`). Doc:
+  `docs/WINDOW_INPUT_PORT.md`.
+- [x] **I-5 — Investigación y diseño del renderer nativo (sin implementar).**
+  Hito de investigación: consolida la evidencia del render original (Glide
+  exclusivo, 38 imports censados; `grSstWinOpen` 512×384@75 Hz con 2 buffers
+  de color; render condicional `0x0043DC3A` + drenaje doble + `grBufferSwap(3)`
+  que bloquea ~23 ms; triángulos en pantalla con `w`, texturas `.3df`/NCC) y
+  evalúa D3D 11 vs OpenGL vs capa Glide vs rasterizador software contra siete
+  criterios del proyecto. **Recomendación: Direct3D 11** (cabeceras y librerías
+  verificadas en ambos toolchains hoy, WARP para pruebas sin GPU, cero
+  descargas), condicionada a R-1 (crear dispositivo) como primer paso del hito
+  de implementación; OpenGL y el rasterizador C11 quedan como alternativas con
+  el mismo contrato. Se define el contrato `gex_renderer` (vtable interna,
+  `gex_null_renderer` sigue vivo para las pruebas) y el plan R-1…R-8. **No se
+  implementó nada**: sin `d3d11` compilado, sin geometría, sin cambios en
+  `frame.c`/`loop_core.c`/audio, sin dependencias ni build. Doc:
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md`.
+- [x] **R-1 — Dispositivo Direct3D 11 (hardware y WARP).** Primera pieza del
+  renderer real, sin swapchain ni dibujo: `gex_d3d11_device`
+  (`port/src/render/d3d11_device.c`, Windows-only) crea el dispositivo con
+  `D3D11CreateDevice` en modo `HARDWARE` o `WARP`, registra el feature level
+  obtenido (lista explícita 11_1→9_1), entrega el contexto inmediato y libera
+  todo COM en `shutdown` idempotente; fallo = struct a cero. **Medido en esta
+  máquina: hardware y WARP creados a FL 11_1**; bits reservados →
+  `E_INVALIDARG` (0x80070057) con cierre limpio; capa debug ausente →
+  `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D), hallazgo documentado.
+  Verificación de fugas conductual (referencia manual + `Release` final a 0)
+  porque el runtime mantiene referencias internas al device. Prueba:
+  `test_d3d11_device` **314 checks, 0 fallos** con **Clang 22.1.8 y GCC 16.1.0**;
+  sonda `d3d11probe.exe`; batería completa **132 298 checks, 0 fallos**. La
+  decisión D3D11 de I-5 queda confirmada. Doc: `docs/D3D11_DEVICE.md`.
+- [x] **R-2 — Swapchain DXGI sobre la ventana de I-4 (sin presentar).**
+  `gex_d3d11_swapchain` (`port/src/render/d3d11_swapchain.c`, Windows-only)
+  obtiene la factoría desde el dispositivo de R-1 (`IDXGIDevice →
+  IDXGIAdapter → IDXGIFactory`), crea una swapchain **bitblt
+  `DXGI_SWAP_EFFECT_DISCARD`** de 2 buffers `R8G8B8A8_UNORM` en modo ventana
+  sobre el `HWND` existente, conserva el backbuffer para R-3 y lo renueva en
+  cada `ResizeBuffers`. Rechaza tamaños 0 sin tocar DXGI (ventana minimizada),
+  admite resize repetido y cierra en orden backbuffer → swapchain → dispositivo.
+  **Medido:** dispositivo 2→3→2 referencias al crear/destruir la swapchain;
+  swapchain 2 (una la retiene su backbuffer), backbuffer 1, todas a 0;
+  `BufferCount = 1000` → `DXGI_ERROR_INVALID_CALL` con struct cerrado;
+  `ResizeBuffers` no valida el `HWND` (devuelve `S_OK` tras destruirlo). Prueba:
+  `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos**, hardware y WARP,
+  **Clang 22.1.8 y GCC 16.1.0**; sonda `swapprobe.exe`; batería completa
+  **132 870 checks en el cierre histórico de R-2**. En ese momento no había
+  `Present`, clear ni dibujo; R-3 añadió posteriormente la primera salida
+  gráfica visible. Este dato histórico no describe el estado actual.
+- [x] **R-3 — Direct3D 11 renderer con primera salida gráfica visible.**
+  Implementa el renderer real con `Present` call, clear del backbuffer y render
+  target view. Primera presentación gráfica visible con Direct3D 11. **145 checks,
+  0 fallos** con Clang 22.1.8; batería completa **133 160 checks**. Doc:
+  `docs/D3D11_RENDERER.md`.
+- [x] **R-4 — Investigación de VSync, DXGI, Debug Layer y pérdida del dispositivo.**
+  Implementa VSync configurable, Debug Layer, diagnóstico de dispositivo y medición
+  del tiempo entre frames. **145 checks** con Clang 22.1.8; batería completa
+  **133 160 checks**. Doc: `docs/R4_DIAGNOSTIC.md`. 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+
+Orden justificado: I-2 cerró el subsistema ya empezado; I-2b lo hace audible
+(backend DirectSound + planificador, 2026-11-01); I-3 conecta ese planificador
+al primer bucle temporal nativo (2026-11-01); I-4 cierra el primer proceso
+ejecutable con ventana, teclado y reloj real, sin renderizado (2026-11-02); I-5
+investiga y diseña el renderer real sin implementarlo (2026-11-02); R-1 verifica
+la decisión con el dispositivo D3D11 real, hardware y WARP, sin swapchain ni
+dibujo (2026-11-02); R-2 conecta ese dispositivo con la ventana de I-4 mediante
+una swapchain DXGI (R-2) y añadió después el renderer con primera salida visible (R-3, 2026-11-03). La
+llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
+por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
+`pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.
+El renderizado y la lógica de juego quedan para el hito siguiente (no iniciado);
+I-4 no los adelanta.
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

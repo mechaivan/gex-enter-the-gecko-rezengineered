@@ -1,0 +1,3 @@
+# frame-trace build artifacts (compiled locally; never commit binaries or logs).
+/tracer.exe
+*.log

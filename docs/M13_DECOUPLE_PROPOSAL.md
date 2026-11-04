@@ -139,6 +139,16 @@ no asumirse gratis.
 > verificado con harness propio (120 checks, 0 fallos, gcc Linux).
 > NO integrado en ningún loader/shim (puerta §10 intacta); M-13
 > sigue PROPOSED.
+>
+> **Actualización I-3 (2026-11-01):** el núcleo se movió al port
+> (`port/include/gex/core/loop_core.h`, `port/src/core/loop_core.c`) y el
+> frame loop nativo (`port/src/core/frame.c`) lo usa como único dueño del
+> reloj. `tools/m13-core` conserva las mismas 120 pruebas contra esa fuente
+> (shim `m13_core.h`). El frame loop reproduce el orden de
+> `docs/FRAME_STEP_TRACE.md` y llama al planificador de audio una vez por
+> frame; `pre_frame`/`update`/`present` siguen siendo callbacks de prueba.
+> Esto **no** es la inyección in-exe del punto B de §5: M-13 sigue
+> PROPOSED y la puerta §10 intacta. Detalle: `docs/FRAME_LOOP_PORT.md`.
 
 ## 5. Puntos de intervención candidatos (método lo decide Fase 3)
 

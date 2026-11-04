@@ -1,0 +1,90 @@
+# Port build (POSIX). On Windows use build.ps1 instead: there is no make here.
+#
+#   make test   build and run the native checks (container + audio + loop + I-4 app)
+#   make demo   build sagdump/sagplay and run their synthetic demos
+#   make audio  build sagplay and decode the synthetic tone
+#   make clean  remove build/ (only files this build produced)
+#
+# The DirectSound device backend (src/audio/backend_dsound.c, test_device.c),
+# the D3D11 device and swap chain (src/render/d3d11_device.c,
+# src/render/d3d11_swapchain.c, test_d3d11_device.c,
+# test_d3d11_swapchain.c, tools/d3d11probe.c, tools/swapprobe.c) and the Win32
+# layer (src/platform/win32_*.c, test_win32_time.c, gexloop) are Windows-only
+# and are built by build.ps1. Everything else here is portable C11, including
+# the I-4 input tables, app core and clock conversion.
+
+CC      ?= cc
+CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wpedantic -Iinclude
+LDLIBS  ?= -lm
+BUILD   := build
+
+SAG_SRC   := src/asset/sag.c
+SAG_HDR   := include/gex/asset/sag.h
+AUDIO_SRC := src/audio/adpcm.c src/audio/stream.c src/audio/sched.c
+AUDIO_HDR := include/gex/audio/adpcm.h include/gex/audio/stream.h \
+             include/gex/audio/sched.h
+CORE_SRC  := src/core/loop_core.c src/core/frame.c
+CORE_HDR  := include/gex/core/loop_core.h include/gex/core/frame.h
+INPUT_SRC := src/input/key_state.c
+INPUT_HDR := include/gex/input/key_state.h
+RENDER_SRC := src/render/null_renderer.c
+RENDER_HDR := include/gex/render/null_renderer.h
+APP_SRC   := src/app/i4_app.c
+APP_HDR   := include/gex/app/i4_app.h
+CLOCK_SRC := src/platform/clock.c
+CLOCK_HDR := include/gex/platform/clock.h
+
+.PHONY: all test demo audio clean
+
+all: test
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+$(BUILD)/test_sag: tests/test_sag.c $(SAG_SRC) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_sag.c $(SAG_SRC)
+
+$(BUILD)/test_adpcm: tests/test_adpcm.c $(AUDIO_SRC) $(AUDIO_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_adpcm.c $(AUDIO_SRC)
+
+$(BUILD)/test_audio: tests/test_audio.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_audio.c $(AUDIO_SRC) $(SAG_SRC)
+
+$(BUILD)/sagdump: tools/sagdump.c $(SAG_SRC) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tools/sagdump.c $(SAG_SRC)
+
+$(BUILD)/test_frame: tests/test_frame.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(CORE_HDR) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_frame.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC)
+
+$(BUILD)/framedemo: tools/framedemo.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(CORE_HDR) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tools/framedemo.c $(CORE_SRC) $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
+
+$(BUILD)/test_input: tests/test_input.c $(INPUT_SRC) $(INPUT_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_input.c $(INPUT_SRC)
+
+$(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(CORE_SRC) $(AUDIO_SRC) $(CLOCK_SRC) $(APP_HDR) $(INPUT_HDR) $(RENDER_HDR) $(CORE_HDR) $(AUDIO_HDR) $(CLOCK_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(CORE_SRC) $(AUDIO_SRC) $(CLOCK_SRC)
+
+$(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
+
+test: $(BUILD)/test_sag $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+	./$(BUILD)/test_sag
+	./$(BUILD)/test_adpcm
+	./$(BUILD)/test_audio
+	./$(BUILD)/test_frame
+	./$(BUILD)/test_input
+	./$(BUILD)/test_i4_app
+
+demo: $(BUILD)/sagdump $(BUILD)/sagplay $(BUILD)/framedemo
+	node tests/make_demo_sag.mjs $(BUILD)/demo.sag
+	./$(BUILD)/sagdump $(BUILD)/demo.sag
+	./$(BUILD)/framedemo --frames 4
+	./$(BUILD)/framedemo --decoupled --frames 3 --dt 60000 --audio
+	./$(BUILD)/sagplay
+
+audio: $(BUILD)/sagplay
+	./$(BUILD)/sagplay
+
+clean:
+	rm -rf $(BUILD)

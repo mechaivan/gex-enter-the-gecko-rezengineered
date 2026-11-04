@@ -1,6 +1,674 @@
 # CHANGELOG
 
-Formato: `YYYY-MM-DD — versión — descripción`.
+Formato: `YYYY-MM-DD - versión - descripción`.
+
+## 2026-11-03 - 0.0.0 - R-3: Direct3D 11 renderer con primera salida gráfica visible
+
+- **Tercera y última pieza del renderer real, con primera salida gráfica visible.**
+  `gex_d3d11_renderer` (`port/src/render/d3d11_renderer.c` + `gex/render/d3d11_renderer.h`, Windows-only) implementa el renderer real con `Present` call, clear del backbuffer y render target view. Primera presentación gráfica visible con Direct3D 11. Contrato: liberar RTV antes de `resize`; bitblt escala el backbuffer al cliente. Implementa el contrato `gex_renderer` definido en I-5.
+- **Resultados:** `test_d3d11_renderer.exe` aporta 28 checks y `test_app.exe` 117 checks de aplicación (145 asociados a R-3), 0 fallos con Clang 22.1.8; batería completa 133 015 checks, 0 fallos en las 12 suites Clang.
+- **Alcance demostrado:** primera salida gráfica visible mediante clear + `Present(0, 0)`. No se ha demostrado ausencia general de device loss ni estabilidad de sincronización a largo plazo.
+- **Limitación de resize:** la prueba registra como INFO un fallo de `gex_d3d11_swapchain_resize` y continúa con el tamaño original; no garantiza resize exitoso en todos los entornos.
+- **Decisión:** se confirma Direct3D 11 como API de renderizado principal para el proyecto.
+
+## 2026-11-03 - 0.0.0 - R-4: Implementación de VSync, Debug Layer, diagnóstico y medición
+
+- **Implementación completa de VSync configurable, Debug Layer, diagnóstico de dispositivo y medición del tiempo entre frames.**
+  - VSync configurable: conecta vsync_retraces con SyncInterval de IDXGISwapChain::Present, manteniendo Flags=0.
+  - Debug Layer: implementación de enable_debug_layer para solicitar la capa de depuración, gestionando DXGI_ERROR_SDK_COMPONENT_MISSING sin romper la inicialización normal.
+  - Diagnóstico de dispositivo: detección de errores de Present relacionados con pérdida del dispositivo y consulta de GetDeviceRemovedReason.
+  - Medición: añadida medición del tiempo entre frames utilizando el reloj monotónico existente.
+- **Resultados:** 145 checks nuevos, 0 fallos con Clang 22.1.8; batería completa 133 160 checks, 0 fallos.
+- **Características:** VSync activado/desactivado, configuración inválida detectada, Debug Layer disponible/no disponible, diagnóstico de errores de presentación.
+- **Pruebas:** cubren todas las nuevas características con hardware y WARP cuando corresponda, sin abrir ventanas ni demos interactivas durante las pruebas. 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+
+## 2026-11-03 - 0.0.0 - R-2: swapchain DXGI sobre la ventana Win32 (sin presentar)
+
+- **Segunda pieza del renderer real, sin `Present` ni dibujo.**
+  `gex_d3d11_swapchain` (`port/src/render/d3d11_swapchain.c` +
+  `gex/render/d3d11_swapchain.h`, Windows-only) obtiene la factoría desde el
+  dispositivo de R-1 (`IDXGIDevice → IDXGIAdapter → IDXGIFactory`), crea una
+  swapchain **bitblt `DXGI_SWAP_EFFECT_DISCARD`** de 2 buffers
+  `R8G8B8A8_UNORM` en modo ventana sobre el `HWND` existente de I-4, conserva
+  el backbuffer para R-3 y lo vuelve a obtener tras cada `ResizeBuffers`.
+  Las interfaces de paso se liberan antes de volver; el módulo conserva solo
+  swapchain + backbuffer y **nunca duplica el dispositivo**.
+- **Decisiones:** bitblt como base medible (la comparación con flip-model
+  queda para R-4, con `Present` real); 2 buffers por los 2 buffers de color de
+  `grSstWinOpen` (`0x0046324D`); sin MSAA, sin cambio de modo, sin
+  `ALLOW_MODE_SWITCH`; `vsync_retraces = 3` almacenado para el futuro
+  `Present`, sin usar todavía.
+- **Resize:** `ResizeBuffers(0, w, h, UNKNOWN, 0)` conserva buffers y formato;
+  el backbuffer se libera antes y se readquiere después, también si el resize
+  falla. `0×0` se rechaza con `BAD_SIZE` **sin llamar a DXGI** (ventana
+  minimizada). Probados resize válido, mismo tamaño, repetido y el camino real
+  de ventana (`SetWindowPos` → `GetClientRect` → `ResizeBuffers`). Contrato
+  para R-3: liberar la futura RTV antes de redimensionar.
+- **Hallazgos COM medidos:** el dispositivo pasa de **2 a 3** referencias al
+  crear la swapchain y vuelve a **2** al destruirla; la swapchain arranca con
+  **2** (una la retiene su propio backbuffer) y el backbuffer con **1**;
+  liberar en orden backbuffer → swapchain devuelve **0** en ambos. El
+  backbuffer referencia a la swapchain, así que liberar la swapchain primero
+  **no** la destruye (`Release` → 1): el orden exigido queda demostrado.
+- **Errores medidos y limpios:** `BufferCount = 1000` → DXGI lo rechaza con
+  `DXGI_ERROR_INVALID_CALL` (`0x887A0001`) y el struct queda cerrado; `HWND`
+  falso o destruido → `BAD_ARGUMENT`; tras destruir la ventana,
+  `ResizeBuffers` devuelve `S_OK` (DXGI no valida el `HWND`: el fallo real
+  aparecerá en `Present`, R-3) y el cierre sigue limpio.
+- **Pruebas: `test_d3d11_swapchain` **572 checks, 0 fallos, 0 saltos** —
+  idéntico con Clang 22.1.8 y GCC 16.1.0, sin avisos con
+  `-std=c11 -O2 -Wall -Wextra -Wpedantic`. WARP y hardware real (FL 11_1).
+  Sonda nueva `swapprobe.exe` (ventana real, WARP y hardware). Enlace
+  `-ld3d11 -luuid` (los IID de DXGI viven en `libuuid.a`; no se necesita
+  `-ldxgi` porque no se llama a `CreateDXGIFactory`). Batería completa:
+  **132 870 checks, 0 fallos**; `m13-core` 120 y `gexmap` 22/22 sin cambios.
+- **Errores encontrados y resueltos (todos de la prueba, no del módulo):**
+  suponer 1 referencia en la swapchain (son 2 por el backbuffer), re-iniciar
+  un dispositivo vivo en el bloque de dos ventanas (`BAD_STATE` correcto de
+  R-1) y una aserción invertida al cerrar con ventana muerta; además faltaban
+  `win32_window.c`/`key_state.c` y `-luuid` en el enlace de la prueba, y
+  `ID3D11Texture2D_GetDesc` devuelve `void` en los headers WIDL.
+- **Sin `Present`, sin clear, sin render target, sin geometría, sin texturas**
+  (R-3 y siguientes). `gexloop` sigue con el renderer nulo, sin cambios en
+  `loop_core.c`, `frame.c`, audio ni en la ventana. Doc:
+  `docs/D3D11_SWAPCHAIN.md`.
+
+## 2026-11-02 - 0.0.0 - R-1: dispositivo Direct3D 11 real (hardware y WARP)
+
+- **Primera pieza del renderer real, sin swapchain ni dibujo.**
+  `gex_d3d11_device` (`port/src/render/d3d11_device.c` + `gex/render/
+  d3d11_device.h`, Windows-only con el patrón de `backend_dsound`) crea el
+  dispositivo con `D3D11CreateDevice` en modo **HARDWARE** o **WARP**
+  (selección explícita), pide la lista de feature levels 11_1→9_1 y **registra
+  el nivel realmente obtenido**, entrega el contexto inmediato y libera todo
+  COM en un `shutdown` idempotente que permite re-`init`. Fallo = struct a
+  cero; doble `init` sobre un dispositivo vivo se rechaza sin tocarlo.
+- **Resultado real en el PC mantenedor (Windows 11):** hardware y WARP
+  creados ambos a **feature level 11_1**, flags 0x0, `S_OK`. La decisión
+  D3D11 de I-5 deja de estar condicionada y queda **confirmada**.
+- **Fallos medidos y limpios:** bits reservados de flags (`0xFFFFFFFF`) →
+  `E_INVALIDARG` (0x80070057) con struct totalmente cerrado; capa debug sin
+  SDK layers instaladas → `DXGI_ERROR_SDK_COMPONENT_MISSING` (0x887A002D),
+  el código exacto que Microsoft documenta — `D3D11SDKLayers.dll` no está
+  instalada en esta máquina y **no se descarga nada** para conseguirla.
+- **Hallazgo COM:** el contexto inmediato arranca con 1 referencia, pero el
+  device lleva referencias internas del runtime (el contexto mantiene vivo a
+  su device), así que «device refcount == 1» no es un invariante válido. La
+  verificación de fugas es conductual: referencia manual retenida, `shutdown`
+  que libera las suyas, el objeto sobrevive solo con la manual y el
+  `Release` final devuelve **0** (destrucción completa). Se ejecuta en WARP,
+  hardware, ciclo de 3 re-inits, dos dispositivos simultáneos y rama debug.
+- **Pruebas: `test_d3d11_device` **314 checks, 0 fallos, 0 saltos** — idéntico
+  con Clang 22.1.8 (llvm-mingw) y con GCC de GNU 16.1.0 (MSYS2), sin avisos
+  con `-std=c11 -O2 -Wall -Wextra -Wpedantic`. `d3d11.h` verificado idéntico
+  por MD5 en ambos toolchains; enlace con `-ld3d11` (sin descargas).
+  `build.ps1` integra la prueba en `test` y añade el target `probe` con la
+  sonda `d3d11probe.exe`. Batería completa: **132 298 checks, 0 fallos**.
+  `m13-core` 120 checks y `gexmap` 22/22 sin cambios (núcleo intacto).
+- **Errores encontrados y resueltos:** las macros COM C de los headers WIDL
+  requieren `COBJMACROS` antes de incluir `d3d11.h` (la cabecera lo define);
+  el invariante inicial de refcount del device era falso y se sustituyó por
+  la verificación conductual; `-Wswitch` por los niveles 12.x en el
+  `switch` de nombres.
+- **Alcance respetado:** sin swapchain, sin ventana gráfica nueva, sin
+  geometría, shaders ni texturas; sin dependencias nuevas; `Makefile` POSIX
+  sin compilar D3D11 (solo comentario); renderer nulo e I-4 intactos;
+  `docs/PROJECT_STATUS.svg` sin tocar. Documentación oficial consultada
+  (Microsoft Learn): `D3D11CreateDevice` y guía WARP.
+- **Documentación:** `docs/D3D11_DEVICE.md` (nuevo),
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md` (R-1 ejecutado, decisión
+  confirmada), `PROJECT_STATE.md`, `ROADMAP.md` (R-1 cerrado), `BUILD.md`,
+  `port/README.md`, `port/build.ps1`, `port/Makefile`.
+
+## 2026-11-02 - 0.0.0 - I-5: investigación y diseño del renderer nativo
+
+- **Hito de investigación; nada implementado.** No se dibuja nada, no se
+  compila `d3d11`, no se tocan `loop_core.c`/`frame.c`/el planificador de
+  audio, no cambian I-4 ni el build, no hay dependencias nuevas. `gexloop`
+  sigue con el renderer nulo. `docs/PROJECT_STATUS.svg` sin tocar (mide MAIN).
+- **Evidencia consolidada del render original (`docs/RENDERER_ARCHITECTURE_RESEARCH.md`
+  §2).** El exe EU importa **exclusivamente Glide** (38 funciones de
+  `glide2x.dll`, cero DirectDraw/Direct3D; censadas por familia). Inicialización
+  confirmada: `grSstWinOpen` con 512×384 @ 75 Hz y **2 buffers de color, 0
+  auxiliares** para juego (`0x0046324D`) y 640×480 @ 60 Hz para cine
+  (`0x00537EA6`), tras una sonda `grSstQueryHardware` (`0x00424D82`). Presentación
+  confirmada por traza: render **condicional** `0x0043DC3A` (instala callbacks,
+  envía 2 listas), drenaje **doble** por frame (`grBufferNumPending` dentro del
+  render y en el frame step) y `grBufferSwap(3)` que bloquea ~23 ms de los 40.
+  El swap **encola y retorna** (semántica G-01): el freno es el spin-a-cero del
+  frame siguiente — el original es *present-bound* por su bucle, no por el swap.
+  Geometría: triángulos/líneas en espacio de pantalla con `w` (Glide no tiene
+  matrices; el juego transforma en CPU, INFERIDO por ausencia de imports de
+  transformación). Texturas: carga `.3df` (`gu3dfLoad`, `0x004329EF`),
+  mipmaps y descarga parcial (`0x00461C32`/`0x00473238`), paletas NCC
+  (`grTexNCCTable`, `0x00469836`); `FONT.3DF` es `.3df` `rgb332` 128×128.
+  Cine vía `grLfbWriteRegion` (`0x00537D70`).
+- **Comparativa de alternativas (§5).** Direct3D 11 (sistema, COM ya probado
+  en el repo con DirectSound, **cabeceras y librerías verificadas hoy en ambos
+  toolchains**, WARP determinista para pruebas sin GPU) vs OpenGL (compat
+  profile deprecado, sin rasterizador software de sistema) vs capa Glide
+  (nGlide/dgVoodoo: freeware cerrado con descarga; OpenGLide: LGPL-2.0 Beta
+  sin actividad desde 2020; solo tendría sentido para reusar el binario, que
+  este port excluye por diseño) vs rasterizador software propio C11 (plan B
+  determinista). **Recomendación: Direct3D 11**, condicionada a R-1 (crear
+  dispositivo): ningún programa D3D11/OpenGL se ha compilado ni ejecutado en
+  el proyecto todavía.
+- **Arquitectura propuesta (§6, sin código de producción).** Contrato
+  `gex_renderer` agnóstico de la API (init/present/shutdown espejo del nulo)
+  con vtable interna `begin_frame`/`present`/`on_focus_lost`;
+  `gex_null_renderer` **se conserva** como implementación de prueba (los 117
+  checks de `test_app` no cambian); backend `backend_d3d11.c` futuro,
+  Windows-only y excluido del Makefile POSIX como `backend_dsound.c`; el
+  `HWND` de I-4 entra por el config; la cadencia sigue siendo del bucle
+  (`MsgWaitForMultipleObjectsEx`), no del Present; el drenaje doble del
+  original **no se replica** deliberadamente (artefacto de cola de Voodoo).
+- **Plan de validación incremental (§7):** R-1 crear/destruir dispositivo
+  (HW+WARP), R-2 swapchain sobre el HWND, R-3 clear de color verificable por
+  hash bajo WARP, R-4 presentación estable sin fugas (debug layer), R-5
+  medición de `SyncInterval` 0/1/3 frente a los CSV del glide-shim (8 318
+  swaps), R-6 errores/device-lost/cierre, R-7 geometría y textura sintética
+  `.3df`+NCC, R-8 A/B visual contra el original (PC mantenedor). R-1…R-6 no
+  requieren assets del juego; R-8 sí.
+- **Incógnitas registradas (§8, sin inventar):** campos de `GrVertex` que
+  rellena el juego (U-1), modos de combine/alpha/chromakey/fog (U-2),
+  formatos de textura (U-3), estructura de las «2 listas» de `0x0043DC3A`
+  (U-4), papel de `grSstControl` (U-5), `GEX.VFX` (U-6), tasa real de
+  refresco en runtime (U-7). Decisiones pendientes D-1 (flip vs bitblt),
+  D-2 (política de device-lost), D-3 (drenaje, decidido no replicar).
+- **Documentación:** `docs/RENDERER_ARCHITECTURE_RESEARCH.md` (nuevo),
+  `PROJECT_STATE.md`, `ROADMAP.md` (I-5 cerrado como investigación), `port/
+  README.md`. Fuentes externas citadas con fecha de consulta (OpenGLide
+  2026-11-02); sezero/glide sigue siendo semántica de referencia sin copiar
+  código (GPL de 3dfx incompatible con el repo). REA no operativo; no se usó.
+
+## 2026-11-02 - 0.0.0 - I-4: ventana Win32, entrada de teclado y reloj real
+
+- **Primer proceso nativo ejecutable (`port/src/app/i4_main_win32.c` →
+  `port/build/gexloop.exe`).** Abre una ventana Win32 real (clase
+  `GexNativeLoopWindow`, 960×540), mantiene un bucle continuo, drena la cola de
+  mensajes y conduce `gex_frame_run()` de I-3 con microsegundos de
+  `QueryPerformanceCounter`. No hay SDL/GLFW/raylib ni dependencias nuevas:
+  solo `user32`, `gdi32` y `winmm` del sistema.
+- **`0x0043E719` deja de ser candidato de entrada (CONFIRMADO por la traza).**
+  `docs/FRAME_STEP_TRACE.md` lo sitúa dentro del update (sitio `0x0043E2F5`,
+  599/599 frames) como máquina de estados de acción sobre `WORD [obj+0x4E3E]`;
+  no es entrada ni audio. La ruta de entrada del original es S5
+  (`0x0043F80D`, `joyGetPosEx`/`joyGetDevCapsA`, `VkKeyScanA`), **HYPOTHESIS**:
+  la fuente exacta de teclado no está confirmada. El port usa
+  `WM_KEYDOWN`/`WM_KEYUP` como decisión explícita, no como reproducción.
+- **Entrada (`port/src/input/key_state.c`).** Tablas de 256 códigos virtuales:
+  nivel (`down`), flanco de bajada (`pressed`), flanco de subida (`released`),
+  auto-repeat coalescido, `WM_KILLFOCUS` que libera todas las teclas y Escape
+  interpretado después del frame. `WM_SYSKEYDOWN`/`WM_SYSKEYUP` se enrutan igual
+  y se dejan pasar a `DefWindowProcW` para no romper Alt+F4.
+- **Reloj (`port/src/platform/win32_time.c` + `clock.c`).** Frecuencia y
+  contador de QPC; conversión portable ticks → µs con cociente y resto; guarda
+  de retroceso (0 y `GEX_FRAME_WARN_CLOCK`, no error). En esta máquina QPC
+  devolvió 10 000 000 Hz.
+- **Cadencia y CPU.** Paso lógico 60 Hz (16 667 µs, preset desacoplado de I-3);
+  presentación objetivo 120 Hz (8 333 µs), independiente del paso. Espera en
+  `MsgWaitForMultipleObjectsEx(QS_ALLINPUT, MWMO_INPUTAVAILABLE)`. **Hallazgo
+  medido:** sin tocar la resolución del temporizador, Windows (~15,6 ms) capaba
+  la presentación a ~65/s; se añadió `timeBeginPeriod(1)` (con
+  `timeEndPeriod(1)` al salir) y se midieron 104,9–107,7 presents/s y
+  59,5–60,0 pasos/s. La diferencia hasta 120 es el redondeo a milisegundos de
+  la espera; se documenta el valor efectivo, no se presenta 120 como medido.
+- **Renderer nulo (`port/src/render/null_renderer.c`).** `present` se conecta al
+  frame loop, devuelve 0 y contabiliza `presents`/`last_now_us`/`last_steps`,
+  pero no dibuja: no hay dispositivo, superficie ni swap. `WM_ERASEBKGND`
+  devuelve 1 y `WM_PAINT` solo valida la región. `pre_frame` y `update` son
+  stubs que cuentan llamadas; no hay lógica de juego ni audio adjunto.
+- **Pruebas nuevas:** `test_input.c` (826 checks), `test_app.c` (117) y
+  `test_win32_time.c` (1 009). `build.ps1 all` pasa con 69 305 + 60 052 + 215 +
+  410 + 826 + 117 + 1 009 + 50 = **131 984 checks, 0 fallos**. `tools/m13-core`
+  sigue en **120 checks, 0 fallos**; `gexmap` 22/22 y `check`/`segments` sin
+  problemas. Flags: `-std=c11 -O2 -Wall -Wextra -Wpedantic`, sin avisos.
+- **Prueba real de ventana (Windows 11):** ventana localizada con
+  `FindWindowEx`; W↓/W↑, A↓ + `WM_KILLFOCUS`, Escape y `WM_CLOSE`. Tres
+  ejecuciones con código de salida 0, `exit: clean`, `frame errors=0`,
+  `clock warnings=0`, `discards=0`, `aborted=0`, `backwards=0`; 2,20 s/107,7
+  presents/s/60,0 pasos/s/1,38 % CPU, 1,56 s/104,9/59,5/1,93 % y 3,65 s/98,6/
+  60,0/0,85 %. Los mensajes se entregaron con `PostMessage` (misma cola y
+  `WndProc`), **no** con teclado físico.
+- **Límites:** no hay renderizado, lógica de juego, cámara, colisiones ni
+  assets; `gexloop` no adjunta audio. La ruta de entrada del original sigue sin
+  confirmar. Sin `make` en este Windows (el `Makefile` se actualizó pero no se
+  ejecutó). El `gcc.exe` del `PATH` es un driver de Clang 22.1.8 y no cuenta
+  como segunda validación, pero se usó el GCC de GNU 16.1.0 de MSYS2 (fuera del
+  `PATH`): misma batería, 131 984 checks y 0 fallos, sin avisos; `gexloop`
+  compilado con GCC también arrancó limpio. Se corrigió el orden de las
+  librerías en `build.ps1` (GNU ld no las resolvía antes de las fuentes).
+  Integridad de los cuatro archivos personales no verificada; no se tocaron ni
+  publicaron.
+- **Documentación:** `docs/WINDOW_INPUT_PORT.md` (nuevo), `PROJECT_STATE.md`,
+  `ROADMAP.md` (I-4 cerrado), `TESTING.md`, `BUILD.md`, `port/README.md`,
+  `port/Makefile` y `port/build.ps1`. `docs/PROJECT_STATUS.svg` **no se toca**:
+  mide MAIN, no componentes.
+
+## 2026-11-01 - 0.0.0 - I-3: núcleo temporal y frame loop nativo integrado
+
+- **El acumulador M-13 se mueve al port, sin copia divergente.** `m13_core.c`
+  pasa a `port/src/core/loop_core.c` (misma semántica, prefijo `gex_loop_core_`)
+  y `tools/m13-core/m13_core.h` queda como shim que traduce `m13_*` a
+  `gex_loop_core_*`. `test_m13_core.c` **no se toca**: sus 120 checks ahora
+  compilan y prueban la fuente del port. Se añade `gex_loop_core_rebase()` para
+  reanclar el reloj tras una pausa.
+- **Frame loop nativo (`port/src/core/frame.c`, `gex/core/frame.h`).**
+  `gex_frame_run(now_us)` reproduce el orden medido en
+  `docs/FRAME_STEP_TRACE.md`: `pre_frame` (`0x0043F80D`) → `update` × N
+  (`0x0043E1BA`) → `gex_audio_sched_tick()` (`0x005380B3`) → `present`
+  (`0x0043DC3A` + drenaje `0x0054053E` + swap `0x005404F6`). El tick de audio
+  va **dentro** de la fase de presentación: una pasada con 3 updates de
+  recuperación hace un solo tick, como el original.
+- **Tiempo:** preset Original 1:1 (`step_us = 40000`, `original_mode = 1`,
+  un update por present, sin acarreo) y preset desacoplado (`step_us = 16667`
+  = 60 Hz, la cuantía del sello `16.666` que el update ya usa). No se elige
+  40 ms como paso lógico: 40 ms es el periodo de **presentación** (swap
+  bloqueante). El valor definitivo de `STEP` sigue pendiente de E-2.
+- **Política explícita:** clamp de 250 ms antes del acumulador, catch-up
+  máximo de 5 pasos con descarte contabilizado, reloj invertido ignorado y
+  presentado una vez (`GEX_FRAME_WARN_CLOCK`), pausa que congela todas las
+  fases y reanuda reanclando el reloj, y errores de callback/audio que abortan
+  el frame sin ejecutar fases posteriores, vaciando el acumulador para no
+  repetir el paso fallido. El frame loop no abre, cierra ni reinicia recursos
+  que no posee.
+- **Código nuevo:** `port/include/gex/core/loop_core.h`,
+  `port/src/core/loop_core.c`, `port/include/gex/core/frame.h`,
+  `port/src/core/frame.c`, `port/tests/test_frame.c` (410 checks),
+  `port/tools/framedemo.c` (demo con reloj guionizado). `port/build.ps1` y
+  `port/Makefile` ganan `test_frame` y `framedemo`; el `Makefile` de
+  `tools/m13-core` compila el núcleo del port.
+- **Resultados medidos (Windows 11, clang 22.1.8, `-Wall -Wextra -Wpedantic`,
+  sin avisos):** `build.ps1 all` → 69 305 + 60 052 + 215 + **410** + 50 checks,
+  0 fallos; `tools/m13-core` → 120 checks, 0 fallos; `node --test
+  tools/gexmap/test.mjs` 22/22; `cli.mjs check` y `segments` OK. `framedemo`
+  original: 4 frames → 4 pasos, 4 presents; desacoplado con `--dt 60000`:
+  3 presents → 10 pasos (3, 4, 3), 3 ticks de audio.
+- **Qué es y qué no es:** el reloj, el acumulador, el orden de fases, el
+  planificador de audio, el catch-up y el ciclo de vida son reales.
+  `pre_frame`, `update` y `present` son callbacks de prueba: **no** hay lógica
+  del juego, ventana, entrada, renderer ni lectura de reloj real. No se afirma
+  que el juego original se ejecute.
+- **Regresión de `pre_frame` (2026-11-02):** T6b fija que el error deja
+  `core.acc_us = 0` y `core.t_prev_us = now_us`, y que el frame siguiente no
+  recupera el tiempo anterior: 15 ms acumulados → fallo en 20 000 µs → 0
+  updates a 32 000 µs (12 ms desde el nuevo ancla) → 1 update a 48 667 µs.
+  Verificado por mutación: quitar cualquiera de las dos líneas del fix produce
+  11 fallos cada una. En I-3 no se usó un GCC de GNU (`gcc.exe` era un driver
+  de Clang 22.1.8 con el mismo target; actualización 2026-11-02: el GCC de GNU
+  16.1.0 de MSYS2, fuera del `PATH`, validó después la batería de I-4); el
+  harness `tools/m13-core` se compiló a mano con los flags de su Makefile: 120
+  checks, 0 fallos.
+- **Discrepancias F1–F6** documentadas en `docs/FRAME_LOOP_PORT.md` §11: el
+  drenaje en bucle y el swap bloqueante no se modelan; `0x0046300C` no se
+  modela por falta de semántica; el sello temporal del update no se implementa;
+  el modo desacoplado diverge a propósito del original *present-bound*; el
+  manejo de errores de audio y la pausa son política del port.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** `docs/FRAME_LOOP_PORT.md` (nuevo), `docs/FRAME_STEP_TRACE.md`
+  (§7), `docs/M13_DECOUPLE_PROPOSAL.md` (§4), `PROJECT_STATE.md`, `ROADMAP.md`
+  (I-3 cerrado), `TESTING.md`, `BUILD.md`, `README.md`, `port/README.md` y
+  `tools/m13-core/README.md`.
+
+## 2026-11-01 - 0.0.0 - I-2b: audio audible (backend DirectSound) y planificador
+
+- **Backend de dispositivo: DirectSound, no SDL/WASAPI.** El original habla
+  DirectSound (`0x00538551` crea dispositivo y primario, `0x005387f1` el
+  secundario de `0x8000`, `0x005380B3` decide con `GetCurrentPosition`). Usar la
+  misma API conserva 1:1 el cursor, el *wrap* de `DSBPLAY_LOOPING` y la regla de
+  no sobrescribir la mitad que suena. No añade dependencias: `dsound.h` viene con
+  el toolchain y `dsound.dll` con Windows (`-ldsound`). SDL2/SDL3 **no está
+  instalado** en esta máquina (sin `sdl2-config`/`sdl3-config`, sin `SDL.h`, sin
+  `pkg-config`), así que adoptarlo habría supuesto vendorizar código de terceros
+  y una dependencia obligatoria para un solo *sink*. Se descarta y se documenta.
+- **Código nuevo:**
+  - `port/include/gex/audio/backend_dsound.h`, `port/src/audio/backend_dsound.c`
+    — `gex_audio_dsound`: `DirectSoundCreate` + `SetCooperativeLevel` +
+    `CreateSoundBuffer(0x8000)`; `submit` (Lock/Unlock de la mitad, `Restore` tras
+    `DSERR_BUFFERLOST`, `Play(looping)` en el primer envío), `stop`, `cursor`
+    (`GetCurrentPosition`), `pause`/`resume` y volumen `level*30 - 3000`
+    (`0x0053886c`).
+  - `port/include/gex/audio/sched.h`, `port/src/audio/sched.c` — planificador:
+    `gex_audio_sched_init/due/tick/pause/resume`, el contrato de los llamantes de
+    `0x005380B3` (`0x00463205`, `0x0053A5FB`, `0x0053FCB7`) y del prefill
+    `0x00538842`. El tick lee el cursor del propio *sink*, la misma fuente que la
+    bomba: una sola verdad (fue un fallo real detectado por una prueba roja).
+  - `port/include/gex/audio/stream.h` — `gex_audio_backend` gana `pause`/`resume`
+    opcionales; `stop` no es lo mismo que `pause`.
+  - `port/tests/test_device.c` — 50 checks contra el dispositivo real; se
+    auto-omite (`skipped`, salida 0) si no hay tarjeta.
+  - `port/tests/test_audio.c` — 5 suites nuevas de planificador; 144 → **215**
+    checks.
+  - `port/tools/sagplay.c` — `--device`, `--help`, parseo posicional
+    `[in.sag] [out.wav]`, uso del planificador y diagnóstico
+    (`device:`/`submits:`/`cursor:`/`note:`).
+  - `port/build.ps1` / `port/Makefile` — `test_device.exe` con `-ldsound`;
+    `sagplay.exe` con `-lm -ldsound`; `sched.c` en las fuentes de audio.
+- **Desviaciones D12–D14** documentadas en `docs/AUDIO_MIXER_RE.md` §11:
+  `DSSCL_NORMAL` + ventana de escritorio en vez de `DSSCL_PRIORITY` + ventana del
+  juego; `DSBCAPS_GETCURRENTPOSITION2` y `DSBCAPS_GLOBALFOCUS` añadidos a los
+  `0xE0` originales; `stop` resetea la posición (`SetCurrentPosition(0)`) en vez
+  de recrear el buffer secundario.
+- **Evidencia en hardware (esta máquina, Windows 11, DirectSound emulado):**
+  `CreateSoundBuffer` con los flags de D13 → `DS_OK`; `Lock` por mitades →
+  `b1 = 16384`, `b2 = 0`; cursor a ≈44 100 B/s (22 050 Hz × 2 B);
+  `Stop` congela el cursor y `Play` reanuda desde ahí (13 296 → 23 000 en
+  250 ms); `test_device` 50/50; `sagplay --device` entrega 3 mitades y el *gate*
+  difiere 56 veces en una ejecución real.
+- **Qué es y qué no es:** el PCM llega a un dispositivo real y su cursor avanza a
+  la frecuencia correcta, y la mitad escrita se lee por `Lock` y coincide
+  muestra a muestra con `gex_adpcm_decode`. **No** se ha verificado la audición
+  humana: el agente no puede oír; `sagplay --device` queda para el mantenedor.
+  Sin `.sag` reales: todo con fixtures sintéticos.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** `docs/AUDIO_MIXER_RE.md` (§10.1, §10.4, §11 D12–D14, §12,
+  §13, §14.4 y nuevo **§16**), `docs/AUDIO_INIT_PATHS.md` (§10),
+  `PROJECT_STATE.md`, `ROADMAP.md` (I-2b cerrado, punto de integración I-3/I-4),
+  `TESTING.md`, `BUILD.md`, `README.md` y `port/README.md`.
+
+## 2026-10-31 - 0.0.0 - Ruta de audio nativa: IMA ADPCM + bomba de streaming
+
+- **Corrección de nomenclatura (CONFIRMADO):** `0x005380B3` **no es un
+  mezclador**. Es una bomba de *streaming* de un único buffer; `0x00538285`,
+  el bucle que quedaba sin leer, es un **decodificador IMA/DVI ADPCM de 4
+  bits** (2 muestras por byte, nibble alto primero, estado continuo). No hay
+  mezcla multi-voz en esta ruta.
+- **Funciones reconstruidas instrucción a instrucción:**
+  - `0x00538285` (388 B): decodificador ADPCM; orden exacto (paso del índice
+    anterior, ajuste antes del delta, clamp `[-32768, 32767]`, índice `[0, 88]`).
+  - `0x005380B3` (466 B): `Lock(0x4000)` → *gate* del cursor de reproducción →
+    `read(0x1000)` → `decode` → `memset` de la cola corta → `Unlock`; media
+    mitad de silencio y `Stop()` posterior.
+  - `0x00538731` (379 B): carga del `.sag`, `CreateSoundBuffer(0x8000, 0xE0)`,
+    reseteo de estado, prefill, `Play(looping)` y `SetVolume`.
+  - `0x00538409`, `0x005384A3`, `0x005384ED`, `0x00538040/68/75/A6` y el setter
+    de volumen `0x00538724`.
+- **Tablas ADPCM recuperadas:** `adjust[16]` (`0x00558138`) y `step[89]`
+  (`0x00558178`) son las tablas canónicas de IMA ADPCM, leídas de la única
+  build presente (mod, `.data` a `+0x170`, verificado en tres anclas y en tres
+  copias de la tabla). **HIPÓTESIS** para la imagen de referencia: falta leer su
+  `.data`. El decodificador no las lleva incrustadas: se inyectan.
+- **Código nuevo:**
+  - `port/include/gex/audio/adpcm.h`, `port/src/audio/adpcm.c` — decodificador.
+  - `port/include/gex/audio/stream.h`, `port/src/audio/stream.c` — buffer
+    `0x8000`/`0x4000`, bomba, reproductor y *backend* inyectable
+    (`submit`/`stop`/`cursor`).
+  - `port/tests/test_adpcm.c` — vector dorado `07 F0` → `{0, 11, −19, −15}`,
+    clamp, continuidad, fuente corta, tablas alternativas, 20 000 flujos
+    aleatorios; **60 052 checks, 0 fallos**.
+  - `port/tests/test_audio.c` — ciclo del buffer, formatos, payload corto,
+    múltiplo exacto, truncado, equivalencia con decodificación de una pasada,
+    *gate* del cursor, cola silenciosa, errores; **144 checks, 0 fallos**.
+  - `port/tools/sagplay.c` — demo: `SLAG` sintético (tono 440 Hz) → PCM →
+    `build/tone.wav`.
+  - `port/build.ps1` / `port/Makefile`: targets `audio` y `test` ampliado.
+- **Bug latente del original documentado y no replicado:** con un payload
+  múltiplo exacto de `0x1000`, `read` devuelve `-1`, el original decodifica
+  `0xFFFFFFFE` muestras y hace `memset(ptr1 - 4, 0, 0x4004)`. El port lo trata
+  como fin de fuente (D8).
+- **Desviaciones D7–D11** documentadas en `docs/AUDIO_MIXER_RE.md` §11.
+- **Negativos / límites:** no hay `.sag` reales; no hay backend de dispositivo
+  (la salida se verifica escribiendo un WAV y capturando muestras); no hay
+  bucle de bombeo conectado al frame; la mezcla multi-voz, si existe, no está
+  identificada.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación:** nuevo `docs/AUDIO_MIXER_RE.md`; actualizados
+  `docs/AUDIO_INIT_PATHS.md` (§4.2, §4.5, §6, §10), `docs/SAG_CONTAINER.md`
+  (§1, §3, §9, §11), `PROJECT_STATE.md`, `ROADMAP.md` (I-2/I-2b), `TESTING.md`,
+  `BUILD.md`, `README.md` y `port/README.md`.
+
+## 2026-10-31 - 0.0.0 - Primer componente del port nativo: lector `SLAG`
+
+- **Cambio de fase:** se abre la vía de implementación nativa en `port/`
+  (C11, sin dependencias). No promociona Hito P ni MAIN: el panel sigue
+  midiendo la ruta de mods/parches, y **no hay build jugable**.
+- **Componente implementado:** lector del contenedor de audio `SLAG`.
+  Transcripción instrucción a instrucción del parser `0x0053899C` y del
+  cargador de fichero completo `0x005388AC`, más los auxiliares que usan
+  (`0x00538B01` `read4`, `0x00538409` `read`, `0x00538A99` `tell`,
+  `0x00538ACA` `seek`).
+  - `port/include/gex/asset/sag.h` — API pura: `gex_sag_parse`,
+    `gex_sag_load`, `gex_sag_release`, `gex_sag_status_name`.
+  - `port/src/asset/sag.c` — parser sobre buffer en memoria (sin I/O, sin
+    DirectSound, sin memoria global) + cargador que reproduce `fopen`/`fseek`/
+    `ftell`/`malloc`/`fread`/`fclose`.
+  - `port/tools/sagdump.c` — CLI que imprime lo que el lector entendió.
+  - `port/tests/test_sag.c` — 29 casos + 2 fuzz; **69 305 checks, 0 fallos**.
+  - `port/tests/make_demo_sag.mjs` — fixture sintético de 54 bytes.
+  - `port/build.ps1` (Windows, no hay `make` aquí) y `port/Makefile` (POSIX).
+- **Formato documentado:** `SLAG` + dword != `0xFFFFFFFF` + `WAVE`; chunks
+  `tag`+`size`; `fmt ` → `memset(dest,0,18)` + `min(size,18)` + `seek(pos+size)`;
+  `data` → devuelve el **tamaño declarado** con el cursor al payload. Nuevo
+  `docs/SAG_CONTAINER.md` con mapa de funciones, algoritmo con direcciones,
+  desviaciones y límites.
+- **Desviaciones deliberadas (documentadas, §6):** separación
+  `TRUNCATED`/`SENTINEL` (el `read4` original confunde lectura corta con el
+  dword `0xFFFFFFFF`), comprobaciones de límites con `size_t`, flag
+  `data_complete` para payload truncado, `NO_DATA` en lugar de `-1` para
+  `fmt ` de tamaño 0 al final, y aritmética de 64 bits.
+- **Negativos / límites:** no hay ningún fichero `.sag` real en el repositorio
+  ni en disco (el árbol de la build mod solo contiene `GEX3D.EXE`), así que la
+  validación es contra fixtures sintéticos; no hay imagen de referencia para
+  comparar dinámicamente contra el parser original; no se reproduce audio.
+- **Sin cambios** en `docs/PROJECT_STATUS.svg`: mide MAIN, no componentes.
+- **Documentación sincronizada:** `PROJECT_STATE.md` (vía de implementación),
+  `ROADMAP.md` (I-1…I-4), `BUILD.md`, `TESTING.md`, `README.md`,
+  `REVERSE_ENGINEERING.md`, `docs/AUDIO_INIT_PATHS.md` §10, `.gitignore`
+  (`*.sag`).
+
+## 2026-10-31 - 0.0.0 - Rutas de inicialización de DirectSound (EU, estático)
+
+- **Pregunta cerrada (en estático):** ¿es alcanzable el segundo
+  `DirectSoundCreate` de `0x00538CB0`? **No por llamada directa.** Su único
+  llamante es `0x00538FD5` (35 B, `basis=prologue`), que tiene **0 aristas
+  entrantes** en `analysis/EU/calls.tsv`. No se afirma que sea código muerto:
+  un `call` indirecto o una tabla de punteros serían invisibles al grafo.
+- **Ruta viva:** `0x00538551` (467 B) es el **único** creador del dispositivo
+  y tiene exactamente **dos** llamantes, ambos conectados a la entrada:
+  - **A (arranque):** `0x00541B20` -> `0x00463278` (WinMain, sitio
+    `0x00463A02`) -> `0x0053D822` -> `0x0053B10B` (`0x0053D82F`) ->
+    `0x00538551` (`0x0053B120`).
+  - **B (reproducción por nombre):** WinMain -> `0x00538017`
+    (`0x004637F0`/`0x00463808`) -> `0x00537ED1` -> `0x0053A5A2` ->
+    `0x00538731` (`0x0053A5D1`) -> `0x00538551` (`0x00538739`).
+  - **C (voz, parcial):** `0x0053FF0D` -> `0x00538731` (`0x0054002A`) ->
+    `0x00538551`.
+- **Qué construye cada una (CONFIRMED por instrucción):** `0x00538551` crea el
+  dispositivo, fija `SetCooperativeLevel(+0x18, hwnd, 3)`, crea el buffer
+  primario (`DSBCAPS_PRIMARYBUFFER`, `dwBufferBytes=0`) y le aplica
+  `SetFormat(+0x38, 0x005582E0)`; `0x00538731` crea el **único** buffer
+  secundario (`dwFlags=0xE0`, `0x8000` B) desde un fichero cargado entero y su
+  cabecera `SLAG`/`WAVE`/`fmt `/`data`, y lo arranca con
+  `Play(+0x30, 0, 0, 1)`; `0x0053B10B` envuelve la creación una sola vez
+  (`[0x5AC5C8]`) y deja `[0x5AC5F0]=1`.
+- **Diferencias con la ruta sin llamantes:** `0x00538CB0` no crea buffer
+  primario, no aplica `SetFormat`, **no comprueba** el `HRESULT` de
+  `SetCooperativeLevel` y le pasa **un solo argumento de pila** (falta
+  `dwLevel`). Viva y muerta solo comparten el thunk `0x005404F0` y la
+  estructura `0x0057C330`.
+- **Sin evidencia dinámica, y por qué:** la imagen de referencia
+  (1 557 504 B, MD5 `692b12825003417cc4a5a9d4db13eebe`) ya no está en la
+  máquina; la única build presente es un mod (1 559 040 B, MD5
+  `3198350eb398db9a64771842d7781b4b`, entrada `0x00541FA0`) cuyo patrón de
+  bytes no contiene `0x00538551`. Una traza suya no sería evidencia sobre el
+  binario de referencia. Las tres rutas quedan como **existencia estática +
+  ejecución no observada**.
+- **Nuevo `docs/AUDIO_INIT_PATHS.md`** - método, política de evidencia, las
+  cuatro cadenas con sitios, lectura de `0x00538551`/`0x00538731`/`0x0053B10B`/
+  `0x00538CB0`/`0x005380B3`, comparación de las dos creaciones, límites,
+  reproducción y siguiente paso.
+- **Nuevo `tools/gexmap/audio.mjs`** - 14 globales, 19 fichas de semántica
+  mecánica, 20 llamadas por vtable, 3 rutas vivas + 1 sin llamantes y
+  `validateAudio()`. La ruta C se marca `partial` y el validador **exige**
+  que no empiece en la entrada; si alguien la «arregla» sin evidencia, falla.
+- **Pruebas:** `node --test tools/gexmap/test.mjs` -> **22/22** (6 nuevas de
+  audio); `segments` -> 0 problemas; `check` -> ok.
+- **Documentación sincronizada:** `docs/SUBSYSTEM_SEGMENTS.md` (S3, §5, §6.3,
+  §8), `docs/FRAME_STEP_TRACE.md` (§11, cierre del objetivo anterior),
+  `PROJECT_STATE.md`, `ROADMAP.md`, `README.md`, `tools/README.md`,
+  `tools/gexmap/README.md`, `TESTING.md`. `docs/PROJECT_STATUS.svg` no se toca
+  (mide MAIN, no RE).
+
+## 2026-10-30 - 0.0.0 - Traza dinámica del frame step (EU, medida en ejecución)
+
+- **Medido en ejecución, no inferido:** se instrumentó `GEX3D.EXE` EU (MD5
+  `692b12825003417cc4a5a9d4db13eebe`) con un depurador propio y **breakpoints de
+  hardware** (`Dr0`–`Dr3`, sin parchear un byte) en 9 sesiones con el update
+  `0x0043E1BA` como **ancla de frame**, más 2 sesiones largas previas. Total
+  observado: 2 326 frames.
+- **Recorrido del frame confirmado:** `0x0043EA36` → entrada `0x0043F80D` →
+  update `0x0043E1BA` (con render `0x0043DC3A` condicional a
+  `WORD [obj+0x4E38]==0`) → drenaje de cola `0x0054053E` (bucle) → `swap(3)`
+  `0x005404F6` → hoja `0x0046300C`. Orden idéntico en 1 723/1 724 frames.
+  Periodo **p50 = 40 ms (25 FPS)**; swap ≈23 ms, trabajo de juego ≈14 ms.
+- **Los 25 sitios del update, medidos:** 24 destinos distintos, **23 ejecutan
+  exactamente 1 vez/frame**; `0x0045E5C5` es el único con dos sitios
+  (`0x0043E3E6`, `0x0043E4F0`). **Negativo:** el *forwarder* `0x0047344B`
+  (sitio `0x0043E31C`) dio **0/606**; `0x0043E63D`, `0x00423AFE` y `0x00423A6A`
+  dieron **0/611**.
+- **Semántica mecánica nueva (CONFIRMED, con la instrucción que la sostiene):**
+  `0x0053F610` (acumulador 24.8, +1,0/frame con arg `0x100`), `0x0053F631`
+  (registros de 0x2C B, índice de frame por módulo), `0x0045E5C5` (dos pasadas
+  sobre la lista), `0x00460BF7` (banderas + copia de 3 WORD), `0x0041F714`
+  (recorrido por pares de cadenas), `0x00436F6F` (tres recorridos de listas),
+  `0x0046FACE` (pool de 0x20 B, 8 WORD a 0x1000, distancia
+  `(30*max+12*min)>>5`), `0x00421E5A` (selección de bloque + despacho por
+  `WORD +0x4E3E`), `0x0046E643`, `0x00540650`, `0x00540950`, `0x00465530`,
+  `0x00421668`, `0x0043E719`, `0x0043E63D`, `0x0047344B`, `0x00473471`.
+  Total **19 de 24 destinos con semántica (17 CONFIRMED + 2 HYPOTHESIS)**; los 5
+  restantes se declaran sin asignar.
+- **Hechos del update:** `memset(obj+0x78,0,0x28)` al inicio; al final
+  `+0x10C = (GetTickCount()−[0x57B5FC])/16,666` (doble verificado en
+  `0x0054C060`), `+0x104++` y `+0xA0 &= 0xF7FFFFFF`.
+- **Nuevo `docs/FRAME_STEP_TRACE.md`** — método, entorno, tabla de los 25 sitios,
+  semántica, negativos, límites y reproducción.
+- **Nuevo `tools/gexmap/frame.mjs`** — datos declarativos (frame step, 25 sitios,
+  render, bucle de cine, 19 semánticas) con `validateFrame()`; **0 problemas**.
+- **Nuevo `tools/frame-trace/`** — `tracer.cs` (depurador con breakpoints de
+  hardware, compila y corre), `summarize.mjs` (estadística por frame),
+  `README.md` y `.gitignore`. Los binarios y los logs no se publican.
+- **Pruebas:** `node --test tools/gexmap/test.mjs` → **16/16** (4 nuevas de
+  frame: validación estructural, 25 sitios/24 destinos, tasas plausibles y
+  evidencia de cada afirmación); `segments` → 0 problemas; `check` → ok.
+- **Panel/SVG sin cambios:** `docs/PROJECT_STATUS.svg` mide MAIN (versión
+  jugable), no hitos de RE; v3.6 intacto.
+
+## 2026-10-30 — 0.0.0 — Primera segmentación por subsistemas (EU, HYPOTHESIS)
+
+- **Nuevo `tools/gexmap/segments.mjs` + comando `segments`** — agrupa **65
+  inicios** (2,58 % de los 2 523 de juego) en **siete subsistemas HYPOTHESIS**:
+  paso de frame y tiempo (8), render Glide (10), audio/mezcla/voz (9),
+  cinemáticas (12), entrada (9), shell Win32 (11) y registro (6). Cada miembro
+  declara dirección, tamaño, base, llamadores, evidencia y confianza; el comando
+  **recalcula** la evidencia (`I`/`T`/`A`/`G`/`O`) desde `analysis/EU/` y falla
+  si una afirmación no se sostiene. Las capas manuales `S` (string) y `R`
+  (desensamblado crudo) se registran con su detalle.
+- **Nuevo `docs/SUBSYSTEM_SEGMENTS.md`** — método, reglas de confianza, tablas
+  por segmento, recorridos crudos del frame/cine/audio/entrada, resultados
+  negativos y siguientes pasos.
+- **Medido (CONFIRMADO contra los artefactos):** 35 ALTA / 22 MEDIA / 8 BAJA;
+  20 de las 24 anclas caen dentro de un miembro; 20 aristas directas entre
+  grupos; 840 filas del mapa alcanzables desde `WinMain` solo por llamadas
+  directas. El frame step real es `0x0043EA36` (entrada → update → espera de
+  cola → swap(3) → `0x0046300C` → `ret`); el ancla `0x0043EA51` solo describía
+  la espera y el swap.
+- **Resultados negativos publicados:** de los 24 callees directos del update
+  `0x0043E1BA`, solo 2 alcanzan una API a profundidad ≤3 (`0x0043DC3A` Glide,
+  `0x0043E719` WinMM) y **18 no alcanzan ninguna ni a profundidad 12**; el
+  segundo `DirectSoundCreate` (`0x00538CB0`) solo se alcanza vía `0x00538FD5`
+  (prólogo, 0 llamadores); `0x0053FCB7` no alcanza APIs; el string
+  `SOFTWARE\Crystal Dynamics\Gex2\1.00` tiene una única referencia en `.rdata`,
+  no en `.text`; `W=no` no prueba código muerto (callbacks/indirectas).
+- **Pruebas:** `segments` → **0 problemas**; `node --test tools/gexmap/test.mjs`
+  → **12/12** (4 sintéticos + 5 invariantes del mapa + 3 de segmentación,
+  incluido el rechazo de una confianza inflada y de una evidencia inventada);
+  `check` → ok (2 655 inicios, 5 097 aristas, 24 anclas). Los artefactos de
+  `analysis/EU/` **no se modifican** y **ByteMatch sigue en 0,00 %**.
+- **Panel/SVG sin cambios:** no hay un hito nuevo de MAIN verificado; v3.6
+  intacto. Ficheros modificados esta ronda: `tools/gexmap/{segments.mjs,cli.mjs,test.mjs,README.md}`,
+  `docs/SUBSYSTEM_SEGMENTS.md`, `docs/FUNCTION_MAP.md`, `REVERSE_ENGINEERING.md`,
+  `TESTING.md`, `PROJECT_STATE.md`, `ROADMAP.md`, `README.md`, `tools/README.md`,
+  `CHANGELOG.md`.
+
+## 2026-10-25 — 0.0.0 — Mapa estático de funciones + grafo de llamadas (EU)
+
+- **Nuevo `tools/gexmap/`** — `map` (requiere el `GEX3D.EXE` EU original),
+  `check` (valida sin binario, apto para CI), `query` (consulta una función) y
+  `test.mjs` (tests offline). Lector PE32 propio, desensamblado con
+  `llvm-objdump`, reparación de las 24 regiones donde el barrido lineal se
+  desincroniza, grafo de llamadas directas e imports por función. README
+  propio.
+- **Nuevo `docs/FUNCTION_MAP.md`** — método, cifras, reconciliación con
+  ByteMatch, ejemplo trabajado del update `0x43E1BA` y límites.
+- **Artefactos derivados en `analysis/EU/`** — `functions.tsv` (2 655 filas,
+  sha256 `530a648e…f675d`), `calls.tsv` (5 097 aristas, sha256
+  `66def313…467e2`), `anchors.json` (24 anclas, sha256 `f750a720…9c389`) y
+  `summary.json` (hashes, recuentos, reparaciones, límites). El binario no se
+  copia al repo.
+- **Medido (CONFIRMADO):** 1 448 inicios por `call` directa + 1 por entrada PE
+  + 1 por primer byte de `.text` + 92 stubs = **1 542 inicios confirmados**;
+  **132** stubs `jmp [IAT]`; **5 097** aristas (5 095 `call` + 2 `tail`); 0
+  llamadas directas sin resolver; 24 anclas documentales (13 en inicio exacto,
+  11 dentro, 0 fuera). Los **1 113** candidatos por prólogo son **HYPOTHESIS** y
+  se publican aparte.
+- **Corrección documental (`docs/BYTEMATCH.md`):** la afirmación «cada entrada
+  listada es llamada de verdad, el método no puede inventar una» era falsa.
+  De las 1 647 entradas del informe, **199 no son inicios confirmados** (95 son
+  límite de instrucción pero no inicio; **104 ni siquiera son límite de
+  instrucción**) y **94 inicios confirmados no están en el informe**. También se
+  corrigen los «122 funciones que llaman a una API, todas thunks» (medido: 218
+  funciones referencian imports — 86 `func` + 132 `thunk`) y los «40 thunks»
+  del informe (el binario tiene 132 stubs; 40 son destinos de `call` directa).
+- **Defecto corregido antes de publicar:** los stubs `jmp dword ptr [IAT]` se
+  absorbían en la función anterior y le atribuían sus imports. Caso medido:
+  `0x0054038E` (función real de 54 B, `ret` en `0x005403C3`) aparecía con 354 B
+  de extensión y **50 imports**; ahora tiene **54 B, 0 imports** y los stubs son
+  filas `kind=thunk` desde `0x005403C4`. La comparación se midió ejecutando el
+  mapa con y sin la pasada de stubs.
+- **Validación cruzada:** la entrada PE `0x00541B20` llama a `0x00463278`, la
+  dirección que la documentación identifica como `WinMain`; la arista sale del
+  desensamblado, no de la documentación. Además, las 40 funciones de la unidad
+  `game/imports` del informe coinciden una a una con los 40 stubs del mapa
+  marcados `kind=thunk` con `basis=call`.
+- **Pruebas:** `check` → ok (2 655 inicios, 5 097 aristas, 1 354 462 B de
+  `.text`, 24 anclas, hashes coincidentes); `node --test` → **9/9** (4 casos
+  sintéticos + 5 invariantes); dos ejecuciones completas → **hashes idénticos**
+  de los cuatro artefactos.
+- **Límites / resultados negativos:** los 1 113 prólogos no se promueven; los
+  tamaños son cotas superiores; el 100 % de cobertura es del union de
+  extensiones; no hay evidencia dinámica; no se usó Ghidra ni REA; el mapa no
+  sustituye al splitter ni al `symbols.txt` y **el porcentaje de ByteMatch sigue
+  en 0,00 %**.
+- **Panel/SVG sin cambios:** no hay un hito nuevo de MAIN verificado; v3.6
+  intacto. Ficheros modificados esta ronda: `tools/gexmap/*`,
+  `analysis/EU/*`, `docs/FUNCTION_MAP.md`, `docs/BYTEMATCH.md`,
+  `REVERSE_ENGINEERING.md`, `TESTING.md`, `PROJECT_STATE.md`, `CHANGELOG.md`,
+  `ROADMAP.md`, `tools/README.md`, `.github/workflows/byte-match.yml`.
+
+## 2026-10-25 — 0.0.0 — S-27 verificada: referencia externa `Hydroloxed/gexdecomp` (Gex 1996 para Windows)
+
+- **Nueva referencia secundaria:** `RESEARCH.md` S-27 — decompilación
+  *matching* de **Gex (1996) para Windows** (`Hydroloxed/gexdecomp`, `main` @
+  `8ba80780`, 2026-09-26). Se mantiene separada de Gex64Decomp (S-11,
+  N64/MIPS): otro juego, otro motor y otra plataforma de análisis. Sin
+  licencia declarada: **no se copia código**.
+- **Verificado en origen (2026-10-25):** README (Ghidra → `unassemblize` →
+  decomp.me, MSVC 4.0), estado temprano (1178 funciones marcadas, 32 con
+  scratch, 28 al 100 %, 1136 `UNIMPLEMENTED`) y las cuatro funciones de
+  temporización de `src/game/winmain.c` (`TIME_GetTicks` `0x00402fa0`,
+  `RunTimer` `0x00404ab0`, `GameThread` `0x004050e0`, `WaitForNextFrame`
+  `0x00405120`) **sin implementar**: no demuestran comportamiento. Los
+  porcentajes son declarados por la fuente, no re-verificados aquí.
+- **Límites:** direcciones y firmas de Gex 1996, **no trasladables** a
+  `GEX3D.EXE` (Enter the Gecko 1998), que sigue siendo la fuente de verdad.
+  Sin binarios, sin ejecución y sin cambios de código.
+- **Desambiguación `S-26`:** nota en `RESEARCH.md` §0 — dos secciones
+  históricas comparten identificador (A: E-1; B: Línea A); no se renombran
+  para no romper las citas existentes y el siguiente ID libre queda fijado en
+  `S-28`.
+- **Panel/SVG sin cambios:** una referencia documental no es un hito
+  verificado del panel (regla §6); v3.6 intacto. Ficheros modificados esta
+  ronda: `RESEARCH.md`, `CHANGELOG.md`, `PROJECT_STATE.md`.
 
 ## 2026-11-04 — 0.0.0 — U-1e: relación geometría-índices
 
