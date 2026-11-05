@@ -45,7 +45,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] U-1c: Geometría completa (2026-11-04)
 - [x] U-1d: Recuperación de índices (2026-11-04)
 - [x] U-1e: Relación geometría-índices (2026-11-04)
-- [ ] U-1f: Relación índices-recursos (pendiente)
+- [x] U-1f: Relación índices-recursos (2026-11-05) — corregidas U-1a…U-1e: `0x00432BBD` = glifo 2D, `0x00432DD1` = rectángulo 2D, geometría 3D real en `0x0046558A`
 - [ ] U-1g: Relación con DFX (pendiente)
 - [ ] U-1h: Interpretación final (pendiente)
 

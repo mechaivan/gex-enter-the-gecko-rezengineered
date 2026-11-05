@@ -1,5 +1,19 @@
 # RESULTADOS DE U-1e (RELACIÓN GEOMETRÍA-ÍNDICES) (2026-11-04)
 
+> **NOTA DE CORRECCIÓN (U-1f, 2026-11-05).** Este documento se conserva como
+> historial, pero varias de sus afirmaciones quedaron desmentidas por el
+> desensamblado completo de U-1f. En concreto:
+>
+> * No existe un «stride de 12 bytes»: el `imul ...,0xC` de `0x00432E1B` es la
+>   altura en píxeles de un rectángulo.
+> * No existe un «cálculo de w»: se escribe la constante `1.0f` en `vértice+0x20`
+>   (campo no verificado) y el `+8` es la altura/ancho del quad.
+> * `0x00432BBD` y `0x00432DD1` **no son rutas 2D y 3D**: son un glifo de texto y
+>   un rectángulo sólido, ambas 2D/HUD. La geometría 3D está en `0x0046558A`.
+> * Las hipótesis H1 y H6 quedan **retiradas**.
+>
+> Evidencia y correcciones completas: [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md).
+
 ## Resumen ejecutivo
 
 Se ha completado el análisis de U-1e (relación geometría-índices). Se ha analizado cómo se relacionan los vértices con los índices, se ha determinado si los argumentos son coordenadas directas o índices a tablas, se ha investigado la relación entre los datos de entrada y los vértices finales, y se han documentado todas las evidencias y conclusiones.

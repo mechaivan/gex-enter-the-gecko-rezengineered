@@ -144,8 +144,8 @@ el grafo directo: se publica como variante **no** ejecutada, no como código viv
 | `0x0046558A` | 17068 | call | 1 | sí | G I T | ALTA | mayor consumidor Glide: 10 APIs, 17 068 B |
 | `0x00461C32` | 473 | call | 1 | sí | G I T | ALTA | descarga de mipmaps de textura |
 | `0x004329EF` | 462 | call | 1 | sí | G I T | ALTA | carga de textura 3DF (gu3dfLoad/gu3dfGetInfo) |
-| `0x00432BBD` | 532 | call | 1 | sí | G I T | ALTA | triángulos + estado de color/alpha |
-| `0x00432DD1` | 264 | call | 1 | sí | G I T | ALTA | triángulos + estado de color/alpha (variante corta) |
+| `0x00432BBD` | 532 | call | 1 | sí | G I T | ALTA | glifo de texto 2D: índice de glifo → celda 16×16 de `FONT.3DF` (U-1f) |
+| `0x00432DD1` | 264 | call | 1 | sí | G I T | ALTA | rectángulo 2D sólido sin textura (HUD) (U-1f) |
 | `0x00424C0F` | 121 | call | 2 | sí | A G I T | ALTA | swap(1) de la ruta de arranque; ancla en +112 |
 | `0x00424D82` | 648 | call | 1 | sí | G I T | ALTA | grSstQueryHardware: sonda de hardware Glide |
 | `0x00473238` | 504 | call | 1 | sí | G I T | ALTA | descarga de mipmap y de nivel parcial |

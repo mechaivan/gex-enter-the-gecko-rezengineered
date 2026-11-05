@@ -670,6 +670,64 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   verificado del panel (regla §6); v3.6 intacto. Ficheros modificados esta
   ronda: `RESEARCH.md`, `CHANGELOG.md`, `PROJECT_STATE.md`.
 
+## 2026-11-05 — 0.0.0 — U-1f: relación índices-recursos y corrección de U-1a…U-1e
+
+- **Análisis de U-1f:** completado el estudio estático de la relación entre los
+  argumentos que construyen vértices y los recursos del juego. Resultado
+  principal: **no hay relación entre las rutas 2D y la geometría 3D**; cada una
+  tiene su propio modelo de datos. Documento:
+  [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md).
+- **`0x00432BBD` = glifo de texto 2D (no geometría 3D):** el primer argumento es
+  un **índice de glifo**; se descompone en `col = glyph & 0xF` y
+  `fila = glyph >> 4` y se convierte en coordenadas de textura sobre una rejilla
+  de 16×16 celdas de 16×16 texeles con borde de 1 texel. Quad de 8×8 px,
+  cuatro vértices con **stride 0x3C**, `1.0f` en `+0x20` (campo no verificado
+  contra los headers de Glide), u/v en `+0x24`/`+0x28`, recurso único
+  `grTexSource(0, [0x0057B5EC], 3, &0x0065BFA0)` (`FONT.3DF`).
+- **`0x00432DD1` = rectángulo 2D sólido:** `x = arg1 & 0xFF`,
+  `y = (arg1 >> 8) + 3`, `w = (arg2 & 0xFF) << 4`, `h = (arg2 >> 8) * 12`;
+  el tercer argumento se ignora y **no se llama a `grTexSource`**. Único
+  llamador `0x00434F18`.
+- **Lista de visualización 2D:** base `0x0065BFC0`, registros de 6 B
+  `{word, word, byte estilo, byte glifo}`, contador `0x0065CBE0` (máx. `0x1FF`),
+  emisor `0x00432852`. Consumidores: `0x00434F18` y `0x00434FE9`; un rectángulo
+  (`estilo == 0x40`) consume **dos ranuras**.
+- **Carga de `FONT.3DF`:** `0x004329EF` (`strcpy`/`strcat` de `"\font.3df"` +
+  `gu3dfGetInfo`/`gu3dfLoad` + `grTexTextureMemRequired` +
+  `grTexDownloadMipMap`), único llamador `0x00463705`.
+- **Geometría 3D real en `0x0046558A` (17 068 B):** lee un **flujo de
+  comandos** (opcode en `byte[+0xB]`, extensión `0xE1`), un campo de **14 bits
+  (`& 0x3FFF`)** indexa la **tabla de texturas `0x006488F4`**, y los vértices
+  van *inline* en el flujo (no hay vertex/index buffer). Usa 9 `grDrawTriangle`,
+  6 `grDrawLine`, 4 `grTexDownloadTable`, 2 `grChromakeyMode` y 1
+  `grDrawPlanarPolygonVertexList` (`0x466B34`, 4 vértices).
+- **Recursos de nivel:** `0x00461C32` construye `0x006488F4` desde el **`.VFX`**
+  (`grTexDownloadMipMap`); `0x00461E0B` carga el **`.DFX`** con el lector
+  `0x00461B90` (`fopen "rb"`) y lo relocaliza con `0x004735C0`; orquestador
+  `0x0043B11D(dfx, vfx, nivel)`.
+- **Correcciones retiradas de U-1a…U-1e:** «stride de 12 bytes» (el
+  `imul …,0xC` de `0x00432E1B` es altura en píxeles), «cálculo de w» (se escribe
+  una constante `1.0f` en `+0x20`; el `+8` es tamaño de quad), «`0x00432DD1` = ruta 3D» y «ambas generan
+  geometría del mundo». Hipótesis H1 y H6 **retiradas**. Se anotan con nota de
+  corrección en cabecera en `U1E_RESULTADOS.md` (historial conservado) y se
+  reescribe `docs/U1_GEOMETRY_RECOVERY_PLAN.md`.
+- **Resultados negativos:** ninguna referencia a `.DFX`/`.VFX`, `0x6488F4` ni
+  buffers de vértices en las rutas 2D; ningún camino de datos 2D → 3D; los
+  conjuntos de llamadores son disjuntos.
+- **Alcance y límites:** análisis **estático read-only** con `llvm-objdump` y
+  `tools/gexmap/pe.mjs`; REA no viable (`rea doctor` → `healthy: false`, sin
+  Hopper/Ghidra). Sin ejecución, sin ventanas, sin instalación, sin modificar
+  `GEX3D.EXE` ni `C:\GEX_REZ`. Quedan abiertos: `0x004338D7`,
+  `[0x0057B600]`, layout del vértice de rectángulo 2D, layout de
+  `grDrawPlanarPolygonVertexList`, significado de `registro[+0x0C]` y formato
+  de cabecera `.DFX`/`.VFX`.
+- **Panel/SVG sin cambios:** investigación estática en `dev/gex`, sin evolución
+  de MAIN ni hito verificado; `PROJECT_STATUS.svg` (v3.6) intacto. Ficheros
+  modificados esta ronda: `U1F_RESULTADOS.md` (nuevo), `U1E_RESULTADOS.md`,
+  `docs/U1_GEOMETRY_RECOVERY_PLAN.md`, `docs/SUBSYSTEM_SEGMENTS.md`,
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md`, `ROADMAP.md`, `PROJECT_STATE.md`,
+  `CHANGELOG.md`. No se avanza a U-1g.
+
 ## 2026-11-04 — 0.0.0 — U-1e: relación geometría-índices
 
 - **Análisis de U-1e (relación geometría-índices):** Se ha completado el análisis de la relación entre vértices e índices.

@@ -101,8 +101,8 @@ imports+grafo; el *papel de juego* de cada una sigue siendo hipótesis):
 | `0x0046558A` | 17 068 | 1 | mayor consumidor Glide (10 APIs): `grDrawTriangle`, `grTexSource`, `grAlphaCombine`, `grConstantColorValue4`, `grChromakeyMode`, `grDrawLine`, `grDrawPlanarPolygonVertexList`, `grTexDownloadTable`, entre otras |
 | `0x00461C32` | 473 | 1 | descarga de mipmaps de textura |
 | `0x004329EF` | 462 | 1 | carga de textura `.3df` (`gu3dfGetInfo`/`gu3dfLoad`) |
-| `0x00432BBD` | 532 | 1 | triángulos + estado de color/alpha |
-| `0x00432DD1` | 264 | 1 | triángulos + estado de color/alpha (variante corta) |
+| `0x00432BBD` | 532 | 1 | **glifo de texto 2D**: índice de glifo → celda 16×16 de `FONT.3DF`; quad 8×8, stride de vértice 0x3C (`U1F_RESULTADOS.md` §3) |
+| `0x00432DD1` | 264 | 1 | **rectángulo 2D sólido**: sin `grTexSource`; `x=arg1&0xFF`, `y=(arg1>>8)+3`, `w=(arg2&0xFF)<<4`, `h=(arg2>>8)*12` (`U1F_RESULTADOS.md` §4) |
 | `0x00424C0F` | 121 | 2 | `grBufferSwap(1)` de la ruta de arranque |
 | `0x00424D82` | 648 | 1 | `grSstQueryHardware`: sonda de hardware Glide |
 | `0x00473238` | 504 | 1 | descarga de mipmap y de nivel parcial |
@@ -549,7 +549,7 @@ proyecto.
 | ID | Riesgo/incógnita | Impacto | Mitigación |
 | --- | --- | --- | --- |
 | R-1 | Que la recomendación D3D11 falle en máquina objetivo (nunca ejecutado) | alto | es el primer paso del hito siguiente; plan B = OpenGL o rasterizador propio con el mismo contrato |
-| U-1 | Qué campos de `GrVertex` rellena el juego y cómo calcula `w` | medio | lectura guiada de `0x00432BBD`/`0x0046558A` antes de fijar la estructura de vértice del port |
+| U-1 | Qué campos de `GrVertex` rellena el juego y cómo se calcula `w` | medio | **parcialmente resuelta en U-1f**: la ruta 2D de glifo usa stride 0x3C, escribe x/y, la constante `1.0f` en `+0x20` y u/v en `+0x24`/`+0x28` (nombre del campo `+0x20` no verificado); la ruta 3D (`0x0046558A`) usa cuatro buffers globales de vértice separados 0x40 y lee campos de 16 bits del flujo de comandos. El `w` no se calcula. Falta fijar la estructura completa del vértice 3D y el layout de `grDrawPlanarPolygonVertexList` (`U1F_RESULTADOS.md` §3, §8) |
 | U-2 | Modos concretos de combine/alpha/chromakey/fog que usa el juego | medio | solo se sabe que *puede* configurarlos (imports); la lista de modos se derivará de los constantes que el juego pasa |
 | U-3 | Formatos de textura (NCC obligado por `grTexNCCTable`; resto UNKNOWN) | medio | fixtures sintéticos + lectura de `0x004329EF`/`0x00461C32` |
 | U-4 | Estructura de las «2 listas» que envía `0x0043DC3A` | bajo-medio | no se modela hasta tenerla; el port define su propia cola |
