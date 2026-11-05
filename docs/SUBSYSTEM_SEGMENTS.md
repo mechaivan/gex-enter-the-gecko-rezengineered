@@ -144,8 +144,8 @@ el grafo directo: se publica como variante **no** ejecutada, no como código viv
 | `0x0046558A` | 17068 | call | 1 | sí | G I T | ALTA | mayor consumidor Glide: 10 APIs, 17 068 B |
 | `0x00461C32` | 473 | call | 1 | sí | G I T | ALTA | descarga de mipmaps de textura |
 | `0x004329EF` | 462 | call | 1 | sí | G I T | ALTA | carga de textura 3DF (gu3dfLoad/gu3dfGetInfo) |
-| `0x00432BBD` | 532 | call | 1 | sí | G I T | ALTA | glifo de texto 2D: índice de glifo → celda 16×16 de `FONT.3DF` (U-1f) |
-| `0x00432DD1` | 264 | call | 1 | sí | G I T | ALTA | rectángulo 2D sólido sin textura (HUD) (U-1f) |
+| `0x00432BBD` | 532 | call | 1 | sí | G I T | ALTA | emisor de glifos 2D: índice de glifo → celda 16×16 de `FONT.3DF` (U-1f) |
+| `0x00432DD1` | 264 | call | 1 | sí | G I T | ALTA | emisor de rectángulos sólidos 2D, sin textura (U-1f) |
 | `0x00424C0F` | 121 | call | 2 | sí | A G I T | ALTA | swap(1) de la ruta de arranque; ancla en +112 |
 | `0x00424D82` | 648 | call | 1 | sí | G I T | ALTA | grSstQueryHardware: sonda de hardware Glide |
 | `0x00473238` | 504 | call | 1 | sí | G I T | ALTA | descarga de mipmap y de nivel parcial |
@@ -155,7 +155,9 @@ Sostén: son las únicas funciones de juego que llaman directamente a Glide, y
 cada una declara la API concreta. `0x0046558A` concentra `_grDrawTriangle`,
 `_grTexSource`, `_grAlphaCombine`, `_grConstantColorValue4`, `_grChromakeyMode`,
 `_grDrawLine`, `_grDrawPlanarPolygonVertexList`, `_grTexDownloadTable`, entre
-otras. Que sean «render» es la hipótesis; **qué** dibuja cada una no se afirma.
+otras. Que sean «render» es la hipótesis; **qué** dibuja cada una no se afirma
+aquí (U-1f sí determinó el papel de `0x00432BBD` y `0x00432DD1`: glifo y
+rectángulo 2D, ver [`../U1F_RESULTADOS.md`](../U1F_RESULTADOS.md)).
 
 ### S3 — HYPOTHESIS: audio, mezcla y voz
 
