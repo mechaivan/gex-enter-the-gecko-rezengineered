@@ -2,6 +2,20 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-05 - 0.0.0 - U-1f: Relación índices-recursos completada con corrección documental
+
+- **Última fase de recuperación de geometría original completada con correcciones fundamentales.**
+  U-1f analiza cómo se relacionan los índices con los recursos (texturas, etc.) y corrigió errores en U-1a...U-1e: `0x00432BBD` es un glifo 2D (no triángulos 3D) y `0x00432DD1` es un rectángulo 2D sólido (no geometría 3D). La geometría 3D real está en `0x0046558A` con flujo de comandos hacia la tabla de texturas `0x006488F4`.
+- **Hechos demostrados:** 
+  - `0x00432BBD`: emisor de glifos 2D, índice de glifo → celda 16×16 de `FONT.3DF`
+  - `0x00432DD1`: emisor de rectángulos sólidos 2D, sin textura
+  - Geometría 3D real en `0x0046558A`: opcode en `byte[+0xB]`, índice de 14 bits hacia `0x006488F4`
+  - `FONT.3DF` cargado por `0x004329EF`, `.VFX` construye tabla de texturas, `.DFX` alimenta flujo 3D
+- **Hipótesis retiradas:** H1 (stride 12 bytes), H6 (cálculo de w, `0x00432DD1` = 3D)
+- **Corrección documental:** actualizadas descripciones en `tools/gexmap/segments.mjs` y `docs/SUBSYSTEM_SEGMENTS.md` para reflejar hallazgos de U-1f.
+- **Pruebas:** análisis estático con `llvm-objdump`, `tools/gexmap/pe.mjs` y `analysis/EU`; validación mediante desensamblado completo.
+- **Documentación:** `U1F_RESULTADOS.md` (metodología, thunks, fórmulas, listas, ruta 3D, DFX/VFX, resultados negativos), `docs/U1_GEOMETRY_RECOVERY_PLAN.md` actualizado.
+
 ## 2026-11-03 - 0.0.0 - R-3: Direct3D 11 renderer con primera salida gráfica visible
 
 - **Tercera y última pieza del renderer real, con primera salida gráfica visible.**
