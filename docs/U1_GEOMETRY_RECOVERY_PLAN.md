@@ -125,23 +125,59 @@ en [`U1F_RESULTADOS.md`](../U1F_RESULTADOS.md).
 de la ruta de rectángulo, significado de `registro[+0x0C]` en la ruta 3D, formato
 de cabecera de `.DFX`/`.VFX`, estructura de `0x0057B600`.
 
+### U-1g (relación con DFX/VFX): COMPLETADO (2026-11-06)
+
+**Hechos demostrados:**
+
+- **`0x0046558A` dibuja un solo comando**; el recorrido lo hace `0x00469836`
+  sobre una lista enlazada de registros. Cabecera de 8 B: `[0]` = longitud/flag
+  de dibujo, `[4]` = siguiente (`-1` = fin). Opcode en `byte[+0xB]`; `0xE1` es
+  prefijo de 4 B que fija `[0x57B8EC]`. Vértices *inline*.
+- **Pool y doble buffer:** `0x64FF00 + 0x6000*level[+0x14]`, punteros
+  `0x64FEE0`/`0x64FEE4`, head `buf+0x5FF8`, inicialización
+  `0x00465530(buf, 0xC00)`.
+- **Despacho:** `cmd = opcode & ~3`; índice `cmd-0x20` en el mapa `0x00469765`;
+  12 handlers en `0x00469735`.
+- **Recurso:** `word[record+0x1A] & 0x3FFF` → tabla `0x006488F4` → registro
+  `.VFX`; bits altos = nivel; `record[+0x0C]==1` activa `grTexDownloadTable`.
+- **`.VFX`:** `count` + registros `0x8C + [+0x84]` B; validado con `GEX.VFX`
+  (4 registros, fin exacto en `0x634`).
+- **`.DFX`:** `{count, offsets[]}` + imagen relocalizable; `0x004735C0` suma la
+  base y `0x00461E0B` compacta; validado con `GEX.DFX` (322 offsets, imagen de
+  143 960 B, raíz en `0x2E0`).
+- **Orden de carga:** `0x0043B11D` carga **primero** el `.VFX` (tabla de
+  texturas) y **después** el `.DFX` (`level[+4]`).
+
+**Resultados negativos:**
+
+- Sin referencias cruzadas `.DFX`↔`.VFX`; sin tabla de texturas en el `.DFX`;
+  sin identificador de recurso por comando distinto del índice de 14 bits; sin
+  buffer de vértices separado.
+
+**Cuestiones abiertas:** solapamiento `+0x8`/`+0xB` en triángulos; longitud
+`0x20` del opcode `0x30` frente a la lectura de `+0x20/+0x21`; estructura
+interna del grafo `.DFX`; semántica de `record[+0x0C]` y de `+0x14` del `.VFX`;
+registro de cierre `0x64FB40`.
+
 ## Cuestiones pendientes
 
-1. **U-1g (relación con DFX):** formato del flujo de comandos de `0x0046558A`
-   (opcodes, tamaño de registro, campos de 16 bits) y cabecera del `.DFX`.
-2. **U-1h (interpretación final):** semántica de los tres campos, que ya solo
-   tiene sentido para el flujo 3D.
-3. **`0x004338D7`:** renderizador especial de la lista 2D.
+1. **U-1h (interpretación final):** semántica de los campos del flujo 3D y del
+   grafo `.DFX`; incluye las cuestiones abiertas de U-1g.
+2. **`0x004338D7`:** renderizador especial de la lista 2D.
+3. **`grDrawPlanarPolygonVertexList`:** layout del vértice usado por el opcode
+   `0x40`.
 
 ## Próximos pasos
 
-1. **U-1g:** atacar el formato del flujo de comandos y la cabecera del `.DFX`.
-2. **U-1h:** interpretación final, dependiente de U-1g.
-3. Contrastar el campo de `+0x20` (`oow`/`ooz`) con los headers reales de
+1. **U-1h:** interpretación final, apoyada en los hechos de U-1g.
+2. Contrastar el campo de `+0x20` (`oow`/`ooz`) con los headers reales de
    `GrVertex` de Glide 2.x.
+3. Si se autoriza ejecución, confirmar dinámicamente el byte `+0xB` de los
+   triángulos y la longitud real del opcode `0x30`.
 
 ## Documentación relacionada
 
+- [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados detallados de U-1g.
 - [U1F_RESULTADOS.md](../U1F_RESULTADOS.md): resultados detallados de U-1f.
 - [U1E_RESULTADOS.md](../U1E_RESULTADOS.md): resultados de U-1e (corregidos por U-1f).
 - [CHANGELOG.md](../CHANGELOG.md): registro de cambios del proyecto.

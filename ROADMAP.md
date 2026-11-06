@@ -46,7 +46,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] U-1d: Recuperación de índices (2026-11-04)
 - [x] U-1e: Relación geometría-índices (2026-11-04)
 - [x] U-1f: Relación índices-recursos (2026-11-05) — corregidas U-1a…U-1e: `0x00432BBD` = glifo 2D, `0x00432DD1` = rectángulo 2D, geometría 3D real en `0x0046558A`
-- [ ] U-1g: Relación con DFX (pendiente)
+- [x] U-1g: Relación con DFX (2026-11-06) — flujo de comandos, índice de 14 bits → `0x006488F4` (`.VFX`), `.DFX` relocalizable (`0x004735C0`), cadena `0x0043B11D` → `.VFX` + `.DFX`; formatos validados con `GEX.DFX`/`GEX.VFX`
 - [ ] U-1h: Interpretación final (pendiente)
 
 ### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)

@@ -2,6 +2,22 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-06 - 0.0.0 - U-1g: Relación de la ruta 3D con DFX/VFX completada
+
+- **Formato del flujo de comandos de `0x0046558A` y de los contenedores `.DFX`/`.VFX` establecido y validado con assets reales.**
+  `0x0046558A` dibuja **un** comando por llamada; el recorrido lo hace `0x00469836` sobre una lista enlazada de registros con cabecera de 8 B (`[0]` = longitud/flag de dibujo, `[4]` = siguiente; `-1` = fin). El opcode está en `byte[+0xB]`, el prefijo `0xE1` ocupa 4 B y fija `[0x57B8EC]`, y los vértices van *inline*.
+- **Hechos demostrados:**
+  - Pool de comandos `0x64FF00 + 0x6000*level[+0x14]`, doble buffer `0x64FEE0`/`0x64FEE4`, head `buf+0x5FF8`, inicialización `0x00465530(buf, 0xC00)`.
+  - Dispatcher: `cmd = opcode & ~3`, índice `cmd-0x20` en el mapa `0x00469765`, 12 handlers en `0x00469735` (`0x20`/`0x24`, `0x30`/`0x34`, `0x40`, `0x48`, `0x4C`, `0x50`, `0x60`, `0x70`, `0x80`, `0xB4`, `0xF0`).
+  - Recurso: `word[+0x1A] & 0x3FFF` → tabla `0x006488F4` → registro `.VFX`; `+0x14` = nivel (`>>14`); `record[+0x0C]==1` activa `grTexDownloadTable`, y se llama a `grTexSource`/`grTexDownloadMipMap`.
+  - `.VFX`: `count` + registros de `0x8C + [+0x84]` B; `GEX.VFX` (1 588 B, 4 registros) termina exactamente en `0x634`.
+  - `.DFX`: `{count, offsets[]}` + imagen relocalizable; `0x004735C0` suma la base a cada dword apuntado; `0x00461E0B` compacta la imagen; `0x0043B11D` guarda el resultado en `level[+4]` y carga **primero** el `.VFX`.
+  - `GEX.DFX` (146 008 B): `count=322`, `aligned=0x200` dwords, imagen de 143 960 B, raíz en `0x2E0`, 90 punteros relocalizados en los primeros 512 B.
+- **Resultados negativos:** no hay referencias cruzadas `.DFX`↔`.VFX`, ni tabla de texturas en el `.DFX`, ni identificador de recurso por comando distinto del índice de 14 bits, ni buffer de vértices separado.
+- **Cuestiones abiertas:** solapamiento `+0x8`/`+0xB` en los triángulos, longitud `0x20` del opcode `0x30` frente a la lectura de `+0x20/+0x21`, estructura interna del grafo `.DFX`, semántica de `record[+0x0C]` y de `+0x14` del `.VFX`.
+- **Pruebas:** análisis estático con `llvm-objdump`, `tools/gexmap/pe.mjs` y `analysis/EU`; validación binaria de `GEX.DFX`/`GEX.VFX` en solo lectura. REA no viable (`missing_analysis_engine`), sin instalar herramientas.
+- **Documentación:** `U1G_RESULTADOS.md` (metodología, encuadre, opcodes, recurso de 14 bits, emisores, cadena de carga, formatos, hechos/hipótesis/negativos), `ROADMAP.md`, `PROJECT_STATE.md`.
+
 ## 2026-11-05 - 0.0.0 - U-1f: Relación índices-recursos completada con corrección documental
 
 - **Última fase de recuperación de geometría original completada con correcciones fundamentales.**
