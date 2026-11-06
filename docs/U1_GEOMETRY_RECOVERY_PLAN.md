@@ -137,14 +137,19 @@ de cabecera de `.DFX`/`.VFX`, estructura de `0x0057B600`.
   `0x64FEE0`/`0x64FEE4`, head `buf+0x5FF8`, inicialización
   `0x00465530(buf, 0xC00)`.
 - **Despacho:** `cmd = opcode & ~3`; índice `cmd-0x20` en el mapa `0x00469765`;
-  12 handlers en `0x00469735`.
-- **Recurso:** `word[record+0x1A] & 0x3FFF` → tabla `0x006488F4` → registro
-  `.VFX`; bits altos = nivel; `record[+0x0C]==1` activa `grTexDownloadTable`.
+  12 punteros en `0x00469735`, de los que **11 son handlers activos** (tabla
+  corregida en U-1h §8.1; la de U-1g estaba desplazada una fila).
+- **Recurso:** índice de textura de 14 bits en `word[record+0x1A]` para el
+  comando `0x24` (y `word[record+0x1E]` para `0xB4`) → tabla `0x006488F4` →
+  registro `.VFX`; bits altos = nivel; `record[+0x0C]` es el formato de textura
+  y `record[+0x14]` son datos NCC *inline* (corregido en U-1h §9.2 y §11).
 - **`.VFX`:** `count` + registros `0x8C + [+0x84]` B; validado con `GEX.VFX`
   (4 registros, fin exacto en `0x634`).
 - **`.DFX`:** `{count, offsets[]}` + imagen relocalizable; `0x004735C0` suma la
-  base y `0x00461E0B` compacta; validado con `GEX.DFX` (322 offsets, imagen de
-  143 960 B, raíz en `0x2E0`).
+  base y `0x00461E0B` compacta. Validado en tres niveles reales (`AZTEC16`,
+  `CIRCUIT0`, `REZOP2`) y, además, con `GEX.DFX` (322 offsets, imagen de
+  143 960 B); este último resultó ser un **modelo/personaje**, no un nivel
+  (U-1h §12).
 - **Orden de carga:** `0x0043B11D` carga **primero** el `.VFX` (tabla de
   texturas) y **después** el `.DFX` (`level[+4]`).
 
@@ -154,30 +159,64 @@ de cabecera de `.DFX`/`.VFX`, estructura de `0x0057B600`.
   sin identificador de recurso por comando distinto del índice de 14 bits; sin
   buffer de vértices separado.
 
-**Cuestiones abiertas:** solapamiento `+0x8`/`+0xB` en triángulos; longitud
-`0x20` del opcode `0x30` frente a la lectura de `+0x20/+0x21`; estructura
+**Cuestiones que dejó abiertas U-1g (todas cerradas en U-1h):** solapamiento
+`+0x8`/`+0xB` en triángulos; longitud `0x20` del opcode `0x30`; estructura
 interna del grafo `.DFX`; semántica de `record[+0x0C]` y de `+0x14` del `.VFX`;
-registro de cierre `0x64FB40`.
+registro de cierre `0x64FB40`. Véase
+[U1H_RESULTADOS.md §9, §10, §11 y §12](../U1H_RESULTADOS.md).
+
+## U-1h — Interpretación final (completada 2026-11-06)
+
+**Estado:** ✅ COMPLETADA. Evidencia completa en
+[U1H_RESULTADOS.md](../U1H_RESULTADOS.md). Subfase C (U-1) cerrada.
+
+**Objetivo:** cerrar la semántica de los campos del flujo 3D y del grafo `.DFX`,
+y resolver estáticamente las cuestiones abiertas de U-1g.
+
+**Resultados:**
+
+- Contenedor `.DFX` validado en tres niveles reales: `count` + tabla de offsets
+  + imagen en `4*((count+0x200)&~0x1FF)`; offsets relativos a la imagen.
+- Descriptor de nivel con todos los campos identificados y encadenado exacto:
+  `[+0x28]+nPolys*0x14 == [+0x24]` → `+nVerts*12 == [+0x2C]` →
+  `+nNormals*6 == [+0x00]`.
+- Nodo BSP `0x20` B (unión interno/hoja, tipo `+0x12` = 1/2), polígono `0x14` B,
+  vértice 12 B, normal 6 B y auxiliar UV 12 B (índice de textura en `word[+6]`).
+- Ruta de dibujo completa: `0x401C00` → `[0x64FEA4]` → `0x4269C2` →
+  `0x426256`/`0x426588` → `0x469836` → `0x46558A` → Glide.
+- Tabla de despacho corregida (11 handlers activos).
+- Anomalías de U-1g resueltas: el opcode se escribe después del color y el
+  handler de `0x30` (`0x4673E9`) consume exactamente `0x20` B.
+- `0x64FB40` identificado como rectángulo de fondo `0xF0`.
+- `.VFX`: `+0x0C` formato, `+0x14` datos NCC *inline*.
+- `GEX.DFX` demostrado como modelo/personaje, no nivel.
 
 ## Cuestiones pendientes
 
-1. **U-1h (interpretación final):** semántica de los campos del flujo 3D y del
-   grafo `.DFX`; incluye las cuestiones abiertas de U-1g.
-2. **`0x004338D7`:** renderizador especial de la lista 2D.
-3. **`grDrawPlanarPolygonVertexList`:** layout del vértice usado por el opcode
-   `0x40`.
+1. **Campos sin consumidor localizado:** `desc+0x10/+0x14`, `desc+0x30`,
+   `desc+0x34`, `desc+0x38/+0x3C`, bits de flags de polígono sin marcar y el
+   propósito del segundo registro de `0x426588`. Requieren instrumentación
+   dinámica para cerrarse.
+2. **Formato del modelo `GEX.DFX`** (tabla de frames, vértices de 16 B, caras de
+   12 B): demostrado distinto del nivel, no descodificado.
+3. **`0x004338D7`:** renderizador especial de la lista 2D.
+4. **`grDrawPlanarPolygonVertexList`:** layout completo del vértice usado por el
+   opcode `0x28`.
 
 ## Próximos pasos
 
-1. **U-1h:** interpretación final, apoyada en los hechos de U-1g.
-2. Contrastar el campo de `+0x20` (`oow`/`ooz`) con los headers reales de
-   `GrVertex` de Glide 2.x.
-3. Si se autoriza ejecución, confirmar dinámicamente el byte `+0xB` de los
-   triángulos y la longitud real del opcode `0x30`.
+1. **Subfase C cerrada.** Cualquier trabajo de implementación (port gráfico,
+   Fase 3) queda fuera del alcance *read-only* de U-1.
+2. **Port gráfico:** es viable extraer la geometría de un nivel recorriendo el
+   BSP con las reglas de U-1h §4/§5 y generar *batches* propios con los layouts
+   de §8.2, sin reproducir el pool ni el dispatcher.
+3. Si se autoriza ejecución, confirmar dinámicamente los campos y ramas de
+   U-1h §14.
 
 ## Documentación relacionada
 
-- [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados detallados de U-1g.
+- [U1H_RESULTADOS.md](../U1H_RESULTADOS.md): resultados detallados de U-1h.
+- [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados de U-1g (con nota de corrección de U-1h).
 - [U1F_RESULTADOS.md](../U1F_RESULTADOS.md): resultados detallados de U-1f.
 - [U1E_RESULTADOS.md](../U1E_RESULTADOS.md): resultados de U-1e (corregidos por U-1f).
 - [CHANGELOG.md](../CHANGELOG.md): registro de cambios del proyecto.

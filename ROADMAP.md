@@ -38,7 +38,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [ ] Probar `tools/setup-re-env.sh` en máquina sin restricciones.
 - [ ] Cierre Fase 1 → autorización Fase 2.
 
-### Subfase C — Geometría Original (U-1) 🔄 (2026-11-04 a 2026-12-31)
+### Subfase C — Geometría Original (U-1) ✅ (2026-11-04 a 2026-11-06)
 
 - [x] U-1a: Stride y campos (2026-11-04)
 - [x] U-1b: Cálculo de w (2026-11-04)
@@ -47,7 +47,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] U-1e: Relación geometría-índices (2026-11-04)
 - [x] U-1f: Relación índices-recursos (2026-11-05) — corregidas U-1a…U-1e: `0x00432BBD` = glifo 2D, `0x00432DD1` = rectángulo 2D, geometría 3D real en `0x0046558A`
 - [x] U-1g: Relación con DFX (2026-11-06) — flujo de comandos, índice de 14 bits → `0x006488F4` (`.VFX`), `.DFX` relocalizable (`0x004735C0`), cadena `0x0043B11D` → `.VFX` + `.DFX`; formatos validados con `GEX.DFX`/`GEX.VFX`
-- [ ] U-1h: Interpretación final (pendiente)
+- [x] U-1h: Interpretación final (2026-11-06) — contenedor `.DFX` (`count` + offsets + imagen en `4*((count+0x200)&~0x1FF)`), descriptor de nivel y encadenado de regiones exacto, nodo BSP `0x20` B (unión interno/hoja con tipo `+0x12` = 1/2), polígono `0x14` B, vértice 12 B, normal 6 B, auxiliar UV 12 B (índice de textura en `word[+6]`), recorrido de dibujo `0x401C00` → `0x4269C2` → emisores, tabla de despacho corregida (11 handlers), anomalías de U-1g resueltas y `0x64FB40` identificado como rectángulo de fondo `0xF0`
 
 ### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)
 

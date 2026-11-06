@@ -2,6 +2,27 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-06 - 0.0.0 - U-1h: Interpretación final del flujo 3D y del grafo `.DFX` completada
+
+- **Semántica del flujo 3D y estructura del `.DFX` cerrada de extremo a extremo; Subfase C (U-1) terminada.**
+  Contenedor validado en `AZTEC16.DFX`, `CIRCUIT0.DFX` y `REZOP2.DFX`: `count` + tabla de `count` offsets + relleno hasta `aligned = (count + 0x200) & ~0x1FF` dwords; imagen en `4*aligned`, offsets relativos a la imagen.
+- **Hechos demostrados:**
+  - Descriptor de nivel (`image[0]`): raíz BSP `+0x00`, nº/tabla de registros de 12 B `+0x10/+0x14`, vértices `+0x18`, polígonos `+0x1C`, normales `+0x20`, tabla de vértices `+0x24` (12 B), inicio de polígonos `+0x28` (0x14 B), tabla de normales `+0x2C` (6 B), objetos `+0x30`, tabla no identificada `+0x34`. Encadenado exacto en los tres niveles: `[+0x28]+nPolys*0x14 == [+0x24]` → `+nVerts*12 == [+0x2C]` → `+nNormals*6 == [+0x00]`.
+  - Nodo BSP `0x20` B, unión interno/hoja: centro `+0/+2/+4`, radio `+0x06`, normal unitaria (escala 4096) `+0x0C..+0x11`, distancia `+0x14`, hijos `+0x18/+0x1C`; hoja con puntero y contador de polígonos y AABB. `+0x12` es tipo exacto: `1` interno, `2` hoja (2 807 nodos, sin otros valores). Hijo A = lado positivo de la normal.
+  - Polígono `0x14` B: índices `+0/+2/+4`, flags `+0x06`, 4 índices con signo a normales, puntero a registro UV de 12 B en `+0x10`. Flags con consumidor: `0x8000` oculto, `0x4000` fuera de colisión, `0x0040` especial, `0x0020` trigger.
+  - Registro auxiliar UV 12 B: `byte[+0]=U0`, `byte[+1]=V0`, `byte[+4]=U1`, `byte[+5]=V1`, `byte[+8]=U2`, `byte[+9]=V2`; `word[+6]` = índice de textura de 14 bits, y el emisor añade `0x4000`.
+  - Ruta de dibujo: `0x401C00` recorre el BSP y anexa hojas visibles a `[0x64FEA4]` (máx. 0x800); `0x4269C2` las emite; `0x426256`/`0x426588` escriben los comandos; `0x469836` recorre la lista y `0x46558A` despacha a Glide.
+  - `0x41A203` = colisión segmento–BSP; `0x4024B9` + `0x5015A9` = consulta esférica de triggers/pickups.
+  - Tabla de despacho corregida (mapa `0x469765`, handlers `0x469735`): 11 comandos activos (`0x20`, `0x24`, `0x28`, `0x2C`, `0x30`, `0x34`, `0x40`, `0x48`, `0x4C`, `0xB4`, `0xF0`); el resto son no-op.
+  - `0x64FB40` = rectángulo 2D de fondo opcode `0xF0`, `0x14` B, `0x200×0x180`, negro; se reencadena como último comando del frame.
+  - `.VFX`: `record[+0x0C]` = `GrTexInfo.format`; `record[+0x14]` = datos NCC *inline* para `grTexDownloadTable`; `0x461C32` no descarga la tabla.
+  - `image[+0x8C]` = puntero relocalizado al nombre de nivel de 12 caracteres en `image+0xE0`.
+- **Anomalías de U-1g resueltas estáticamente:** el opcode se escribe siempre **después** del color; el handler de `0x30` es `0x4673E9` y consume exactamente `0x20` B. La tabla opcode→handler de U-1g estaba desplazada una fila.
+- **`GEX.DFX`:** mismo contenedor, pero **no es un nivel**; `image[0]` no está relocalizado, no hay BSP ni descriptor de nivel. Es un modelo/personaje con tabla de frames y nombre `"gex______"`. No se generaliza el formato de nivel.
+- **Resultados negativos:** sin consumidor localizado para `desc+0x10/+0x14`, `desc+0x30`, `desc+0x34`, `desc+0x38/+0x3C`, bits de flags sin marcar, segundo registro de `0x426588` ni formato del modelo `GEX.DFX`.
+- **Pruebas:** análisis estático con `llvm-objdump` y `tools/gexmap/pe.mjs`; validación binaria *read-only* de tres niveles y `GEX.DFX`; sin ejecución, sin ventanas, sin instalación de herramientas.
+- **Documentación:** `U1H_RESULTADOS.md` (17 secciones + 2 anexos), `U1G_RESULTADOS.md` (nota de corrección y tabla de opcodes), `ROADMAP.md`, `PROJECT_STATE.md`, `docs/U1_GEOMETRY_RECOVERY_PLAN.md`.
+
 ## 2026-11-06 - 0.0.0 - U-1g: Relación de la ruta 3D con DFX/VFX completada
 
 - **Formato del flujo de comandos de `0x0046558A` y de los contenedores `.DFX`/`.VFX` establecido y validado con assets reales.**

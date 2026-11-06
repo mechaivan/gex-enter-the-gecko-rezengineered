@@ -10,6 +10,15 @@
 abierto ventana alguna, no se ha modificado el ejecutable ni ningún fichero de
 `C:\GEX_REZ`, y no se ha instalado ni configurado ninguna herramienta.
 
+> **⚠ NOTA DE CORRECCIÓN (U-1h, 2026-11-06).** La tabla opcode→handler de
+> §2.5 está **desplazada una fila**; la correcta está en §2.5 más abajo y en
+> [U1H_RESULTADOS.md §8.1](U1H_RESULTADOS.md). Del mismo modo, `0x0041A203` es
+> **colisión** segmento–BSP (no recorrido de dibujo) y `0x00425010` es un
+> **emisor de modelo/objeto** (no del nivel). Las tres cuestiones abiertas de
+> §11.1, §11.2 y §11.3 quedaron resueltas estáticamente en U-1h. Este documento
+> se conserva tal cual se publicó, con las correcciones marcadas en línea y el
+> detalle completo en `U1H_RESULTADOS.md`.
+
 ---
 
 ## 0. Resumen ejecutivo
@@ -206,18 +215,23 @@ Dos tablas contiguas:
 
 | `cmd` | Handler | Llamadas Glide observadas |
 |---|---|---|
-| `0x20` / `0x24` | `0x00465A89` | `grConstantColorValue4`, `guColorCombineFunction`, `grDrawTriangle` |
-| `0x30` / `0x34` | `0x00465E5A` | `grTexDownloadTable`, `grTexSource`, `grConstantColorValue4`, `guColorCombineFunction`, `grDrawTriangle` |
-| `0x40` | `0x0046636C` | `grConstantColorValue4`, `guColorCombineFunction`, `grDrawPlanarPolygonVertexList` |
-| `0x48` | `0x00466B3E` | textura + `grDrawTriangle` |
-| `0x4C` | `0x004673E9` | triángulo sólido alternativo |
-| `0x50` | `0x0046789D` | textura + `grDrawTriangle` |
-| `0x60` | `0x00468512` | línea/polilínea |
-| `0x70` | `0x0046875B` | polilínea |
-| `0x80` | `0x00468B54` | `grDrawLine` (3 llamadas) |
+| `0x20` | `0x00465A89` | `grConstantColorValue4`, `guColorCombineFunction`, `grDrawTriangle` |
+| `0x24` | `0x00465E5A` | `grTexDownloadTable`, `grTexSource`, `grConstantColorValue4`, `guColorCombineFunction`, `grDrawTriangle` |
+| `0x28` | `0x0046636C` | `grDrawPlanarPolygonVertexList` |
+| `0x2C` | `0x00466B3E` | textura + `grDrawTriangle` |
+| `0x30` | `0x004673E9` | triángulo sólido Gouraud |
+| `0x34` | `0x0046789D` | textura + `grDrawTriangle` |
+| `0x38`, `0x3C`, `0x44`, `0x50`–`0x80`, `0xB0`, `0xB8`–`0xEC` | `0x00469711` | `ret` (no-op) |
+| `0x40` | `0x00468512` | línea (`grDrawLine`) |
+| `0x48` | `0x0046875B` | polilínea |
+| `0x4C` | `0x00468B54` | `grDrawLine` (3 llamadas) |
 | `0xB4` | `0x00467E65` | textura + `grDrawTriangle` |
 | `0xF0` | `0x00469268` | dos triángulos |
-| otro | `0x00469711` | `ret` (no-op) |
+
+> **Corregido en U-1h (§8.1):** la tabla publicada originalmente aquí estaba
+> desplazada una fila (asignaba `0x20`/`0x24` a `0x465A89`, `0x30`/`0x34` a
+> `0x465E5A`, etc.). La tabla de arriba ya es la correcta: 11 handlers activos,
+> verificados leyendo el mapa `0x469765` y los 12 punteros de `0x469735`.
 
 `0x00469715` y `0x00469725` son otras dos tablas de salto usadas por la máquina
 de estado de alpha, **no** por el dispatcher de opcodes.
@@ -228,7 +242,12 @@ de estado de alpha, **no** por el dispatcher de opcodes.
 
 ### 3.1 Código exacto
 
-Dentro del handler `0x30` (`0x00465E5A`):
+Dentro del handler `0x24` (`0x00465E5A`):
+
+> **Corregido en U-1h:** el texto original decía "handler `0x30`", herencia de
+> la tabla desplazada de §2.5. El código de abajo pertenece al handler del
+> comando `0x24` (triángulo texturizado); el handler real del `0x30` es
+> `0x004673E9` y no accede a texturas.
 
 ```
 0x466110  eax = record
@@ -300,7 +319,13 @@ Consecuencias demostradas:
 
 ## 4. Emisores de comandos
 
-### 4.1 `0x00425010` — caras del `.DFX` a comandos
+### 4.1 `0x00425010` — caras de **modelo/objeto** a comandos
+
+> **Corregido en U-1h (§7.3):** `0x00425010` y `0x004258BD` son emisores de
+> **modelo/objeto** (caras de 12 B, vértices de 16 B), instalados como
+> *function pointers* del struct de nivel (`level+0x4C98`/`+0x4C9C`). El
+> **nivel BSP** usa los emisores `0x00426256`/`0x00426588`. El texto de abajo
+> sigue siendo válido para los modelos.
 
 Firma observada: `void emit(faceSet *fs /*[+8]*/, int polyIndex /*[+0xC]*/,
 int *counter /*[+0x10]*/, pool *p /*[+0x14]*/)`.
@@ -539,6 +564,14 @@ El ajuste exacto del final confirma que el tamaño de registro es
 
 ### 7.3 Relación con el árbol del `.DFX` (hipótesis)
 
+> **Corregido en U-1h (§4, §6):** la hipótesis quedó **demostrada y ampliada**.
+> `dfx[0]` es la raíz de un **BSP** cuyos nodos miden `0x20` B (unión
+> interno/hoja con tipo `+0x12` = 1/2), y el recorrido lo hay dos:
+> `0x00401C00` (visibilidad → `0x4269C2` emisión → dibujo) y `0x0041A203`
+> (**colisión segmento–BSP**, no dibujo, como se supuso). También
+> `0x004024B9` + callback `0x005015A9` recorre el árbol para
+> *pickups*/triggers. Detalle completo en `U1H_RESULTADOS.md`.
+
 `0x0040B475` hace `0x0041A1E0(dfx[0], arg2, arg3, 0)`; `0x0041A1E0` es un
 envoltorio de `0x0041A203`, que trabaja con una pila de contextos
 (`0x6476C0`, `0x6476E0`, `0x6476F4`, …) y recorre nodos. Que `dfx[0]` sea la
@@ -639,27 +672,53 @@ sobrescriba la lista que la GPU está consumiendo.
 
 ## 11. Cuestiones abiertas
 
+> **Estado tras U-1h (2026-11-06):** las cuestiones 1, 2, 3, 5 y 6 quedaron
+> **resueltas estáticamente** (ver referencias). Permanecen abiertas la 8 y la 9,
+> heredadas de U-1f.
+
 1. **Solapamiento `+0x8` / `+0xB` en triángulos.** El emisor escribe
    `byte[+0xB] = opcode` y después copia un dword a `+0x8`. Estáticamente el
    byte alto de ese dword es 0; dinámicamente debe llevar el opcode o el comando
    no se dibujaría. Requiere traza en runtime (fuera del alcance read-only de
    esta ronda).
+   → **RESUELTA en U-1h §9.1:** el orden es el inverso; el opcode se escribe
+   **después** del color en los cuatro puntos de escritura
+   (`0x4263D2`, `0x426530`, `0x4268EC`, `0x426975`). No hay solapamiento ni
+   dependencia de runtime.
 2. **Longitud `0x20` del opcode `0x30`.** El handler lee `u`/`v` del tercer
    vértice en `+0x20/+0x21`, fuera de la longitud declarada. O el registro
    reutiliza los 4 B siguientes del pool, o el emisor y el handler no coinciden
    (posible inconsistencia del original). No se ha podido decidir sin ejecutar.
+   → **RESUELTA en U-1h §9.2:** el handler del `0x30` es `0x004673E9`, que lee
+   colores `+8/+0x10/+0x18` y posiciones `+0xC/+0x14/+0x1C`: exactamente `0x20`
+   B, sin desbordamiento. Las lecturas de UV pertenece al handler `0x24`.
 3. **Estructura interna del `.DFX`.** Se conoce la cabecera, la relocalización y
    la raíz; no el tamaño ni el significado de los nodos, ni el algoritmo de
    recorrido.
+   → **RESUELTA en U-1h §3–§6:** descriptor completo, nodo BSP de `0x20` B
+   (unión interno/hoja), polígono `0x14` B, vértice 12 B, normal 6 B, auxiliar
+   UV 12 B y tres recorridos trazados (visibilidad, colisión, triggers).
 4. **`image[+0x8C]` del `.DFX`**: puntero relocalizado usado como origen de
    `strcpy`; su contenido no es un nombre legible en `GEX.DFX`.
+   → **RESUELTA en U-1h §3.6:** es el nombre de nivel de 12 caracteres en
+   `image+0xE0` (`"aztec______"`, `"circuit____"`, `"rezop______"`); en
+   `GEX.DFX` apunta a datos no textuales porque su cabecera no es la de nivel.
 5. **Semántica de `record[+0x0C]`** (`1` observado) y de `record[0] < 7`.
+   → **RESUELTA en U-1h §11:** `record[+0x0C]` es `GrTexInfo.format`
+   (`0` sin tabla, `1` con tabla NCC, `0xC` otro).
 6. **Significado de `+0x14` del `.VFX`** (tabla NCC/paleta, hipótesis).
+   → **RESUELTA en U-1h §11:** son datos NCC **inline**: se pasa
+   `record+0x14` directamente como `data` a `grTexDownloadTable`. Además se
+   corrigió que `0x00461C32` **no** descarga la tabla: eso ocurre por comando,
+   en los handlers `0x24`/`0xB4`.
 7. **Registro estático de cierre `0x64FB40`**: su opcode es 0 y sus campos
    `+0xE`/`+0x12` no tienen semántica establecida.
-8. **Layout del vértice de `grDrawPlanarPolygonVertexList`** (opcode `0x40`,
-   4 vértices desde `[ebp-0x138]`), heredado de U-1f.
-9. **`0x004338D7`** (rama `estilo & 0x80`), heredado de U-1f.
+   → **RESUELTA en U-1h §10:** es el rectángulo 2D de fondo (opcode `0xF0`,
+   `0x14` B, `0x200×0x180`, negro); `+0xE`/`+0x12` son y/alto del rectángulo y
+   se reencadenan por frame en `0x462296..0x4622AB`.
+8. **Layout del vértice de `grDrawPlanarPolygonVertexList`** (opcode `0x28`,
+   4 vértices desde `[ebp-0x138]`), heredado de U-1f. **Sigue abierta.**
+9. **`0x004338D7`** (rama `estilo & 0x80`), heredado de U-1f. **Sigue abierta.**
 
 ---
 

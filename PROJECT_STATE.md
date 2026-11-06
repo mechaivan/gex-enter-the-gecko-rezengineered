@@ -49,15 +49,27 @@
   `0x8C+[+0x84]`) validados con `GEX.DFX`/`GEX.VFX`. Evidencia completa:
   [`U1G_RESULTADOS.md`](U1G_RESULTADOS.md).
 
+- **U-1h (interpretación final):** COMPLETADO (2026-11-06) — contenedor `.DFX`
+  (`count` + offsets + imagen en `4*((count+0x200)&~0x1FF)`) y descriptor de
+  nivel con encadenado exacto de regiones; nodo BSP `0x20` B (unión interno/hoja,
+  tipo `+0x12` = 1/2); polígono `0x14` B, vértice 12 B, normal 6 B y auxiliar UV
+  12 B (índice de textura en `word[+6]`); recorrido de dibujo `0x401C00` →
+  `[0x64FEA4]` → `0x4269C2` → `0x426256`/`0x426588` → `0x469836` → `0x46558A`;
+  tabla de despacho corregida (11 handlers); anomalías de U-1g resueltas y
+  `0x64FB40` identificado como rectángulo de fondo `0xF0`. `GEX.DFX` es un
+  modelo/personaje, no un nivel. Evidencia completa:
+  [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md).
+
 ### Pendientes
 
-- **U-1h (interpretación final):** semántica de los campos del flujo 3D y del
-  grafo del `.DFX`; incluye las cuestiones abiertas de U-1g (solapamiento
-  `+0x8`/`+0xB` en triángulos, longitud `0x20` del opcode `0x30`, estructura
-  interna del `.DFX`, `record[+0x0C]`, `+0x14` del `.VFX`).
-- **Abiertas de U-1f/U-1g:** `0x004338D7` (rama `estilo & 0x80`), layout del
-  vértice de rectángulo 2D, layout del vértice de
-  `grDrawPlanarPolygonVertexList`, y el registro estático de cierre `0x64FB40`.
+- **Sin bloques de U-1:** Subfase C cerrada. Quedan campos y ramas marcados como
+  no identificados en U-1h §13.3/§14: `desc+0x10/+0x14`, `desc+0x30`,
+  `desc+0x34`, `desc+0x38/+0x3C`, bits de flags sin consumidor, propósito del
+  segundo registro de `0x426588` y formato del modelo `GEX.DFX`. Su cierre, si se
+  autoriza ejecución, exige instrumentación dinámica.
+- **Abiertas de U-1f:** `0x004338D7` (rama `estilo & 0x80`), layout del vértice de
+  rectángulo 2D y layout del vértice de `grDrawPlanarPolygonVertexList`
+  (resuelto el consumidor, no el layout completo).
 
 ## Estado vigente del port gráfico (R-1 a R-5)
 
