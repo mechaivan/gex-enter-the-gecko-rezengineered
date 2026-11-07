@@ -49,16 +49,19 @@
   `0x8C+[+0x84]`) validados con `GEX.DFX`/`GEX.VFX`. Evidencia completa:
   [`U1G_RESULTADOS.md`](U1G_RESULTADOS.md).
 
-- **U-1h (interpretación final):** COMPLETADO (2026-11-06) — contenedor `.DFX`
+- **U-1h (interpretación final):** COMPLETADO y AUDITADO (2026-11-06;
+  auditoría final 2026-11-07) — contenedor `.DFX`
   (`count` + offsets + imagen en `4*((count+0x200)&~0x1FF)`) y descriptor de
   nivel con encadenado exacto de regiones; nodo BSP `0x20` B (unión interno/hoja,
   tipo `+0x12` = 1/2); polígono `0x14` B, vértice 12 B, normal 6 B y auxiliar UV
   12 B (índice de textura en `word[+6]`); recorrido de dibujo `0x401C00` →
   `[0x64FEA4]` → `0x4269C2` → `0x426256`/`0x426588` → `0x469836` → `0x46558A`;
-  tabla de despacho corregida (11 handlers); anomalías de U-1g resueltas y
-  `0x64FB40` identificado como rectángulo de fondo `0xF0`. `GEX.DFX` es un
-  modelo/personaje, no un nivel. Evidencia completa:
-  [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md).
+  colisión segmento–BSP `0x41A203`; tabla de despacho corregida (11 handlers);
+  anomalías de U-1g resueltas y `0x64FB40` identificado como rectángulo de fondo
+  `0xF0`. La consulta `0x4024B9` + `0x5015A9` marca polígonos `0x20`; su uso como
+  *pickups*/triggers es **hipótesis** (no hay polígonos `0x20` en los tres
+  niveles). `GEX.DFX` es un modelo/personaje, no un nivel. Evidencia completa:
+  [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md) (§18: auditoría final).
 
 ### Pendientes
 
@@ -67,6 +70,10 @@
   `desc+0x34`, `desc+0x38/+0x3C`, bits de flags sin consumidor, propósito del
   segundo registro de `0x426588` y formato del modelo `GEX.DFX`. Su cierre, si se
   autoriza ejecución, exige instrumentación dinámica.
+- **Semántica de juego de la consulta esférica:** `0x4024B9` + `0x5015A9` está
+  demostrada, pero no hay polígonos `0x20` en `AZTEC16`, `CIRCUIT0` ni `REZOP2`;
+  confirmar si son *pickups*/triggers exige un nivel con esos polígonos o una
+  traza en ejecución.
 - **Abiertas de U-1f:** `0x004338D7` (rama `estilo & 0x80`), layout del vértice de
   rectángulo 2D y layout del vértice de `grDrawPlanarPolygonVertexList`
   (resuelto el consumidor, no el layout completo).

@@ -57,10 +57,16 @@ explícitamente como tales en §14; no se afirma nada dinámico.
    polígonos de esas hojas; `0x00426256`/`0x00426588` escriben los comandos;
    `0x00469836` recorre la lista de comandos y `0x0046558A` despacha a Glide.
 
-6. **`0x0041A203` es colisión segmento–BSP, no dibujo** (ya apuntado en U-1g).
+6. **`0x0041A203` es colisión segmento–BSP, no dibujo.** U-1g §7.3 no lo
+   clasificó como dibujo: dejó el recorrido de `0x0041A1E0`/`0x0041A203` como
+   **hipótesis sin algoritmo** y sin decidir entre dibujo y colisión. U-1h lo
+   demuestra leyendo el código (§6.3 y §4.5).
    `0x004024B9` es una **consulta esfera–BSP** que, con el callback
-   `0x005015A9`, **recolecta polígonos con flag `0x20` y los oculta/marca**
-   (`0x8000 | 0x40`): es el sistema de *pickups*/disparadores, no el dibujo.
+   `0x005015A9`, recorre los polígonos de cada hoja y marca con `0x8000 | 0x40`
+   los que llevan el flag `0x20` y caen dentro de la esfera. Su uso como
+   *pickups*/disparadores es una **hipótesis**: en `AZTEC16`, `CIRCUIT0` y
+   `REZOP2` no hay ningún polígono con `0x20`, de modo que el efecto no se ha
+   observado sobre datos reales. No es dibujo.
 
 7. **La tabla de despacho de opcodes de U-1g estaba desplazada.** Corregida y
    verificada leyendo el mapa `0x469765` y los 12 punteros de `0x469735`:
@@ -358,11 +364,16 @@ polígonos de las hojas es **exactamente** `desc[+0x1C]` (9 609 / 5 670 /
 - El centro `(+0x00, +0x02, +0x04)` cae **siempre** dentro del AABB de la hoja
   (100 % de las 815/501/89 hojas).
 - El radio `+0x06` es `⌈máx. distancia centro→vértice⌉` de los vértices de los
-  polígonos de la hoja, con tolerancia de ±2 unidades por redondeo:
-  814/815, 500/501 y 89/89 coinciden exactamente o con ±2.
+  polígonos de la hoja: 814/815, 500/501 y 89/89 quedan a **menos de 2 unidades**
+  del techo. Los dos casos que llegan exactamente a 2 unidades de diferencia son
+  `0x51524` (`AZTEC16`, `r = 1184` frente a `⌈1185,1⌉ = 1186`) y `0x34B58`
+  (`CIRCUIT0`, `r = 1277` frente a `⌈1278,1⌉ = 1279`); en `REZOP2` no hay
+  ninguno.
 
-El radio se usa en dos sitios: la prueba de visibilidad de `0x00401C00` y la
-consulta esférica de `0x004024B9` (con `radio + 320`).
+De los tres recorridos del BSP, el radio del nodo (`+0x06`) **solo lo consume
+`0x00401C00`**, en la prueba de visibilidad de la hoja (§6.1). `0x004024B9`
+**no** usa el radio del nodo: en los nodos internos prueba el plano con el radio
+de la **esfera de consulta** más `320` (§6.4).
 
 ### 4.3 Plano del nodo interno
 
@@ -446,8 +457,8 @@ Distribución real (número de polígonos con cada bit):
 | `0x0001` | 0 | 886 | 0 | desconocido |
 | `0x0002` | 0 | 242 | 0 | desconocido |
 | `0x0008` | 0 | 0 | 36 | desconocido (posible marca de impacto) |
-| `0x0020` | 0 | 0 | 0 | **trigger**: lo exige `0x005015A9` |
-| `0x0040` | 2 394 | 0 | 0 | **especial**: filtrado en colisión y en triggers |
+| `0x0020` | 0 | 0 | 0 | marca de la consulta esférica: lo exige `0x005015A9` (hipótesis: trigger) |
+| `0x0040` | 2 394 | 0 | 0 | **especial**: filtrado en colisión y en la consulta esférica |
 | `0x0080` | 6 740 | 449 | 0 | desconocido |
 | `0x0100` | 2 454 | 48 | 0 | **requerido** por el filtro de colisión (`mask2`) |
 | `0x0200` | 246 | 0 | 0 | desconocido |
@@ -525,6 +536,23 @@ pero **solo el dword 1 lleva el índice de textura**:
 | `byte[aux+8]` | U del vértice 2 |
 | `byte[aux+9]` | V del vértice 2 |
 | `byte[aux+10..11]` | no consumido por el handler `0x34` |
+
+El índice ocupa siempre la **palabra que sigue al par UV del vértice 1**. El
+offset depende del *stride* del comando:
+
+| Handler | Dónde lee el índice | Posición del vértice 1 |
+|---|---|---|
+| `0x24` (`0x466115`) | `word[rec+0x1A] & 0x3FFF` | u/v en `rec+0x18`/`0x19` (stride 8) |
+| `0x2C` (`0x4670D3`) | `word[rec+0x1A] & 0x3FFF` | u/v en `rec+0x18`/`0x19` (stride 8) |
+| `0x34` (`0x467B5E`) | `word[rec+0x1E] & 0x3FFF` | u/v en `rec+0x1C`/`0x1D` (stride 12) |
+| `0xB4` (`0x468126`) | `word[rec+0x1E] & 0x3FFF` | u/v en `rec+0x1C`/`0x1D` (stride 12) |
+
+`0x24` y `0x2C` comparten *stride* 8 por vértice (`x`,`y`,`u`,`v`,`índice`),
+pero `0x24` dibuja un triángulo (3 vértices, longitud `0x24`) y `0x2C` un
+cuadrilátero (4 vértices, longitud `0x2C`).
+
+`0x24` lee además `u`/`v` del tercer vértice en `byte[rec+0x20]`/`byte[rec+0x21]`;
+no usa `word[aux+2]`, que queda sin consumir.
 
 Prueba en el emisor `0x00426588`:
 
@@ -626,12 +654,13 @@ Llamadores: `0x0041A1E0` (envoltorio con máscaras 0 y `oneSided = 1`),
 `0x0040BF69` (máscaras `0x4480`/`0x100`) y `0x0040B475` (envoltorio que pasa
 `dfx[0]` como raíz). Ninguno dibuja.
 
-### 6.4 Consulta esfera–BSP y sistema de triggers — `0x004024B9`
+### 6.4 Consulta esfera–BSP y marcado de polígonos — `0x004024B9`
 
 Firma: `void query(root, sphere *s, leafCallback cb)`.
 
 - Pila explícita; prueba `word[node+0x12] & 2`; transforma la normal con
-  `0x0046999C` y compara con `radio + 320`.
+  `0x0046999C` y compara con `radio_esfera + 320`, es decir, con el radio de la
+  **esfera de consulta**, no con el radio del nodo.
 - Para cada hoja candidata llama al callback con el puntero a la hoja.
 - Único llamador: `0x005019AF` con callback `0x005015A9`.
 
@@ -648,10 +677,26 @@ si no:
     poly[+6] |= 0x0040                        ; marcar como recogido
 ```
 
-El radio² sale de `[[0x6466A8]+0x18]` (`+0x8` del bloque apuntado). Es, por
-tanto, un **sistema de recogida/disparadores**: los polígonos marcados `0x20`
-desaparecen del dibujo y se registran como recogidos. No es dibujo ni colisión
-de movimiento.
+La esfera **no sale del nodo**. En `0x005015A9` la cadena es:
+
+```
+ctx = [[0x6466A8] + 0x18] + 0x1C
+sphere = ctx[0]                  ; {int16 x,y,z; int16 radio; u32 radio²}
+radio² = sphere[+0x8]
+ctx[+4] = contador
+ctx[+8] = array de polígonos
+```
+
+El callback compara `dist²(centro_esfera, vértice[poly[0]])` contra
+`sphere[+0x8]` y, si es menor, añade el polígono a `ctx[+8]`, incrementa
+`ctx[+4]`, y marca `0x8000 | 0x40` en `poly[+6]`. El único constructor localizado,
+`0x005019AF`, crea una esfera de radio `0x640` (1600) y `radio² = 0x271000`.
+
+Que el destino sea *pickups*/disparadores es una **hipótesis** basada en el
+marcado `0x8000 | 0x40`: **no hay ningún polígono con flag `0x20` en los tres
+niveles auditados**, así que el camino no se ha observado con datos reales. Lo
+demostrado es la consulta esfera–BSP y el marcado; no su uso de juego. No es
+dibujo ni colisión de movimiento.
 
 ### 6.5 Tabla comparativa
 
@@ -660,7 +705,7 @@ de movimiento.
 | `0x00401C00` | descriptor + cámara + lista | lista de hojas visibles | visibilidad |
 | `0x004269C2` | lista de hojas + descriptor + cámara + pool | comandos 3D | dibujo |
 | `0x0041A203` | raíz + segmento + máscaras | polígono impactado | colisión |
-| `0x004024B9` | raíz + esfera + callback | llamadas por hoja | *pickups*/triggers |
+| `0x004024B9` | raíz + esfera + callback | llamadas por hoja | consulta esférica (hipótesis: recogida) |
 
 Ninguna de las cuatro es intercambiable: comparten el nodo y el épsilon `320`,
 pero tienen contratos distintos.
@@ -767,7 +812,7 @@ grafo de llamadas.
 | `0x20` | `0x00465A89` | activo — triángulo sólido plano |
 | `0x24` | `0x00465E5A` | activo — triángulo texturizado |
 | `0x28` | `0x0046636C` | activo — cuadrilátero planar |
-| `0x2C` | `0x00466B3E` | activo — textura + triángulo |
+| `0x2C` | `0x00466B3E` | activo — cuadrilátero texturizado (2 triángulos) |
 | `0x30` | `0x004673E9` | activo — Gouraud sólido |
 | `0x34` | `0x0046789D` | activo — Gouraud texturizado |
 | `0x38`, `0x3C` | `0x00469711` | no-op |
@@ -775,13 +820,15 @@ grafo de llamadas.
 | `0x44` | `0x00469711` | no-op |
 | `0x48` | `0x0046875B` | activo — polilínea |
 | `0x4C` | `0x00468B54` | activo — línea (3 llamadas) |
-| `0x50`–`0x80` | `0x00469711` | no-op |
-| `0xB0` | `0x00469711` | no-op |
+| `0x50`–`0xB0` | `0x00469711` | no-op (incluye `0x84`–`0xAC`) |
 | `0xB4` | `0x00467E65` | activo — texturizado con bbox |
 | `0xB8`–`0xEC` | `0x00469711` | no-op |
 | `0xF0` | `0x00469268` | activo — rectángulo relleno |
 
-Handlers activos: **11** (el duodécimo, `0x469711`, es `ret`).
+Handlers activos: **11** (el duodécimo, `0x469711`, es `ret`). Los emisores
+conocidos escriben literalmente `0x20`, `0x24`, `0x28`, `0x30`, `0x34`, `0x40`,
+`0x48`, `0xB4`–`0xB7` y `0xF0`; **no se ha localizado** un emisor que escriba
+`0x2C` (véase §18.4).
 
 ### 8.2 Layouts de registro verificados
 
@@ -793,35 +840,49 @@ Cabecera común de 8 B: `+0x00` longitud, `+0x04` siguiente; color/opcode en
 | `0x20` | `0x18` | color + 3×xy |
 | `0x24` | `0x24` | color + (xy,uv)×3; índice en `word[+0x1A]` |
 | `0x28` | `0x1C` | color + 4×xy |
+| `0x2C` | `0x2C` | color + (xy,uv)×4 (cuadrilátero); índice en `word[+0x1A]` |
 | `0x30` | `0x20` | color0,xy0,color1,xy1,color2,xy2 |
-| `0x34` | `0x2C` | (color,xy,uv)×3 |
+| `0x34` | `0x2C` | (color,xy,uv)×3; índice en `word[+0x1E]` |
 | `0xB4` (`0xB6`) | `0x34` | (color,xy,uv)×3 + `+0x2C/+0x30`; índice en `word[+0x1E]` |
 | `0x40`/`0x48`/`0x4C` | `0x14` | 2 puntos (línea) |
 | `0xF0` | `0x14` | color + x0,y0,x1,y1 |
 
-Los offsets de color son `+0x08`, `+0x14`, `+0x20`; los de posición `+0x0C`,
-`+0x18`, `+0x24`; los de UV `+0x10`, `+0x1C`, `+0x28`. El handler `0x30` lee
-exactamente esos y **no** toca `+0x20/+0x21` (esa lectura era la anomalía de
-U-1g y pertenece a otro handler).
+Hay dos *strides* de vértice:
+
+* **8 B** (`0x24` triángulo, `0x2C` cuadrilátero): `x` `+0x0C/+0x14/+0x1C/+0x24`,
+  `y` `+0x0E/+0x16/+0x1E/+0x26`, `u/v` `+0x10/+0x18/+0x20/+0x28`,
+  índice de textura en `+0x12/+0x1A/+0x22/+0x2A`.
+* **12 B** (`0x34`, `0xB4`): `color` `+0x08/+0x14/+0x20`, `x`
+  `+0x0C/+0x18/+0x24`, `y` `+0x0E/+0x1A/+0x26`, `u/v`
+  `+0x10/+0x1C/+0x28`, índice en `+0x12/+0x1E/+0x2A`.
+
+El handler `0x30` lee colores en `+0x08/+0x10/+0x18` y posiciones en
+`+0x0C/+0x14/+0x1C` y `+0x0E/+0x16/+0x1E`; **no** toca `+0x20/+0x21` (esa
+lectura era la anomalía de U-1g y pertenece al handler `0x24`).
 
 ### 8.3 Glide por handler
 
 | Handler | Llamadas Glide |
 |---|---|
-| `0x20` | `grConstantColorValue4` + `grDrawTriangle` |
-| `0x24` | `grTexDownloadTable` + `grTexSource` + `grDrawTriangle` |
-| `0x28` | `grDrawPlanarPolygonVertexList` |
-| `0x2C` | textura + `grDrawTriangle` |
-| `0x30` | `grConstantColorValue4` + `grDrawTriangle` |
-| `0x34` | textura + `grDrawTriangle` |
-| `0x40` / `0x48` / `0x4C` | `grDrawLine` |
-| `0xB4` (`0xB6`) | `grTexDownloadTable` + `grTexSource` + `grDrawTriangle` |
-| `0xF0` | `grConstantColorValue4` + 2×`grDrawTriangle` |
+| `0x20` | `grConstantColorValue4` + `guColorCombineFunction` + `grDrawTriangle` |
+| `0x24` | `grTexDownloadTable` + `grTexSource` + `grConstantColorValue4` + `guColorCombineFunction` + `grDrawTriangle` |
+| `0x28` | `grConstantColorValue4` + `guColorCombineFunction` + `grDrawPlanarPolygonVertexList` |
+| `0x2C` | `grTexDownloadTable` + `grTexSource` + `grConstantColorValue4` + `guColorCombineFunction` + 2×`grDrawTriangle` |
+| `0x30` | `guColorCombineFunction` + `grDrawTriangle` |
+| `0x34` | `grTexSource` + `guColorCombineFunction` + `grDrawTriangle` |
+| `0x40` / `0x48` / `0x4C` | `grConstantColorValue4` + `guColorCombineFunction` + `grDrawLine` |
+| `0xB4` (`0xB6`) | `grTexDownloadTable` + `grTexSource` + `guColorCombineFunction` + `grDrawTriangle` |
+| `0xF0` | `grConstantColorValue4` + `guColorCombineFunction` + 2×`grDrawTriangle` |
 
-Thunks: `0x54051A` `grDrawTriangle`, `0x540520` `grTexSource`,
-`0x540538` `grConstantColorValue4`, `0x5405B6` `grDrawLine`,
-`0x5405BC` `grDrawPlanarPolygonVertexList`, `0x5405C2` `grTexDownloadTable`,
-`0x540508` `grTexTextureMemRequired`, `0x540502` `grTexDownloadMipMap`.
+El handler `0x30` **no** llama a `grConstantColorValue4`; su única llamada de
+estado es `guColorCombineFunction`. Tampoco lo hace `0x34`/`0xB4`.
+
+Thunks verificados contra la tabla de imports de `glide2x.dll`:
+`0x54051A` `grDrawTriangle`, `0x540520` `grTexSource`, `0x540526`
+`guColorCombineFunction`, `0x540538` `grConstantColorValue4`, `0x5405B6`
+`grDrawLine`, `0x5405BC` `grDrawPlanarPolygonVertexList`, `0x5405C2`
+`grTexDownloadTable`, `0x540508` `grTexTextureMemRequired`, `0x540502`
+`grTexDownloadMipMap`.
 
 ### 8.4 Regla del opcode
 
@@ -862,8 +923,12 @@ incorrecta del orden de instrucciones en U-1g.
 los 4 B siguientes del pool o una inconsistencia del original.
 
 **Resuelto:** el handler del `0x30` es `0x004673E9`, no `0x00465E5A`.
-`0x00465E5A` es el handler del `0x24` (texturizado, longitud `0x24`), y es
-quien lee UVs en `+0x1A`/`+0x20`. `0x004673E9` lee:
+`0x00465E5A` es el handler del `0x24` (texturizado, longitud `0x24`): lee el
+índice de textura en `word[rec+0x1A]` (palabra tras el par UV del vértice 1,
+`rec+0x18`/`0x19`) y las UV del tercer vértice en `byte[rec+0x20]`/`byte[rec+0x21]`.
+No lee `word[aux+2]`. `0x2C` usa el mismo *stride* 8 y el mismo offset de índice,
+pero recorre **cuatro** vértices (cuadrilátero); `0x34`/`0xB4` usan *stride* 12 y
+leen el índice en `rec+0x1E` (§5.5). `0x004673E9` lee:
 
 ```
 colores  : +0x08, +0x10, +0x18
@@ -881,18 +946,31 @@ estaba desplazada una fila (asignaba al `0x20`/`0x24` el `0x465A89`, al
 
 ## 10. Registro estático `0x64FB40`
 
-`0x0054FB40` no es un comando vacío. Es un **rectángulo 2D de fondo/clear**:
+`0x0064FB40` no es un comando vacío. Es un **rectángulo 2D de fondo/clear**:
 
-- Inicialización en `0x004635B3`: `0x200 × 0x180`, opcode `0x64FB4B = 0xF0`,
-  RGB `0,0,0` en `+0x08..+0x0A`, `x/y = 0` en `+0x0C/+0x0E`,
-  `w/h` en `+0x10/+0x12`.
-- Reencadenado como **último comando del frame** en `0x00462296..0x004622AB`:
-  `+0x0E = level * 0x180`, `+0x12 = 0xE0`.
+- Inicialización en `0x004635B3`: longitud `+0x00 = 4`, opcode `0x64FB4B = 0xF0`,
+  RGB `0,0,0` en `+0x08..+0x0A`, `x/y = 0` en `+0x0C/+0x0E`, `w/h = 0x200/0x180`
+  en `+0x10/+0x12`.
+- Reencadenado como **último comando del frame** en
+  `0x00462240..0x004622AB`:
+
+```
+if ([0x551644][+0x6FB0] > 0) { +0x12 = 0x180; +0x10 = 0x200; }
+else                         { +0x12 = 0x0E0; }
++0x0E = ([0x551644][+0x14] * 0x180) & 0xFFFF
++0x04 = (lista + 8*(0xBFF - i))->next   ; siguiente anterior
++0x00 = 0x14                            ; longitud final
+(lista + 8*(0xBFF - i))->next = 0x64FB40
+```
+
+  El índice de enlace es `0xBFF - [ebp-8]`, no una posición fija.
 - Handler `0x00469268`: normaliza esquinas, descarta si
-  `|dx| > 0x800` o `|dy| > 0x800`, ajusta `y` y dibuja dos triángulos.
+  `|dx| > 0x800` o `|dy| > 0x800`, ajusta `y` y dibuja dos triángulos
+  (`grConstantColorValue4` + `guColorCombineFunction` + 2×`grDrawTriangle`).
 
 Es la base del *clear* de pantalla por software (no usa `grBufferClear`). U-1g
-lo había clasificado como no-op; queda corregido.
+lo había clasificado como no-op; queda corregido, incluida la longitud inicial
+`4` que el reencadenado sustituye por `0x14`.
 
 ---
 
@@ -913,11 +991,20 @@ tamaño `0x8C + record[+0x84]`, y los píxeles empiezan en `+0x8C`.
 `0x00461C32` **no** llama a `grTexDownloadTable`: solo
 `grTexTextureMemRequired` (`0x461CF3`) y `grTexDownloadMipMap` (`0x461DEE`).
 Sobrescribe `record[+0x10]` con `record+0x8C` y `record[+0x88]` con la
-dirección asignada. La descarga de la tabla ocurre **por comando**, en el
-handler `0x24`/`0xB4`.
+dirección asignada. Si `record[0] < 7 && record[+0x0C] == 1`, copia
+`byte[record+0x8C]` a `record+0x8D` y `record+0x8E` (`0x461D63..0x461DB9`);
+no descarga ninguna tabla.
+
+La descarga de la tabla ocurre **por comando**, en los handlers `0x24`, `0x2C`
+y `0xB4`, con esta forma (`0x4670EB..0x4670FC` para `0x2C`):
+
+```
+if (record[+0x0C] == 1)
+    grTexDownloadTable(0, 0, record + 0x14);
+```
 
 Esto corrige la lectura de U-1g, que atribuía la descarga de tabla a
-`0x00461C32`.
+`0x00461C32` y solo citaba los handlers `0x24`/`0xB4`.
 
 ---
 
@@ -960,8 +1047,9 @@ todos los `.DFX`.
 7. El índice de textura está en `word[aux+6]` y el emisor le añade `0x4000`.
 8. El dibujo del nivel es `0x401C00` → `[0x64FEA4]` → `0x4269C2` →
    `0x426256`/`0x426588` → pool → `0x469836` → `0x46558A` → Glide.
-9. `0x41A203` es colisión de segmento; `0x4024B9` + `0x5015A9` es la consulta
-   esférica de triggers.
+9. `0x41A203` es colisión de segmento; `0x4024B9` + `0x5015A9` es una consulta
+   esférica que marca polígonos `0x20` (su uso como *pickups*/triggers es
+   hipótesis, §6.4).
 10. La tabla de opcodes correcta es la de §8.1, con 11 handlers activos.
 11. `0x64FB40` es el rectángulo de fondo `0xF0`.
 12. `record[+0x0C]` es el formato de textura y `record[+0x14]` son datos NCC
@@ -984,6 +1072,9 @@ todos los `.DFX`.
    transparencia.
 7. Los 6 B no usados del vértice y los 4 B no usados del auxiliar UV son
    atributos empaquetados (posible segunda UV o color de luz).
+8. Los polígonos con flag `0x20` son objetos recogibles o disparadores: el
+   callback `0x005015A9` los marca con `0x8000 | 0x40`, pero **no hay ninguno**
+   en los tres niveles auditados, así que su uso de juego no está confirmado.
 
 ### 13.3 Resultados negativos
 
@@ -997,6 +1088,9 @@ todos los `.DFX`.
 6. **No se ha demostrado** que el flujo de comandos se genere en un único
    punto: el pool lo escriben varios emisores (nivel, modelo, 2D) y solo el
    recorrido final está unificado.
+7. **No hay** ningún polígono con flag `0x20` en `AZTEC16`, `CIRCUIT0` ni
+   `REZOP2`: el efecto del callback `0x005015A9` no se ha observado sobre datos
+   reales.
 
 ---
 
@@ -1039,7 +1133,12 @@ campos y ramas que no se han podido cerrar por lectura estática.
 | §2.5 tabla opcode→handler | desplazada una fila (`0x20`/`0x24` → `0x465A89`, `0x30`/`0x34` → `0x465E5A`, …) | tabla correcta en §8.1: `0x20`→`0x465A89`, `0x24`→`0x465E5A`, `0x28`→`0x46636C`, `0x2C`→`0x466B3E`, `0x30`→`0x4673E9`, `0x34`→`0x46789D`, `0x40`→`0x468512`, `0x48`→`0x46875B`, `0x4C`→`0x468B54`, `0xB4`→`0x467E65`, `0xF0`→`0x469268` |
 | §3.1 "handler `0x30` (`0x00465E5A`)" | el índice `word[+0x1A]` pertenece al `0x30` | pertenece al `0x24` (`0x00465E5A`); el `0x30` es `0x004673E9` |
 | §4.1 "`0x00425010` = caras del `.DFX` a comandos" | se insinuaba como emisor del nivel | es emisor de **modelo/objeto** (caras 12 B, vértices 16 B); el nivel usa `0x426256`/`0x426588` |
-| §7.3 "`0x0041A1E0` recorre un árbol (dibujo)" | recorrido de dibujo | es **colisión** segmento–BSP; el dibujo es `0x401C00`/`0x4269C2` |
+| §7.3 «`0x0041A1E0` recorre un árbol» (hipótesis) | U-1g **no** afirmó «dibujo» ni «colisión»: dejó el recorrido como hipótesis sin algoritmo | U-1h demuestra que es **colisión** segmento–BSP; el dibujo es `0x401C00`/`0x4269C2` |
+| §10.2 / §11.3 «consulta esférica de *triggers*» | se presentaba como hecho | es una consulta esférica que marca polígonos `0x20`; su uso como *pickups*/triggers es **hipótesis** (§6.4) |
+| §8.3 handler `0x30` | se le asignaba `grConstantColorValue4` | `0x30` solo llama `guColorCombineFunction` + `grDrawTriangle` (§8.3) |
+| §11.7 reencadenado `0x64FB40` | `0x462296..0x4622AB`, `+0x12 = 0xE0` fijo | rango `0x462240..0x4622AB`; `+0x12 = 0x180` si `[level+0x6FB0] > 0`, si no `0xE0`; `+0x10 = 0x200`; `+0x00 = 0x14` (§10) |
+| §11.7 «opcode 0 en la imagen» | el opcode valía 0 | el opcode `0xF0` se escribe en la inicialización `0x4635BD`; solo la longitud inicial era `4`, sustituida por `0x14` (§10) |
+| §11.6 descarga de tabla | solo handlers `0x24`/`0xB4` | también `0x2C` (§11) |
 | §11.1 solapamiento `+0x8`/`+0xB` | "no se puede decidir estáticamente" | resuelto: el opcode se escribe **después** del color (§9.1) |
 | §11.2 longitud `0x20` del `0x30` | posible desbordamiento | resuelto: handler `0x4673E9` lee exactamente `0x20` B (§9.2) |
 | §11.7 `0x64FB40` | "opcode 0, no-op" | es el rectángulo de fondo `0xF0` (§10) |
@@ -1071,15 +1170,128 @@ lista enlazada, pool de doble buffer, índice de 14 bits, orden `.VFX` antes que
 
 ## 17. Documentación actualizada
 
-* `U1H_RESULTADOS.md` (este documento).
-* `ROADMAP.md` — U-1h marcada como completada; Subfase C cerrada.
-* `CHANGELOG.md` — entrada U-1h.
+* `U1H_RESULTADOS.md` (este documento; §18 añade la auditoría final del
+  2026-11-07).
+* `ROADMAP.md` — U-1h marcada como completada; Subfase C cerrada y auditada.
+* `CHANGELOG.md` — entrada U-1h y entrada de auditoría final.
 * `PROJECT_STATE.md` — estado vigente de U-1 y pendientes.
-* `docs/U1_GEOMETRY_RECOVERY_PLAN.md` — U-1h completada y próximos pasos.
-* `U1G_RESULTADOS.md` — nota de corrección y tabla de opcodes corregida.
+* `docs/U1_GEOMETRY_RECOVERY_PLAN.md` — U-1h completada, auditada y próximos pasos.
+* `U1G_RESULTADOS.md` — notas de corrección, tabla de opcodes y precisiones de
+  §7.3/§11.6/§11.7.
 
 `PROJECT_STATUS.svg` **no cambia**: no hay evolución de MAIN ni hito verificado
 del panel; esto es investigación estática en `dev/gex`.
+
+---
+
+## 18. Auditoría final y contraste con el ejecutable (2026-11-07)
+
+### 18.1 Alcance y método
+
+Se releyó cada afirmación de U-1h contra el desensamblado completo del EXE
+original (`gex_full.asm`, generado con `llvm-objdump` en la ronda anterior) y se
+revalidaron los assets en modo *read-only*. Los thunks de Glide se comprobaron
+contra la tabla de imports del PE (no por suposición): `0x65F4A8` =
+`guColorCombineFunction`, `0x65F4B0` = `grDrawTriangle`, `0x65F49C` =
+`grConstantColorValue4`, `0x65F4D0` = `grTexDownloadTable`, `0x65F4CC` =
+`grDrawPlanarPolygonVertexList` y `0x65F45C` = `grDrawLine`.
+
+No se ejecutó el juego, no se abrió ninguna ventana, no se modificó el ejecutable
+ni ningún fichero de `C:\GEX_REZ` y no se instaló ninguna herramienta. Esta
+auditoría solo corrige lo que el código y los datos permiten afirmar.
+
+### 18.2 Correcciones aplicadas
+
+| Sección | Afirmación anterior | Corrección | Evidencia |
+|---|---|---|---|
+| §0.6 | «`0x41A203` es colisión (ya apuntado en U-1g)» | U-1g §7.3 **no** lo clasificó: lo dejó como hipótesis sin algoritmo | texto original de `U1G_RESULTADOS.md` §7.3 |
+| §4.2 | el radio del nodo se usa en `0x401C00` y en `0x4024B9` | solo lo usa `0x401C00`; `0x4024B9` usa `radio_esfera + 320` | `0x401C87`, `0x401E7B`, `0x401F2D`; `0x4026A7..0x4026B0` |
+| §5.5, §9.2 | el índice de textura estaba descrito como `+0x1A`/`+0x20` sin distinguir handlers | `0x24`/`0x2C` leen `rec+0x1A`; `0x34`/`0xB4` leen `rec+0x1E`; `0x24` lee UV2 en `+0x20/+0x21`; `word[aux+2]` no se usa | `0x466115`, `0x4670D3`, `0x467B5E`, `0x468126`, `0x466297`, `0x4662BF` |
+| §6.4 | «el radio² sale de `[[0x6466A8]+0x18]`» y los *pickups* como hecho | cadena completa: `[[0x6466A8]+0x18]+0x1C → ctx[0] → sphere+0x8`; los *pickups* son **hipótesis** | `0x5015B0..0x5015B8`, `0x5016D5..0x5016DD`, `0x5019AF` |
+| §8.1 | no-op `0x50..0x80` y `0xB0` | no-op `0x50..0xB0` (incluye `0x84..0xAC`) | volcado del mapa `0x469765` y tabla `0x469735` |
+| §8.1, §8.2, §8.3 | `0x2C` descrito como «textura + triángulo», longitud `0x2C` con 3 vértices y 1 `grDrawTriangle` | `0x2C` es un **cuadrilátero** de 4 vértices (stride 8) que dibuja **2 triángulos**; longitud `0x2C` correcta | `0x466B3E` lee `+0x0C/+0x14/+0x1C/+0x24` y `+0x0E/+0x16/+0x1E/+0x26`; dibuja en `0x4673CB` y `0x4673DF` |
+| §8.3 | `0x30` llama a `grConstantColorValue4` | `0x30` solo llama `guColorCombineFunction` + `grDrawTriangle`; tabla completa corregida | `0x467876`, `0x467893`; imports `0x65F4A8`, `0x65F4B0`, `0x65F49C` |
+| §10 | `0x0054FB40`; rango `0x462296..0x4622AB`; `+0x12 = 0xE0` fijo | `0x0064FB40`; rango `0x462240..0x4622AB`; `+0x12` condicional (`0x180`/`0xE0`); `+0x10 = 0x200`; `+0x00 = 0x14` | `0x4635B3..0x4635F6`; `0x462240..0x4622AB` |
+| §11 | la tabla se descarga en `0x24`/`0xB4` | también en `0x2C` | `0x4670EB..0x4670FC` y equivalentes |
+| §13, §15 | «consulta esférica de *triggers*» como hecho; cita de U-1g §7.3 | hipótesis de recogida; la cita decía «recorre un árbol», no «dibujo» | §6.4 y `U1G_RESULTADOS.md` §7.3 |
+
+### 18.3 Evidencias de los puntos centrales
+
+- **Colisión `0x0041A203`:** en hojas prueba el AABB con `+0x14/+0x1A`,
+  `+0x16/+0x1C` y `+0x18/+0x1E`; filtra con `flag & 0x4480` y exige
+  `flag & 0x100` (`0x41A3AE`); en el impacto descarta `0x4000` y, si está
+  `0x40`, exige `0x100` (`0x41A9C0..0x41A9EB`); usa `dist² < 0x10000`; el hijo A
+  es el lado positivo de la normal y el épsilon es `[0x54D04C] = 320`.
+- **Visibilidad `0x00401C00`:** lee el radio del nodo en `+0x06`
+  (`0x401C87`, `0x401E7B`, `0x401F2D`, `0x401F43`); prueba contra
+  `cam+0x5C` y los planos `cam+0xC8/0xD4/0xD8`; el anexado tiene tope `0x800`;
+  el llamador único es `0x43DECE` y `level[+0x4C94] & 0x200` bloquea el dibujo
+  (`0x43DEF3..0x43DF01`).
+- **Consulta `0x004024B9` + callback `0x005015A9`:** en los nodos internos
+  compara el plano con `radio_esfera + 320` (`0x4026AC..0x4026BC` y
+  `0x4026F6..0x4026FC`); en las hojas llama al callback directamente
+  (`0x402621`). El callback exige `0x20` (`0x5015F3`), salta `0x8000`
+  (`0x501605`) y `0x40` (`0x50161A`), compara `dist² < r²`
+  (`0x5016B0..0x5016DD`), guarda el polígono en `ctx+8` (`0x5016E2`) y marca
+  `0x8000 | 0x40` (`0x5016FE`, `0x501710`). `0x5019AF` construye la esfera con
+  radio `0x640` y `radio² = 0x271000` (`0x501986`, `0x50198C`).
+- **Emisores:** `0x426256` escribe el registro sólido de `0x18` B con opcode
+  `0x20` y el texturizado de `0x34` B con opcode `0xB4|((color>>24)&3)`;
+  `0x426588` escribe el registro de `0x34` B con opcode `0xB6` y `0x4000` en
+  `word[+0x1E]`, más un segundo registro de `0x24` B con prefijo `0xE1` y opcode
+  `0x32` en `+0x0F`.
+- **Handlers de textura:** `0x24`, `0x2C` y `0xB4` descargan la tabla solo si
+  `record[+0x0C] == 1`, con `grTexDownloadTable(0, 0, record+0x14)`; `0x34` y
+  `0xB4` no llaman a `grConstantColorValue4`.
+- **Cuadrilátero `0x2C`:** `0x466B3E` lee cuatro posiciones (`+0x0C/+0x14/+0x1C/+0x24`
+  y `+0x0E/+0x16/+0x1E/+0x26`), cuatro pares UV (`+0x10/+0x18/+0x20/+0x28`), el
+  color en `+0x08/+0x09/+0x0A` y el índice de textura en `word[+0x1A]`; dibuja
+  dos triángulos (`0x4673CB`, `0x4673DF`). El `stride` es 8 B/vértice y la
+  longitud `0x2C`. No es un triángulo.
+- **Carga `.VFX` `0x00461C32`:** `record[+0x10] = record+0x8C` (`0x461CA5`),
+  fin `record+0x8C+record[+0x84]` (`0x461CDB`), `grTexTextureMemRequired`
+  (`0x461CF3`), `grTexDownloadMipMap` (`0x461DEE`), `record[+0x88] =
+  [0x6487C4]` (`0x461DD0`); con `record[0] < 7 && record[+0x0C] == 1` copia
+  `byte[+0x8C]` a `+0x8D/+0x8E` (`0x461D63..0x461DB9`). **No hay** ninguna
+  llamada a `grTexDownloadTable` en el rango.
+- **Fondo `0x0064FB40`:** inicialización en `0x4635B3..0x4635F6` (longitud `4`,
+  opcode `0xF0`, RGB 0, `x/y = 0`, `0x200×0x180`); reencadenado en
+  `0x462240..0x4622AB` con `+0x12 = 0x180` y `+0x10 = 0x200` si
+  `[0x551644][+0x6FB0] > 0`, si no `+0x12 = 0xE0`; `+0x0E =
+  level[+0x14]*0x180`; `+0x00 = 0x14`; enlace en `0xBFF - [ebp-8]`.
+- **Despacho:** guarda `idx <= 0xD0` (`0x465A64`), mapa `0x469765`
+  (`0x465A7C`), tabla `0x469735` (`0x465A82`). El volcado del mapa confirma
+  no-op en `0x38..0x3C`, `0x44`, `0x50..0xB0` y `0xB8..0xEC`.
+- **Estadísticas del BSP:** radio `⌈máx. distancia centro→vértice⌉` con
+  tolerancia ±2 en 814/815 (`AZTEC16`), 500/501 (`CIRCUIT0`) y 89/89
+  (`REZOP2`); centro dentro del AABB en 815/815, 501/501 y 89/89; normal
+  unitaria en 814/814, 500/500 y 88/88.
+- **Flags:** el reparto de §5.2 muestra **0 polígonos con `0x20`** en los tres
+  niveles; los demás bits con consumidor (`0x8000`, `0x4000`, `0x40`, `0x100`)
+  tienen el uso indicado en §5.2.
+
+### 18.4 Resultados negativos confirmados
+
+- No hay ningún polígono con `0x20` en los tres niveles auditados: el efecto de
+  `0x005015A9` no se ha observado con datos reales y su uso de juego sigue sin
+  confirmar.
+- `0x00461C32` no descarga tablas de textura; la descarga es por comando en
+  `0x24`, `0x2C` y `0xB4`.
+- `0x0041A203` no dibuja y `0x004024B9` no usa el radio del nodo.
+- `GEX.DFX` no contiene BSP ni descriptor de nivel.
+- No se ha localizado consumidor para `desc+0x14`, `desc+0x30`, `desc+0x34` ni
+  para los bits de flag sin marcar de §5.2.
+- No se ha localizado ningún emisor que escriba el opcode `0x2C` de forma
+  literal. El handler `0x466B3E` y su layout de cuadrilátero están demostrados,
+  pero la ruta de emisión que lo produce queda pendiente.
+
+### 18.5 Conclusión
+
+Los hechos centrales de U-1h se mantienen: contenedor, descriptor, nodo,
+polígono, vértice, normal, auxiliar UV, recorridos, emisores, despacho y
+resolución de las anomalías de U-1g. Las correcciones son de **precisión y
+alcance**, no invalidan la interpretación estática. Subfase C sigue cerrada; las
+cuestiones que exigen ejecución permanecen en §14.
 
 ---
 
@@ -1109,7 +1321,7 @@ del panel; esto es investigación estática en `dev/gex`.
 | `0x0046A1D0` / `0x0046B727` | proyección de vértices | §6.2 |
 | `0x004735C0` | relocalizador | §2.2 |
 | `0x00473238` | consumidor de la lista de objetos | §3.4 |
-| `0x005015A9` | callback de triggers | §6.4 |
+| `0x005015A9` | callback de la consulta esférica | §6.4 |
 | `0x005019AF` | llamador de la consulta esférica | §6.4 |
 
 ---

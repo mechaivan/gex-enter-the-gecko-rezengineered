@@ -165,10 +165,11 @@ interna del grafo `.DFX`; semántica de `record[+0x0C]` y de `+0x14` del `.VFX`;
 registro de cierre `0x64FB40`. Véase
 [U1H_RESULTADOS.md §9, §10, §11 y §12](../U1H_RESULTADOS.md).
 
-## U-1h — Interpretación final (completada 2026-11-06)
+## U-1h — Interpretación final (completada 2026-11-06; auditada 2026-11-07)
 
-**Estado:** ✅ COMPLETADA. Evidencia completa en
-[U1H_RESULTADOS.md](../U1H_RESULTADOS.md). Subfase C (U-1) cerrada.
+**Estado:** ✅ COMPLETADA Y AUDITADA. Evidencia completa en
+[U1H_RESULTADOS.md](../U1H_RESULTADOS.md), con la auditoría final en §18.
+Subfase C (U-1) cerrada.
 
 **Objetivo:** cerrar la semántica de los campos del flujo 3D y del grafo `.DFX`,
 y resolver estáticamente las cuestiones abiertas de U-1g.
@@ -184,12 +185,18 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
   vértice 12 B, normal 6 B y auxiliar UV 12 B (índice de textura en `word[+6]`).
 - Ruta de dibujo completa: `0x401C00` → `[0x64FEA4]` → `0x4269C2` →
   `0x426256`/`0x426588` → `0x469836` → `0x46558A` → Glide.
+- Colisión segmento–BSP `0x41A203` (no dibujo) y consulta esférica `0x4024B9` +
+  `0x5015A9`; el uso de esta última como *pickups*/triggers es **hipótesis**
+  (no hay polígonos `0x20` en los tres niveles auditados).
 - Tabla de despacho corregida (11 handlers activos).
 - Anomalías de U-1g resueltas: el opcode se escribe después del color y el
   handler de `0x30` (`0x4673E9`) consume exactamente `0x20` B.
 - `0x64FB40` identificado como rectángulo de fondo `0xF0`.
 - `.VFX`: `+0x0C` formato, `+0x14` datos NCC *inline*.
 - `GEX.DFX` demostrado como modelo/personaje, no nivel.
+- **Auditoría 2026-11-07:** precisados el radio de `0x4024B9`, los índices UV
+  por handler, el rango no-op `0x50..0xB0`, las llamadas Glide de `0x30`, el
+  reencadenado `0x462240..0x4622AB` y la descarga de tabla en `0x2C`.
 
 ## Cuestiones pendientes
 
@@ -202,6 +209,9 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
 3. **`0x004338D7`:** renderizador especial de la lista 2D.
 4. **`grDrawPlanarPolygonVertexList`:** layout completo del vértice usado por el
    opcode `0x28`.
+5. **Semántica de juego de `0x4024B9`/`0x5015A9`:** la consulta y el marcado
+   están demostrados, pero no hay polígonos `0x20` en los tres niveles
+   auditados; confirmar si son *pickups*/triggers exige otros datos o ejecución.
 
 ## Próximos pasos
 
