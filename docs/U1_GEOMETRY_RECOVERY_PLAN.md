@@ -178,7 +178,11 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
 
 - Contenedor `.DFX` validado en tres niveles reales: `count` + tabla de offsets
   + imagen en `4*((count+0x200)&~0x1FF)`; offsets relativos a la imagen.
-- Descriptor de nivel con todos los campos identificados y encadenado exacto:
+- Descriptor de nivel con encadenado exacto; **no** todos los campos están
+  identificados: 10 tienen semántica demostrada, `+0x38` es hipótesis,
+  `+0x34`/`+0x3C` son parciales y `+0x04`/`+0x08`/`+0x0C` no están
+  identificados (estado campo a campo en
+  [`U1_CONSOLIDACION.md`](../U1_CONSOLIDACION.md) §5):
   `[+0x28]+nPolys*0x14 == [+0x24]` → `+nVerts*12 == [+0x2C]` →
   `+nNormals*6 == [+0x00]`.
 - Nodo BSP `0x20` B (unión interno/hoja, tipo `+0x12` = 1/2), polígono `0x14` B,
@@ -200,18 +204,30 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
 
 ## Cuestiones pendientes
 
-1. **Campos sin consumidor localizado:** `desc+0x10/+0x14`, `desc+0x30`,
-   `desc+0x34`, `desc+0x38/+0x3C`, bits de flags de polígono sin marcar y el
-   propósito del segundo registro de `0x426588`. Requieren instrumentación
-   dinámica para cerrarse.
-2. **Formato del modelo `GEX.DFX`** (tabla de frames, vértices de 16 B, caras de
-   12 B): demostrado distinto del nivel, no descodificado.
-3. **`0x004338D7`:** renderizador especial de la lista 2D.
-4. **`grDrawPlanarPolygonVertexList`:** layout completo del vértice usado por el
-   opcode `0x28`.
-5. **Semántica de juego de `0x4024B9`/`0x5015A9`:** la consulta y el marcado
-   están demostrados, pero no hay polígonos `0x20` en los tres niveles
-   auditados; confirmar si son *pickups*/triggers exige otros datos o ejecución.
+1. **Campos del descriptor sin consumidor localizado:** `desc+0x10/+0x14`,
+   `desc+0x30`, `desc+0x34`, `desc+0x38/+0x3C` y los bits de flags de
+   polígono sin marcar. Estado campo a campo en
+   [`U1_CONSOLIDACION.md`](../U1_CONSOLIDACION.md) §5: 10 demostrados,
+   1 hipótesis, 3 sin identificar y 2 parciales. Cerrarlos exige
+   instrumentación dinámica.
+2. **`GEX.DFX`:** modelo/personaje, no nivel; el formato de modelo
+   (cabecera, tabla de frames y vértices de 16 B de `0x425010`) **no está
+   descodificado**.
+3. **Opcode `0x2C` (cuadrilátero texturizado):** handler `0x466B3E`,
+   longitud `0x2C` y layout de 4 vértices demostrados; **no se ha
+   localizado un emisor** que escriba el opcode. Los stores de `0x2C`
+   localizados son longitudes de registros de `0x34`.
+4. **Opcode `0x28` (polígono planar):** emisores `0x42DEC1` y `0x504C44`
+   localizados (registro de `0x1C` B, color en `+8`, 4 pares `xy` en
+   `+0x0C..+0x1A`); falta el layout de las cuatro estructuras de `0x3C` B
+   que `0x46636C` pasa a `grDrawPlanarPolygonVertexList`.
+5. **Segundo registro de `0x426588`:** `0x24` B, prefijo `0xE1`, opcode
+   `0x32` en `+0x0F`; se emite siempre, propósito sin establecer.
+6. **`0x004338D7`:** renderizador especial de la lista 2D.
+7. **Semántica de juego de `0x4024B9`/`0x5015A9`:** la consulta y el
+   marcado están demostrados, pero no hay polígonos `0x20` en los tres
+   niveles auditados.
+8. **Layout del vértice del rectángulo 2D** (U-1f).
 
 ## Próximos pasos
 
@@ -225,6 +241,8 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
 
 ## Documentación relacionada
 
+- [U1_CONSOLIDACION.md](../U1_CONSOLIDACION.md): consolidación final de U-1
+  (ámbitos, estado del descriptor y pendientes).
 - [U1H_RESULTADOS.md](../U1H_RESULTADOS.md): resultados detallados de U-1h.
 - [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados de U-1g (con nota de corrección de U-1h).
 - [U1F_RESULTADOS.md](../U1F_RESULTADOS.md): resultados detallados de U-1f.

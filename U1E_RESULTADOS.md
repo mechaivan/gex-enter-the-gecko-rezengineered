@@ -14,6 +14,10 @@
 >
 > Evidencia y correcciones completas: [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md).
 
+> **Consolidación final (2026-11-07).** El estado consolidado de U-1, la
+> separación de ámbitos y los pendientes están en
+> [`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md).
+
 ## Resumen ejecutivo
 
 Se ha completado el análisis de U-1e (relación geometría-índices). Se ha analizado cómo se relacionan los vértices con los índices, se ha determinado si los argumentos son coordenadas directas o índices a tablas, se ha investigado la relación entre los datos de entrada y los vértices finales, y se han documentado todas las evidencias y conclusiones.

@@ -49,6 +49,13 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] U-1g: Relación con DFX (2026-11-06) — flujo de comandos, índice de 14 bits → `0x006488F4` (`.VFX`), `.DFX` relocalizable (`0x004735C0`), cadena `0x0043B11D` → `.VFX` + `.DFX`; formatos validados con `GEX.DFX`/`GEX.VFX`
 - [x] U-1h: Interpretación final (2026-11-06; **auditada 2026-11-07**) — contenedor `.DFX` (`count` + offsets + imagen en `4*((count+0x200)&~0x1FF)`), descriptor de nivel y encadenado de regiones exacto, nodo BSP `0x20` B (unión interno/hoja con tipo `+0x12` = 1/2), polígono `0x14` B, vértice 12 B, normal 6 B, auxiliar UV 12 B (índice de textura en `word[+6]`), recorrido de dibujo `0x401C00` → `0x4269C2` → emisores, colisión segmento–BSP `0x41A203`, tabla de despacho corregida (11 handlers), anomalías de U-1g resueltas y `0x64FB40` identificado como rectángulo de fondo `0xF0`. Auditoría final en `U1H_RESULTADOS.md` §18: precisados el radio de `0x4024B9`, los índices UV por handler, el rango no-op `0x50..0xB0`, las llamadas Glide de `0x30`, el reencadenado `0x462240..0x4622AB` y la descarga de tabla en `0x2C`; la consulta esférica queda como **hipótesis** de *pickups* (no hay polígonos `0x20` en los tres niveles)
 
+- [x] Consolidación documental de U-1 (2026-11-07) — `U1_CONSOLIDACION.md`:
+  estado campo a campo del descriptor (10 demostrados, 1 hipótesis,
+  3 sin identificar, 2 parciales), separación de geometría BSP de nivel /
+  geometría de modelos / formatos de comandos, corrección del stride de
+  modelos (`0x425010` 16 B; `0x4258BD` 12 B) y pendientes expresos
+  (`GEX.DFX`, `0x2C`, `0x28` y segundo registro de `0x426588`).
+
 ### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)
 
 - [x] R-1: Dispositivo D3D11 (hardware y WARP) (2026-11-02)

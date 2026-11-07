@@ -20,6 +20,10 @@ abierto ventana alguna, no se ha modificado el ejecutable ni ningún fichero de
 > correcciones marcadas en línea y el detalle en `U1H_RESULTADOS.md` (§18,
 > auditoría final del 2026-11-07).
 
+> **Consolidación final (2026-11-07).** El estado consolidado de U-1, la
+> separación de ámbitos y los pendientes están en
+> [`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md).
+
 ---
 
 ## 0. Resumen ejecutivo

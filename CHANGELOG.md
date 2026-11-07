@@ -2,6 +2,17 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-07 - 0.0.0 - U-1: Consolidación documental final
+
+- **Alcance:** cierre documental de la Subfase C (U-1a…U-1h) con revisión estática *read-only* de `GEX3D.EXE`, `gex_full.asm` y los assets; sin ejecución, sin modificar binarios, código ni assets, y sin tocar `PROJECT_STATUS.svg`. Nuevo `U1_CONSOLIDACION.md`.
+- **Correcciones:**
+  - `U1H_RESULTADOS.md` §0.2/§3.1: el descriptor de nivel **no** está identificado al 100 %; estado campo a campo (10 demostrados, 1 hipótesis, 3 sin identificar, 2 parciales).
+  - `U1H_RESULTADOS.md` §7.3/§12: `0x425010` usa vértices de 16 B (`shl 4`) y `0x4258BD` de 12 B (`imul …,0xC`); no comparten stride.
+- **Tres ámbitos separados:** geometría BSP de nivel (demostrada), geometría de modelos (parcial; `GEX.DFX` no descodificado) y formatos de comandos (handlers demostrados, con emisores pendientes).
+- **Pendientes expresos:** `GEX.DFX`; opcode `0x2C` sin emisor localizado; layout de Glide de `0x28` (emisores `0x42DEC1`/`0x504C44` sí localizados); propósito del segundo registro de `0x426588`.
+- **Historial:** U-1a…U-1d se consolidan como hipótesis **retiradas por U-1f** (glifo 2D, rectángulo 2D, geometría 3D en `0x46558A`).
+- **Documentación:** `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md` (§19), `docs/U1_GEOMETRY_RECOVERY_PLAN.md`, `ROADMAP.md`, `PROJECT_STATE.md` y remisiones en `U1E`/`U1F`/`U1G`.
+
 ## 2026-11-07 - 0.0.0 - U-1h: Auditoría final y corrección de afirmaciones
 
 - **Alcance:** relectura estática de todas las conclusiones de U-1h contra `GEX3D.EXE`, `gex_full.asm` y los assets reales; sin ejecución, sin ventanas, sin modificar binarios ni assets. Nuevo §18 en `U1H_RESULTADOS.md` con método, correcciones y evidencias.

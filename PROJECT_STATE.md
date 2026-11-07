@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-06
+**Last updated:** 2026-11-07
 
 ### Avances recientes (U-1 - Geometría Original)
 
@@ -63,13 +63,24 @@
   niveles). `GEX.DFX` es un modelo/personaje, no un nivel. Evidencia completa:
   [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md) (§18: auditoría final).
 
+- **Consolidación documental (2026-11-07):** `U1_CONSOLIDACION.md` fija el
+  estado campo a campo del descriptor (10 demostrados, 1 hipótesis,
+  3 sin identificar, 2 parciales), separa geometría BSP de nivel /
+  geometría de modelos / formatos de comandos y registra los pendientes
+  expresos: `GEX.DFX` sin descodificar, emisor del opcode `0x2C`, layout de
+  `grDrawPlanarPolygonVertexList` para `0x28` y propósito del segundo
+  registro de `0x426588`.
+
 ### Pendientes
 
-- **Sin bloques de U-1:** Subfase C cerrada. Quedan campos y ramas marcados como
-  no identificados en U-1h §13.3/§14: `desc+0x10/+0x14`, `desc+0x30`,
-  `desc+0x34`, `desc+0x38/+0x3C`, bits de flags sin consumidor, propósito del
-  segundo registro de `0x426588` y formato del modelo `GEX.DFX`. Su cierre, si se
-  autoriza ejecución, exige instrumentación dinámica.
+- **Sin bloques de U-1:** Subfase C cerrada documentalmente. Quedan campos
+  y ramas marcados como abiertos en U-1h §13.3/§14 y en
+  `U1_CONSOLIDACION.md` §6: consumidores de `desc+0x10/+0x14`, `desc+0x30`,
+  `desc+0x34` y `desc+0x3C`; estado de `desc+0x38` (hipótesis); bits de
+  flags sin consumidor; emisor del opcode `0x2C`; layout de `0x28`;
+  propósito del segundo registro de `0x426588` y formato del modelo
+  `GEX.DFX`. Su cierre, si se autoriza ejecución, exige instrumentación
+  dinámica.
 - **Semántica de juego de la consulta esférica:** `0x4024B9` + `0x5015A9` está
   demostrada, pero no hay polígonos `0x20` en `AZTEC16`, `CIRCUIT0` ni `REZOP2`;
   confirmar si son *pickups*/triggers exige un nivel con esos polígonos o una

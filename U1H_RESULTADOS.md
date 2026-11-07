@@ -33,11 +33,15 @@ explícitamente como tales en §14; no se afirma nada dinámico.
    `4 * aligned`. Los offsets de la tabla son **relativos a la imagen**, no al
    fichero.
 
-2. **La imagen de nivel empieza con un descriptor** (`image[0]`) cuyos campos
-   quedan identificados al 100 %: raíz del BSP, número y tabla de registros de
-   12 B, vértices, polígonos, normales, tabla de vértices, inicio de polígonos,
-   tabla de normales, lista de objetos y dos constantes. El encadenado de
-   regiones cierra exactamente en los tres niveles (§3.2).
+2. **La imagen de nivel empieza con un descriptor** (`image[0]`). **No todos
+   sus campos están identificados**: 10 tienen semántica demostrada (raíz del
+   BSP, nº y tabla de registros de 12 B, vértices, polígonos, normales, tabla
+   de vértices, inicio de polígonos, tabla de normales y lista de objetos),
+   `+0x38` es una hipótesis, `+0x34`/`+0x3C` son parciales y `+0x04`/`+0x08`/
+   `+0x0C` no están identificados (estado campo a campo en §3.1 y en
+   [`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md) §5). Lo que sí está demostrado
+   es que el encadenado de regiones cierra exactamente en los tres niveles
+   (§3.2).
 
 3. **El nodo del BSP mide `0x20` B y es una unión interno/hoja**, no dos
    estructuras distintas. Interno: centro + radio + normal de plano (3×`int16`,
@@ -230,8 +234,23 @@ son fiables**; no se debe asumir un layout lineal.
 | `+0x38` | u32 | `0x10000` (constante) | `0x10000` | `0x10000` | `0x10000` |
 | `+0x3C` | u32 | constantes; ver §3.5 | `0xC0800002` | `0x00010002` | `0x00000002` |
 
-`+0x04`, `+0x08` y `+0x0C` son cero en los tres niveles: no se puede afirmar
-que sean punteros ni contadores. Se dejan como desconocidos.
+**Estado campo a campo (corrige la lectura de «todos identificados»):**
+
+* **Demostrados (7):** `+0x00` (raíz del BSP), `+0x18`/`+0x1C`/`+0x20`
+  (contadores), `+0x24`/`+0x28`/`+0x2C` (tablas de vértices, polígonos y
+  normales). Cierran las tres igualdades de §3.2 y los leen los emisores.
+* **Demostrados estructuralmente, sin consumidor localizado (3):** `+0x10` y
+  `+0x14` (nº y tabla de registros de 12 B) y `+0x30` (lista de objetos).
+* **Hipótesis (1):** `+0x38 = 0x10000`, posible `1.0` en 16.16; no se ha
+  localizado su consumidor.
+* **Parciales (2):** `+0x34` (tabla no identificada, sin consumidor) y `+0x3C`
+  (constantes; mitad baja siempre `0x0002`, sin consumidor).
+* **Sin identificar (3):** `+0x04`, `+0x08` y `+0x0C`; son cero en los tres
+  niveles y no se puede afirmar que sean punteros ni contadores.
+
+La tabla completa con evidencia por campo está en
+[`U1_CONSOLIDACION.md` §5](U1_CONSOLIDACION.md). El encadenado de §3.2 no
+depende de los campos abiertos.
 
 `+0x38 = 0x10000` es `1.0` en formato 16.16; es la única lectura que encaja con
 la constante, pero **no se ha localizado su consumidor**, así que queda como
@@ -769,11 +788,18 @@ junto al texturizado, y usa el mismo triángulo en modo sólido con transparenci
 
 | Función | Entrada | Registro de cara | Vértice |
 |---|---|---|---|
-| `0x004258BD` | `{+4 inicio, +6 fin}`, tabla de índices, `modelDesc{+4 vertexArray, +0x14 faceArray}`, pool | 12 B | 16 B |
-| `0x00425010` | `faceSet{+4 vertexArray, +0x10 count, +0x14 faces}`, vertexArray, out, pool | 12 B | 16 B |
+| `0x004258BD` | `{+4 inicio, +6 fin}`, tabla de índices, `modelDesc{+4 vertexArray, +0x14 faceArray}`, pool | 12 B | **12 B** |
+| `0x00425010` | `faceSet{+4 vertexArray, +0x10 count, +0x14 faces}`, vertexArray, out, pool | 12 B | **16 B** |
 
-`0x00425010` escribe caras de 12 B con stride `0xC` y vértices de 16 B
-(índice `<<4`); el color está en `face+8`, el opcode se elige por `face+7`.
+`0x00425010` escribe caras de 12 B con stride `0xC` y usa una tabla de
+vértices de **16 B** (índice `shl 4` en `0x4250A4`; lee dwords en
+`+0/+4/+8`); el color está en `face+8` y el opcode se elige por `face+7`.
+
+`0x004258BD` escribe caras de 12 B y usa una tabla de vértices de **12 B**
+(`imul …,0xC` en `0x425948` y `0x425962`; lee `x/y/z` en `+0/+2/+4`). Por
+tanto **los dos emisores no comparten stride de vértice**: la afirmación
+anterior de que ambos usaban 16 B era incorrecta (corregido en la
+consolidación de 2026-11-07).
 
 **Estos emisores no son del BSP de nivel.** Se instalan como callbacks en el
 struct de nivel (`0x0043DC7E`):
@@ -1022,7 +1048,7 @@ Esto corrige la lectura de U-1g, que atribuía la descarga de tabla a
 | `image+0x0C` | `0` | `0x4C` (tabla de frames) |
 | `image+0x34` | — | `"gex______"` (8 caracteres) |
 | `image+0x8C` | nombre de nivel (12 chars) | puntero a datos no textuales |
-| Emisores | `0x426256`/`0x426588` (BSP) | `0x425010`/`0x4258BD` (caras 12 B, vértices 16 B) |
+| Emisores | `0x426256`/`0x426588` (BSP) | `0x425010` (caras 12 B, vértices 16 B) y `0x4258BD` (caras 12 B, vértices 12 B; no es BSP) |
 
 La cabecera de modelo contiene una tabla de offsets de frames
 (`image+0x2C` → `0x124`, `image+0x30 = 8`) y datos de vértice/cara con otro
@@ -1178,6 +1204,8 @@ lista enlazada, pool de doble buffer, índice de 14 bits, orden `.VFX` antes que
 * `docs/U1_GEOMETRY_RECOVERY_PLAN.md` — U-1h completada, auditada y próximos pasos.
 * `U1G_RESULTADOS.md` — notas de corrección, tabla de opcodes y precisiones de
   §7.3/§11.6/§11.7.
+* `U1_CONSOLIDACION.md` — consolidación final de U-1: ámbitos, estado del
+  descriptor y pendientes expresos.
 
 `PROJECT_STATUS.svg` **no cambia**: no hay evolución de MAIN ni hito verificado
 del panel; esto es investigación estática en `dev/gex`.
@@ -1292,6 +1320,46 @@ polígono, vértice, normal, auxiliar UV, recorridos, emisores, despacho y
 resolución de las anomalías de U-1g. Las correcciones son de **precisión y
 alcance**, no invalidan la interpretación estática. Subfase C sigue cerrada; las
 cuestiones que exigen ejecución permanecen en §14.
+
+---
+
+## 19. Consolidación documental de U-1 (2026-11-07)
+
+Esta sección no repite la evidencia: fija el estado final y los pendientes.
+El documento de referencia es [`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md).
+
+### 19.1 Tres ámbitos distintos
+
+| Ámbito | Estado | Qué falta |
+|---|---|---|
+| Geometría BSP de nivel | demostrada de extremo a extremo | consumidores de campos del descriptor; una rama sin datos reales (`0x20`) |
+| Geometría de modelos | parcial | formato de `GEX.DFX`; vértices de 16 B de `0x425010` |
+| Formatos de comandos | parcial | emisor de `0x2C`; layout de Glide de `0x28`; propósito del segundo registro de `0x426588` |
+
+### 19.2 Correcciones aplicadas en esta sección
+
+* §0.2 y §3.1: el descriptor **no** está identificado al 100 %; estado campo
+  a campo con 10 demostrados, 1 hipótesis, 3 sin identificar y 2 parciales.
+* §7.3 y §12: `0x425010` usa vértices de 16 B; `0x4258BD` usa vértices de
+  12 B. No comparten stride.
+* Se registran como pendientes expresos: `GEX.DFX`, el emisor de `0x2C`, el
+  layout de `0x28` y el segundo registro de `0x426588`.
+
+### 19.3 Pendientes expresos
+
+1. **`GEX.DFX`**: modelo/personaje, no nivel; formato no descodificado.
+2. **`0x2C`**: handler de cuadrilátero demostrado; **sin emisor localizado**.
+   Los stores de `0x2C` localizados son longitudes de registros de `0x34`.
+3. **`0x28`**: emisores `0x42DEC1` y `0x504C44` localizados (registro de
+   `0x1C` B, color en `+8`, cuatro pares `xy` en `+0x0C..+0x1A`); falta el
+   layout de las cuatro estructuras de `0x3C` B que `0x46636C` pasa a
+   `grDrawPlanarPolygonVertexList` en `0x466B34`.
+4. **Segundo registro de `0x426588`**: `0x24` B, prefijo `0xE1`, opcode `0x32`
+   en `+0x0F`; se emite siempre, propósito sin establecer.
+
+Ninguna de estas correcciones cambia los hechos centrales de U-1h: contenedor,
+descriptor en su parte demostrada, nodo, polígono, vértice, normal, auxiliar
+UV, recorridos, emisores de nivel y despacho siguen verificados.
 
 ---
 
