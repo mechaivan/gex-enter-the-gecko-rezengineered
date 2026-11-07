@@ -2,16 +2,24 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
-## 2026-11-07 - 0.0.0 - U-1: Consolidación documental final
+## 2026-11-07 - 0.0.0 - Planificación: Primer Escenario Original en Direct3D 11
 
-- **Alcance:** cierre documental de la Subfase C (U-1a…U-1h) con revisión estática *read-only* de `GEX3D.EXE`, `gex_full.asm` y los assets; sin ejecución, sin modificar binarios, código ni assets, y sin tocar `PROJECT_STATUS.svg`. Nuevo `U1_CONSOLIDACION.md`.
-- **Correcciones:**
-  - `U1H_RESULTADOS.md` §0.2/§3.1: el descriptor de nivel **no** está identificado al 100 %; estado campo a campo (10 demostrados, 1 hipótesis, 3 sin identificar, 2 parciales).
-  - `U1H_RESULTADOS.md` §7.3/§12: `0x425010` usa vértices de 16 B (`shl 4`) y `0x4258BD` de 12 B (`imul …,0xC`); no comparten stride.
-- **Tres ámbitos separados:** geometría BSP de nivel (demostrada), geometría de modelos (parcial; `GEX.DFX` no descodificado) y formatos de comandos (handlers demostrados, con emisores pendientes).
-- **Pendientes expresos:** `GEX.DFX`; opcode `0x2C` sin emisor localizado; layout de Glide de `0x28` (emisores `0x42DEC1`/`0x504C44` sí localizados); propósito del segundo registro de `0x426588`.
-- **Historial:** U-1a…U-1d se consolidan como hipótesis **retiradas por U-1f** (glifo 2D, rectángulo 2D, geometría 3D en `0x46558A`).
-- **Documentación:** `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md` (§19), `docs/U1_GEOMETRY_RECOVERY_PLAN.md`, `ROADMAP.md`, `PROJECT_STATE.md` y remisiones en `U1E`/`U1F`/`U1G`.
+- **Alcance:** planificación técnica para transformar geometría BSP de niveles en datos renderizables por el port D3D11. Revisión completa de documentación U-1, arquitectura renderer existente y componentes D3D implementados. Sin implementar código, modificar assets ni ejecutar juego.
+- **Nivel de prueba seleccionado:** AZTEC16.DFX (el más completo y mejor documentado con 544,586 B, 3,882 vértices, 9,609 polígonos, 3,462 normales).
+- **Arquitectura propuesta:** 5 módulos (Parser DFX, Recorrido BSP, Generador de Buffers, Cargador de Texturas, Integración Renderer) con flujo completo desde DFX hasta renderizado D3D11.
+- **Formatos demostrados:** contenedor .DFX, descriptor de nivel (10/15 campos demostrados), nodo BSP, polígono, vértice, normal, auxiliar UV, y 8 opcodes demostrados.
+- **Hitos definidos:**
+  1. Parser DFX Operativo - leer AZTEC16.DFX y extraer descriptor
+  2. Recorrido BSP Funcional - implementar algoritmo de `0x401C00`
+  3. Buffers D3D11 Generados - convertir vértices DFX (12B) a formato D3D11
+  4. Texturas Cargadas - cargar .VFX y crear texturas D3D11
+  5. Primer Renderizado Completo - renderizar AZTEC16 con D3D11
+- **Bloqueos reales:** Shaders (no documentados en U-1), formato NCC (conversión a D3D11), sistema de coordenadas.
+- **Siguiente hito concreto:** Implementar Módulo 1 (Parser DFX) con `gex_dfx_parse` y `gex_dfx_load_level`.
+- **Evidencia clave:** `U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
+- **Documentación:** `docs/D3D11_FIRST_SCENE_PLAN.md` (plan técnico detallado), actualizados `ROADMAP.md`, `PROJECT_STATE.md`.
+
+## 2026-11-07 - 0.0.0 - U-1: Consolidación documental final
 
 ## 2026-11-07 - 0.0.0 - U-1h: Auditoría final y corrección de afirmaciones
 

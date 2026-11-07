@@ -64,6 +64,14 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] R-4: Estabilidad y diagnóstico Direct3D 11/DXGI (2026-11-03)
 - [x] R-5: Renderer básico con pipeline D3D11 (2026-11-04)
 
+### Subfase E — Primer Escenario Original (S-1) ⬜ (no iniciada)
+
+- [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos
+- [ ] S-2: Recorrido BSP (2026-11-07) — implementar algoritmo de `0x401C00` para recorrer nodos y generar lista de polígonos visibles
+- [ ] S-3: Generador de Buffers D3D11 (2026-11-07) — convertir vértices DFX (12B) a formato D3D11 y crear vertex/index buffers
+- [ ] S-4: Cargador de Texturas (2026-11-07) — cargar .VFX, construir tabla de texturas (índice 14 bits) y crear texturas D3D11
+- [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16
+
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
 Solo Hito K (orden: REVERSE_ENGINEERING.md §3):

@@ -10,6 +10,21 @@
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-11-07
 
+### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
+
+- **Objetivo:** Determinar el camino mínimo para transformar geometría BSP de niveles en datos renderizables por el port D3D11.
+- **Nivel de prueba:** AZTEC16.DFX (el más completo y mejor documentado).
+- **Arquitectura propuesta:** 5 módulos (Parser DFX, Recorrido BSP, Generador de Buffers, Cargador de Texturas, Integración Renderer).
+- **Hitos definidos:**
+  1. Parser DFX Operativo - leer AZTEC16.DFX y extraer descriptor
+  2. Recorrido BSP Funcional - implementar algoritmo de `0x401C00`
+  3. Buffers D3D11 Generados - convertir geometría a buffers D3D11
+  4. Texturas Cargadas - cargar .VFX y crear texturas D3D11
+  5. Primer Renderizado Completo - renderizar AZTEC16 con D3D11
+- **Bloqueos reales:** Shaders (no documentados en U-1), formato NCC (conversión a D3D11), sistema de coordenadas.
+- **Siguiente hito concreto:** Implementar Módulo 1 (Parser DFX) con `gex_dfx_parse` y `gex_dfx_load_level`.
+- **Evidencia clave:** `U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
+
 ### Avances recientes (U-1 - Geometría Original)
 
 > **Corrección de fondo (U-1f, 2026-11-05).** Las conclusiones de U-1a…U-1e sobre
