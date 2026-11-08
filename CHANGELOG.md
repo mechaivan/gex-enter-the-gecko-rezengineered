@@ -2,6 +2,16 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: recorrido BSP estructural de AZTEC16
+
+- **Alcance:** módulo BSP en `port/` (`gex_bsp_walk`, predicado de visibilidad
+  opcional), sin buffers, shaders ni integración con renderer.
+- **Documento nuevo:** `S2_BSP_TRAVERSAL.md`.
+- **Hechos:** AZTEC16 produce 815 hojas con predicado NULL; visibilidad original
+  (cámara) documentada como dependencia no resuelta.
+- **Pruebas:** 7 comprobaciones, 0 fallos.
+- **`PROJECT_STATUS.svg`:** sin cambios.
+
 ## 2026-11-08 - 0.0.0 - S-1: parser del contenedor DFX (primer hito)
 
 - **Alcance:** implementación del parser del contenedor `.DFX` en `port/`

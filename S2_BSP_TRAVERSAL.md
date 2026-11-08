@@ -1,0 +1,87 @@
+# S-2 — Recorrido BSP de AZTEC16 (2026-11-08)
+
+**Objeto:** implementación del recorrido BSP original (primer escenario), sin
+buffers D3D11, sin shaders ni texturas, sin integración con el renderer.
+
+**Referencias:** `S1_DFX_PARSER.md`, `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md`,
+`docs/D3D11_FIRST_SCENE_PLAN.md`, `U1_DFX_RELOCATION_AUDIT.md`.
+
+**Estado:** recorrido estructural implementado y probado. La visibilidad original
+(esfera vs. volumen de vista) se inyecta como predicado opcional; con predicado
+NULL se aceptan todas las hojas (útil para verificar la estructura).
+
+---
+
+## 1. Arquitectura
+
+Módulo `port/` (nuevo):
+- `include/gex/bsp.h`, `src/bsp/bsp.c`, `tests/test_bsp.c`.
+
+API:
+```c
+gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
+                            uint32_t root_offset,
+                            gex_bsp_visible_fn visible, void *ctx,
+                            gex_bsp_walk_result *out);
+void gex_bsp_walk_free(gex_bsp_walk_result *r);
+```
+
+El recorrido:
+- Pila explícita de offsets de nodo (capacidad dinámica).
+- Conjunto de visitados (lineal) para evitar ciclos.
+- Para cada nodo: comprobación de límites (`node_offset + 32 <= image_size`),
+  lectura de tipo en `+0x12` (bit 1 = hoja), hijos en `+0x18`/`+0x1C`.
+- Si es hoja y hay capacidad (< 0x800), se anexa a la lista.
+- Si es interno, se apilan los hijos no nulos.
+- Predicado de visibilidad opcional; NULL acepta todo.
+
+## 2. Nodo BSP (0x20 B)
+
+| Offset | Tipo | Campo |
+|---|---|---|
+| +0x00 | int16 | centro X |
+| +0x02 | int16 | centro Y |
+| +0x04 | int16 | centro Z |
+| +0x06 | int16 | radio |
+| +0x12 | uint16 | tipo (bit 1 = hoja) |
+| +0x18 | uint32 | hijo 1 (offset relativo) |
+| +0x1C | uint32 | hijo 2 (offset relativo, 0 = ausente) |
+
+## 3. Evidencia que lo respalda
+
+- `U1H_RESULTADOS.md` §6.1: firma `void walk(descriptor*, camera*, list*)`,
+  pila en `0x647740`, arranque con `desc[0]` (raíz = descriptor.root_bsp),
+  anexa hojas con tope `0x800` (`out[4 + 4*out[0]] = leaf`).
+- Nodo interno apila `+0x18` y `+0x1C` si no es nulo.
+- El descriptor se obtiene del contenedor vía `gex_dfx_load_level`
+  (offset = `image[0]`); `root_bsp` está en `+0x00` del descriptor.
+
+## 4. Dependencias no resueltas (documentadas, no inventadas)
+
+- La prueba de visibilidad original (esfera vs. volumen de vista) requiere la
+  cámara: matriz de vista desde `cam+0x88` (7 int16), `cam+0x5C`, planos en
+  `cam+0xC8/+0xD4/+0xD8`, y `0x0046999C` para transformar centros. La
+  población de la cámara y la matriz no se reproduce en S-2; se inyectan como
+  predicado. Esto es una limitación explícita, no un valor inventado.
+- `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
+  `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
+
+## 5. Pruebas
+
+Suite `port/tests/test_bsp.c`: 7 comprobaciones, 0 fallos. Cubre nodo interno y
+hojas, recorrido de ambos hijos, referencias inválidas y límites, y recorrido
+del contenedor original `AZTEC16.DFX` (815 hojas con predicado NULL).
+
+Regresiones existentes: sin fallos.
+
+## 6. Limitaciones
+
+- Sin visibilidad real (requiere cámara, no implementada).
+- Sin emisión de polígonos ni buffers.
+- Sin D3D11, shaders, texturas.
+- `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
+
+---
+
+**No se declara S-2 completado**: la visibilidad original y la emisión de
+geometría siguen pendientes.

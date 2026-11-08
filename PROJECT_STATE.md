@@ -24,7 +24,8 @@
 - **Pendientes:** thunks de E/S, generalización de `[0x647FAC]`, llamadas
   calculadas (variante `0x00461ECA` ya analizada: `dfx_load_at(path, dest)`,
   sin llamadores estáticos) y direcciones absolutas en ejecución.
-- **S-1:** parser implementado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); recorrido BSP, buffers y renderizado no iniciados. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+- **S-1:** parser implementado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); recorrido BSP, buffers y renderizado parcialmente avanzados. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+- **S-2:** recorrido BSP estructural implementado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); visibilidad original pendiente. S-1 sigue no completo.
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
 

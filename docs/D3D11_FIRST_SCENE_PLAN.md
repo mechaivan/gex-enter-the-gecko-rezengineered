@@ -373,7 +373,12 @@ ni de los módulos posteriores.
 - **Criterio de éxito:**
   - Recorrido completo del árbol BSP
   - Lista de polígonos visibles generada
-  - Validación con nodos conocidos de AZTEC16
+  - Validación con nodos conocidos de AZTEC
+
+**Estado 2026-11-08:** recorrido estructural implementado en `port/`
+(`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con
+predicado NULL. La visibilidad original (cámara) queda como dependencia
+documentada.16
 
 ### Hito 3: Buffers D3D11 Generados
 - **Objetivo:** Convertir geometría a buffers D3D11
