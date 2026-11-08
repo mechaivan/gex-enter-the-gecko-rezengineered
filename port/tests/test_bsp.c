@@ -1,4 +1,3 @@
-#define GEX_BSP_TEST_FAULT_INJECT
 #include "gex/bsp.h"
 
 #ifdef GEX_BSP_TEST_FAULT_INJECT
@@ -155,7 +154,6 @@ static void test_leaf_cap(void) {
         } else {
             *(uint16_t*)(img + off + 0x12) = 0x0001;
             /* leaf child */
-            uint32_t leaf_off = (uint32_t)((nnodes + (i-1)) * GEX_BSP_NODE_SIZE);
             /* We don't have that many nodes allocated. Instead: node i has child1 = a leaf at... */
         }
     }
