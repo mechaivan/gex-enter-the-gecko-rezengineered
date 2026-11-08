@@ -74,9 +74,36 @@ del contenedor original `AZTEC16.DFX` (815 hojas con predicado NULL).
 
 Regresiones existentes: sin fallos.
 
-## Auditoría correctiva (2026-11-08)
+## Segunda auditoría correctiva (2026-11-08)
 
-Defectos corregidos:
+Defectos de la primera corrección y su causa raíz:
+
+1. **DFS no auténtico.** El código marcaba el nodo como terminado
+   (`vis_col = 2`) inmediatamente después de apilar sus hijos, por lo que el
+   estado 1 no permanecía activo durante el descenso y la detección de ciclos
+   no funcionaba. Corregido con marcos de entrada/salida (enter/exit): el nodo
+   se marca en proceso (1) al entrar, se apila un marco de salida que lo marca
+   terminado (2) tras procesar los hijos, y los hijos se apilan como marcos de
+   entrada.
+2. **Capacidad compartida.** Una única variable `cap` se usaba para la pila DFS,
+   la tabla de offsets visitados y la tabla de estados; el `realloc` parcial
+   podía perder el bloque original. Ahora cada estructura tiene su propia
+   capacidad (`fr_cap`, `vis_cap`, `leaves_cap`) y los `realloc` se asignan a
+   variables temporales antes de sobrescribir.
+3. **`calloc` temporal de 65536 bytes** eliminado.
+4. **Ciclos reales.** La raíz se permite en offset distinto de cero (el offset 0
+   sigue reservado como hijo ausente). Las pruebas construyen autorreferencia y
+   ciclos de dos nodos con raíz en `GEX_BSP_NODE_SIZE`.
+5. **Referencias compartidas** se procesan una sola vez (nodo en estado 2 se
+   omite sin error).
+
+Nuevos casos de prueba (23 comprobaciones, 0 fallos): autorreferencia, ciclo de
+dos nodos, referencia compartida, hijo fuera de límites, raíz inválida, imagen
+nula/truncada, predicado de visibilidad, límite exacto de 0x800 hojas y
+superación (`GEX_BSP_ERR_LEAF_CAP`), AZTEC16.DFX (exactamente 815 hojas).
+
+Limitaciones que permanecen: visibilidad original (cámara), emisión de
+polígonos, buffers, shaders, texturas. S-2 no se declara completo.
 
 1. **Detección de ciclos:** el conjunto de visitados anterior marcaba un nodo
    como visitado al primer encuentro y lo saltaba en el segundo, confundiendo
