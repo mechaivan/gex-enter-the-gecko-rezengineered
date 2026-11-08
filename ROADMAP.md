@@ -56,6 +56,13 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
   modelos (`0x425010` 16 B; `0x4258BD` 12 B) y pendientes expresos
   (`GEX.DFX`, `0x2C`, `0x28` y segundo registro de `0x426588`).
 
+- [x] Auditoría de carga y relocalización `.DFX` (2026-11-08) —
+  `U1_DFX_RELOCATION_AUDIT.md`: formato y validación de `AZTEC16.DFX` y
+  `GEX.DFX`, funciones `0x00461B90`, `0x00461E0B`, `0x004735C0`, `0x00464FB3`,
+  `0x0046506B` y `0x0043B2A9`, algoritmo exacto (`imageBase = B + 4*aligned`,
+  `delta = B`, compactación a `B`) y correcciones históricas. La variante
+  `0x00461ECA` queda pendiente y **S-1 no se inicia**.
+
 ### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)
 
 - [x] R-1: Dispositivo D3D11 (hardware y WARP) (2026-11-02)
@@ -66,7 +73,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 
 ### Subfase E — Primer Escenario Original (S-1) ⬜ (no iniciada)
 
-- [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos
+- [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos. **Estado 2026-11-08:** mecánica de carga ya documentada en `U1_DFX_RELOCATION_AUDIT.md`; implementación **no iniciada** (variante `0x00461ECA` aún sin analizar)
 - [ ] S-2: Recorrido BSP (2026-11-07) — implementar algoritmo de `0x401C00` para recorrer nodos y generar lista de polígonos visibles
 - [ ] S-3: Generador de Buffers D3D11 (2026-11-07) — convertir vértices DFX (12B) a formato D3D11 y crear vertex/index buffers
 - [ ] S-4: Cargador de Texturas (2026-11-07) — cargar .VFX, construir tabla de texturas (índice 14 bits) y crear texturas D3D11

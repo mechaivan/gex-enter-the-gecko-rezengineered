@@ -180,6 +180,22 @@ final contra el ejecutable.
 | §12 fila de emisores | «caras 12 B, vértices 16 B» para los dos | separado por emisor |
 | §13.3/§14 pendientes | mezclados con limitaciones generales | lista explícita en §6 |
 
+**Auditoría de la relocalización (2026-11-08):** la carga y compactación `.DFX`
+quedan verificadas instrucción a instrucción en
+[`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md). Precisión sobre la
+descripción previa de §2.2 de U-1h:
+
+| Punto | Antes | Ahora |
+|---|---|---|
+| Firma del relocalizador | `0x004735C0(reloc*, end, delta)` | `0x004735C0(container*, imageBase, delta)` |
+| `delta` | «la base» (sin precisar) | **`B`**, la base del buffer |
+| Destino de la compactación | «sobre el hueco de la tabla» (ambiguo) | **`B` (offset 0)**, longitud `4*(roundUp4(tamaño)/4 − aligned)` |
+| `aligned` en `0x00461E68` | se atribuía `ECX = count` | `0x00461E62` recarga `ECX = aligned`; corrección de transcripción |
+
+Ninguna de estas precisiones cambia los resultados estructurales de §4 y §5:
+afectan a la **mecánica de carga**, no al formato del descriptor ni a la
+geometría.
+
 ---
 
 ## 4. Los tres ámbitos de geometría y formatos
@@ -340,6 +356,12 @@ abiertos.
 * Semántica de juego de `0x4024B9`/`0x5015A9`: no hay polígonos `0x20` en los
   tres niveles auditados.
 * `0x004338D7` (rama `estilo & 0x80`) y layout del vértice del rectángulo 2D.
+* **Variante `0x00461ECA` del cargador `.DFX`:** no analizada; no debe
+  confundirse con `0x00461E0B` (la ruta documentada). Además, la identidad
+  exacta de los thunks de E/S (`0x541060`, `0x540F90`, `0x540DE0`, `0x540CA0`,
+  `0x540C20`) sigue inferida por argumentos, y `[0x647FAC]` es «tamaño de la
+  última asignación», no un campo del formato. Detalle en
+  [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §F.
 
 ---
 
@@ -402,3 +424,7 @@ abiertos.
 * `PROJECT_STATE.md` — estado y pendientes.
 * `U1E_RESULTADOS.md`, `U1F_RESULTADOS.md`, `U1G_RESULTADOS.md` — remisión a
   esta consolidación.
+
+**Actualización 2026-11-08:** se añade
+[`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md), auditoría de la
+carga/relocalización `.DFX` y referencia técnica principal de esa mecánica.

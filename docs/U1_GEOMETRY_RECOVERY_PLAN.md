@@ -202,6 +202,34 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
   por handler, el rango no-op `0x50..0xB0`, las llamadas Glide de `0x30`, el
   reencadenado `0x462240..0x4622AB` y la descarga de tabla en `0x2C`.
 
+## Auditoría de carga/relocalización `.DFX` (2026-11-08)
+
+**Estado:** ✅ COMPLETADA (análisis estático). No implementa nada: S-1 (parser
+del contenedor) **sigue sin iniciarse**.
+
+La mecánica de carga se verificó instrucción a instrucción contra el
+desensamblado y contra los bytes de `AZTEC16.DFX` y `GEX.DFX`. Referencia
+técnica única: [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md).
+
+Hechos fijados:
+
+- Relocalizador `0x004735C0(container*, imageBase, delta)`: recorre
+  `count` posiciones y hace `*(u32*)(imageBase + off) += delta`.
+- Llamada real desde `0x00461E0B`: `imageBase = B + 4*aligned`, `delta = B`.
+  `imageBase` **localiza** el DWORD; `B` es el **delta** y también la base final.
+- Compactación: copia `4*(roundUp4(tamaño)/4 − aligned)` bytes desde
+  `B + 4*aligned` hasta **`B` (offset 0)**; después libera `4*aligned` y
+  devuelve `B`.
+- `aligned = (count + 0x200) & ~0x1FF` **en DWORDs**; `4*aligned` es el inicio
+  de imagen y el relleno intermedio está a cero.
+- El cargador es `0x00461E0B`; la variante `0x00461ECA` **no** está analizada.
+
+Correcciones históricas asociadas (detalle en §E del documento de auditoría):
+`count` de AZTEC16 = 16 082 (no 131), imagen de AZTEC16 en `0x10000` (no 528),
+imagen de `GEX.DFX` en `0x800` (no 1 292), `delta = B` (no 0) y compactación a
+`B` (no a `B+4`). La causa común fue confundir `4 + 4*count` (fin de tabla) con
+`4*aligned` (inicio de imagen).
+
 ## Cuestiones pendientes
 
 1. **Campos del descriptor sin consumidor localizado:** `desc+0x10/+0x14`,
@@ -228,6 +256,10 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
    marcado están demostrados, pero no hay polígonos `0x20` en los tres
    niveles auditados.
 8. **Layout del vértice del rectángulo 2D** (U-1f).
+9. **Variante `0x00461ECA` del cargador `.DFX`:** no analizada; no sustituye a
+   `0x00461E0B`. Tampoco están resueltos la identidad exacta de los thunks de
+   E/S ni la generalización de `[0x647FAC]` fuera de esta ruta
+   ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md) §F).
 
 ## Próximos pasos
 
@@ -243,6 +275,9 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
 
 - [U1_CONSOLIDACION.md](../U1_CONSOLIDACION.md): consolidación final de U-1
   (ámbitos, estado del descriptor y pendientes).
+- [U1_DFX_RELOCATION_AUDIT.md](../U1_DFX_RELOCATION_AUDIT.md): auditoría
+  definitiva de la carga y relocalización `.DFX` (2026-11-08); referencia
+  técnica de la mecánica del contenedor.
 - [U1H_RESULTADOS.md](../U1H_RESULTADOS.md): resultados detallados de U-1h.
 - [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados de U-1g (con nota de corrección de U-1h).
 - [U1F_RESULTADOS.md](../U1F_RESULTADOS.md): resultados detallados de U-1f.

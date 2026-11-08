@@ -157,20 +157,35 @@ entre la tabla y la imagen contiene relleno.
 
 ### 2.2 Relocalización y compactación
 
-`0x004735C0(reloc*, end, delta)` recorre el array de offsets y suma `delta` al
-dword **apuntado** por cada offset:
+> **Actualización 2026-11-08.** La firma y el cálculo de `delta` de esta sección
+> se precisan en [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md)
+> §C.2–C.3 y §D. La descripción anterior era correcta en el efecto pero
+> imprecisa en los argumentos.
 
+Firma real del relocalizador:
+
+```c
+/* 0x004735C0(container *c, void *imageBase, u32 delta) */
+for (p = c->offsets; p < c->offsets + c->count; p++) {
+    u32 off = *p;
+    *(u32 *)((u8 *)imageBase + off) += delta;
+}
 ```
-for (p = reloc; p < end; p++)
-    *(u32*)(image + *p) += delta;
-```
 
-`0x00461E0B` lee el fichero, llama al relocalizador con la base de la imagen y
-**compacta** la imagen sobre el hueco que ocupaba la tabla de offsets. El
-resultado se guarda en `level[+4]` desde `0x0043B11D`.
+`0x00461E0B` lee el fichero y llama con:
 
-Consecuencia práctica: **todos los punteros internos son offsets de imagen**;
-no son direcciones absolutas ni VA del ejecutable.
+* `imageBase = B + 4*aligned` — base para **localizar** el DWORD a modificar;
+* `delta = B` — base del buffer, que es también la base final tras compactar.
+
+Después **compacta** copiando `copyLen = 4*(roundUp4(tamaño)/4 − aligned)`
+bytes desde `B + 4*aligned` hasta **`B` (offset 0)**, libera `4*aligned` y
+devuelve `B`. El resultado se guarda en `level[+4]` en `0x0043B2A9`
+(`0x0043B11D` es la entrada de la función).
+
+Consecuencia práctica: **los DWORD enumerados en la tabla son punteros
+relativos a la imagen**; tras la carga valen `B + offset` y no son VA del
+ejecutable. La tabla no enumera «todos» los DWORD, solo las posiciones que son
+punteros.
 
 Prueba estructural (campo relocalizado = puntero real):
 
@@ -1064,7 +1079,9 @@ todos los `.DFX`.
 
 1. `.DFX` = `count` + tabla de offsets + imagen en `4*((count+0x200)&~0x1FF)`.
 2. Los offsets y todos los punteros internos son relativos a la imagen.
-3. `0x004735C0` relocaliza sumando la base; `0x00461E0B` compacta.
+3. `0x004735C0(container, imageBase, B)` suma `B` al DWORD apuntado por cada
+   offset; `0x00461E0B` compacta la imagen a `B` y libera `4*aligned`
+   ([`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md)).
 4. El descriptor de nivel tiene los campos de §3.1 y el encadenado de §3.2.
 5. El nodo BSP mide `0x20` B; `+0x12` es un tipo `1`/`2`; centro y radio son
    coherentes con la geometría; la normal es unitaria (escala 4096).

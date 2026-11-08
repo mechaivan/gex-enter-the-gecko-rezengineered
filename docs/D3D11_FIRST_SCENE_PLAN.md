@@ -51,6 +51,14 @@ La Subfase C (U-1a…U-1h) está cerrada documentalmente con consolidación fina
 - **Recorrido de dibujo:** `0x401C00` → `0x4269C2` → emisores → `0x46558A`
 - **Opcodes demostrados:** 0x20 (triángulo sólido), 0x24 (triángulo texturizado), 0x28 (cuadrilátero planar), 0x30 (Gouraud sólido), 0x34 (Gouraud texturizado), 0x40/0x48/0x4C (líneas), 0xB4 (texturizado con bbox), 0xF0 (rectángulo de fondo)
 
+> **Auditoría 2026-11-08.** La mecánica de lectura y relocalización del
+> contenedor está verificada en
+> [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md): carga completa,
+> `aligned = (count + 0x200) & ~0x1FF` dwords, relocalización
+> `*(u32*)(B + 4*aligned + off) += B` y compactación a `B` (offset 0). Esto
+> **documenta** lo necesario para S-1, pero S-1 **no está implementado** ni
+> iniciado; tampoco se ha analizado la variante `0x00461ECA`.
+
 ---
 
 ## 2. Selección de Nivel de Prueba
@@ -82,8 +90,10 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 1. **Parser DFX**
    - Lectura del contenedor: `count` + offsets relativos + imagen
-   - Relocalización de punteros internos
+   - Relocalización de punteros internos (`0x004735C0`: `imageBase = B + 4*aligned`, `delta = B`)
+   - Compactación de la imagen a `B` (offset 0) y descarte de la tabla
    - Extracción del descriptor (`image[0]`)
+   - Referencia: [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)
 
 2. **Recorrido BSP**
    - Algoritmo de `0x401C00`: recorre nodos y anexa hojas visibles
@@ -288,6 +298,11 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 4. **Módulo 4: Cargador de Texturas** - Recursos para renderizado
 5. **Módulo 5: Integración** - Punto de entrada completo
 
+**Estado real (2026-11-08):** los cinco módulos están **pendientes**. La
+investigación de la carga `.DFX` está cerrada
+([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)), pero no existe
+implementación del parser (S-1) ni de los módulos posteriores.
+
 ---
 
 ## 6. Pruebas Unitarias y de Integración
@@ -337,6 +352,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 ## 7. Hitos Pequeños y Verificables
 
 ### Hito 1: Parser DFX Operativo
+- **Estado:** ⬜ PENDIENTE (S-1 no iniciado). La mecánica del contenedor está
+  documentada en [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md),
+  pero no hay código.
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
 - **Criterio de éxito:** 
   - `gex_dfx_parse` carga AZTEC16.DFX sin errores

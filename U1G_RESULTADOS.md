@@ -450,36 +450,44 @@ es el *rollback* del arena.
 
 ### 5.3 Carga del `.DFX` (`0x00461E0B`)
 
+> **Auditoría 2026-11-08.** El algoritmo, la firma exacta del relocalizador y
+> las cifras de ambos assets están verificados en
+> [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md). Esta sección
+> resume el resultado; el documento de auditoría es la referencia técnica.
+
 ```
-p = 0x00461B90(path)
-count = dword[p]
-reloc = { count, entries = p+4 }
+B = 0x00461B90(path)                        ; buffer con el fichero completo
+count = dword[B]
+reloc = { count, entries = B+4 }
 aligned = ((count + 0x200) & ~0x1FF)        ; dwords
-0x004735C0(&reloc, p + 4*aligned, p)        ; delta = p
+0x004735C0(&reloc, B + 4*aligned, B)        ; arg2 = imageBase, arg3 = delta = B
 sizeDwords = [0x647FAC] / 4
-end = p + 4*(sizeDwords - aligned)
-while (p < end) { *p = p[aligned]; p += 4 } ; compacta sobre la tabla
+end = B + 4*(sizeDwords - aligned)
+while (B < end) { *B = B[aligned]; B += 4 } ; compacta hacia offset 0
 0x0046506B(4*aligned)                       ; libera la tabla
-return base
+return base                                 ; == B original
 ```
 
-La compactación **mueve la imagen al principio del buffer**, eliminando el
-hueco de la tabla de offsets. El puntero devuelto es el mismo `base`.
+La compactación **mueve la imagen al principio del buffer (`B`), no a `B+4`**,
+eliminando el hueco de la tabla de offsets. El puntero devuelto es el mismo
+`base`.
 
-### 5.4 Relocalizador `0x004735C0(reloc*, end, delta)`
+### 5.4 Relocalizador `0x004735C0(container*, imageBase, delta)`
 
 ```
-q = reloc->entries; end = reloc->entries + 4*reloc->count
+q = container->offsets; end = container->offsets + 4*container->count
 for (; q < end; q += 4) {
-    idx = *q >> 2
-    *(u32*)(base + 4*idx) += delta
+    off = *q
+    *(u32*)(imageBase + off) += delta
 }
 ```
 
-`base` es el tercer argumento. Cada entrada es un **offset de imagen** (siempre
-múltiplo de 4) que apunta a un dword; se le suma la base para convertir el
-offset relativo en un puntero absoluto. **No es una tabla de objetos**: es una
-lista de **posiciones de punteros**.
+`imageBase = B + 4*aligned` es el **segundo** argumento; `delta = B` es el
+tercero. Cada entrada es un **offset de imagen** (siempre múltiplo de 4) que
+localiza el dword a modificar dentro de la imagen original; se le suma `B`
+—la base que tendrá la imagen tras compactar— para convertir el offset relativo
+en un puntero definitivo. **No es una tabla de objetos**: es una lista de
+**posiciones de punteros**.
 
 ---
 

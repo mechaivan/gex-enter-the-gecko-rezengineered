@@ -2,6 +2,21 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - Auditoría definitiva de la carga y relocalización DFX
+
+- **Alcance:** verificación estática instrucción a instrucción del cargador `.DFX` (`0x00461E0B`), del relocalizador (`0x004735C0`), del asignador/liberador de arena (`0x00464FB3`, `0x0046506B`) y del almacenamiento en `level[+4]` (`0x0043B2A9`), contrastada con los bytes reales de `AZTEC16.DFX` y `GEX.DFX`. Sin ejecutar el juego, sin modificar `C:\GEX_REZ`, el port ni los assets, y sin instalar herramientas.
+- **Documento nuevo:** `U1_DFX_RELOCATION_AUDIT.md` (secciones A–G), referencia técnica principal de la mecánica del contenedor.
+- **Corrección de transcripción resuelta:** `0x00461E62` recarga `ECX` con `aligned`; `imageBase = B + 4*aligned` es correcto y no dependía de `count`.
+- **Hechos fijados:**
+  - `aligned = (count + 0x200) & ~0x1FF` en **DWORDs**; imagen en `4*aligned`.
+  - Relocalizador: `*(u32*)(imageBase + off) += delta`, con `imageBase = B + 4*aligned` y **`delta = B`**.
+  - Compactación de `4*(roundUp4(tamaño)/4 − aligned)` bytes desde `B + 4*aligned` hasta **`B` (offset 0)**; después libera `4*aligned` y devuelve `B`.
+  - `AZTEC16.DFX`: 544 586 B, `count` 16 082, `aligned` 16 384 dwords, imagen en `0x10000`, 479 050 B lógicos, copia de 479 052 B (2 B de padding), relleno de 1 204 B a cero.
+  - `GEX.DFX`: 146 008 B, `count` 322, `aligned` 512 dwords, imagen en `0x800`, 143 960 B, relleno de 756 B a cero; `image[0]` no se relocaliza.
+- **Cifras históricas refutadas:** `count` 131, imagen en 528, imagen GEX en 1 292, `aligned` 2 048 B para ambos, imagen GEX de 143 360 B, `delta = 0` y compactación a `B+4`. Causa común: confundir `4 + 4*count` (fin de tabla) con `4*aligned` (inicio de imagen).
+- **Pendientes expresamente abiertos:** identidad exacta de los thunks de E/S, generalización de `[0x647FAC]`, variante `0x00461ECA` y direcciones absolutas en ejecución.
+- **S-1:** no implementado ni iniciado. `PROJECT_STATUS.svg` no cambia (MAIN sigue en 40 %, 14/35 puntos y 6/12 hitos).
+
 ## 2026-11-07 - 0.0.0 - Planificación: Primer Escenario Original en Direct3D 11
 
 - **Alcance:** planificación técnica para transformar geometría BSP de niveles en datos renderizables por el port D3D11. Revisión completa de documentación U-1, arquitectura renderer existente y componentes D3D implementados. Sin implementar código, modificar assets ni ejecutar juego.
