@@ -74,14 +74,35 @@ del contenedor original `AZTEC16.DFX` (815 hojas con predicado NULL).
 
 Regresiones existentes: sin fallos.
 
-## 6. Limitaciones
+## Auditoría correctiva (2026-11-08)
 
-- Sin visibilidad real (requiere cámara, no implementada).
-- Sin emisión de polígonos ni buffers.
-- Sin D3D11, shaders, texturas.
-- `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
+Defectos corregidos:
 
----
+1. **Detección de ciclos:** el conjunto de visitados anterior marcaba un nodo
+   como visitado al primer encuentro y lo saltaba en el segundo, confundiendo
+   ciclos con referencias compartidas válidas. Sustituido por un coloreado de
+   tres estados (0 no visitado, 1 en proceso, 2 terminado): un nodo en estado 1
+   reencontrado es un **ciclo** (`GEX_BSP_ERR_CYCLE`); un nodo en estado 2 es
+   una **referencia compartida** válida y se omite sin error.
+2. **Límite de hojas:** alcanzar `GEX_BSP_LIST_CAP` (0x800) devolvía
+   truncamiento silencioso. Ahora devuelve `GEX_BSP_ERR_LEAF_CAP` y deja el
+   resultado a cero.
+3. **Lecturas binarias:** eliminados los casts directos de puntero
+   (`*(uint16_t*)...`); se usan lecturas por bytes (`READ_U16`/`READ_U32`)
+   compatibles con C11 y seguras ante desalineación.
+4. **Validación de argumentos:** `gex_bsp_node_type` y `gex_bsp_node_is_leaf`
+   protegen contra imagen nula/tamaño insuficiente; `gex_bsp_walk` valida
+   `image`, `out` y `root_offset`.
+5. **Aritmética de límites:** `node_in_bounds` y las lecturas de campos
+   comprueban desbordamiento (`node_offset + campo + tamaño <= image_size`).
+6. **Memoria:** todos los caminos de error liberan `stack`, `vis_off`, `vis_col`
+   y `leaves`, y dejan `out` a cero.
 
-**No se declara S-2 completado**: la visibilidad original y la emisión de
-geometría siguen pendientes.
+Nuevos casos de prueba: árbol con dos hojas, referencia compartida, hijo fuera de
+límites, raíz inválida, imagen nula, imagen truncada, predicado de visibilidad
+que acepta/rechaza, AZTEC16.DFX (815 hojas).
+
+Pruebas: 18 comprobaciones, 0 fallos.
+
+Limitaciones que permanecen: visibilidad original (cámara), emisión de
+polígonos, buffers, shaders, texturas. S-2 no se declara completo.
