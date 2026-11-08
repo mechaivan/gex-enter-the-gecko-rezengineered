@@ -2,6 +2,23 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-1: parser del contenedor DFX (primer hito)
+
+- **Alcance:** implementación del parser del contenedor `.DFX` en `port/`
+  (`gex_dfx_parse`, `gex_dfx_load`, `gex_dfx_relocate`, `gex_dfx_load_level`),
+  sin recorrido BSP, sin buffers D3D11, sin shaders ni texturas.
+- **Documento nuevo:** `S1_DFX_PARSER.md` (arquitectura, formato, API, memoria,
+  validaciones, pruebas, limitaciones).
+- **Hechos:**
+  - Formato implementado: `count` + offsets + imagen en `4*aligned`,
+    `aligned = (count+0x200)&~0x1FF`; imagen lógica = `size - 4*aligned`.
+  - Descriptor leído desde `image + image[0]`.
+  - Relocalizador independiente con `delta` explícito (`gex_dfx_relocate_raw`).
+  - `0x00461ECA` no implementado (sin llamadores; copia truncada).
+- **Pruebas:** 76 comprobaciones, 0 fallos; validación con AZTEC16.DFX
+  (16 082 entradas, 3 882 vértices) y GEX.DFX (322 entradas).
+- **`PROJECT_STATUS.svg`:** sin cambios (MAIN sigue en 40 %; S-1 no completo).
+
 ## 2026-11-08 - 0.0.0 - Investigación de la variante alternativa del cargador DFX (0x00461ECA)
 
 - **Alcance:** análisis estático instrucción a instrucción de `0x00461ECA`

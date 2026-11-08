@@ -74,7 +74,7 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 
 ### Subfase E — Primer Escenario Original (S-1) ⬜ (no iniciada)
 
-- [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos. **Estado 2026-11-08:** mecánica de carga ya documentada en `U1_DFX_RELOCATION_AUDIT.md` (incluida la variante `0x00461ECA`, §H, sin llamadores en este build); implementación **no iniciada**.
+- [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos. **Estado 2026-11-08:** parser implementado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); recorrido BSP, buffers y renderizado **no iniciados**.
 - [ ] S-2: Recorrido BSP (2026-11-07) — implementar algoritmo de `0x401C00` para recorrer nodos y generar lista de polígonos visibles
 - [ ] S-3: Generador de Buffers D3D11 (2026-11-07) — convertir vértices DFX (12B) a formato D3D11 y crear vertex/index buffers
 - [ ] S-4: Cargador de Texturas (2026-11-07) — cargar .VFX, construir tabla de texturas (índice 14 bits) y crear texturas D3D11

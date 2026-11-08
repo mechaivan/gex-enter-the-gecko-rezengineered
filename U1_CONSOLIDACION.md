@@ -207,6 +207,10 @@ copiar**; en `GEX.DFX` no pierde punteros. **No tiene ningún llamador estático
 en este build (sin `call`/`jmp`, sin VA literal y sin `.reloc`), por lo que es
 código no referenciado. Detalle: [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H.
 
+El parser del contenedor (S-1) se ha implementado en `port/`
+([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)) y utiliza únicamente la ruta de
+`0x00461E0B`; la variante sigue sin uso.
+
 Ninguna de estas precisiones cambia los resultados estructurales de §4 y §5:
 afectan a la **mecánica de carga**, no al formato del descriptor ni a la
 geometría.

@@ -358,12 +358,13 @@ ni de los módulos posteriores.
 ## 7. Hitos Pequeños y Verificables
 
 ### Hito 1: Parser DFX Operativo
-- **Estado:** ⬜ PENDIENTE (S-1 no iniciado). La mecánica del contenedor está
-  documentada en [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)
-  (incluida la variante `0x00461ECA`, §H), pero no hay código.
+- **Estado:** ⬜ PENDIENTE (S-1 no completo). El parser del contenedor está
+  implementado en `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)) y valida
+  AZTEC16.DFX (3 882 vértices), pero el recorrido BSP y el renderizado siguen
+  pendientes.
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
 - **Criterio de éxito:** 
-  - `gex_dfx_parse` carga AZTEC16.DFX sin errores
+  - `gex_dfx_parse` carga AZTEC16.DFX sin errores (hecho)
   - Descriptor extraído con conteos correctos (3,882 vértices, 9,609 polígonos)
   - Tests unitarios: 95% cobertura
 
