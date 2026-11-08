@@ -46,9 +46,10 @@ uint16_t gex_bsp_node_type(const uint8_t *image, size_t image_size,
 int      gex_bsp_node_is_leaf(const uint8_t *image, size_t image_size,
                               uint32_t node_offset);
 
-/* Test hooks (no-op in production unless called). */
-void gex_bsp_set_alloc_fail_after(int n);
-void gex_bsp_reset_alloc(void);
+#ifdef GEX_BSP_TEST_FAULT_INJECT
+void gex_bsp_set_grow_visited_fail(int which);
+void gex_bsp_reset_grow_visited_fail(void);
+#endif
 
 #ifdef __cplusplus
 }

@@ -135,7 +135,22 @@ Limitaciones que permanecen: visibilidad original (cámara), emisión de
 polígonos, buffers, shaders, texturas. S-2 no se declara completo.
 
 
-## Cuarta auditoria (2026-11-08) - seguridad de memoria y pruebas de fallos
+## Quinta auditoria (2026-11-08) - aislamiento de fallos y pruebas deterministas
+
+Cambios:
+
+1. Mecanismo de inyeccion de fallos (gex_bsp_set_grow_visited_fail /
+   gex_bsp_reset_grow_visited_fail) movido a compilacion condicional
+   (GEX_BSP_TEST_FAULT_INJECT). Eliminado de la API publica (bsp.h). La
+   compilacion normal usa malloc directamente, sin estado global.
+2. Pruebas deterministas de fallo de la primera y segunda reserva de
+   grow_visited: cada una devuelve GEX_BSP_ERR_MEMORY con resultado limpio;
+   ejecucion normal posterior funciona.
+3. Regresion completa: 72 comprobaciones, 0 fallos. ASan+UBSan ejecutados sin
+   errores. AZTEC16 = exactamente 815 hojas.
+
+Limitaciones que permanecen: visibilidad original (camara), emision de
+poligonos, buffers, shaders, texturas. S-2 no se declara completo.
 
 Correcciones:
 

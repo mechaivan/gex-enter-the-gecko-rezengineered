@@ -2,6 +2,12 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: quinta auditoria BSP (aislamiento de fallos)
+
+- Mecanismo de inyeccion de fallos movido a compilacion condicional; eliminado
+  de la API publica. Pruebas deterministas de fallo de primera/segunda reserva.
+- 72 comprobaciones, 0 fallos. ASan+UBSan limpios. AZTEC16 = 815 hojas.
+
 ## 2026-11-08 - 0.0.0 - S-2: cuarta auditoria BSP (memoria y pruebas de fallos)
 
 - grow_visited recibe nvis y copia solo elementos validos; node_in_bounds usa
