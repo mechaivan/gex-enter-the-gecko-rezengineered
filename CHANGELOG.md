@@ -2,6 +2,12 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: sexta auditoria BSP (aislamiento definitivo)
+
+- Declaraciones de hooks de test eliminadas de bsp.h; declaradas solo en
+  test_bsp.c. Compilacion normal sin estado global.
+- 29 comprobaciones, 0 fallos. ASan+UBSan limpios. AZTEC16 = 815 hojas.
+
 ## 2026-11-08 - 0.0.0 - S-2: quinta auditoria BSP (aislamiento de fallos)
 
 - Mecanismo de inyeccion de fallos movido a compilacion condicional; eliminado
