@@ -2,6 +2,12 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: septima auditoria BSP (compilacion verificable y cierre documental)
+
+- Compilacion normal sin inyeccion verificada (sin simbolos). Compilacion de
+  tests con -DGEX_BSP_TEST_FAULT_INJECT verificada. 29 comprobaciones, 0 fallos.
+  ASan+UBSan limpios. AZTEC16 = 815 hojas.
+
 ## 2026-11-08 - 0.0.0 - S-2: sexta auditoria BSP (aislamiento definitivo)
 
 - Declaraciones de hooks de test eliminadas de bsp.h; declaradas solo en

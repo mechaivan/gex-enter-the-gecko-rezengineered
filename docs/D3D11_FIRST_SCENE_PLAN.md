@@ -106,7 +106,8 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
    - Generación de lista de polígonos visibles
 
 3. **Generación de Buffers**
-   - Conversión de vértices (12B → D3D11_INPUT_ELEMENT_DESC)
+   - Conversión de vértices (12B): los datos son vértices; el descriptor
+     (D3D11_INPUT_ELEMENT_DESC) define cómo interpreta D3D11 esos datos
    - Generación de índices para triángulos
    - Creación de vertex/index buffers en D3D11
 
@@ -303,11 +304,13 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 4. **Módulo 4: Cargador de Texturas** - Recursos para renderizado
 5. **Módulo 5: Integración** - Punto de entrada completo
 
-**Estado real (2026-11-08):** los cinco módulos están **pendientes**. La
+**Estado real (2026-11-08):** el parser DFX (Módulo 1) está implementado en
+`port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
+estructural (Módulo 2) está implementado ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
+Los Módulos 3 (buffers), 4 (texturas) y 5 (integración) siguen pendientes. La
 investigación de la carga `.DFX` está cerrada
 ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
-variante `0x00461ECA` en §H), pero no existe implementación del parser (S-1)
-ni de los módulos posteriores.
+variante `0x00461ECA` en §H).
 
 ---
 
@@ -366,7 +369,7 @@ ni de los módulos posteriores.
 - **Criterio de éxito:** 
   - `gex_dfx_parse` carga AZTEC16.DFX sin errores (hecho)
   - Descriptor extraído con conteos correctos (3,882 vértices, 9,609 polígonos)
-  - Tests unitarios: 95% cobertura
+  - Tests unitarios: cobertura de los casos documentados
 
 ### Hito 2: Recorrido BSP Funcional
 - **Objetivo:** Implementar algoritmo de `0x401C00`

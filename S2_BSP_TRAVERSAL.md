@@ -135,7 +135,21 @@ Limitaciones que permanecen: visibilidad original (cámara), emisión de
 polígonos, buffers, shaders, texturas. S-2 no se declara completo.
 
 
-## Sexta auditoria (2026-11-08) - aislamiento definitivo
+## Consolidación documental (2026-11-08, 7a auditoría)
+
+Estado actual único:
+- Recorrido BSP estructural implementado y validado en `port/` (`gex_bsp_walk`).
+- 29 comprobaciones, 0 fallos. ASan+UBSan limpios. AZTEC16 = exactamente 815 hojas.
+- Compilación normal (sin `GEX_BSP_TEST_FAULT_INJECT`) no contiene símbolos de
+  inyección. La instrumentación es exclusiva de tests y se activa con
+  `-DGEX_BSP_TEST_FAULT_INJECT`.
+- Visibilidad original (cámara) y emisión de polígonos pendientes.
+- Buffers D3D11, shaders, texturas e integración gráfica pendientes.
+- S-1 (parser DFX) implementado; S-2 (recorrido BSP) estructural implementado;
+  ninguno se declara completo.
+
+Limitaciones que permanecen: visibilidad original, emisión de geometría,
+buffers, shaders, texturas, integración D3D11. S-2 no se declara completo.
 
 Cambios:
 - Declaraciones de gex_bsp_set_grow_visited_fail / gex_bsp_reset_grow_visited_fail
