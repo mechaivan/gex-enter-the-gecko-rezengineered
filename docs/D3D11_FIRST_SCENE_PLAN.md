@@ -55,9 +55,11 @@ La Subfase C (U-1a…U-1h) está cerrada documentalmente con consolidación fina
 > contenedor está verificada en
 > [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md): carga completa,
 > `aligned = (count + 0x200) & ~0x1FF` dwords, relocalización
-> `*(u32*)(B + 4*aligned + off) += B` y compactación a `B` (offset 0). Esto
-> **documenta** lo necesario para S-1, pero S-1 **no está implementado** ni
-> iniciado; tampoco se ha analizado la variante `0x00461ECA`.
+> `*(u32*)(B + 4*aligned + off) += B` y compactación a `B` (offset 0). La
+> variante `0x00461ECA` también está analizada (audit §H): es una ruta alternativa
+> **sin llamadores** en este build, así que S-1 sigue solo la ruta de
+> `0x00461E0B`. Esto **documenta** lo necesario para S-1, pero S-1 **no está
+> implementado** ni iniciado.
 
 ---
 
@@ -93,6 +95,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
    - Relocalización de punteros internos (`0x004735C0`: `imageBase = B + 4*aligned`, `delta = B`)
    - Compactación de la imagen a `B` (offset 0) y descarte de la tabla
    - Extracción del descriptor (`image[0]`)
+   - Ruta de referencia: la del cargador principal `0x00461E0B`; la variante
+     `0x00461ECA` (audit §H) no se implementa: no tiene llamadores y su copia
+     truncada produce punteros colgantes en AZTEC16
    - Referencia: [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)
 
 2. **Recorrido BSP**
@@ -300,8 +305,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 **Estado real (2026-11-08):** los cinco módulos están **pendientes**. La
 investigación de la carga `.DFX` está cerrada
-([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)), pero no existe
-implementación del parser (S-1) ni de los módulos posteriores.
+([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
+variante `0x00461ECA` en §H), pero no existe implementación del parser (S-1)
+ni de los módulos posteriores.
 
 ---
 
@@ -353,8 +359,8 @@ implementación del parser (S-1) ni de los módulos posteriores.
 
 ### Hito 1: Parser DFX Operativo
 - **Estado:** ⬜ PENDIENTE (S-1 no iniciado). La mecánica del contenedor está
-  documentada en [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md),
-  pero no hay código.
+  documentada en [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)
+  (incluida la variante `0x00461ECA`, §H), pero no hay código.
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
 - **Criterio de éxito:** 
   - `gex_dfx_parse` carga AZTEC16.DFX sin errores

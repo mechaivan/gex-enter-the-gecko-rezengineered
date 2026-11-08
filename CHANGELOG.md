@@ -2,6 +2,38 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - Investigación de la variante alternativa del cargador DFX (0x00461ECA)
+
+- **Alcance:** análisis estático instrucción a instrucción de `0x00461ECA`
+  (variante del cargador `.DFX`), contrastado con `0x00461E0B`, el relocalizador
+  `0x004735C0` y los bytes de `AZTEC16.DFX`/`GEX.DFX`. Sin ejecutar el juego,
+  sin modificar `C:\GEX_REZ`, el port ni los assets, sin instalar herramientas y
+  sin crear commits durante la investigación.
+- **Documento ampliado:** `U1_DFX_RELOCATION_AUDIT.md` con la sección `H`
+  (firma, pseudocódigo, tabla comparativa, cuantificación de la copia truncada,
+  búsqueda de llamadores, implicaciones para S-1) y actualización de §F.
+- **Hechos fijados:**
+  - Firma real: `void *dfx_load_at(const char *path, void *dest)` (`cdecl`,
+    2 argumentos, retorno en `EAX`).
+  - Comparte lectura (`0x461B90`), cabecera, alineación, localización de la
+    imagen y relocalizador; difiere en delta (`dest`), destino externo, copia
+    2 048 B más corta, ámbito de arena (`0x4650B0`/`0x4650FD`) y retorno
+    `dest`.
+  - Si `dest == -1`: `dest = 0x801FC000 − roundUp4(tamaño)` (aritmética
+    confirmada; el buffer completo termina en `0x801FC000`).
+  - `0x00461ECA` **no tiene llamadores estáticos** en este build (sin
+    `call`/`jmp`, sin VA literal, sin `.reloc`, sin exports).
+  - Aplicada a `AZTEC16.DFX`: copia 477 004 B (2 046 B menos que la imagen
+    lógica) y deja 22 punteros colgantes + 99 posiciones sin copiar; a
+    `GEX.DFX` no pierde punteros.
+- **Consolidación:** actualizados `U1_CONSOLIDACION.md`, `U1G_RESULTADOS.md`,
+  `U1H_RESULTADOS.md`, `docs/U1_GEOMETRY_RECOVERY_PLAN.md`,
+  `docs/D3D11_FIRST_SCENE_PLAN.md`, `ROADMAP.md`, `PROJECT_STATE.md`.
+- **S-1:** no implementado ni iniciado. La variante no requiere una segunda
+  ruta de carga (no se usa y su copia truncada rompe `AZTEC16`).
+- **`PROJECT_STATUS.svg`:** sin cambios (MAIN sigue en 40 %, 14/35 puntos y
+  6/12 hitos).
+
 ## 2026-11-08 - 0.0.0 - Auditoría definitiva de la carga y relocalización DFX
 
 - **Alcance:** verificación estática instrucción a instrucción del cargador `.DFX` (`0x00461E0B`), del relocalizador (`0x004735C0`), del asignador/liberador de arena (`0x00464FB3`, `0x0046506B`) y del almacenamiento en `level[+4]` (`0x0043B2A9`), contrastada con los bytes reales de `AZTEC16.DFX` y `GEX.DFX`. Sin ejecutar el juego, sin modificar `C:\GEX_REZ`, el port ni los assets, y sin instalar herramientas.
@@ -14,7 +46,9 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   - `AZTEC16.DFX`: 544 586 B, `count` 16 082, `aligned` 16 384 dwords, imagen en `0x10000`, 479 050 B lógicos, copia de 479 052 B (2 B de padding), relleno de 1 204 B a cero.
   - `GEX.DFX`: 146 008 B, `count` 322, `aligned` 512 dwords, imagen en `0x800`, 143 960 B, relleno de 756 B a cero; `image[0]` no se relocaliza.
 - **Cifras históricas refutadas:** `count` 131, imagen en 528, imagen GEX en 1 292, `aligned` 2 048 B para ambos, imagen GEX de 143 360 B, `delta = 0` y compactación a `B+4`. Causa común: confundir `4 + 4*count` (fin de tabla) con `4*aligned` (inicio de imagen).
-- **Pendientes expresamente abiertos:** identidad exacta de los thunks de E/S, generalización de `[0x647FAC]`, variante `0x00461ECA` y direcciones absolutas en ejecución.
+- **Pendientes expresamente abiertos:** identidad exacta de los thunks de E/S,
+  generalización de `[0x647FAC]`, llamadas calculadas (variante `0x00461ECA`
+  analizada el mismo día, §H) y direcciones absolutas en ejecución.
 - **S-1:** no implementado ni iniciado. `PROJECT_STATUS.svg` no cambia (MAIN sigue en 40 %, 14/35 puntos y 6/12 hitos).
 
 ## 2026-11-07 - 0.0.0 - Planificación: Primer Escenario Original en Direct3D 11

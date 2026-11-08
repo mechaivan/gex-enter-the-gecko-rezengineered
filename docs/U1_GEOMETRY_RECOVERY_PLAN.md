@@ -222,7 +222,10 @@ Hechos fijados:
   devuelve `B`.
 - `aligned = (count + 0x200) & ~0x1FF` **en DWORDs**; `4*aligned` es el inicio
   de imagen y el relleno intermedio está a cero.
-- El cargador es `0x00461E0B`; la variante `0x00461ECA` **no** está analizada.
+- El cargador es `0x00461E0B`; la variante `0x00461ECA` está analizada
+  (2026-11-08) y **no tiene llamadores** en este build: relocaliza con
+  `delta = dest`, copia a un buffer externo con 2 048 B menos y no libera
+  `4*aligned` (ámbito de arena `0x4650B0`/`0x4650FD`).
 
 Correcciones históricas asociadas (detalle en §E del documento de auditoría):
 `count` de AZTEC16 = 16 082 (no 131), imagen de AZTEC16 en `0x10000` (no 528),
@@ -256,10 +259,13 @@ imagen de `GEX.DFX` en `0x800` (no 1 292), `delta = B` (no 0) y compactación a
    marcado están demostrados, pero no hay polígonos `0x20` en los tres
    niveles auditados.
 8. **Layout del vértice del rectángulo 2D** (U-1f).
-9. **Variante `0x00461ECA` del cargador `.DFX`:** no analizada; no sustituye a
-   `0x00461E0B`. Tampoco están resueltos la identidad exacta de los thunks de
-   E/S ni la generalización de `[0x647FAC]` fuera de esta ruta
-   ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md) §F).
+9. **Variante `0x00461ECA` del cargador `.DFX`:** analizada
+   (2026-11-08): firma `dfx_load_at(path, dest)`, sin llamadores estáticos en
+   este build. Abiertas su intención, la constante `0x801FC000` y el recorte de
+   `0x200` DWORDs
+   ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md) §H). Tampoco
+   están resueltos la identidad exacta de los thunks de E/S ni la
+   generalización de `[0x647FAC]` fuera de esta ruta (§F del mismo documento).
 
 ## Próximos pasos
 

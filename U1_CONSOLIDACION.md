@@ -192,6 +192,21 @@ descripción previa de §2.2 de U-1h:
 | Destino de la compactación | «sobre el hueco de la tabla» (ambiguo) | **`B` (offset 0)**, longitud `4*(roundUp4(tamaño)/4 − aligned)` |
 | `aligned` en `0x00461E68` | se atribuía `ECX = count` | `0x00461E62` recarga `ECX = aligned`; corrección de transcripción |
 
+**Variante `0x00461ECA` (analizada el 2026-11-08):** no es una continuación ni
+una rama de `0x00461E0B`, sino una función independiente con otro contrato:
+`void *dfx_load_at(const char *path, void *dest)`. Comparte lectura
+(`0x00461B90`), cabecera, alineación, localización de la imagen y relocalizador;
+difiere en que relocaliza con **`delta = dest`**, copia la imagen a un **buffer
+externo** en lugar de compactarla in situ, **no libera** `4*aligned` (abre y
+cierra un ámbito de arena: `0x4650B0`/`0x4650FD`), sobrescribe `[0x647FAC]` con
+la longitud copiada y devuelve `dest`. Si `dest == -1`, calcula
+`dest = 0x801FC000 − roundUp4(tamaño)`. Su copia termina `0x200` DWORDs
+(2 048 B) antes que la del cargador principal, lo que en `AZTEC16.DFX` deja
+**22 punteros copiados apuntando fuera del bloque** y **99 posiciones sin
+copiar**; en `GEX.DFX` no pierde punteros. **No tiene ningún llamador estático**
+en este build (sin `call`/`jmp`, sin VA literal y sin `.reloc`), por lo que es
+código no referenciado. Detalle: [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H.
+
 Ninguna de estas precisiones cambia los resultados estructurales de §4 y §5:
 afectan a la **mecánica de carga**, no al formato del descriptor ni a la
 geometría.
@@ -356,12 +371,16 @@ abiertos.
 * Semántica de juego de `0x4024B9`/`0x5015A9`: no hay polígonos `0x20` en los
   tres niveles auditados.
 * `0x004338D7` (rama `estilo & 0x80`) y layout del vértice del rectángulo 2D.
-* **Variante `0x00461ECA` del cargador `.DFX`:** no analizada; no debe
-  confundirse con `0x00461E0B` (la ruta documentada). Además, la identidad
-  exacta de los thunks de E/S (`0x541060`, `0x540F90`, `0x540DE0`, `0x540CA0`,
-  `0x540C20`) sigue inferida por argumentos, y `[0x647FAC]` es «tamaño de la
-  última asignación», no un campo del formato. Detalle en
-  [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §F.
+* **Variante `0x00461ECA` del cargador `.DFX`:** **analizada** (2026-11-08,
+  [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H). No es una
+  continuación de `0x00461E0B` ni comparte su contrato: es
+  `void *dfx_load_at(const char *path, void *dest)`, copia a un buffer externo,
+  no compacta in situ y no libera `4*aligned`. **No tiene llamadores estáticos**
+  en este build. Quedan abiertos su propósito, el significado de `0x801FC000` y
+  el motivo del recorte de `0x200` DWORDs. Además, la identidad exacta de los
+  thunks de E/S (`0x541060`, `0x540F90`, `0x540DE0`, `0x540CA0`, `0x540C20`)
+  sigue inferida por argumentos, y `[0x647FAC]` es «tamaño de la última
+  asignación», no un campo del formato.
 
 ---
 

@@ -21,7 +21,9 @@
   - Compactación de `4*(roundUp4(tamaño)/4 − aligned)` bytes desde `B + 4*aligned` hasta **`B`**; libera `4*aligned` y devuelve `B`.
 - **Cifras verificadas:** AZTEC16 `count` 16 082, imagen en `0x10000`, 479 050 B (copia 479 052 B); GEX `count` 322, imagen en `0x800`, 143 960 B.
 - **Corrección de transcripción:** `0x00461E62` recarga `ECX = aligned`; el cálculo de `imageBase` nunca dependió de `count`.
-- **Pendientes:** thunks de E/S, generalización de `[0x647FAC]`, variante `0x00461ECA` y direcciones absolutas en ejecución.
+- **Pendientes:** thunks de E/S, generalización de `[0x647FAC]`, llamadas
+  calculadas (variante `0x00461ECA` ya analizada: `dfx_load_at(path, dest)`,
+  sin llamadores estáticos) y direcciones absolutas en ejecución.
 - **S-1:** **no iniciado**. La documentación no es implementación. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
@@ -117,10 +119,13 @@
 - **Abiertas de U-1f:** `0x004338D7` (rama `estilo & 0x80`), layout del vértice de
   rectángulo 2D y layout del vértice de `grDrawPlanarPolygonVertexList`
   (resuelto el consumidor, no el layout completo).
-- **Carga `.DFX` (auditoría 2026-11-08):** quedan abiertas la identidad exacta de
-  los thunks de E/S, la generalización de `[0x647FAC]` fuera de esta ruta, la
-  variante `0x00461ECA` y las direcciones absolutas reales en ejecución.
-  Detalle en [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §F.
+- **Carga `.DFX` (auditoría 2026-11-08):** la variante `0x00461ECA` ya está
+  analizada (firma `dfx_load_at(path, dest)`, sin llamadores estáticos en este
+  build, copia truncada). Quedan abiertas la identidad exacta de los thunks de
+  E/S, la generalización de `[0x647FAC]` fuera de esta ruta, el propósito de la
+  variante y la constante `0x801FC000`, y las direcciones absolutas reales en
+  ejecución. Detalle en
+  [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §F y §H.
 
 ## Estado vigente del port gráfico (R-1 a R-5)
 

@@ -472,6 +472,32 @@ La compactación **mueve la imagen al principio del buffer (`B`), no a `B+4`**,
 eliminando el hueco de la tabla de offsets. El puntero devuelto es el mismo
 `base`.
 
+### 5.3.1 Variante `0x00461ECA` (analizada 2026-11-08)
+
+> **Estado:** función **independiente**, no una rama de `0x00461E0B`. Sin
+> llamadores estáticos en este build. Detalle y evidencia:
+> [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H.
+
+```
+void *dfx_load_at(path /*[+8]*/, dest /*[+0xC]*/)   ; cdecl
+if (dest == -1) dest = 0x801FC000 - roundUp4(tamaño) ; 0x461EF0
+... mismo contenedor, misma alineación, mismo relocalizador ...
+0x004735C0(&reloc, B + 4*aligned, dest)             ; delta = dest, no B
+N   = (roundUp4(tamaño)+3)/4 - 0x200                ; dwords
+end = B + 4*N
+[0x647FAC] = 4*(N - aligned)
+copia 4*(N - aligned) B desde B + 4*aligned a dest  ; sin compactar in situ
+0x004650FD()                                        ; cierra ámbito: descarta B
+return dest
+```
+
+Diferencias verificadas: **delta `dest`**, **destino externo**, **copia 2 048 B
+más corta**, **sin `0x46506B`** (el ámbito de arena abierto en `0x4650B0` se
+cierra con `0x4650FD` y descarta todo el buffer de lectura) y **retorno
+`dest`**. Con `AZTEC16.DFX` la copia dejaría 22 punteros copiados apuntando
+fuera del bloque y 99 posiciones sin copiar; con `GEX.DFX` no pierde punteros.
+No se usa en este build, así que **S-1 sigue la ruta de `0x00461E0B`**.
+
 ### 5.4 Relocalizador `0x004735C0(container*, imageBase, delta)`
 
 ```

@@ -1,8 +1,9 @@
 # U-1 — Auditoría definitiva de la carga y relocalización DFX (2026-11-08)
 
 **Objeto:** reconstrucción verificable del contenedor `.DFX`, de la rutina de
-relocalización `0x004735C0` y del cargador/compactador `0x00461E0B`, a partir de
-los bytes reales de los assets y del desensamblado del ejecutable original.
+relocalización `0x004735C0`, del cargador/compactador `0x00461E0B` y de la
+variante `0x00461ECA`, a partir de los bytes reales de los assets y del
+desensamblado del ejecutable original.
 
 **Binario de referencia:** `C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE`
 (PE32 i386, 1 557 504 B, EU v1.00.000; `imageBase = 0x00400000`).
@@ -399,6 +400,36 @@ el bloque útil queda `[B, B + copyLen)`.
 `0x0043B11D` es la **entrada de la función** que contiene esta llamada; el
 almacenamiento real está en `0x0043B2A9`.
 
+### C.7 `0x004650B0` / `0x004650FD` — ámbitos del arena
+
+`0x00464FB3` no reserva memoria del sistema: avanza un puntero dentro de una
+pila de ámbitos. El estado vive en dos arrays indexados por
+`[0x647EA8]` (*profundidad*):
+
+```
+[0x647EAC + 8*d]   base[d]        ; puntero incremental del ámbito d
+[0x647EB0 + 8*d]   remaining[d]   ; bytes disponibles del ámbito d
+```
+
+```
+4650B0  if (depth >= 0x20) return
+        base[depth+1]      = base[depth]        ; 0x4650C7..0x4650D3
+        remaining[depth+1] = remaining[depth]   ; 0x4650E0..0x4650EC
+        depth++                                  ; 0x4650EE..0x4650F6
+
+4650FD  if (depth != 0) depth--                  ; 0x465100..0x465114
+```
+
+`0x4650B0` **abre un ámbito** clonando base y resto en el nivel siguiente;
+`0x4650FD` **lo cierra** bajando la profundidad. Como las asignaciones del
+ámbito hijo modifican `base[depth+1]`/`remaining[depth+1]` y no los del padre,
+al cerrar el ámbito **todo lo asignado dentro se descarta de golpe**: el padre
+recupera su puntero incremental intacto, sin llamar a `0x46506B`.
+
+Nota: `0x4650FD` **no** restaura `[0x647FAC]` (el «tamaño de la última
+asignación»); ese global queda con el último valor escrito por `0x464FB3` o por
+quien lo modifique.
+
 ---
 
 ## D. Algoritmo exacto
@@ -504,14 +535,24 @@ Estas cuestiones quedan **expresamente abiertas**:
 2. **Generalización de `[0x647FAC]`.** Es «tamaño de la última asignación», no un
    campo del formato. En esta ruta coincide con el tamaño del fichero porque hay
    una sola asignación; otras rutas podrían no cumplirlo.
-3. **Variante `0x00461ECA`.** Es una variante próxima del cargador; **no
-   analizada** en esta auditoría. No se afirma qué la diferencia de
-   `0x00461E0B`.
+3. **Propósito de la variante `0x00461ECA`.** Su cuerpo está analizado en §H y
+   su diferencia con `0x00461E0B` es **demostrada**. Lo que sigue abierto es
+   *para qué existía*: no tiene ningún llamador estático en este build, de modo
+   que no se puede observar ni el origen de `dest` ni el uso del resultado.
+   Dentro de esa incógnita quedan tres preguntas concretas: (a) qué significa
+   la constante `0x801FC000`; (b) por qué la copia recorta exactamente
+   `0x200` DWORDs; (c) si el destino externo pretendía ser una dirección fija
+   de otro mapa de memoria. No se afirma ninguna respuesta.
 4. **Direcciones absolutas reales.** El análisis estático fija la relación
    `B + offset`, pero el valor de `B` solo se conoce en ejecución.
 5. **Formatos de modelo.** `GEX.DFX` usa el mismo contenedor, pero su cabecera y
    su recorrido **no están descodificados**. La ingeniería inversa de *todos* los
    formatos `.DFX` **no** está completa.
+6. **Referencias calculadas.** La ausencia de llamadores de `0x00461ECA` se
+   demuestra para referencias literales (`call`/`jmp` directos y DWORD con la
+   VA). No se puede descartar por completo una llamada cuya dirección se
+   construya en tiempo de ejecución; no se ha localizado ninguna secuencia que
+   lo haga.
 
 ---
 
@@ -526,3 +567,332 @@ Estas cuestiones quedan **expresamente abiertas**:
   plan de recuperación de geometría.
 * [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) — plan del
   primer escenario D3D11 (S-1 **no** implementado).
+
+---
+
+## H. Variante `0x00461ECA`
+
+**Estado:** analizada instrucción a instrucción el 2026-11-08. Es una **función
+independiente**, no una continuación de `0x00461E0B` ni una rama interna suya.
+
+### H.1 Localización y forma
+
+| Dato | Valor |
+|---|---|
+| Inicio | `0x00461ECA` |
+| Última instrucción | `0x00461FBC` (`ret`) |
+| Longitud | `0xF3` = 243 B |
+| Función previa | termina en `0x00461EC9` (`ret`) |
+| Función siguiente | empieza en `0x00461FBD` (prólogo propio) |
+
+No hay caída de flujo desde la función anterior ni hacia la siguiente: es un
+cuerpo aislado entre dos `ret`.
+
+Prólogo y epílogo:
+
+```
+461eca  push ebp
+461ecb  mov  ebp,esp
+461ecd  sub  esp,0x20          ; 8 locales
+...
+461fb9  mov  esp,ebp
+461fbb  pop  ebp
+461fbc  ret                    ; sin operando -> limpia el llamador
+```
+
+`ret` sin operando (y no `ret 8`) implica **`cdecl`**: el llamador limpia los
+argumentos. El retorno va en `EAX`.
+
+### H.2 Firma real
+
+```c
+void *dfx_load_at(const char *path /*[ebp+0x8]*/, void *dest /*[ebp+0xC]*/);
+```
+
+* `arg1` = ruta del `.DFX` (`[ebp+8]`).
+* `arg2` = **puntero de destino externo** (`[ebp+0xC]`). El valor `-1`
+  (`0xFFFFFFFF`) es un **centinela**: significa «calcula el destino tú».
+* Retorno (`EAX`) = el `dest` **original**, no el puntero avanzado.
+
+Reparto de locales (32 B reservados):
+
+| Local | Uso |
+|---|---|
+| `[ebp-0x4]` | `B`, y después puntero de lectura (se reutiliza) |
+| `[ebp-0x8]` | puntero al contenedor (`&[ebp-0x10]`) |
+| `[ebp-0xC]` | `container.offsets` |
+| `[ebp-0x10]` | `container.count` |
+| `[ebp-0x14]` | `N` (límite en DWORDs) |
+| `[ebp-0x18]` | `end = B + 4*N` |
+| `[ebp-0x1C]` | `dest` original (valor de retorno) |
+| `[ebp-0x20]` | `aligned` (DWORDs) |
+
+El contenedor tiene **exactamente el mismo layout** que en `0x00461E0B`.
+
+### H.3 Cuerpo, instrucción a instrucción
+
+```
+461ed0  lea  eax,[ebp-0x10]
+461ed3  mov  [ebp-0x8],eax          ; &container
+461ed6  call 0x4650b0               ; abre ámbito de arena (sin argumentos)
+461edb  mov  ecx,[ebp+0x8]
+461ede  push ecx
+461edf  call 0x461b90               ; B = leer_fichero_completo(path)
+461ee4  add  esp,0x4
+461ee7  mov  [ebp-0x4],eax          ; B
+
+461eea  cmp  dword[ebp+0xc],-1      ; ¿dest == -1?
+461eee  jne  0x461efe
+461ef0  mov  edx,0x801fc000
+461ef5  sub  edx,dword[0x647fac]    ; edx = 0x801FC000 - roundUp4(tamaño)
+461efb  mov  [ebp+0xc],edx          ; reescribe el propio argumento
+
+461efe  mov  eax,[ebp-0x4]
+461f01  add  eax,0x4
+461f04  mov  ecx,[ebp-0x8]
+461f07  mov  [ecx+0x4],eax          ; offsets = B + 4
+461f0a  mov  edx,[ebp-0x8]
+461f0d  mov  eax,[ebp-0x4]
+461f10  mov  ecx,[eax]
+461f12  mov  [edx],ecx              ; count = B[0]
+
+461f14  mov  edx,[ebp-0x8]
+461f17  mov  eax,[edx]              ; count
+461f19  add  eax,0x200
+461f1e  cdq
+461f1f  and  edx,0x1ff
+461f25  add  eax,edx
+461f27  sar  eax,0x9
+461f2a  shl  eax,0x9
+461f2d  mov  [ebp-0x20],eax         ; aligned = (count+0x200) & ~0x1FF
+
+461f30  mov  eax,[ebp+0xc]
+461f33  push eax                    ; arg3 = delta = dest
+461f34  mov  ecx,[ebp-0x20]
+461f37  mov  edx,[ebp-0x4]
+461f3a  lea  eax,[edx+4*ecx]        ; imageBase = B + 4*aligned
+461f3d  push eax                    ; arg2 = imageBase
+461f3e  mov  ecx,[ebp-0x8]
+461f41  push ecx                    ; arg1 = &container
+461f42  call 0x4735c0               ; relocalizar(container, imageBase, dest)
+461f47  add  esp,0xc
+
+461f4a  mov  edx,[0x647fac]         ; roundUp4(tamaño del fichero)
+461f50  add  edx,0x3
+461f53  sar  edx,0x2                ; ceil(tamaño/4)
+461f56  sub  edx,0x200              ; N = ceil(tamaño/4) - 0x200
+461f5c  mov  [ebp-0x14],edx
+461f5f  mov  eax,[ebp-0x14]
+461f62  mov  ecx,[ebp-0x4]
+461f65  lea  edx,[ecx+4*eax]
+461f68  mov  [ebp-0x18],edx         ; end = B + 4*N
+461f6b  mov  eax,[ebp-0x14]
+461f6e  sub  eax,[ebp-0x20]
+461f71  shl  eax,0x2
+461f74  mov  [0x647fac],eax         ; [0x647FAC] = 4*(N - aligned)
+
+461f79  mov  ecx,[ebp+0xc]
+461f7c  mov  [ebp-0x1c],ecx         ; guarda dest original
+461f7f  mov  edx,[ebp-0x20]
+461f82  mov  eax,[ebp-0x4]
+461f85  lea  ecx,[eax+4*edx]
+461f88  mov  [ebp-0x4],ecx          ; lectura = B + 4*aligned
+
+461f8b  mov  edx,[ebp-0x4]
+461f8e  cmp  edx,[ebp-0x18]
+461f91  jae  0x461fb1               ; while (src < end)
+461f93  mov  eax,[ebp+0xc]
+461f96  mov  ecx,[ebp-0x4]
+461f99  mov  edx,[ecx]
+461f9b  mov  [eax],edx              ; *dest = *src
+461f9d  mov  eax,[ebp+0xc]
+461fa0  add  eax,0x4
+461fa3  mov  [ebp+0xc],eax          ; dest++
+461fa6  mov  ecx,[ebp-0x4]
+461fa9  add  ecx,0x4
+461fac  mov  [ebp-0x4],ecx          ; src++
+461faf  jmp  0x461f8b
+
+461fb1  call 0x4650fd               ; cierra ámbito de arena (sin argumentos)
+461fb6  mov  eax,[ebp-0x1c]         ; retorna dest original
+461fb9  mov  esp,ebp
+461fbb  pop  ebp
+461fbc  ret
+```
+
+### H.4 Pseudocódigo
+
+```c
+void *dfx_load_at(const char *path, void *dest)   /* cdecl */
+{
+    struct { u32 count; u32 *offsets; } c;        /* [ebp-0x10] / [ebp-0xC] */
+    arena_scope_push();                            /* 0x4650B0 */
+
+    u32 *B = load_file(path);                      /* 0x461B90 */
+
+    if (dest == (void *)-1)
+        dest = (void *)(0x801FC000u - (u32)last_alloc_size);  /* [0x647FAC] */
+
+    c.offsets = B + 1;                             /* B + 4 bytes */
+    c.count   = B[0];
+    aligned   = (c.count + 0x200) & ~0x1FFu;       /* DWORDs */
+
+    reloc(&c, (u8 *)B + 4 * aligned, (u32)dest);   /* 0x4735C0 */
+
+    u32 N   = ((last_alloc_size + 3) >> 2) - 0x200; /* DWORDs */
+    u32 *end = B + N;
+
+    last_alloc_size = 4 * (N - aligned);            /* [0x647FAC] */
+
+    u32 *ret = dest;
+    for (u32 *src = B + aligned; src < end; src++, dest++)
+        *(u32 *)dest = *src;                       /* copia manual, 4 B */
+
+    arena_scope_pop();                              /* 0x4650FD */
+    return ret;
+}
+```
+
+### H.5 Diferencias con `0x00461E0B`
+
+| Aspecto | `0x00461E0B` (principal) | `0x00461ECA` (variante) | Clasificación |
+|---|---|---|---|
+| Argumentos | 1: `path` | 2: `path`, `dest` | **CONFIRMADA** |
+| Convención | `cdecl`, retorno en `EAX` | `cdecl`, retorno en `EAX` | **CONFIRMADA** |
+| Lectura | `0x461B90(path)` | `0x461B90(path)` | **CONFIRMADA** |
+| Ámbito de arena | no abre ninguno | `0x4650B0` al entrar / `0x4650FD` al salir | **CONFIRMADA** |
+| Cabecera | `count = B[0]`, offsets en `B+4` | idéntica | **CONFIRMADA** |
+| Alineación | `(count+0x200) & ~0x1FF` DWORDs | instrucciones equivalentes (`0x461F19..0x461F2D`) | **CONFIRMADA** |
+| Imagen origen | `B + 4*aligned` | `B + 4*aligned` | **CONFIRMADA** |
+| Relocalizador | `0x4735C0` | `0x4735C0` | **CONFIRMADA** |
+| Delta | `B` | **`dest`** | **CONFIRMADA** |
+| Destino de la copia | `B` (in situ, compacta) | `dest` externo (no compacta) | **CONFIRMADA** |
+| Longitud copiada | `4*(roundUp4(tamaño)/4 − aligned)` | `4*(N − aligned)`, `N = (roundUp4(tamaño)+3)>>2 − 0x200` | **CONFIRMADA** |
+| Fin de copia | fin lógico de la imagen (+ *padding*) | **2 048 B antes** (`0x200` DWORDs) | **CONFIRMADA** |
+| `[0x647FAC]` al salir | intacto (`roundUp4(tamaño)`) | **sobrescrito** con `4*(N − aligned)` | **CONFIRMADA** |
+| Liberación | `0x46506B(4*aligned)` | **ninguna**: `0x4650FD` descarta todo el ámbito | **CONFIRMADA** |
+| Retorno | `B` (buffer del arena) | `dest` original | **CONFIRMADA** |
+| Llamadores | 2 (`0x43B298`, `0x46371D`) | **ninguno localizado** | **CONFIRMADA** (en este build) |
+| Uso del resultado | `level[+4]`, `[0x5555DC]+0x18` | no observable | **NO DEMOSTRADA** |
+| Propósito | cargar el `.DFX` en memoria del arena | ¿carga en dirección fija? | **NO DEMOSTRADA** |
+
+**Conclusión de la comparación:** comparten **lectura, cabecera, alineación,
+localización de la imagen y relocalizador**; difieren en **destino, delta,
+longitud, liberación y valor de retorno**. No es «el mismo cargador con un flag»:
+son dos rutinas con contratos distintos.
+
+### H.6 La copia truncada, cuantificada
+
+`N = ceil(tamaño/4) − 0x200` DWORDs; `end = B + 4*N`; la copia empieza en
+`B + 4*aligned`. Por tanto:
+
+```
+longitud copiada = 4 * (N − aligned)
+                 = 4*(roundUp4(tamaño)/4 − 0x200 − aligned)
+                 = longitud_del_cargador_principal − 2 048 B
+```
+
+| Dato | `AZTEC16.DFX` | `GEX.DFX` |
+|---|---:|---:|
+| Tamaño del fichero | 544 586 | 146 008 |
+| `roundUp4(tamaño)` = `[0x647FAC]` | 544 588 | 146 008 |
+| `(roundUp4(tamaño)+3)>>2` = `ceil(tamaño/4)` | 136 147 | 36 502 |
+| `aligned` (DWORDs) | 16 384 | 512 |
+| Inicio de imagen `4*aligned` | 65 536 | 2 048 |
+| `N = ceil/4 − 0x200` | 135 635 | 35 990 |
+| `end = 4*N` | 542 540 | 143 960 |
+| **Longitud copiada** | **477 004** | **141 912** |
+| Imagen lógica (`tamaño − 4*aligned`) | 479 050 | 143 960 |
+| Bytes de imagen no copiados | **2 046** | **2 048** |
+| `dest` por defecto (`0x801FC000 − roundUp4(tamaño)`) | `0x801770B4` | `0x801D85A8` |
+| Fin de la copia (`dest + longitud`) | `0x801EB800` | `0x801FB000` |
+
+Consecuencia sobre la tabla de relocalización (verificada entrada a entrada):
+
+| Dato | `AZTEC16.DFX` | `GEX.DFX` |
+|---|---:|---:|
+| Entradas cuyo valor apunta más allá de la copia | **121** | **0** |
+| — posición **dentro** de la copia → puntero colgante | **22** | 0 |
+| — posición **fuera** de la copia → no se copia | **99** | 0 |
+| Valor máximo apuntado | 479 020 | 133 700 |
+
+Los últimos 2 048 B de ambos ficheros **no son relleno**:
+
+| Asset | Bytes no nulos en los últimos 2 048 B | Primero | Último |
+|---|---:|---:|---:|
+| `AZTEC16.DFX` | 1 272 | 542 538 | 544 585 |
+| `GEX.DFX` | 978 | 144 008 | 146 006 |
+
+**Lectura de estas cifras (CONFIRMADA aritméticamente):** aplicada a
+`AZTEC16.DFX`, la variante produciría una imagen mutilada: 99 posiciones de
+puntero desaparecen y 22 punteros copiados apuntan a memoria **más allá del
+final de la copia**. Aplicada a `GEX.DFX`, no pierde ningún puntero, pero
+igualmente descarta 2 048 B de datos no nulos.
+
+**No demostrado:** que esa pérdida fuera intencionada. No hay ningún llamador
+que permita observar el resultado.
+
+### H.7 El centinela `dest == -1` y la constante `0x801FC000`
+
+La aritmética es inequívoca:
+
+```
+dest = 0x801FC000 − roundUp4(tamaño_del_fichero)
+  =>  dest + roundUp4(tamaño_del_fichero) = 0x801FC000
+```
+
+Es decir: con el centinela, el **buffer completo del fichero termina exactamente
+en `0x801FC000`**. En el binario, `0x801FC000` aparece **una sola vez**
+(`0x461EF0`), está fuera de la imagen del ejecutable
+(`0x00400000 + 0x261000 = 0x00661000`) y no tiene ningún otro consumidor.
+
+| Afirmación | Clasificación |
+|---|---|
+| `dest + roundUp4(tamaño) = 0x801FC000` con el centinela | **CONFIRMADA** (aritmética de `0x461EF0..0x461EFB`) |
+| `0x801FC000 = 0x80000000 + 0x1FC000`, 16 KB por debajo del techo de un mapa de 2 MB; patrón de «cargar al final de la RAM» | **INFERIDA** |
+| Que proceda de la versión PlayStation y se conservara sin uso en el build PC | **NO DEMOSTRADA** |
+| Que el recorte de `0x200` DWORDs sea una reserva de pila/scratch de ese mapa | **NO DEMOSTRADA** |
+
+### H.8 Búsqueda de llamadores
+
+| Comprobación | Resultado |
+|---|---|
+| `call 0x00461ECA` / `jmp 0x00461ECA` en el desensamblado completo | **0** (el único salto en el rango es interno: `0x461FAF → 0x461F8B`) |
+| DWORD con la VA `CA 1E 46 00` en los 1 557 504 B del `.EXE` | **0** apariciones |
+| Sección `.reloc` en el PE | **no existe** (5 secciones: `.text`, `.rdata`, `.data`, `.idata`, `.rsrc`) |
+| Exports (`exportRVA`/`exportSize`) | `0` / `0` |
+| Caída de flujo desde `0x00461EC9` | imposible: es un `ret` |
+
+Como el ejecutable **no tiene tabla de reubicación**, cualquier puntero a código
+debe aparecer como VA literal en el fichero; no aparece. Por tanto:
+
+> **CONFIRMADA:** `0x00461ECA` es código **no referenciado** en este build.
+> **NO DEMOSTRADA:** su ausencia de uso en otras versiones o regiones del juego.
+
+Esto explica que no se pueda responder con evidencia estática a «¿qué hace el
+llamador con el resultado?»: **no hay llamador**.
+
+### H.9 Impacto en S-1 (parser del contenedor `.DFX`)
+
+| Pregunta | Respuesta | Clasificación |
+|---|---|---|
+| ¿El formato binario es idéntico? | Sí: misma cabecera, misma fórmula de alineación, misma imagen, mismo relocalizador | **CONFIRMADA** |
+| ¿Cambia el procesamiento posterior? | Sí, pero **después** del parseo: destino externo, sin compactación in situ, sin liberación parcial | **CONFIRMADA** |
+| ¿El parser necesita parámetros nuevos? | No. `count` + tabla + imagen bastan; `dest` solo afecta a la colocación | **CONFIRMADA** |
+| ¿El parser puede seguir siendo independiente de la relocalización? | Sí. Es lo recomendable: parsear/validar, y relocalizar como paso aparte con delta explícito | **CONFIRMADA** |
+| ¿Hay que soportar dos rutas de carga? | No para S-1: la variante **no se usa** en este build y su copia truncada rompe `AZTEC16` | **INFERIDA** (fuerte) |
+| ¿Sirve para niveles, modelos u otros recursos? | No se puede determinar: no hay llamador. El contenedor es común, así que no distingue nivel de modelo | **NO DEMOSTRADA** |
+
+Recomendación para S-1 (sin implementar nada ahora):
+
+1. Modelar el contenedor como **datos**: `count`, tabla de offsets, imagen.
+2. Exponer la relocalización como operación con **`delta` explícito**, no
+   cableada a `B`. Así la ruta principal (`delta = B`) y la variante
+   (`delta = dest`) son el mismo código con distinto argumento.
+3. **No** reproducir el recorte de `0x200` DWORDs ni el centinela
+   `0x801FC000`: son comportamiento de una ruta sin uso y producen punteros
+   colgantes en `AZTEC16`.
+4. La colocación de la imagen en un buffer destino (compactada o no) es una
+   decisión del consumidor, no del parser.
+
+

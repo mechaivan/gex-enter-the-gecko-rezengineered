@@ -187,6 +187,15 @@ relativos a la imagen**; tras la carga valen `B + offset` y no son VA del
 ejecutable. La tabla no enumera «todos» los DWORD, solo las posiciones que son
 punteros.
 
+**Variante `0x00461ECA` (2026-11-08).** Existe una segunda rutina,
+`void *dfx_load_at(const char *path, void *dest)`, que **no** es una rama de
+`0x00461E0B`: usa el mismo lector, contenedor, alineación y relocalizador, pero
+relocaliza con `delta = dest`, copia la imagen a un **buffer externo** y no
+libera `4*aligned` (abre y cierra un ámbito de arena). Su copia es 2 048 B más
+corta que la del cargador principal. **No tiene llamadores estáticos** en este
+build, así que `level[+4]` sigue proviniendo de `0x00461E0B`. Evidencia completa
+en [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H.
+
 Prueba estructural (campo relocalizado = puntero real):
 
 | Campo | `AZTEC16` | `CIRCUIT0` | `REZOP2` | `GEX.DFX` |
@@ -1098,6 +1107,10 @@ todos los `.DFX`.
 12. `record[+0x0C]` es el formato de textura y `record[+0x14]` son datos NCC
     *inline*.
 13. `GEX.DFX` no contiene BSP ni descriptor de nivel.
+14. La variante `0x00461ECA` (`dfx_load_at(path, dest)`) existe pero está
+    **sin referenciar** en este build: relocaliza con `delta = dest`, copia a un
+    buffer externo con 2 048 B menos y no libera `4*aligned`
+    ([`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H).
 
 ### 13.2 Hipótesis (sin confirmar)
 
@@ -1400,6 +1413,7 @@ UV, recorridos, emisores de nivel y despacho siguen verificados.
 | `0x00461B90` | lector de fichero completo | base de `.DFX`/`.VFX` |
 | `0x00461C32` | carga `.VFX` | §11 |
 | `0x00461E0B` | carga `.DFX` y compacta | §2.2 |
+| `0x00461ECA` | variante de carga `.DFX` a buffer externo; **sin llamadores** en este build | §2.2, audit §H |
 | `0x0046558A` | dispatcher de un comando | §8 |
 | `0x00469836` | recorrido de la lista de comandos | §8 |
 | `0x0046999C` | transformación por matriz (3 *dots*) | §4.3, §6.1 |
