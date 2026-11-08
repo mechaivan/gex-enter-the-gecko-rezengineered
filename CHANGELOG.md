@@ -2,6 +2,12 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: octava correccion BSP (consolidacion documental)
+
+- Consolidacion de S2_BSP_TRAVERSAL.md, correcciones en D3D11_FIRST_SCENE_PLAN.md,
+  ROADMAP.md, PROJECT_STATE.md. Sin cambios de codigo.
+- 29 comprobaciones, 0 fallos. ASan+UBSan limpios. AZTEC16 = 815 hojas.
+
 ## 2026-11-08 - 0.0.0 - S-2: septima auditoria BSP (compilacion verificable y cierre documental)
 
 - Compilacion normal sin inyeccion verificada (sin simbolos). Compilacion de

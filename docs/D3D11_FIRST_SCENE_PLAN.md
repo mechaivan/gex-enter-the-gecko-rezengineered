@@ -58,8 +58,9 @@ La Subfase C (U-1a…U-1h) está cerrada documentalmente con consolidación fina
 > `*(u32*)(B + 4*aligned + off) += B` y compactación a `B` (offset 0). La
 > variante `0x00461ECA` también está analizada (audit §H): es una ruta alternativa
 > **sin llamadores** en este build, así que S-1 sigue solo la ruta de
-> `0x00461E0B`. Esto **documenta** lo necesario para S-1, pero S-1 **no está
-> implementado** ni iniciado.
+> `0x00461E0B`. Esto **documenta** la mecánica necesaria para S-1, que **sí está
+> implementada** (ver §5.2 y [`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); S-2
+> (recorrido BSP) también está implementado (ver [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
 
 ---
 
@@ -307,9 +308,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 **Estado real (2026-11-08):** el parser DFX (Módulo 1) está implementado en
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
 estructural (Módulo 2) está implementado ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
-Los Módulos 3 (buffers), 4 (texturas) y 5 (integración) siguen pendientes. La
-investigación de la carga `.DFX` está cerrada
-([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
+Los Módulos 3 (generador de buffers D3D11), 4 (cargador de texturas) y 5
+(integración con renderer) siguen pendientes. La investigación de la carga
+`.DFX` está cerrada ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
 ---
@@ -361,27 +362,28 @@ variante `0x00461ECA` en §H).
 ## 7. Hitos Pequeños y Verificables
 
 ### Hito 1: Parser DFX Operativo
-- **Estado:** ⬜ PENDIENTE (S-1 no completo). El parser del contenedor está
+- **Estado:** ✅ IMPLEMENTADO (2026-11-08). El parser del contenedor está
   implementado en `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)) y valida
-  AZTEC16.DFX (3 882 vértices), pero el recorrido BSP y el renderizado siguen
-  pendientes.
+  AZTEC16.DFX (16 082 entradas, 3 882 vértices, 9 609 polígonos).
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
-- **Criterio de éxito:** 
+- **Criterio de éxito:**
   - `gex_dfx_parse` carga AZTEC16.DFX sin errores (hecho)
-  - Descriptor extraído con conteos correctos (3,882 vértices, 9,609 polígonos)
+  - Descriptor extraído con conteos correctos (16 082 entradas, 3 882 vértices,
+    9 609 polígonos)
   - Tests unitarios: cobertura de los casos documentados
 
 ### Hito 2: Recorrido BSP Funcional
-- **Objetivo:** Implementar algoritmo de `0x401C00`
+- **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
+  lista de polígonos visibles.
 - **Criterio de éxito:**
   - Recorrido completo del árbol BSP
   - Lista de polígonos visibles generada
   - Validación con nodos conocidos de AZTEC
 
 **Estado 2026-11-08:** recorrido estructural implementado en `port/`
-(`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con
-predicado NULL. La visibilidad original (cámara) queda como dependencia
-documentada.16
+(`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con predicado
+NULL. La visibilidad original (cámara) queda como dependencia documentada.
+
 
 ### Hito 3: Buffers D3D11 Generados
 - **Objetivo:** Convertir geometría a buffers D3D11
@@ -468,14 +470,16 @@ documentada.16
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: Implementar Módulo 1 (Parser DFX)**
+**Siguiente paso: Implementar Módulo 3 (Generador de Buffers D3D11)**
 
-- **Objetivo específico:** Implementar `gex_dfx_parse` y `gex_dfx_load_level`
+- **Objetivo específico:** Implementar `gex_buffers_build_from_polygons` para convertir
+  vértices DFX (12 B) a formato D3D11 y crear vertex/index buffers.
 - **Criterios de éxito:**
-  - Lectura exitosa de AZTEC16.DFX
-  - Extracción correcta del descriptor con conteos validados
-  - Creación de estructuras de datos internas
-- **Tiempo estimado:** 3-5 días
-- **Pruebas unitarias incluidas:** Validación de estructura, conteos, punteros
+  - Vertex buffer creado con 3 882 vértices de AZTEC16
+  - Index buffer creado con índices correctos a partir de polígonos visibles
+  - Tests de conversión: 100 % precisión
+- **Prerrequisitos:** Parser DFX (implementado) y Recorrido BSP estructural (implementado).
+- **Pruebas unitarias incluidas:** Validación de estructura de buffers, conteos de vértices/índices.
 
-Este hito es el fundamento para todas las etapas posteriores y permite validar la comprensión inicial del formato .DFX antes de avanzar a componentes más complejos.
+Este hito conecta la geometría BSP con D3D11 y es el fundamento para los Módulos 4
+(cargador de texturas) y 5 (integración con renderer).
