@@ -133,3 +133,29 @@ Pruebas: 18 comprobaciones, 0 fallos.
 
 Limitaciones que permanecen: visibilidad original (cámara), emisión de
 polígonos, buffers, shaders, texturas. S-2 no se declara completo.
+
+
+## Tercera auditoria (2026-11-08) - seguridad de memoria
+
+Defecto confirmado: en los bloques de ampliacion de vis_off/vis_col, el realloc
+secuencial podia dejar el primer puntero actualizado y el segundo fallido.
+Corregido sustituyendo ambos realloc por reservas independientes con malloc
+(ambas comprobadas antes de liberar los arrays anteriores), copia, liberacion y
+sustitucion atomica. Todos los demas realloc (pila, hojas) tambien sustituidos
+por malloc+copia+free con variables temporales.
+
+Auditoria adicional: overflow en duplicacion de capacidades comprobado
+(newcap < *cap); overflow en multiplicaciones por sizeof comprobado contra
+SIZE_MAX; conversiones uint32_t->size_t seguras; incrementos de pila y
+contadores comprobados.
+
+Coste de la busqueda lineal de visitados: O(n^2) en el peor caso. Aceptable para
+BSP de niveles; se propone (sin implementar) tabla hash o sort por offset para
+escenas muy grandes.
+
+Pruebas: 23 comprobaciones, 0 fallos. AZTEC16 = exactamente 815 hojas.
+Compilacion C11 con -Wall -Wextra limpia.
+
+Limitaciones que permanecen: visibilidad original (camara), emision de
+poligonos, buffers, shaders, texturas, inyeccion de fallos de asignacion en
+pruebas. S-2 no se declara completo.
