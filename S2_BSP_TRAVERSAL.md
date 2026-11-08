@@ -135,7 +135,25 @@ Limitaciones que permanecen: visibilidad original (cámara), emisión de
 polígonos, buffers, shaders, texturas. S-2 no se declara completo.
 
 
-## Tercera auditoria (2026-11-08) - seguridad de memoria
+## Cuarta auditoria (2026-11-08) - seguridad de memoria y pruebas de fallos
+
+Correcciones:
+
+1. grow_visited (y grow_u32, grow_frames) reciben ahora el numero de elementos
+   validos (nvis/fr_sp/nleaves) y copian exclusivamente esos, no toda la
+   capacidad reservada.
+2. node_in_bounds usa comprobacion por resta: `node_offset <= image_size` y
+   `GEX_BSP_NODE_SIZE <= image_size - node_offset`, evitando overflow en 32 bits.
+3. Mecanismo de inyeccion de fallos de asignacion (gex_bsp_set_alloc_fail_after /
+   gex_bsp_reset_alloc) exclusivo de tests, sin dependencias externas. Demuestra
+   fallo al reservar arrays y resultado GEX_BSP_ERR_MEMORY con resultado limpio.
+
+Pruebas: 44 comprobaciones, 0 fallos. ASan+UBSan ejecutados sin errores.
+AZTEC16 = exactamente 815 hojas.
+
+Limitaciones que permanecen: visibilidad original (camara), emision de
+poligonos, buffers, shaders, texturas, inyeccion de fallos en codigo de
+produccion. S-2 no se declara completo.
 
 Defecto confirmado: en los bloques de ampliacion de vis_off/vis_col, el realloc
 secuencial podia dejar el primer puntero actualizado y el segundo fallido.

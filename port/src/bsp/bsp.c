@@ -3,13 +3,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Allocation hooks for controlled fault injection in tests. */
+static int g_fail_after = -1;
+static int g_alloc_count = 0;
+
+static void *bsp_malloc(size_t sz) {
+    if (g_fail_after >= 0) {
+        if (g_alloc_count >= g_fail_after) {
+            g_alloc_count++;
+            return NULL;
+        }
+        g_alloc_count++;
+    }
+    return malloc(sz);
+}
+static void bsp_free(void *p) { free(p); }
+
+void gex_bsp_set_alloc_fail_after(int n) { g_fail_after = n; g_alloc_count = 0; }
+void gex_bsp_reset_alloc(void) { g_fail_after = -1; g_alloc_count = 0; }
+
 #define READ_U16(p) ((uint16_t)((p)[0] | ((uint16_t)(p)[1] << 8)))
 #define READ_U32(p) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | \
                    ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
 
 static int node_in_bounds(size_t image_size, uint32_t node_offset) {
     if (node_offset > image_size) return 0;
-    return (size_t)node_offset + GEX_BSP_NODE_SIZE <= image_size;
+    return GEX_BSP_NODE_SIZE <= (image_size - node_offset);
 }
 
 static int read_u16(const uint8_t *image, size_t image_size,
@@ -45,41 +64,40 @@ int gex_bsp_node_is_leaf(const uint8_t *image, size_t image_size,
     return (gex_bsp_node_type(image, image_size, node_offset) & GEX_BSP_LEAF_FLAG) != 0;
 }
 
-/* Safe growth of the visited arrays (offsets + colors) as a unit. */
-static gex_bsp_status grow_visited(uint32_t **off, uint8_t **col, uint32_t *cap) {
+/* Safe growth of visited arrays: copies only `nvalid` elements. */
+static gex_bsp_status grow_visited(uint32_t **off, uint8_t **col, uint32_t *cap,
+                                   uint32_t nvalid) {
     if (*cap > UINT32_MAX / 2) return GEX_BSP_ERR_OVERFLOW;
     uint32_t newcap = *cap * 2;
     if (newcap < *cap) return GEX_BSP_ERR_OVERFLOW;
-    /* overflow in byte sizes */
     if ((size_t)newcap > SIZE_MAX / sizeof(uint32_t)) return GEX_BSP_ERR_OVERFLOW;
     if ((size_t)newcap > SIZE_MAX) return GEX_BSP_ERR_OVERFLOW;
 
-    uint32_t *no = malloc((size_t)newcap * sizeof(uint32_t));
-    uint8_t *nc = malloc((size_t)newcap);
+    uint32_t *no = bsp_malloc((size_t)newcap * sizeof(uint32_t));
+    uint8_t *nc = bsp_malloc((size_t)newcap);
     if (!no || !nc) {
-        free(no); free(nc);
+        bsp_free(no); bsp_free(nc);
         return GEX_BSP_ERR_MEMORY;
     }
-    memcpy(no, *off, (size_t)(*cap) * sizeof(uint32_t));
-    memcpy(nc, *col, (size_t)(*cap));
-    free(*off);
-    free(*col);
+    memcpy(no, *off, (size_t)nvalid * sizeof(uint32_t));
+    memcpy(nc, *col, (size_t)nvalid);
+    bsp_free(*off);
+    bsp_free(*col);
     *off = no;
     *col = nc;
     *cap = newcap;
     return GEX_BSP_OK;
 }
 
-/* Safe growth of a uint32 array. */
-static gex_bsp_status grow_u32(uint32_t **arr, uint32_t *cap) {
+static gex_bsp_status grow_u32(uint32_t **arr, uint32_t *cap, uint32_t nvalid) {
     if (*cap > UINT32_MAX / 2) return GEX_BSP_ERR_OVERFLOW;
     uint32_t newcap = *cap * 2;
     if (newcap < *cap) return GEX_BSP_ERR_OVERFLOW;
     if ((size_t)newcap > SIZE_MAX / sizeof(uint32_t)) return GEX_BSP_ERR_OVERFLOW;
-    uint32_t *na = malloc((size_t)newcap * sizeof(uint32_t));
+    uint32_t *na = bsp_malloc((size_t)newcap * sizeof(uint32_t));
     if (!na) return GEX_BSP_ERR_MEMORY;
-    memcpy(na, *arr, (size_t)(*cap) * sizeof(uint32_t));
-    free(*arr);
+    memcpy(na, *arr, (size_t)nvalid * sizeof(uint32_t));
+    bsp_free(*arr);
     *arr = na;
     *cap = newcap;
     return GEX_BSP_OK;
@@ -87,15 +105,15 @@ static gex_bsp_status grow_u32(uint32_t **arr, uint32_t *cap) {
 
 typedef struct { uint32_t node; int is_exit; } frame_t;
 
-static gex_bsp_status grow_frames(frame_t **fr, uint32_t *cap) {
+static gex_bsp_status grow_frames(frame_t **fr, uint32_t *cap, uint32_t nvalid) {
     if (*cap > UINT32_MAX / 2) return GEX_BSP_ERR_OVERFLOW;
     uint32_t newcap = *cap * 2;
     if (newcap < *cap) return GEX_BSP_ERR_OVERFLOW;
     if ((size_t)newcap > SIZE_MAX / sizeof(frame_t)) return GEX_BSP_ERR_OVERFLOW;
-    frame_t *nf = malloc((size_t)newcap * sizeof(frame_t));
+    frame_t *nf = bsp_malloc((size_t)newcap * sizeof(frame_t));
     if (!nf) return GEX_BSP_ERR_MEMORY;
-    memcpy(nf, *fr, (size_t)(*cap) * sizeof(frame_t));
-    free(*fr);
+    memcpy(nf, *fr, (size_t)nvalid * sizeof(frame_t));
+    bsp_free(*fr);
     *fr = nf;
     *cap = newcap;
     return GEX_BSP_OK;
@@ -115,22 +133,22 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
     }
 
     uint32_t vis_cap = 64;
-    uint32_t *vis_off = malloc(vis_cap * sizeof(uint32_t));
-    uint8_t *vis_col = malloc(vis_cap);
-    if (!vis_off || !vis_col) { free(vis_off); free(vis_col); return GEX_BSP_ERR_MEMORY; }
+    uint32_t *vis_off = bsp_malloc(vis_cap * sizeof(uint32_t));
+    uint8_t *vis_col = bsp_malloc(vis_cap);
+    if (!vis_off || !vis_col) { bsp_free(vis_off); bsp_free(vis_col); return GEX_BSP_ERR_MEMORY; }
     uint32_t nvis = 0;
 
     uint32_t fr_cap = 64;
-    frame_t *fr = malloc(fr_cap * sizeof(frame_t));
-    if (!fr) { free(vis_off); free(vis_col); return GEX_BSP_ERR_MEMORY; }
+    frame_t *fr = bsp_malloc(fr_cap * sizeof(frame_t));
+    if (!fr) { bsp_free(vis_off); bsp_free(vis_col); return GEX_BSP_ERR_MEMORY; }
     uint32_t fr_sp = 0;
     fr[fr_sp].node = root_offset;
     fr[fr_sp].is_exit = 0;
     fr_sp++;
 
     uint32_t leaves_cap = 64;
-    uint32_t *leaves = malloc(leaves_cap * sizeof(uint32_t));
-    if (!leaves) { free(fr); free(vis_off); free(vis_col); return GEX_BSP_ERR_MEMORY; }
+    uint32_t *leaves = bsp_malloc(leaves_cap * sizeof(uint32_t));
+    if (!leaves) { bsp_free(fr); bsp_free(vis_off); bsp_free(vis_col); return GEX_BSP_ERR_MEMORY; }
     uint32_t nleaves = 0;
 
     gex_bsp_status result = GEX_BSP_OK;
@@ -147,14 +165,13 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
 
         uint32_t node = f.node;
 
-        /* find color */
         uint8_t color = 0;
         int found = 0;
         for (uint32_t i = 0; i < nvis; i++) {
             if (vis_off[i] == node) { color = vis_col[i]; found = 1; break; }
         }
         if (found && color == 2) {
-            continue; /* shared reference, already processed */
+            continue;
         }
         if (found && color == 1) {
             result = GEX_BSP_ERR_CYCLE;
@@ -171,7 +188,7 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
         if (!vis) {
             if (!found) {
                 if (nvis >= vis_cap) {
-                    gex_bsp_status g = grow_visited(&vis_off, &vis_col, &vis_cap);
+                    gex_bsp_status g = grow_visited(&vis_off, &vis_col, &vis_cap, nvis);
                     if (g != GEX_BSP_OK) { result = g; break; }
                 }
                 vis_off[nvis] = node;
@@ -183,10 +200,9 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
             continue;
         }
 
-        /* mark in-progress */
         if (!found) {
             if (nvis >= vis_cap) {
-                gex_bsp_status g = grow_visited(&vis_off, &vis_col, &vis_cap);
+                gex_bsp_status g = grow_visited(&vis_off, &vis_col, &vis_cap, nvis);
                 if (g != GEX_BSP_OK) { result = g; break; }
             }
             vis_off[nvis] = node;
@@ -208,20 +224,18 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                 break;
             }
             if (nleaves >= leaves_cap) {
-                gex_bsp_status g = grow_u32(&leaves, &leaves_cap);
+                gex_bsp_status g = grow_u32(&leaves, &leaves_cap, nleaves);
                 if (g != GEX_BSP_OK) { result = g; break; }
             }
             leaves[nleaves++] = node;
-            /* mark done */
             for (uint32_t i = 0; i < nvis; i++) if (vis_off[i] == node) vis_col[i] = 2;
         } else {
             uint32_t c1 = 0, c2 = 0;
             int ok1 = read_u32(image, image_size, node, 0x18, &c1);
             int ok2 = read_u32(image, image_size, node, 0x1C, &c2);
             if (!ok1 || !ok2) { result = GEX_BSP_ERR_BOUNDS; break; }
-            /* ensure frame capacity for exit + up to 2 children */
             while (fr_sp + 3 > fr_cap) {
-                gex_bsp_status g = grow_frames(&fr, &fr_cap);
+                gex_bsp_status g = grow_frames(&fr, &fr_cap, fr_sp);
                 if (g != GEX_BSP_OK) { result = g; break; }
             }
             if (result != GEX_BSP_OK) break;
@@ -231,12 +245,12 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
         }
     }
 
-    free(fr);
-    free(vis_off);
-    free(vis_col);
+    bsp_free(fr);
+    bsp_free(vis_off);
+    bsp_free(vis_col);
 
     if (result != GEX_BSP_OK) {
-        free(leaves);
+        bsp_free(leaves);
         memset(out, 0, sizeof(*out));
         return result;
     }
@@ -249,6 +263,6 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
 
 void gex_bsp_walk_free(gex_bsp_walk_result *r) {
     if (!r) return;
-    free(r->leaves);
+    bsp_free(r->leaves);
     memset(r, 0, sizeof(*r));
 }

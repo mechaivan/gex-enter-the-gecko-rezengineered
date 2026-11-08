@@ -203,6 +203,40 @@ static void test_leaf_cap(void) {
     free(img);
 }
 
+static void test_alloc_failure(void) {
+    const char *path = "C:/GEX_REZ/E2_A_ORIGINAL/LEVEL/AZTEC16.DFX";
+    FILE *f = fopen(path,"rb"); if(!f){ printf("skip aztec\n"); return; } fclose(f);
+    gex_dfx_container c; memset(&c,0,sizeof(c));
+    if (gex_dfx_load(path,&c) != GEX_DFX_OK) { printf("load fail\n"); return; }
+    gex_dfx_level level; memset(&level,0,sizeof(level));
+    if (gex_dfx_load_level(&c,&level) != GEX_DFX_OK) { gex_dfx_release_container(&c); return; }
+
+    /* Try several failure points; at least one must yield MEMORY error */
+    int saw_memory = 0;
+    for (int n = 0; n < 40; n++) {
+        gex_bsp_reset_alloc();
+        gex_bsp_set_alloc_fail_after(n);
+        gex_bsp_walk_result r; memset(&r,0,sizeof(r));
+        gex_bsp_status s = gex_bsp_walk(c.image, c.image_size, level.descriptor.root_bsp, NULL, NULL, &r);
+        if (s == GEX_BSP_ERR_MEMORY) {
+            saw_memory = 1;
+            CHECK(r.leaves == NULL && r.count == 0);
+        }
+        gex_bsp_walk_free(&r);
+    }
+    gex_bsp_reset_alloc();
+    CHECK(saw_memory == 1);
+
+    /* normal run after reset must succeed */
+    gex_bsp_walk_result r; memset(&r,0,sizeof(r));
+    CHECK(gex_bsp_walk(c.image, c.image_size, level.descriptor.root_bsp, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(r.count == 815u);
+    gex_bsp_walk_free(&r);
+
+    gex_dfx_release_level(&level);
+    gex_dfx_release_container(&c);
+}
+
 static void test_real_aztec(void) {
     const char *path = "C:/GEX_REZ/E2_A_ORIGINAL/LEVEL/AZTEC16.DFX";
     FILE *f = fopen(path,"rb"); if(!f){ printf("skip aztec\n"); return; } fclose(f);
@@ -231,6 +265,7 @@ int main(void) {
     test_null_image_helpers();
     test_visibility_predicate();
     test_leaf_cap();
+    test_alloc_failure();
     test_real_aztec();
     printf("Tests completed: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

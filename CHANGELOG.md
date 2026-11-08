@@ -2,6 +2,13 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: cuarta auditoria BSP (memoria y pruebas de fallos)
+
+- grow_visited recibe nvis y copia solo elementos validos; node_in_bounds usa
+  resta anti-overflow; inyeccion de fallos de asignacion en tests.
+- ASan+UBSan ejecutados sin errores. 44 comprobaciones, 0 fallos.
+- AZTEC16 = exactamente 815 hojas.
+
 ## 2026-11-08 - 0.0.0 - S-2: recorrido BSP estructural de AZTEC16
 
 - **Alcance:** módulo BSP en `port/` (`gex_bsp_walk`, predicado de visibilidad
