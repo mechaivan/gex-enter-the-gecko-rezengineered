@@ -25,7 +25,7 @@
   calculadas (variante `0x00461ECA` ya analizada: `dfx_load_at(path, dest)`,
   sin llamadores estáticos) y direcciones absolutas en ejecución.
 - **S-1 (parser DFX):** implementado y documentado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); validado con AZTEC16 y GEX.DFX. No se declara S-1 completo mientras no se cierre la integración del primer escenario.
-- **S-2 (recorrido BSP estructural):** implementado y documentado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); auditado (7.ª–9.ª pasada; la 9.ª solo documental): 29 comprobaciones, 0 fallos, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La visibilidad original de cámara y la emisión de polígonos siguen pendientes.
+- **S-2 (recorrido BSP estructural):** implementado y documentado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); auditado (7.ª–10.ª pasada; la 10.ª solo documental): 29 comprobaciones, 0 fallos, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La visibilidad original de cámara está documentada en [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) (no implementada); la emisión de polígonos sigue pendiente.
 - **Pendiente de integración:** buffers D3D11, cargador de texturas VFX e integración con el renderer. El primer escenario original todavía no está renderizado. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)

@@ -660,6 +660,25 @@ Llamador único: `0x0043DECE`, dentro de `0x0043DC39`, justo antes de
 `0x004269C2`. Si `level[+0x4C94] & 0x200` está puesto, el nivel **no se dibuja**
 (`0x0043DEF3..0x43DF01`).
 
+> **Nota de corrección (2026-11-09).** El texto anterior se conserva como
+> histórico, pero tres afirmaciones son incorrectas y quedan sustituidas por
+> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md):
+>
+> 1. `cam+0x88` no son «7 `int16`» sino **9 `int16`** (matriz **A**), y existe
+>    una segunda matriz **B** de 9 `int16` en `cam+0xA8`.
+> 2. Los laterales **no** son `cam+0xC8`/`cam+0xD4`/`cam+0xD8`: esos son
+>    `A·camPos` y `B·camPos` (`int32`) y `0x401C00` **no los lee**. Los planos
+>    son las filas de A (`+0x88..+0x98`) y de B (`+0xA8..+0xB2`), y la fila 2 de
+>    B (`+0xB4..+0xB8`) nunca se compara.
+> 3. El predicado de hoja del original es `(word[+0x12] & 1) == 0`, no
+>    `word[+0x12] & 2`. Para los tipos reales 1/2 ambos coinciden; no son
+>    equivalentes en general.
+>
+> Además, el orden de apilado depende del plano:
+> `d = ((camPos·N) >> 12) − node+0x14`; si `d >= 0` se visita `+0x18` primero,
+> si `d < 0` se visita `+0x1C` primero. La prueba de visibilidad completa
+> (6 semiplanos, tolerancia `-r`, radio sin signo) está en el documento citado.
+
 ### 6.2 Emisión de las hojas visibles — `0x004269C2`
 
 Firma: `int emit(list *visible, descriptor *desc, camera *cam, pool *out,

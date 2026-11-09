@@ -238,6 +238,13 @@ geometría.
 queda abierto son **campos sin consumidor** y **una rama sin datos reales**
 (§6, §7), no la estructura.
 
+> **Precisión 2026-11-09.** El tipo `+0x12` es 1/2, pero el predicado del
+> original es `(word[+0x12] & 1) == 0` (hoja); `port/` usa `& 2`, equivalente
+> solo para esos dos valores. La prueba de visibilidad de `0x401C00` no usa
+> planos en `cam+0xC8/0xD4/0xD8`, sino dos matrices `int16` de 3×3 en
+> `cam+0x88` (A) y `cam+0xA8` (B); detalle en
+> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
+
 ### 4.2 Geometría de modelos — parcial
 
 Los emisores de modelo son *function pointers* instalados en el struct de nivel

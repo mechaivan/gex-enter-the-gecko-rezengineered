@@ -103,8 +103,14 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 2. **Recorrido BSP**
    - Algoritmo de `0x401C00`: recorre nodos y anexa hojas visibles
-   - Clipping por viewport (implementar después)
-   - Generación de lista de polígonos visibles
+   - *Culling* de esfera contra el volumen de vista: **documentado, no
+     implementado** ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)).
+     Es una prueba de esfera `(centro, radio)` contra 6 semiplanos (near, far y
+     cuatro laterales) con tolerancia `-r`, usando dos matrices `int16` 3×3
+     (`cam+0x88` = A, `cam+0xA8` = B) y `0x0046999C` (`(M·v) sar 12`). No es
+     *clipping*: no recorta geometría.
+   - Recorte por coordenadas proyectadas y emisión de la lista de polígonos
+     visibles (`0x004269C2`): pendiente
 
 3. **Generación de Buffers**
    - Conversión de vértices (12B): los datos son vértices; el descriptor
@@ -140,7 +146,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 - **Shaders:** Necesarios para renderizar, pero no están en U-1 (fuera de alcance)
 - **Formato de texturas NCC:** Conversiones a D3D11 (requieren investigación)
-- **Clipping:** El algoritmo BSP original no incluye clipping explícito
+- **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
+  explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
+  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
 - **Alpha blending:** Semántica no completamente documentada en U-1
 
 ---
@@ -193,7 +201,8 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Responsabilidades:**
   - Recorrer el árbol BSP (`0x401C00`): **estructural, hecho**
   - Recorrer nodos y anadir hojas visibles: **hecho con predicado inyectado**
-  - Aplicar la visibilidad original de cámara: **pendiente**
+  - Aplicar la visibilidad original de cámara: **documentada, no implementada**
+    ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md))
   - Generar lista de polígonos visibles: **pendiente** (emisión)
 - **Estructuras de datos (implementadas):**
   ```c
@@ -302,13 +311,14 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 4. **Módulo 4: Cargador de Texturas** - Recursos para renderizado
 5. **Módulo 5: Integración** - Punto de entrada completo
 
-**Estado real (2026-11-08):** el parser DFX (Módulo 1) está implementado en
+**Estado real (2026-11-09):** el parser DFX (Módulo 1) está implementado en
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
 estructural (Módulo 2) está implementado ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
-Dentro del Módulo 2 siguen pendientes la visibilidad original de cámara y la
-emisión de polígonos. Los Módulos 3 (generador de buffers D3D11), 4 (cargador
-de texturas) y 5 (integración con renderer) siguen pendientes. La investigación
-de la carga `.DFX` está cerrada
+Dentro del Módulo 2, la visibilidad original de cámara está **documentada pero
+no implementada** ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)) y la
+emisión de polígonos sigue pendiente. Los Módulos 3 (generador de buffers
+D3D11), 4 (cargador de texturas) y 5 (integración con renderer) siguen
+pendientes. La investigación de la carga `.DFX` está cerrada
 ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
@@ -373,20 +383,24 @@ variante `0x00461ECA` en §H).
   - Tests unitarios: cobertura de los casos documentados
 
 ### Hito 2: Recorrido BSP Funcional
-- **Estado:** 🔄 PARCIAL (2026-11-08). Recorrido estructural implementado y
+- **Estado:** 🔄 PARCIAL (2026-11-09). Recorrido estructural implementado y
   validado en `port/` ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)); la
-  visibilidad original de cámara y la emisión de polígonos siguen pendientes,
-  por lo que el hito no se declara completo.
+  visibilidad original de cámara está **documentada, no implementada**
+  ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)) y la emisión de
+  polígonos sigue pendiente, por lo que el hito no se declara completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
   lista de polígonos visibles.
 - **Criterio de éxito:**
   - Recorrido completo del árbol BSP (estructural: hecho)
-  - Lista de polígonos visibles generada (pendiente: visibilidad + emisión)
+  - Lista de polígonos visibles generada (pendiente: implementar visibilidad + emisión)
   - Validación con nodos conocidos de AZTEC
 
-**Estado 2026-11-08:** recorrido estructural implementado en `port/`
+**Estado 2026-11-09:** recorrido estructural implementado en `port/`
 (`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con predicado
-NULL. La visibilidad original (cámara) queda como dependencia documentada.
+NULL. La visibilidad original (cámara) está documentada en
+[`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) — prueba de esfera
+contra 6 semiplanos con matrices A/B — pero no implementada; `port/` sigue
+usando el predicado inyectado.
 
 
 ### Hito 3: Buffers D3D11 Generados
@@ -460,7 +474,9 @@ NULL. La visibilidad original (cámara) queda como dependencia documentada.
 
 1. **Shaders:** Necesarios pero fuera del alcance de U-1
 2. **Formato NCC:** Requiere investigación adicional
-3. **Clipping:** Implementación futura con viewport
+3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
+   `0x401C00` ya está documentado en
+   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md), pero no implementado)
 4. **Alpha blending:** Semántica no completamente documentada
 
 ### 9.3 Evidencias Clave
@@ -474,12 +490,14 @@ NULL. La visibilidad original (cámara) queda como dependencia documentada.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: cerrar la visibilidad original y la emisión de polígonos de
-S-2; después, implementar el Módulo 3 (Generador de Buffers D3D11).**
+**Siguiente paso: implementar la visibilidad original de cámara ya documentada
+en [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y la emisión de
+polígonos de S-2; después, implementar el Módulo 3 (Generador de Buffers
+D3D11).**
 
-- **Prerrequisito real:** la visibilidad de cámara y la emisión de polígonos de
-  S-2 siguen pendientes; sin ellas no existe la lista de polígonos visibles que
-  alimenta al Módulo 3.
+- **Prerrequisito real:** la visibilidad de cámara está documentada pero no
+  implementada, y la emisión de polígonos sigue pendiente; sin ellas no existe
+  la lista de polígonos visibles que alimenta al Módulo 3.
 - **Objetivo específico del Módulo 3:** implementar
   `gex_buffers_build_from_polygons` para convertir los vértices DFX (12 B) en
   datos de vértice e índice y crear los buffers D3D11 correspondientes.

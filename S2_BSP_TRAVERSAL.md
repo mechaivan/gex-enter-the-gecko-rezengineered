@@ -1,10 +1,13 @@
 # S-2 — Recorrido BSP de AZTEC16
 
-**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), sin visibilidad original de cámara, sin emisión de polígonos, sin buffers D3D11, shaders ni texturas.
+**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), sin visibilidad original de cámara implementada, sin emisión de polígonos, sin buffers D3D11, shaders ni texturas.
 
-**Referencias:** `S1_DFX_PARSER.md`, `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md`, `docs/D3D11_FIRST_SCENE_PLAN.md`, `U1_DFX_RELOCATION_AUDIT.md`.
+**Referencias:** `S1_DFX_PARSER.md`, `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md`, `S2_CAMERA_VISIBILITY.md`, `docs/D3D11_FIRST_SCENE_PLAN.md`, `U1_DFX_RELOCATION_AUDIT.md`.
 
-**Estado actual:** recorrido estructural implementado y validado en `port/`. No se declara S-2 completo: la visibilidad original y la emisión de geometría siguen pendientes.
+**Estado actual:** recorrido estructural implementado y validado en `port/`.
+La visibilidad original de cámara está **documentada** (no implementada) en
+[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md). No se declara S-2
+completo: la emisión de geometría sigue pendiente.
 
 ---
 
@@ -32,29 +35,52 @@
 | +0x00 | int16 | centro X |
 | +0x02 | int16 | centro Y |
 | +0x04 | int16 | centro Z |
-| +0x06 | int16 | radio |
-| +0x12 | uint16 | tipo (bit 1 = hoja) |
+| +0x06 | int16 | radio (leído como **unsigned** en la visibilidad) |
+| +0x0C/+0x0E/+0x10 | int16 ×3 | normal del plano, escala 4096 |
+| +0x12 | uint16 | tipo: 1 = interno, 2 = hoja |
+| +0x14 | int32 | distancia del plano |
 | +0x18 | uint32 | hijo 1 (offset relativo a la imagen; 0 = ausente) |
 | +0x1C | uint32 | hijo 2 (offset relativo; 0 = ausente) |
+
+La clasificación del original es `(word[+0x12] & 1) == 0` → hoja. Con los tipos
+reales 1/2 equivale a `& 2 != 0`, que es lo que usa `port/`; no son equivalentes
+para otros valores de tipo.
 
 ## 3. Evidencia que lo respalda
 
 - `U1H_RESULTADOS.md` §6.1: firma `void walk(descriptor*, camera*, list*)`,
   pila explícita, arranque con `desc[0]` (raíz = `descriptor.root_bsp`),
   anexa hojas con tope `0x800` (`out[4 + 4*out[0]] = leaf`).
-- Nodo interno apila `+0x18` y `+0x1C` si no son nulos.
+- Nodo interno: prueba de plano
+  `d = ((camPos · N) >> 12) − node+0x14`. Si `d >= 0` apila primero `+0x1C` y
+  luego `+0x18` (se visita `+0x18` antes); si `d < 0`, al revés.
 - El descriptor se obtiene del contenedor vía `gex_dfx_load_level`
   (offset = `image[0]`); `root_bsp` está en `+0x00` del descriptor.
 
-## 4. Dependencias no resueltas (documentadas, no inventadas)
+## 4. Visibilidad original (documentada en `S2_CAMERA_VISIBILITY.md`)
 
-- La prueba de visibilidad original (esfera vs. volumen de vista) requiere la
-  cámara: matriz de vista desde `cam+0x88` (7 int16), `cam+0x5C`, planos en
-  `cam+0xC8/+0xD4/+0xD8`, y `0x0046999C` para transformar centros. La
-  población de la cámara y la matriz no se reproduce en S-2; se inyectan como
-  predicado. Esto es una limitación explícita.
-- `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
-  `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
+La visibilidad de `0x00401C00` **no** usa planos en `cam+0xC8/+0xD4/+0xD8`.
+Usa dos matrices `int16` de 3×3, `cam+0x88` (**A**, 9 palabras) y `cam+0xA8`
+(**B**, 9 palabras), aplicadas al centro del nodo con `0x0046999C`
+(`(M·v) sar 12`). La prueba es una esfera de radio `r` contra **seis
+semiplanos** (near, far y cuatro laterales) con tolerancia `-r`:
+
+```
+(T_A.x − A_cam.x) > −r   &&  (T_A.x − A_cam.x) < cam+0x5C + r
+(T_A.y − A_cam.y) > −r
+(T_A.z − A_cam.z) > −r
+(T_B.x − B_cam.x) > −r
+(T_B.y − B_cam.y) > −r
+```
+
+La fila 2 de B (`cam+0xB4..0xB8`) nunca se compara. A y B se construyen en
+`0x00405C41` a partir de la orientación `M = *[cam+0xE8]` y de los vectores
+locales de `0x00402DC0`; el radio se lee **sin signo**. Todos los detalles,
+fórmulas, pseudocódigo y discrepancias están en
+[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
+
+`0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
+`0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
 
 ## 5. Historial de auditorías (no es estado actual)
 
@@ -66,6 +92,10 @@
 - 8.ª: consolidación documental definitiva.
 - 9.ª: sincronización del estado del proyecto en `PROJECT_STATE.md` y `ROADMAP.md`
   (solo documentación; sin cambios de código).
+- 10.ª: visibilidad original de cámara documentada en
+  [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) (solo documentación; sin
+  cambios de código). Corrige el modelo de `cam+0x88`/`cam+0xA8` y el predicado
+  de hoja.
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es 29
@@ -73,12 +103,14 @@ comprobaciones, 0 fallos.
 
 ## 6. Limitaciones
 
-- Sin visibilidad real (requiere cámara, no implementada).
+- Sin visibilidad implementada: está **documentada** en
+  [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md), pero `port/` sigue
+  usando un predicado inyectado.
 - Sin emisión de polígonos ni buffers.
 - Sin D3D11, shaders, texturas.
 - `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
 
 ---
 
-**No se declara S-2 completo**: la visibilidad original y la emisión de
-geometría siguen pendientes.
+**No se declara S-2 completo**: la visibilidad original está documentada pero no
+implementada, y la emisión de geometría sigue pendiente.

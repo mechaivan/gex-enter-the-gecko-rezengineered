@@ -2,6 +2,23 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-09 - 0.0.0 - Undecima correccion (visibilidad original de camara documentada)
+
+- Nuevo `S2_CAMERA_VISIBILITY.md`: ingenieria inversa estatica y de solo
+  lectura de `0x00401C00` (firma cdecl, pila, 6 semiplanos, radio sin signo),
+  de `0x0046999C` (transformacion 3x3 int16 con `sar 12`, sin saturacion), de
+  `0x00405C41` (matrices A/B, `cam+0xC8`, `cam+0xD4`), de `0x00402DC0`
+  (vectores locales y normalizacion aproximada) y de la cadena
+  `0x46DD40` -> `0x46E643`.
+- Correcciones documentales: `cam+0x88` son 9 int16 (no 7) y existe B en
+  `cam+0xA8`; `cam+0xC8/0xD4/0xD8` no son planos y `0x401C00` no los lee; el
+  predicado de hoja es `(tipo & 1) == 0`; el orden de apilado depende del
+  plano. Notas de correccion en `U1H_RESULTADOS.md` §6.1 y
+  `U1_CONSOLIDACION.md` §4.1.
+- Actualizados `S2_BSP_TRAVERSAL.md`, `PROJECT_STATE.md`, `ROADMAP.md` y
+  `docs/D3D11_FIRST_SCENE_PLAN.md`. Sin cambios de codigo, pruebas ni
+  PROJECT_STATUS.svg (MAIN 40 %).
+
 ## 2026-11-08 - 0.0.0 - Decima correccion (descripciones de la Subfase E en ROADMAP)
 
 - ROADMAP.md: S-1 y S-2 describen la implementacion existente (parser DFX y
