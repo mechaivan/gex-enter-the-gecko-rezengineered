@@ -149,73 +149,70 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 ### 5.1 Módulos Requeridos
 
-#### Módulo 1: Parser DFX (`gex_asset_dfx.h/c`)
+#### Módulo 1: Parser DFX — implementado (`gex/asset/dfx.h`, `src/asset/dfx.c`)
 - **Responsabilidades:**
   - Lectura y validación del contenedor .DFX
   - Relocalización de punteros internos
   - Extracción del descriptor de nivel
-- **Estructuras de datos:**
+- **Estructuras de datos (implementadas):**
   ```c
-  typedef struct {
+  typedef struct gex_dfx_container {
       uint32_t count;
       uint32_t *offsets;
       uint8_t *image;
       size_t image_size;
+      size_t data_size;
+      uint32_t aligned;
   } gex_dfx_container;
-  
-  typedef struct {
+
+  typedef struct gex_dfx_descriptor {
       uint32_t root_bsp;
-      uint32_t vertex_count;
-      uint32_t polygon_count;
-      uint32_t normal_count;
-      float *vertices;
-      uint8_t *polygons;
-      int16_t *normals;
-      // ... otros campos demostrados
+      uint32_t field_0x04;      /* ... campos demostrados / sin identificar */
+      /* vertex_count, polygon_count, normal_count, tablas, ... */
+  } gex_dfx_descriptor;
+
+  typedef struct gex_dfx_level {
+      gex_dfx_descriptor descriptor;
+      uint8_t *vertex_data;
+      uint8_t *polygon_data;
+      int16_t *normal_data;
   } gex_dfx_level;
   ```
-- **Interfaz:**
+- **Interfaz (implementada):**
   ```c
-  gex_dfx_status gex_dfx_parse(const char *path, gex_dfx_container *out);
-  gex_dfx_status gex_dfx_load_level(gex_dfx_container *dfx, gex_dfx_level *out);
-  void gex_dfx_release(gex_dfx_container *dfx);
+  gex_dfx_status gex_dfx_parse(const void *data, size_t size, gex_dfx_container *out);
+  gex_dfx_status gex_dfx_load(const char *path, gex_dfx_container *out);
+  gex_dfx_status gex_dfx_relocate(gex_dfx_container *container, uint32_t delta);
+  gex_dfx_status gex_dfx_load_level(const gex_dfx_container *container,
+                                    gex_dfx_level *out);
+  void gex_dfx_release_container(gex_dfx_container *container);
+  void gex_dfx_release_level(gex_dfx_level *level);
   ```
 
-#### Módulo 2: Recorrido BSP (`gex_bsp_traversal.h/c`)
+#### Módulo 2: Recorrido BSP — implementado en su parte estructural (`gex/bsp.h`, `src/bsp/bsp.c`)
 - **Responsabilidades:**
-  - Implementar el algoritmo de `0x401C00`
-  - Recorrer nodos y anadir hojas visibles
-  - Generar lista de polígonos visibles
-- **Estructuras de datos:**
+  - Recorrer el árbol BSP (`0x401C00`): **estructural, hecho**
+  - Recorrer nodos y anadir hojas visibles: **hecho con predicado inyectado**
+  - Aplicar la visibilidad original de cámara: **pendiente**
+  - Generar lista de polígonos visibles: **pendiente** (emisión)
+- **Estructuras de datos (implementadas):**
   ```c
-  typedef struct {
-      float center[3];
-      float radius;
-      float normal[3];
-      float distance;
-      uint32_t child_front;
-      uint32_t child_back;
-      uint8_t type; // 1 = interno, 2 = hoja
-  } gex_bsp_node;
-  
-  typedef struct {
-      uint32_t indices[3];
-      uint16_t flags;
-      uint32_t uv_aux_offset;
-      // ... otros campos del polígono
-  } gex_bsp_polygon;
-  
-  typedef struct {
-      gex_bsp_polygon *polygons;
+  typedef struct gex_bsp_walk_result {
+      uint32_t *leaves;
       uint32_t count;
-  } gex_visible_polygon_list;
+      uint32_t capacity;
+  } gex_bsp_walk_result;
+
+  typedef int (*gex_bsp_visible_fn)(const uint8_t *image, size_t image_size,
+                                    uint32_t node_offset, void *ctx);
   ```
-- **Interfaz:**
+- **Interfaz (implementada):**
   ```c
-  gex_bsp_status gex_bsp_traverse(
-      const gex_dfx_level *level,
-      const float *viewpoint,
-      gex_visible_polygon_list *out);
+  gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
+                              uint32_t root_offset,
+                              gex_bsp_visible_fn visible, void *ctx,
+                              gex_bsp_walk_result *out);
+  void gex_bsp_walk_free(gex_bsp_walk_result *r);
   ```
 
 #### Módulo 3: Generador de Buffers D3D11 (`gex_buffer_builder.h/c`)
@@ -308,9 +305,11 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 **Estado real (2026-11-08):** el parser DFX (Módulo 1) está implementado en
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
 estructural (Módulo 2) está implementado ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
-Los Módulos 3 (generador de buffers D3D11), 4 (cargador de texturas) y 5
-(integración con renderer) siguen pendientes. La investigación de la carga
-`.DFX` está cerrada ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
+Dentro del Módulo 2 siguen pendientes la visibilidad original de cámara y la
+emisión de polígonos. Los Módulos 3 (generador de buffers D3D11), 4 (cargador
+de texturas) y 5 (integración con renderer) siguen pendientes. La investigación
+de la carga `.DFX` está cerrada
+([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
 ---
@@ -362,22 +361,27 @@ variante `0x00461ECA` en §H).
 ## 7. Hitos Pequeños y Verificables
 
 ### Hito 1: Parser DFX Operativo
-- **Estado:** ✅ IMPLEMENTADO (2026-11-08). El parser del contenedor está
-  implementado en `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)) y valida
-  AZTEC16.DFX (16 082 entradas, 3 882 vértices, 9 609 polígonos).
+- **Estado:** ✅ IMPLEMENTADO (2026-11-08). El parser del contenedor (Módulo 1)
+  está implementado en `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)) y
+  valida AZTEC16.DFX (16 082 entradas, 3 882 vértices, 9 609 polígonos). Esto no
+  cierra el escenario completo: la integración sigue pendiente.
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
 - **Criterio de éxito:**
-  - `gex_dfx_parse` carga AZTEC16.DFX sin errores (hecho)
+  - `gex_dfx_load` carga AZTEC16.DFX sin errores (hecho)
   - Descriptor extraído con conteos correctos (16 082 entradas, 3 882 vértices,
     9 609 polígonos)
   - Tests unitarios: cobertura de los casos documentados
 
 ### Hito 2: Recorrido BSP Funcional
+- **Estado:** 🔄 PARCIAL (2026-11-08). Recorrido estructural implementado y
+  validado en `port/` ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)); la
+  visibilidad original de cámara y la emisión de polígonos siguen pendientes,
+  por lo que el hito no se declara completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
   lista de polígonos visibles.
 - **Criterio de éxito:**
-  - Recorrido completo del árbol BSP
-  - Lista de polígonos visibles generada
+  - Recorrido completo del árbol BSP (estructural: hecho)
+  - Lista de polígonos visibles generada (pendiente: visibilidad + emisión)
   - Validación con nodos conocidos de AZTEC
 
 **Estado 2026-11-08:** recorrido estructural implementado en `port/`
@@ -470,10 +474,15 @@ NULL. La visibilidad original (cámara) queda como dependencia documentada.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: Implementar Módulo 3 (Generador de Buffers D3D11)**
+**Siguiente paso: cerrar la visibilidad original y la emisión de polígonos de
+S-2; después, implementar el Módulo 3 (Generador de Buffers D3D11).**
 
-- **Objetivo específico:** Implementar `gex_buffers_build_from_polygons` para convertir
-  vértices DFX (12 B) a formato D3D11 y crear vertex/index buffers.
+- **Prerrequisito real:** la visibilidad de cámara y la emisión de polígonos de
+  S-2 siguen pendientes; sin ellas no existe la lista de polígonos visibles que
+  alimenta al Módulo 3.
+- **Objetivo específico del Módulo 3:** implementar
+  `gex_buffers_build_from_polygons` para convertir los vértices DFX (12 B) en
+  datos de vértice e índice y crear los buffers D3D11 correspondientes.
 - **Criterios de éxito:**
   - Vertex buffer creado con 3 882 vértices de AZTEC16
   - Index buffer creado con índices correctos a partir de polígonos visibles

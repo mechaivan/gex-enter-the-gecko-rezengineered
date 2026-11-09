@@ -62,7 +62,8 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
   `0x0046506B` y `0x0043B2A9`, algoritmo exacto (`imageBase = B + 4*aligned`,
   `delta = B`, compactación a `B`) y correcciones históricas. La variante
   `0x00461ECA` se analizó el mismo día (§H: `dfx_load_at(path, dest)`, sin
-  llamadores estáticos) y **S-1 no se inicia**.
+  llamadores estáticos). En ese momento S-1 seguía sin implementar; hoy el
+  parser está implementado en `port/` (ver Subfase E).
 
 ### Subfase D — Renderer D3D11 (R-1 a R-5) ✅ (completado 2026-11-04)
 
@@ -72,10 +73,10 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] R-4: Estabilidad y diagnóstico Direct3D 11/DXGI (2026-11-03)
 - [x] R-5: Renderer básico con pipeline D3D11 (2026-11-04)
 
-### Subfase E — Primer Escenario Original (S-1) ⬜ (no iniciada)
+### Subfase E — Primer Escenario Original (S-1) 🔄 EN CURSO
 
 - [ ] S-1: Parser DFX (2026-11-07) — implementar `gex_dfx_parse` y `gex_dfx_load_level` para leer AZTEC16.DFX, validar descriptor y estructuras de datos. **Estado 2026-11-08:** parser implementado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); recorrido BSP estructural implementado; buffers y renderizado pendientes.
-- [ ] S-2: Recorrido BSP (2026-11-07) — implementar algoritmo de `0x401C00` para recorrer nodos y generar lista de polígonos visibles. **Estado 2026-11-08:** recorrido estructural implementado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); visibilidad original (cámara) pendiente.
+- [ ] S-2: Recorrido BSP (2026-11-07) — implementar algoritmo de `0x401C00` para recorrer nodos y generar lista de polígonos visibles. **Estado 2026-11-08:** recorrido estructural implementado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); visibilidad original (cámara) y emisión de polígonos pendientes.
 - [ ] S-3: Generador de Buffers D3D11 (2026-11-07) — convertir vértices DFX (12B) a formato D3D11 y crear vertex/index buffers
 - [ ] S-4: Cargador de Texturas (2026-11-07) — cargar .VFX, construir tabla de texturas (índice 14 bits) y crear texturas D3D11
 - [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16
@@ -271,8 +272,9 @@ una swapchain DXGI (R-2) y añadió después el renderer con primera salida visi
 llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
 por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
 `pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.
-El renderizado y la lógica de juego quedan para el hito siguiente (no iniciado);
-I-4 no los adelanta.
+El renderizado y la lógica de juego quedaban para hitos posteriores; I-4 no los
+adelanta. (Estado actual: R-3/R-4/R-5 completaron el pipeline D3D11 básico; la
+geometría del escenario y la lógica de juego siguen pendientes.)
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

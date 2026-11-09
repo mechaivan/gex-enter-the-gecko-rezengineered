@@ -64,6 +64,8 @@
 - 6.ª: aislamiento definitivo, consolidación.
 - 7.ª: compilación verificable, cierre documental.
 - 8.ª: consolidación documental definitiva.
+- 9.ª: sincronización del estado del proyecto en `PROJECT_STATE.md` y `ROADMAP.md`
+  (solo documentación; sin cambios de código).
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es 29

@@ -2,6 +2,16 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - S-2: novena correccion (sincronizacion del estado del proyecto)
+
+- Eliminadas contradicciones residuales en PROJECT_STATE.md y ROADMAP.md:
+  S-1 figura como implementado, la Subfase E como EN CURSO y el recorrido BSP
+  como estructuralmente implementado con visibilidad/emision pendientes.
+- D3D11_FIRST_SCENE_PLAN.md: modulos 1 y 2 alineados con el codigo real
+  (rutas y API), Hito 2 marcado parcial, siguiente paso corregido.
+- Sin cambios de codigo. 29 comprobaciones, 0 fallos. ASan+UBSan limpios.
+  AZTEC16 = 815 hojas. PROJECT_STATUS.svg sin cambios (MAIN 40 %).
+
 ## 2026-11-08 - 0.0.0 - S-2: octava correccion BSP (consolidacion documental)
 
 - Consolidacion de S2_BSP_TRAVERSAL.md, correcciones en D3D11_FIRST_SCENE_PLAN.md,
