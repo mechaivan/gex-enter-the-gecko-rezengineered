@@ -2,6 +2,34 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-09 - 0.0.0 - Decimotercera correccion (implementacion de orientacion y visibilidad de camara en port/)
+
+- Implementada la cadena de orientacion de camara en `port/`:
+  `port/include/gex/camera.h`, `port/src/camera/camera.c`,
+  `port/tests/test_camera.c` (39 pruebas deterministas, 0 fallos).
+  Funciones: `gex_cam_init_tables()`, `gex_cam_build_orientation()` (0x46DD40),
+  `gex_cam_orientation_finalize()` (0x46E643), `gex_cam_build_local_frame()`
+  (0x402DC0), `gex_cam_build_visibility_matrices()` (0x405C41),
+  `gex_cam_update()`, `gex_cam_sphere_visible()`, `gex_cam_plane_distance()`.
+  Aritmetica Q12 exacta (int16 con signo, sar 12, idiv truncado, sin saturacion,
+  sin punto flotante). Tablas sin/cos generadas matematicamente (BSS original
+  no se localizo estaticamente).
+- Implementada la prueba de visibilidad original (0x00401C00) en
+  `port/src/bsp/bsp.c`: `gex_bsp_walk()` acepta `cam_ctx` opcional; cuando se
+  proporciona aplica prueba de esfera contra 6 semiplanos y orden de apilado
+  basado en `d = ((camPos·N) >> 12) − distance`; predicado de hoja corregido a
+  `(tipo & 1) == 0`.
+- `port/tests/test_bsp.c` actualizado a la nueva firma de `gex_bsp_walk`;
+  29 pruebas, 0 fallos; AZTEC16 = 815 hojas. Todas las pruebas pasan con
+  ASan/UBSan.
+- Actualizados `S2_CAMERA_VISIBILITY.md` (secciones 11-12),
+  `S2_BSP_TRAVERSAL.md` (§4, auditoria 12.ª), `PROJECT_STATE.md` (fecha
+  2026-11-09, estado de hitos), `ROADMAP.md` (S-2),
+  `docs/D3D11_FIRST_SCENE_PLAN.md` (Módulo 2, Hito 2).
+- `port/build.ps1` y `port/Makefile`: agregado `test_camera` al target `test`.
+- Sin cambios de `PROJECT_STATUS.svg` (MAIN 40 %). S-2 no se declara completo
+  mientras falte integracion con emisión y validacion dinamica.
+
 ## 2026-11-09 - 0.0.0 - Undecima correccion (visibilidad original de camara documentada)
 
 - Nuevo `S2_CAMERA_VISIBILITY.md`: ingenieria inversa estatica y de solo

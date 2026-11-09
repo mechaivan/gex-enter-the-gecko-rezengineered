@@ -37,6 +37,7 @@ typedef int (*gex_bsp_visible_fn)(const uint8_t *image, size_t image_size,
 gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                             uint32_t root_offset,
                             gex_bsp_visible_fn visible, void *ctx,
+                            const void *cam_ctx,
                             gex_bsp_walk_result *out);
 
 void gex_bsp_walk_free(gex_bsp_walk_result *r);

@@ -1,4 +1,5 @@
 #include "gex/bsp.h"
+#include "gex/camera.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +49,12 @@ uint16_t gex_bsp_node_type(const uint8_t *image, size_t image_size,
 
 int gex_bsp_node_is_leaf(const uint8_t *image, size_t image_size,
                          uint32_t node_offset) {
-    return (gex_bsp_node_type(image, image_size, node_offset) & GEX_BSP_LEAF_FLAG) != 0;
+    if (!image) return 0;
+    /* Original predicate: (type & 1) == 0  →  hoja.
+     * GEX_BSP_LEAF_FLAG (& 2) coincides for observed types 1/2 but is not
+     * the predicate the executable tests. */
+    uint16_t t = gex_bsp_node_type(image, image_size, node_offset);
+    return (t & 1u) == 0u;
 }
 
 /* Safe growth of visited arrays: copies only nvalid elements. */
@@ -115,6 +121,7 @@ static gex_bsp_status grow_frames(frame_t **fr, uint32_t *cap, uint32_t nvalid) 
 gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                             uint32_t root_offset,
                             gex_bsp_visible_fn visible, void *ctx,
+                            const void *cam_ctx,
                             gex_bsp_walk_result *out) {
     if (image == NULL || out == NULL) {
         return GEX_BSP_ERR_ARGUMENT;
@@ -124,6 +131,8 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
     if (!node_in_bounds(image_size, root_offset)) {
         return GEX_BSP_ERR_BOUNDS;
     }
+
+    const gex_camera *cam = (const gex_camera *)cam_ctx;
 
     uint32_t vis_cap = 64;
     uint32_t *vis_off = malloc(vis_cap * sizeof(uint32_t));
@@ -176,8 +185,27 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
             break;
         }
 
+        /* Visibility: callback predicate AND (if camera given) sphere
+         * vs 6 semiplanos test. Both must pass. */
         int vis = 1;
         if (visible) vis = visible(image, image_size, node, ctx);
+        if (vis && cam != NULL) {
+            /* Read node center (+0x00/0x02/0x04) and radius (+0x06). */
+            int16_t center[3];
+            uint16_t radius;
+            uint16_t c0, c1, c2;
+            if (!read_u16(image, image_size, node, GEX_BSP_CENTER_X, &c0) ||
+                !read_u16(image, image_size, node, GEX_BSP_CENTER_Y, &c1) ||
+                !read_u16(image, image_size, node, GEX_BSP_CENTER_Z, &c2) ||
+                !read_u16(image, image_size, node, GEX_BSP_RADIUS, &radius)) {
+                result = GEX_BSP_ERR_BOUNDS;
+                break;
+            }
+            center[0] = (int16_t)c0;
+            center[1] = (int16_t)c1;
+            center[2] = (int16_t)c2;
+            vis = gex_cam_sphere_visible(cam, center, radius);
+        }
         if (!vis) {
             if (!found) {
                 if (nvis >= vis_cap) {
@@ -211,7 +239,7 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
             break;
         }
 
-        if (type & GEX_BSP_LEAF_FLAG) {
+        if ((type & 1u) == 0u) {               /* hoja: predicado original */
             if (nleaves >= GEX_BSP_LIST_CAP) {
                 result = GEX_BSP_ERR_LEAF_CAP;
                 break;
@@ -233,8 +261,42 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
             }
             if (result != GEX_BSP_OK) break;
             fr[fr_sp].node = node; fr[fr_sp].is_exit = 1; fr_sp++;
-            if (c2 != 0) { fr[fr_sp].node = c2; fr[fr_sp].is_exit = 0; fr_sp++; }
-            if (c1 != 0) { fr[fr_sp].node = c1; fr[fr_sp].is_exit = 0; fr_sp++; }
+
+            if (cam != NULL) {
+                /* Original child order: d = ((camPos · N) >> 12) − distance.
+                 * Read normal (+0x0C/0x0E/0x10) and distance (+0x14). */
+                int16_t normal[3];
+                int32_t distance;
+                uint16_t n0, n1, n2;
+                if (!read_u16(image, image_size, node, GEX_BSP_NORMAL_X, &n0) ||
+                    !read_u16(image, image_size, node, GEX_BSP_NORMAL_Y, &n1) ||
+                    !read_u16(image, image_size, node, GEX_BSP_NORMAL_Z, &n2)) {
+                    result = GEX_BSP_ERR_BOUNDS;
+                    break;
+                }
+                normal[0] = (int16_t)n0;
+                normal[1] = (int16_t)n1;
+                normal[2] = (int16_t)n2;
+                if (!read_u32(image, image_size, node, GEX_BSP_DISTANCE,
+                              (uint32_t *)&distance)) {
+                    result = GEX_BSP_ERR_BOUNDS;
+                    break;
+                }
+                int32_t d = gex_cam_plane_distance(cam, normal, distance);
+                if (d >= 0) {
+                    /* push hi (0x1C) then lo (0x18) → visit lo first */
+                    if (c2 != 0) { fr[fr_sp].node = c2; fr[fr_sp].is_exit = 0; fr_sp++; }
+                    if (c1 != 0) { fr[fr_sp].node = c1; fr[fr_sp].is_exit = 0; fr_sp++; }
+                } else {
+                    /* push lo (0x18) then hi (0x1C) → visit hi first */
+                    if (c1 != 0) { fr[fr_sp].node = c1; fr[fr_sp].is_exit = 0; fr_sp++; }
+                    if (c2 != 0) { fr[fr_sp].node = c2; fr[fr_sp].is_exit = 0; fr_sp++; }
+                }
+            } else {
+                /* Fixed order (backward compatible): push hi then lo. */
+                if (c2 != 0) { fr[fr_sp].node = c2; fr[fr_sp].is_exit = 0; fr_sp++; }
+                if (c1 != 0) { fr[fr_sp].node = c1; fr[fr_sp].is_exit = 0; fr_sp++; }
+            }
         }
     }
 

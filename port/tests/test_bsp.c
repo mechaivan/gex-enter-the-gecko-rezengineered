@@ -28,7 +28,7 @@ static uint8_t *make_two_leaves(size_t *sz) {
 static void test_two_leaves(void) {
     size_t sz; uint8_t *img = make_two_leaves(&sz);
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == 2);
     gex_bsp_walk_free(&r);
     free(img);
@@ -43,7 +43,7 @@ static void test_self_cycle(void) {
     *(uint16_t*)(img + root + 0x12) = 0x0001;
     *(uint32_t*)(img + root + 0x18) = root;
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, root, NULL, NULL, &r) == GEX_BSP_ERR_CYCLE);
+    CHECK(gex_bsp_walk(img, sz, root, NULL, NULL, NULL, &r) == GEX_BSP_ERR_CYCLE);
     gex_bsp_walk_free(&r);
     free(img);
 }
@@ -59,7 +59,7 @@ static void test_multi_cycle(void) {
     *(uint16_t*)(img + b + 0x12) = 0x0001;
     *(uint32_t*)(img + b + 0x18) = a;
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, a, NULL, NULL, &r) == GEX_BSP_ERR_CYCLE);
+    CHECK(gex_bsp_walk(img, sz, a, NULL, NULL, NULL, &r) == GEX_BSP_ERR_CYCLE);
     gex_bsp_walk_free(&r);
     free(img);
 }
@@ -74,7 +74,7 @@ static void test_shared_reference(void) {
     *(uint32_t*)(img + GEX_BSP_NODE_SIZE + 0x18) = 2*GEX_BSP_NODE_SIZE;
     *(uint16_t*)(img + 2*GEX_BSP_NODE_SIZE + 0x12) = GEX_BSP_LEAF_FLAG;
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == 1);
     gex_bsp_walk_free(&r);
     free(img);
@@ -86,7 +86,7 @@ static void test_out_of_bounds_child(void) {
     *(uint16_t*)(img + 0 + 0x12) = 0x0001;
     *(uint32_t*)(img + 0 + 0x18) = 9999;
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
     gex_bsp_walk_free(&r);
     free(img);
 }
@@ -95,9 +95,9 @@ static void test_invalid_root(void) {
     size_t sz = GEX_BSP_NODE_SIZE;
     uint8_t *img = calloc(sz,1);
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, sz, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
-    CHECK(gex_bsp_walk(NULL, sz, 0, NULL, NULL, &r) == GEX_BSP_ERR_ARGUMENT);
-    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL) == GEX_BSP_ERR_ARGUMENT);
+    CHECK(gex_bsp_walk(img, sz, sz, NULL, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
+    CHECK(gex_bsp_walk(NULL, sz, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_ARGUMENT);
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL, NULL) == GEX_BSP_ERR_ARGUMENT);
     free(img);
 }
 
@@ -105,7 +105,7 @@ static void test_truncated_image(void) {
     size_t sz = GEX_BSP_NODE_SIZE - 1;
     uint8_t *img = calloc(sz ? sz : 1, 1);
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_BOUNDS);
     free(img);
 }
 
@@ -126,12 +126,12 @@ static int visible_reject(const uint8_t *image, size_t image_size, uint32_t node
 static void test_visibility_predicate(void) {
     size_t sz; uint8_t *img = make_two_leaves(&sz);
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, visible_reject, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, sz, 0, visible_reject, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == 0);
     gex_bsp_walk_free(&r);
 
     memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, sz, 0, visible_accept, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, sz, 0, visible_accept, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == 2);
     gex_bsp_walk_free(&r);
     free(img);
@@ -179,7 +179,7 @@ static void test_leaf_cap(void) {
         *(uint16_t*)(img + leaf + 0x12) = GEX_BSP_LEAF_FLAG;
     }
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == GEX_BSP_LIST_CAP);
     gex_bsp_walk_free(&r);
 
@@ -201,7 +201,7 @@ static void test_leaf_cap(void) {
         *(uint16_t*)(img + leaf + 0x12) = GEX_BSP_LEAF_FLAG;
     }
     memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, total2, 0, NULL, NULL, &r) == GEX_BSP_ERR_LEAF_CAP);
+    CHECK(gex_bsp_walk(img, total2, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_LEAF_CAP);
     CHECK(r.leaves == NULL && r.count == 0);
     gex_bsp_walk_free(&r);
     free(img);
@@ -228,20 +228,20 @@ static void test_fault_inject_first(void) {
     gex_bsp_reset_grow_visited_fail();
     gex_bsp_set_grow_visited_fail(1);
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, &r) == GEX_BSP_ERR_MEMORY);
+    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_MEMORY);
     CHECK(r.leaves == NULL && r.count == 0);
     gex_bsp_walk_free(&r);
 
     gex_bsp_reset_grow_visited_fail();
     gex_bsp_set_grow_visited_fail(2);
     memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, &r) == GEX_BSP_ERR_MEMORY);
+    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, NULL, &r) == GEX_BSP_ERR_MEMORY);
     CHECK(r.leaves == NULL && r.count == 0);
     gex_bsp_walk_free(&r);
 
     gex_bsp_reset_grow_visited_fail();
     memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(img, total, 0, NULL, NULL, NULL, &r) == GEX_BSP_OK);
     CHECK(r.count == nleaves);
     gex_bsp_walk_free(&r);
 
@@ -256,7 +256,7 @@ static void test_real_aztec(void) {
     gex_dfx_level level; memset(&level,0,sizeof(level));
     if (gex_dfx_load_level(&c,&level) != GEX_DFX_OK) { printf("level fail\n"); gex_dfx_release_container(&c); return; }
     gex_bsp_walk_result r; memset(&r,0,sizeof(r));
-    CHECK(gex_bsp_walk(c.image, c.image_size, level.descriptor.root_bsp, NULL, NULL, &r) == GEX_BSP_OK);
+    CHECK(gex_bsp_walk(c.image, c.image_size, level.descriptor.root_bsp, NULL, NULL, NULL, &r) == GEX_BSP_OK);
     printf("AZTEC leaves (all visible): %u\n", r.count);
     CHECK(r.count == 815u);
     gex_bsp_walk_free(&r);

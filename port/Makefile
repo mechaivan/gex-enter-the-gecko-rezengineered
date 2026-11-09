@@ -25,6 +25,8 @@ AUDIO_HDR := include/gex/audio/adpcm.h include/gex/audio/stream.h \
              include/gex/audio/sched.h
 CORE_SRC  := src/core/loop_core.c src/core/frame.c
 CORE_HDR  := include/gex/core/loop_core.h include/gex/core/frame.h
+CAMERA_SRC := src/camera/camera.c
+CAMERA_HDR := include/gex/camera.h
 INPUT_SRC := src/input/key_state.c
 INPUT_HDR := include/gex/input/key_state.h
 RENDER_SRC := src/render/null_renderer.c
@@ -43,6 +45,9 @@ $(BUILD):
 
 $(BUILD)/test_sag: tests/test_sag.c $(SAG_SRC) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_sag.c $(SAG_SRC)
+
+$(BUILD)/test_camera: tests/test_camera.c $(CAMERA_SRC) $(CAMERA_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_camera.c $(CAMERA_SRC) $(LDLIBS)
 
 $(BUILD)/test_adpcm: tests/test_adpcm.c $(AUDIO_SRC) $(AUDIO_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_adpcm.c $(AUDIO_SRC)
@@ -68,8 +73,9 @@ $(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(C
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
 	./$(BUILD)/test_sag
+	./$(BUILD)/test_camera
 	./$(BUILD)/test_adpcm
 	./$(BUILD)/test_audio
 	./$(BUILD)/test_frame

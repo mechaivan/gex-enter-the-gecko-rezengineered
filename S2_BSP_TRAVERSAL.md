@@ -57,7 +57,7 @@ para otros valores de tipo.
 - El descriptor se obtiene del contenedor vía `gex_dfx_load_level`
   (offset = `image[0]`); `root_bsp` está en `+0x00` del descriptor.
 
-## 4. Visibilidad original (documentada en `S2_CAMERA_VISIBILITY.md`)
+## 4. Visibilidad original (implementada en `port/`)
 
 La visibilidad de `0x00401C00` **no** usa planos en `cam+0xC8/+0xD4/+0xD8`.
 Usa dos matrices `int16` de 3×3, `cam+0x88` (**A**, 9 palabras) y `cam+0xA8`
@@ -85,10 +85,12 @@ locales de `0x00402DC0`; el radio se lee **sin signo**. Todos los detalles,
 fórmulas, pseudocódigo y discrepancias están en
 [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
 
-Para implementar la visibilidad fielmente será necesario reproducir también la
-cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41` con la aritmética
-int16/Q12 documentada en [`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md)),
-incluida la normalización aproximada de `0x00402DC0`.
+**Implementación en `port/`:** `gex_bsp_walk()` acepta un `cam_ctx` opcional.
+Cuando se proporciona, aplica la prueba de esfera contra 6 semiplanos y el
+orden de apilado basado en `d = ((camPos·N) >> 12) − distance`. El predicado de
+hoja es `(tipo & 1) == 0` (coincide con `& 2` para tipos 1/2). Cuando `cam_ctx`
+es NULL se conserva el comportamiento anterior (predicado de devolución de
+llamada y orden de apilado fijo).
 
 `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
 `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
@@ -112,6 +114,10 @@ incluida la normalización aproximada de `0x00402DC0`.
   `0x46E643` → `0x405C41`: rotaciones Euler Z→Y→X con ángulos negados, matriz
   base o identidad, cambio de ejes `M2`, `M = transpose(O)`, ramas alternativa
   y base forzada) (solo documentación; sin cambios de código).
+- 12.ª: implementación de orientación y visibilidad en `port/` (`camera.h`,
+  `camera.c`, `test_camera.c`, cambios en `bsp.c`/`bsp.h`/`test_bsp.c`);
+  39 pruebas de cámara + 29 de BSP, 0 fallos, ASan/UBSan limpios
+  (solo código; sin cambios de PROJECT_STATUS.svg).
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es 29

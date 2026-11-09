@@ -818,20 +818,46 @@ Las correcciones se registran aquí y en las notas de los documentos afectados;
 
 ---
 
-## 11. Qué falta para implementar (fuera de alcance de esta ronda)
+## 11. Implementación en `port/` (2026-11-09)
 
-1. Implementar la cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`)
-   con la aritmética exacta documentada en §6: rotaciones Z → Y → X con ángulos
-   negados en Q12, base `*[cam+0xF0]` o identidad (`cam+0x43C`), cambio de ejes
-   `M2`, `O = M2 · R`, `M = transpose(O)`, y construcción de A/B en `0x405C41`
-   con normalización aproximada de `0x402DC0`.
-2. Decidir qué hacer con `cam+0xB4..0xB8` (fila 2 de B, leída pero nunca escrita
-   por la cámara) y con `cam+0xD4` (no usados por la visibilidad, pero escritos).
-3. Añadir una cota de pila o una pila dinámica para el recorrido (el original
-   no la tiene; `0x647740` puede desbordarse).
-4. Validar el número de hojas visibles en AZTEC16 con una cámara concreta; sin
-   traza dinámica no se puede contrastar el resultado exacto del original.
+La cadena de orientación y la prueba de visibilidad están implementadas en
+`port/`:
 
-**No se declara S-2 completo:** esta ronda solo documenta la visibilidad y la
-cadena de orientación. La emisión de polígonos (`0x4269C2`) y la integración
-D3D11 siguen pendientes.
+- `port/include/gex/camera.h` — API pública (estructura `gex_camera`, tablas
+  trigonométricas, rotaciones, construcción de A/B, prueba de visibilidad).
+- `port/src/camera/camera.c` — implementación: `gex_cam_init_tables()`,
+  `gex_cam_build_orientation()` (0x46DD40), `gex_cam_orientation_finalize()`
+  (0x46E643), `gex_cam_build_local_frame()` (0x402DC0),
+  `gex_cam_build_visibility_matrices()` (0x405C41), `gex_cam_update()`,
+  `gex_cam_sphere_visible()`, `gex_cam_plane_distance()`.
+- `port/tests/test_camera.c` — 39 comprobaciones deterministas (tablas, rotaciones
+  por eje, composición Z→Y→X, normalización aproximada, seis semiplanos,
+  radio unsigned, orden de hijos, predicado de hoja).
+- `port/src/bsp/bsp.c` — `gex_bsp_walk()` acepta ahora `cam_ctx` opcional: cuando
+  se proporciona, aplica la prueba de esfera contra 6 semiplanos y el orden de
+  apilado basado en `d = ((camPos·N) >> 12) − distance`. Predicado de hoja
+  corregido a `(tipo & 1) == 0`.
+- `port/tests/test_bsp.c` — actualizado a la nueva firma de `gex_bsp_walk`; 29
+  comprobaciones, 0 fallos; AZTEC16 = 815 hojas.
+
+Todas las pruebas pasan con ASan/UBSan sin comportamiento indefinido.
+
+### Decisiones de implementación
+
+| Decisión | Motivación |
+|---|---|
+| Tablas `sin`/`cos` generadas matemáticamente en Q12 | Las tablas originales están en BSS (no en el PE); el código de inicialización en runtime no se localizó estáticamente. Se reproducen como `round(sin/cos(2π·i/4096)·4096)`. |
+| `cam->use_alt_angles` en lugar de dirección `0x551644+0xa0` | La dirección global es específica del proceso original; el port expone un campo de struct en su lugar. |
+| `cam->m` embebido (no puntero) | Evita punteros colgantes; la matriz M se copia directamente en la estructura de cámara. |
+| B fila 2 (`cam+0xB4..0xB8`) no se inicializa | El original nunca la escribe; se deja como está en memoria. El port no la usa para visibilidad. |
+| `cam+0xD4` (B·camPos) se calcula pero no se usa | El original lo escribe; el port lo calcula para fidelidad pero la visibilidad solo usa B filas 0-1. |
+| Pila dinámica mediante `grow_frames` | El original no tiene cota; el port la mantiene para seguridad. |
+
+## 12. Qué falta para implementar (fuera de alcance de esta ronda)
+
+1. Validar el número de hojas visibles en AZTEC16 con una cámara concreta; sin
+   traza dinámica del original no se puede contrastar el resultado exacto.
+2. Integración con la emisión de polígonos (`0x4269C2`) y el renderer D3D11.
+3. Declarar S-2 completo.
+
+---
