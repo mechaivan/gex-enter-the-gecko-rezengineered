@@ -2,6 +2,15 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-08 - 0.0.0 - Decima correccion (descripciones de la Subfase E en ROADMAP)
+
+- ROADMAP.md: S-1 y S-2 describen la implementacion existente (parser DFX y
+  recorrido estructural validados) en lugar de ordenar su implementacion.
+  Se separan las partes pendientes: integracion del escenario, visibilidad
+  original de camara y emision de poligonos. Subfase E sigue EN CURSO y
+  S-1/S-2 no se declaran completos.
+- Sin cambios de codigo, pruebas ni PROJECT_STATUS.svg (MAIN 40 %).
+
 ## 2026-11-08 - 0.0.0 - S-2: novena correccion (sincronizacion del estado del proyecto)
 
 - Eliminadas contradicciones residuales en PROJECT_STATE.md y ROADMAP.md:
