@@ -202,7 +202,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   - Recorrer el árbol BSP (`0x401C00`): **estructural, hecho**
   - Recorrer nodos y anadir hojas visibles: **hecho con predicado inyectado**
   - Aplicar la visibilidad original de cámara: **documentada, no implementada**
-    ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md))
+    ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)). Depende de la
+    cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, §6 del
+    documento citado) para construir `M = *[cam+0xE8]` y las matrices A/B.
   - Generar lista de polígonos visibles: **pendiente** (emisión)
 - **Estructuras de datos (implementadas):**
   ```c
@@ -505,7 +507,10 @@ D3D11).**
   - Vertex buffer creado con 3 882 vértices de AZTEC16
   - Index buffer creado con índices correctos a partir de polígonos visibles
   - Tests de conversión: 100 % precisión
-- **Prerrequisitos:** Parser DFX (implementado) y Recorrido BSP estructural (implementado).
+- **Prerrequisitos:** Parser DFX (implementado), Recorrido BSP estructural
+  (implementado) y cadena de orientación de cámara documentada
+  ([`S2_CAMERA_VISIBILITY.md` §6](../S2_CAMERA_VISIBILITY.md)); la visibilidad
+  en sí sigue sin implementarse.
 - **Pruebas unitarias incluidas:** Validación de estructura de buffers, conteos de vértices/índices.
 
 Este hito conecta la geometría BSP con D3D11 y es el fundamento para los Módulos 4

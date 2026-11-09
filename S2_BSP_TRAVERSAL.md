@@ -61,9 +61,15 @@ para otros valores de tipo.
 
 La visibilidad de `0x00401C00` **no** usa planos en `cam+0xC8/+0xD4/+0xD8`.
 Usa dos matrices `int16` de 3×3, `cam+0x88` (**A**, 9 palabras) y `cam+0xA8`
-(**B**, 9 palabras), aplicadas al centro del nodo con `0x0046999C`
-(`(M·v) sar 12`). La prueba es una esfera de radio `r` contra **seis
-semiplanos** (near, far y cuatro laterales) con tolerancia `-r`:
+(**B**, 9 palabras), construidas por `0x00405C41` a partir de `M = *[cam+0xE8]`
+y aplicadas al centro del nodo con `0x0046999C` (`(M·v) sar 12`). `M` es el
+resultado de la cadena de orientación
+`0x46DD40` → `0x46E643` (documentada en
+[`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md)): rotaciones Euler
+**Z → Y → X** con ángulos negados sobre `cam+0x30/0x32/0x34` (o
+`cam+0x128/0x12A/0x12C` en la rama alternativa), cambio de ejes `M2`, y
+`M = transpose(O) = R^T · M2^T`. La prueba es una esfera de radio `r` contra
+**seis semiplanos** (near, far y cuatro laterales) con tolerancia `-r`:
 
 ```
 (T_A.x − A_cam.x) > −r   &&  (T_A.x − A_cam.x) < cam+0x5C + r
@@ -78,6 +84,11 @@ La fila 2 de B (`cam+0xB4..0xB8`) nunca se compara. A y B se construyen en
 locales de `0x00402DC0`; el radio se lee **sin signo**. Todos los detalles,
 fórmulas, pseudocódigo y discrepancias están en
 [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
+
+Para implementar la visibilidad fielmente será necesario reproducir también la
+cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41` con la aritmética
+int16/Q12 documentada en [`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md)),
+incluida la normalización aproximada de `0x00402DC0`.
 
 `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
 `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
@@ -96,6 +107,11 @@ fórmulas, pseudocódigo y discrepancias están en
   [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) (solo documentación; sin
   cambios de código). Corrige el modelo de `cam+0x88`/`cam+0xA8` y el predicado
   de hoja.
+- 11.ª: cadena de orientación de cámara reconstruida en
+  [`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md) (`0x46DD40` →
+  `0x46E643` → `0x405C41`: rotaciones Euler Z→Y→X con ángulos negados, matriz
+  base o identidad, cambio de ejes `M2`, `M = transpose(O)`, ramas alternativa
+  y base forzada) (solo documentación; sin cambios de código).
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es 29

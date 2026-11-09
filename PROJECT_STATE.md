@@ -25,7 +25,7 @@
   calculadas (variante `0x00461ECA` ya analizada: `dfx_load_at(path, dest)`,
   sin llamadores estáticos) y direcciones absolutas en ejecución.
 - **S-1 (parser DFX):** implementado y documentado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); validado con AZTEC16 y GEX.DFX. No se declara S-1 completo mientras no se cierre la integración del primer escenario.
-- **S-2 (recorrido BSP estructural):** implementado y documentado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); auditado (7.ª–10.ª pasada; la 10.ª solo documental): 29 comprobaciones, 0 fallos, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La visibilidad original de cámara está documentada en [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) (no implementada); la emisión de polígonos sigue pendiente.
+- **S-2 (recorrido BSP estructural):** implementado y documentado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); auditado (7.ª–11.ª pasada; la 11.ª solo documental): 29 comprobaciones, 0 fallos, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La visibilidad original de cámara y su cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, rotaciones Euler Z→Y→X, `M = transpose(O)`) están documentadas en [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) (no implementadas); la emisión de polígonos sigue pendiente.
 - **Pendiente de integración:** buffers D3D11, cargador de texturas VFX e integración con el renderer. El primer escenario original todavía no está renderizado. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
@@ -40,7 +40,7 @@
   4. Texturas Cargadas - cargar .VFX y crear texturas D3D11
   5. Primer Renderizado Completo - renderizar AZTEC16 con D3D11
 - **Bloqueos reales:** Shaders (no documentados en U-1), formato NCC (conversión a D3D11), sistema de coordenadas.
-- **Estado de los hitos (2026-11-08):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural implementado, pero sin visibilidad original ni emisión de polígonos. El siguiente trabajo real es el Módulo 3 (buffers D3D11), que requiere cerrar antes la visibilidad y la emisión de geometría. La mecánica de carga está documentada en `U1_DFX_RELOCATION_AUDIT.md`.
+- **Estado de los hitos (2026-11-08):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural implementado; visibilidad original y cadena de orientación documentadas (no implementadas); emisión de polígonos pendiente. El siguiente trabajo real es el Módulo 3 (buffers D3D11), que requiere cerrar antes la visibilidad y la emisión de geometría. La mecánica de carga está documentada en `U1_DFX_RELOCATION_AUDIT.md`.
 - **Evidencia clave:** `U1_DFX_RELOCATION_AUDIT.md` (carga/relocalización verificada), `U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
 
 ### Avances recientes (U-1 - Geometría Original)

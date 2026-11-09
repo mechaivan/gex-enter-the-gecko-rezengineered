@@ -49,6 +49,13 @@ toca `C:\GEX_REZ` ni ningún binario o asset.
    corte lejana**. **[B]**
 7. La pila del recorrido vive en `0x647740` con centinela `stack[0] =
    &stack[0]` y **sin comprobación de capacidad**. **[A]**
+8. La cadena de orientación `0x46DD40 → 0x46E643 → 0x405C41` está reconstruida:
+   rotaciones Euler **Z → Y → X** (pre-multiplicación, ángulos negados) sobre
+   `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama
+   alternativa si `[0x551644+0xa0] & 0x8`), base `*[cam+0xF0]` o identidad si
+   `cam+0x43C != 0`, cambio de ejes `M2 = 4096·[[1,0,0],[0,0,-1],[0,1,0]]`,
+   `O = M2 · R`, y `M = *[cam+0xE8] = transpose(O) = R^T · M2^T`. A y B se
+   construyen aplicando M a los vectores locales de `0x00402DC0`. **[A]**
 
 ---
 
@@ -160,6 +167,11 @@ campos que participan (directa o indirectamente) en la visibilidad.
 | `+0xE8` | ptr | matriz **M** (3×3 `int16`) | `0x46E643` | `0x405C41` | **[A]** |
 | `+0xF0` | ptr | orientación base (identidad si `cam+0x43C != 0`) | juego | `0x46DD40` | **[B]** |
 | `+0x104` | `int32` | `0x1000` | init `0x404A03…` | no localizado | **[C]** |
+| `+0x14/+0x18/+0x1C` | `int32` ×3 | `O · (−camPos)` (traslación de O) | `0x46DD40` | no leído por `0x401C00` | **[A]** |
+| `+0xA4/+0xA6/+0xA8` | `int16` ×3 | `−camPos` (vector traslación para `0x46DD40`) | — | `0x46DD40` | **[A]** |
+| `+0x130/+0x132/+0x134` | `int16` ×3 | copia de `cam+0x00/0x02/0x04` (posición) | `0x46DD40` | `0x46DD40` | **[A]** |
+| `+0x128/+0x12A/+0x12C` | `int16` ×3 | ángulos Euler (rama alternativa de `0x46DD40`) | juego | `0x46DD40` | **[B]** |
+| `+0x490/+0x492/+0x494` | `int16` ×3 | factores de escala por columna (Q12) | no localizado | `0x46DD40` | **[C]** |
 | `+0x43C` | `int32` | bandera de modo de orientación | juego | `0x46DD40` | **[B]** |
 
 **Tamaño real de los bloques:** `cam+0x88` y `cam+0xA8` son **9 `int16` cada
@@ -397,18 +409,56 @@ Se documenta como comportamiento original, no como error del port. **[A]**
 
 ## 6. Cadena de orientación `0x46DD40` → `0x46E643`
 
-### 6.1 `0x0046DD40(camera *cam)`
+### 6.1 `0x0046DD40(camera *cam)` — matriz de orientación O
 
-Construye la orientación de la cámara:
+Construye la orientación de la cámara y la escribe en `*[cam+0xE4]` (por
+columnas) y `*[cam+0xE0]`.
 
-1. Toma la base `*[cam+0xF0]`; si `cam+0x43C != 0`, usa la identidad. **[B]**
-2. Aplica tres rotaciones Euler leyendo `cam+0x30/0x32/0x34` (rama normal) o
-   `cam+0x128/0x12A/0x12C` (rama alternativa). Los constructores son
-   `0x0046BA10`, `0x0046C3A4`, `0x0046CD38` (y `0x00464ECA` para la identidad).
-   El **orden exacto** de composición no se ha cerrado; el producto se acumula
-   con `0x004698B0` (transforma un vector por la matriz global y lo devuelve a
-   `int16`). **[B]/[C]**
-3. Postmultiplica por
+**Paso 0 — selección de ángulos (líneas `0x46dd7e..0x46dd8e`).**
+Se lee el byte global `[0x00551644 + 0xa0]`:
+- si `([0x551644+0xa0] & 0x8) != 0` → **rama alternativa**: ángulos
+  `cam+0x128/0x12A/0x12C`.
+- si `== 0` → **rama normal**: ángulos `cam+0x30/0x32/0x34`. **[A]**
+
+**Paso 1 — matriz base (líneas `0x46dd94..0x46de3c`).**
+- Si `cam+0x43C != 0` (`0x46dd97`), la base es la **identidad** (`0x464eca`).
+  **[B]**
+- Si `cam+0x43C == 0`, la base es `*[cam+0xF0]` (9 palabras, copiadas a
+  `ebp-0x54`). **[A]**
+
+**Paso 2 — rotaciones Euler (líneas `0x46de4a..0x46df3d`).**
+Se aplican **tres rotaciones por pre-multiplicación** sobre la matriz
+acumulativa `ebp-0x54`, cada una con el ángulo **negado** (`neg`):
+
+| Paso | Función | Eje | Ángulo (rama normal) | Ángulo (rama alternativa) |
+|---|---|---|---|---|
+| 1 | `0x0046CD38` | **Z** | `-(int16)cam+0x34` | `-(int16)cam+0x12C` |
+| 2 | `0x0046C3A4` | **Y** | `-(int16)cam+0x32` | `-(int16)cam+0x12A` |
+| 3 | `0x0046BA10` | **X** | `-(int16)cam+0x30` | `-(int16)cam+0x128` |
+
+Cada función recibe `(matriz_ptr, ángulo)` y hace
+`matriz = Rot_eje(ángulo) · matriz` (pre-multiplicación). El ángulo está en
+unidades Q12 de giro (`0x1000` = una vuelta completa) y el seno/coseno se lee
+de las tablas globales `0x00646C20` / `0x00645C20` (BSS, inicializadas en
+runtime) con reducción modular a `[0, 0x1000)`.
+
+**Ejes verificados por la matriz que cada función construye:**
+- `0x46CD38` → fila 2 = `(0, 0, 0x1000)` → **eje Z**. **[A]**
+- `0x46C3A4` → fila 1 = `(0, 0x1000, 0)` → **eje Y**. **[A]**
+- `0x46BA10` → fila 0 = `(0x1000, 0, 0)` → **eje X**. **[A]**
+
+Producto acumulado:
+
+```
+R = RotX(−cam+0x30) · RotY(−cam+0x32) · RotZ(−cam+0x34) · base        (rama normal)
+R = RotX(−cam+0x128) · RotY(−cam+0x12A) · RotZ(−cam+0x12C) · base   (rama alternativa)
+```
+
+Es un orden Euler **Z → Y → X** (aplicadas Z primero, X última), con **signos
+negados** en los tres ángulos. **[A]**
+
+**Paso 3 — cambio de ejes M2 (líneas `0x46dfa2..0x46e0a4`).**
+Se construye y aplica por columnas:
 
 ```
 M2 = 4096 · [ 1  0  0 ]
@@ -416,48 +466,89 @@ M2 = 4096 · [ 1  0  0 ]
             [ 0  1  0 ]
 ```
 
-   (`0x1000, 0, 0, 0, 0, 0xF000, 0, 0x1000, 0`), un **intercambio/negación de
-   los ejes Y/Z**. **[A]**
-4. Ensambla la matriz `O` **por columnas**: `O_col_k = M2 · R_col_k`, donde `R`
-   es la matriz local en `[ebp-0x54]`. Por tanto `O = M2 · R`. **[A]**
-5. Escribe `O` en `*[cam+0xE0]` y `*[cam+0xE4]`. La traslación de `*[cam+0xE4]`
-   (`+0x14/+0x18/+0x1C`) se calcula con `0x46999C` como
-   `orientación · (−cam+0x00/+0x02/+0x04)`. **[A]**
+`O_col_k = M2 · R_col_k` para cada columna k, usando `0x004698B0`
+(`o = (M · v) >> 12`, Q12). Por tanto:
 
-### 6.2 `0x0046E643(dst, src)`
+```
+O = M2 · R
+```
+
+`O` se escribe **por columnas** en `*[cam+0xE4]` (offsets 0/6/C = columna 0,
+2/8/E = columna 1, 4/A/10 = columna 2). **[A]**
+
+**Paso 4 — traslación de O (líneas `0x46e4c6..0x46e63c`).**
+Se calcula `O · (−camPos)` con `0x0046999C` (matriz `*[cam+0xE4]`, vector
+`−(cam+0x00/0x02/0x04)`), resultado `int32` sin truncar, guardado en
+`cam+0xE4 + 0x14/0x18/0x1C` (traslación de O) y también en `cam+0x14/0x18/0x1C`.
+**[A]**
+
+El escalado por columnas con `cam+0x490/0x492/0x494` (líneas `0x46e340..0x46e448`)
+se aplica a `*[cam+0xE0]` con `imul` + `sar 0xc`; su consumidor no se ha
+cerrado y no afecta a `M = *[cam+0xE8]`. **[C]**
+
+### 6.2 `0x0046E643(dst, src)` — matriz final M
 
 ```
 void orientation_finalize(matrix *dst, const matrix *src);
 ```
 
-1. Si `src->word[+0x12] == 1`, ortogonaliza `src` con `0x46E898` (Gram-Schmidt
-   entero con `0x46E82F` y `0x4646A2`); si no, usa `src` tal cual. **[A]**
-2. `dst->rot = transpose(src->rot)` (9 palabras). **[A]**
-3. `t = −(src->tx, src->ty, src->tz)`.
-4. `dst->rot` se copia a `0x646BE0`; `t` a `0x647520/24/28`; `0x46999C` calcula
-   `dst->rot · t >> 12` en `0x646B80/84/88`.
-5. `dst->tx/ty/tz = 0x646B80/84/88`. **[A]**
+Llamada desde `0x0043E54C` con `dst = *[cam+0xE8]`, `src = *[cam+0xE4]`.
+El llamador pone previamente `src->word[+0x12] = 0` (`0x43e539`), por lo que
+**no** se toma la rama de ortogonalización (`0x46E898`). **[A]**
 
-Por tanto:
+1. `dst->rot = transpose(src->rot)` (9 palabras). **[A]**
+2. `t = −(src->tx, src->ty, src->tz)`. **[A]**
+3. `dst->rot` se copia a `0x646BE0`; `t` a `0x647520/24/28`; `0x0046999C`
+   calcula `dst->rot · t >> 12` en `0x646B80/84/88`. **[A]**
+4. `dst->tx/ty/tz = 0x646B80/84/88`. **[A]**
 
-```
-*[cam+0xE8] = (M2 · R)^T  con traslación transformada
-             = R^T · M2^T
-```
-
-La composición `R^T · M2^T` **no se usa** en la prueba de visibilidad: lo que
-importa es que `M = *[cam+0xE8]` es una matriz 3×3 `int16` en Q12. **[A]**
-
-### 6.3 Cadena completa en el frame
+Por tanto la matriz rotacional de M es:
 
 ```
-0x43E51E  push cam
-0x43E525  call 0x46DD40            ; cam+0xE0 / cam+0xE4
-0x43E539  word[*[cam+0xE4]+0x12] = 0
-0x43E53F  push *[cam+0xE4]
-0x43E546  push *[cam+0xE8]?        ; dst
-0x43E54C  call 0x46E643            ; M = *[cam+0xE8]
-0x43E568  call 0x405C41            ; A, B, cam+0xC8, cam+0xD4
+M = transpose(O) = transpose(M2 · R) = R^T · M2^T
+```
+
+con
+
+```
+M2^T = 4096 · [ 1  0  0 ]
+              [ 0  0  1 ]
+              [ 0 -1  0 ]
+```
+
+`M = *[cam+0xE8]` es una matriz 3×3 `int16` en Q12. **[A]**
+
+La traslación de M se descarta para la visibilidad: `0x405C41` solo lee las 9
+palabras rotacionales de `*[cam+0xE8]`. **[A]**
+
+### 6.3 `0x004698B0` — rotar un vector por la matriz global
+
+```
+void rot_vector(void);   /* lee 0x646BE0 (matriz) y 0x6474E0 (vector),
+                            escribe 0x6474F0/4/8 */
+```
+
+Usado por `0x46DD40` para aplicar M2 a las columnas de R. Matemática:
+
+```
+o[r] = (m[r][0]*v[0] + m[r][1]*v[1] + m[r][2]*v[2]) sar 12   (r = 0,1,2)
+```
+
+Idéntica a `0x0046999C` pero con los globales `0x6474E0/24/28` (entrada) y
+`0x6474F0/4/8` (salida). `sar 12`, sin saturación. **[A]**
+
+### 6.4 Cadena completa en el frame
+
+```
+0x43E521  eax = level+0x8                  ; cam
+0x43E525  call 0x46DD40(cam)               ; O = M2·R en *[cam+0xE4],
+                                             traslación en cam+0xE4+0x14/18/1c
+0x43E539  word[*[cam+0xE4] + 0x12] = 0     ; desactiva ortogonalización
+0x43E54B  push *[cam+0xE4]                 ; src
+0x43E552  push *[cam+0xE8]                 ; dst
+0x43E559  call 0x46E643(dst, src)          ; M = *[cam+0xE8] = transpose(O)
+0x43E568  call 0x405C41(cam)               ; A, B, cam+0xC8 = A·camPos,
+                                             cam+0xD4 = B·camPos
 ```
 
 Después de esta cadena, `cam+0x88..0x98` (A) y `cam+0xA8..0xB2` (B filas 0–1)
@@ -694,7 +785,10 @@ fidelidad, son legibilidad):**
 |---|---|
 | `cam+0xB4/+0xB6/+0xB8` (B fila 2) | Sin escritor localizado en rutas de cámara. Alimenta `cam+0xD4`, que `0x401C00` no usa. **[C]** |
 | Semántica de `cam+0x40` y `cam+0x44` | `+0x40` se usa como distancia focal `f`; `+0x44` no interviene en `0x402DC0`. Su consumidor real (p. ej. `0x427DA2`) no se ha trazado. **[C]** |
-| Orden exacto de las rotaciones Euler en `0x46DD40` | La base, el `M2` y los destinos están demostrados; el orden de las tres rotaciones y la rama alternativa `cam+0x128..` no se han cerrado. **[C]** |
+| Orden exacto de las rotaciones Euler en `0x46DD40` | **Demostrado:** Z → Y → X (pre-multiplicación, ángulos negados) sobre `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama alternativa si `[0x551644+0xa0] & 0x8`); base `*[cam+0xF0]` o identidad si `cam+0x43C != 0`. §6.1. **[A]** |
+| Escalado por columna `cam+0x490/+0x492/+0x494` | Se aplica a `*[cam+0xE0]` con `imul` + `sar 0xc` en `0x46DD40`; su consumidor y significado no se han localizado. No afecta a `M = *[cam+0xE8]`. **[C]** |
+| Consumidor de `cam+0x14/+0x18/+0x1C` | `0x46DD40` escribe `O·(−camPos)` allí; no se ha localizado quién lo lee. **[C]** |
+| Consumidor de `cam+0x43C` | Actúa como bandera para forzar base identidad en `0x46DD40`; quién la escribe no se ha trazado. **[C]** |
 | Sentido «front/back» y convención de ejes | Lo demostrado es la **desigualdad** (`> -r`, `< far + r`), no la etiqueta. Las etiquetas «abajo/izquierda/derecha/arriba» son **[B]**. |
 | Escala real de la normalización | Aproximada (§5.4); error de hasta ~9 %. No se corrige: es el comportamiento original. **[A]** |
 | `0x6476C0` compartido con colisión | `0x41A203` escribe palabras 0–0xA del mismo buffer. No afecta a la decisión porque solo se usa la salida `.x` (renglón 0), que `0x401C00` reescribe. **[A]** |
@@ -726,14 +820,18 @@ Las correcciones se registran aquí y en las notas de los documentos afectados;
 
 ## 11. Qué falta para implementar (fuera de alcance de esta ronda)
 
-1. Reproducir la cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`)
-   con la misma aritmética `int16`/Q12, incluida la normalización aproximada.
-2. Decidir qué hacer con `cam+0xB4..0xB8` (fila 2 de B) y con `cam+0xD4`
-   (no usados por la visibilidad, pero sí escritos).
-3. Resolver el orden exacto de las rotaciones Euler y la rama `cam+0x128..`.
-4. Añadir una cota de pila o una pila dinámica (el original no la tiene).
-5. Validar el número de hojas visibles en AZTEC16 con una cámara concreta; sin
+1. Implementar la cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`)
+   con la aritmética exacta documentada en §6: rotaciones Z → Y → X con ángulos
+   negados en Q12, base `*[cam+0xF0]` o identidad (`cam+0x43C`), cambio de ejes
+   `M2`, `O = M2 · R`, `M = transpose(O)`, y construcción de A/B en `0x405C41`
+   con normalización aproximada de `0x402DC0`.
+2. Decidir qué hacer con `cam+0xB4..0xB8` (fila 2 de B, leída pero nunca escrita
+   por la cámara) y con `cam+0xD4` (no usados por la visibilidad, pero escritos).
+3. Añadir una cota de pila o una pila dinámica para el recorrido (el original
+   no la tiene; `0x647740` puede desbordarse).
+4. Validar el número de hojas visibles en AZTEC16 con una cámara concreta; sin
    traza dinámica no se puede contrastar el resultado exacto del original.
 
-**No se declara S-2 completo:** esta ronda solo documenta la visibilidad. La
-emisión de polígonos (`0x4269C2`) y la integración D3D11 siguen pendientes.
+**No se declara S-2 completo:** esta ronda solo documenta la visibilidad y la
+cadena de orientación. La emisión de polígonos (`0x4269C2`) y la integración
+D3D11 siguen pendientes.

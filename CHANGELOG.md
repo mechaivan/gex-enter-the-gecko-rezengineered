@@ -19,6 +19,30 @@ Formato: `YYYY-MM-DD - versión - descripción`.
   `docs/D3D11_FIRST_SCENE_PLAN.md`. Sin cambios de codigo, pruebas ni
   PROJECT_STATUS.svg (MAIN 40 %).
 
+## 2026-11-09 - 0.0.0 - Duodecima correccion (orientacion de camara y matriz M documentadas)
+
+- Reconstruccion de la cadena de orientacion de camara (`0x46DD40` ->
+  `0x46E643` -> `0x405C41`) documentada en `S2_CAMERA_VISIBILITY.md` §6:
+  rotaciones Euler Z -> Y -> X (pre-multiplicacion, angulos negados) sobre
+  `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama
+  alternativa si `[0x551644+0xa0] & 0x8`); matriz base `*[cam+0xF0]` o
+  identidad si `cam+0x43C != 0`; cambio de ejes `M2 =
+  4096*[[1,0,0],[0,0,-1],[0,1,0]]`; `O = M2 · R`; `M = *[cam+0xE8] =
+  transpose(O) = R^T · M2^T`; `0x405C41` construye A (`cam+0x88..0x98`) y B
+  (`cam+0xA8..0xB2`) aplicando M a los vectores locales de `0x402DC0`, y
+  escribe `cam+0xC8 = A·camPos` y `cam+0xD4 = B·camPos`.
+- Ejes verificados instruccion a instruccion: `0x46CD38` = ejes Z (fila
+  2 identidad), `0x46C3A4` = ejes Y (fila 1 identidad), `0x46BA10` = ejes X
+  (fila 0 identidad). `0x4698B0` rota un vector por la matriz global con
+  `sar 12`.
+- Incógnitas restantes: `cam+0xB4/0xB6/0xB8` (fila 2 de B) leida pero nunca
+  escrita por la cámara; escalado por columna `cam+0x490/0x492/0x494`;
+  consumidor de `cam+0x14/0x18/0x1C` y de `cam+0x43C`.
+- Actualizados `S2_BSP_TRAVERSAL.md` (§4 e historial de auditorías, 11.ª
+  pasada), `U1_CONSOLIDACION.md` (§4.1), `PROJECT_STATE.md` (línea S-2 e
+  hitos), `ROADMAP.md` (S-2). Sin cambios de codigo, pruebas ni
+  PROJECT_STATUS.svg (MAIN 40 %).
+
 ## 2026-11-08 - 0.0.0 - Decima correccion (descripciones de la Subfase E en ROADMAP)
 
 - ROADMAP.md: S-1 y S-2 describen la implementacion existente (parser DFX y

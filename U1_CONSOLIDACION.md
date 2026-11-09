@@ -244,6 +244,12 @@ queda abierto son **campos sin consumidor** y **una rama sin datos reales**
 > planos en `cam+0xC8/0xD4/0xD8`, sino dos matrices `int16` de 3×3 en
 > `cam+0x88` (A) y `cam+0xA8` (B); detalle en
 > [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
+> La matriz `M = *[cam+0xE8]` que alimenta A/B se genera por la cadena
+> `0x46DD40` → `0x46E643`: rotaciones Euler Z → Y → X con ángulos negados
+> (`cam+0x30/0x32/0x34`, o `cam+0x128/0x12A/0x12C` en rama alternativa),
+> matriz base `*[cam+0xF0]` o identidad si `cam+0x43C != 0`, cambio de ejes
+> `M2`, `O = M2 · R`, y `M = transpose(O) = R^T · M2^T` (§6 del documento
+> citado).
 
 ### 4.2 Geometría de modelos — parcial
 
