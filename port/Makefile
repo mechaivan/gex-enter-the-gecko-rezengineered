@@ -32,6 +32,8 @@ BSP_SRC   := src/bsp/bsp.c
 BSP_HDR   := include/gex/bsp.h
 DFX_SRC   := src/asset/dfx.c
 DFX_HDR   := include/gex/asset/dfx.h
+EMIT_SRC  := src/emit/emit.c
+EMIT_HDR  := include/gex/emit.h
 INPUT_SRC := src/input/key_state.c
 INPUT_HDR := include/gex/input/key_state.h
 RENDER_SRC := src/render/null_renderer.c
@@ -57,6 +59,9 @@ $(BUILD)/test_camera: tests/test_camera.c $(CAMERA_SRC) $(BSP_SRC) $(CAMERA_HDR)
 $(BUILD)/test_bsp: tests/test_bsp.c $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SAG_SRC) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -DGEX_BSP_TEST_FAULT_INJECT -o $@ tests/test_bsp.c $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SAG_SRC) $(LDLIBS)
 
+$(BUILD)/test_level_emit: tests/test_level_emit.c $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(EMIT_HDR) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_level_emit.c $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(LDLIBS)
+
 $(BUILD)/test_adpcm: tests/test_adpcm.c $(AUDIO_SRC) $(AUDIO_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_adpcm.c $(AUDIO_SRC)
 
@@ -81,10 +86,11 @@ $(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(C
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
 	./$(BUILD)/test_sag
 	./$(BUILD)/test_camera
 	./$(BUILD)/test_bsp
+	./$(BUILD)/test_level_emit
 	./$(BUILD)/test_adpcm
 	./$(BUILD)/test_audio
 	./$(BUILD)/test_frame

@@ -60,6 +60,7 @@ $coreSrc = @(
 $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
 $bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
+$emitSrc = @((Join-Path $PSScriptRoot 'src/emit/emit.c'))
 $inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
 $renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
 $d3d11Src = @((Join-Path $PSScriptRoot 'src/render/d3d11_device.c'))
@@ -97,6 +98,7 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera.c') 'test_camera.exe' ($cameraSrc + $bspSrc) @('-lm')) 'camera orientation + visibility checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_bsp.c') 'test_bsp.exe' ($bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_BSP_TEST_FAULT_INJECT', '-lm')) 'BSP traversal checks'
+Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_level_emit.c') 'test_level_emit.exe' ($dfxBspSrc + $bspSrc + $cameraSrc + $emitSrc) @('-lm')) 'level emit (S-2) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'

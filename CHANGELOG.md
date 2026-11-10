@@ -2,6 +2,36 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-10 - 0.0.0 - Decimoctava corrección (implementación de gex_level_emit)
+
+- Implementación del módulo puro `gex_level_emit` (S-2) en `port/src/emit/emit.c`
+  + `port/include/gex/emit.h`, con pruebas en `port/tests/test_level_emit.c`,
+  integradas en `build.ps1 test` y `Makefile`. Solo documentación de comportamiento
+  original y código nuevo; no se tocan D3D11, Win32, Glide, ejecutables ni assets.
+- `gex_emit_matrix` (cam+0xE0: 9 int16 Q12 row-major + traslación int32[3]),
+  independiente de `gex_camera.m` (cam+0xE8).
+- `gex_emit_project`: aritmética exacta de `0x46A1D0` (wrap x86 de 32 bits, sar 12,
+  idiv truncado, descarte de profundidad antes de dividir, foca 0x140, centro
+  0x100/0xC0, clamp de píxeles como decisión del renderizador).
+- `gex_emit_classify`: determinante 2D convencional de `0x46B6B5` (descarta si >= 0),
+  umbrales `0x65BF80`/`0x65BF04`, selección de emisor cercano (`0x426256`) /
+  lejano (`0x426588`, con segunda pasada de niebla base blanca).
+- `gex_emit_subdivide`: subdivisión en cuatro (0x6A4), punto medio con
+  truncamiento hacia cero, solo emisor cercano.
+- `gex_emit_sort`: ordenación por (promedio(z) >> 2) + 4 * capa, descendente,
+  desempate LIFO.
+- `gex_level_emit`: orquestador con reservas dinámicas seguras, comprobaciones de
+  límites, detección de overflow y errores explícitos (`GEX_EMIT_ERR_*`).
+- Niebla: LUT `0x64FEA8` (int16[3464], índice acotado a [0,3463]) y generador
+  `0x461895`; mezcla `0x46B727` con clamp 0..255 después de sar 12.
+- Pruebas: 627 checks, 0 fallos (clang O0+ASan/UBSan y O2); AZTEC16: 815 hojas,
+  9609 polígonos extraídos, 112 triángulos emitidos (56 pasadas de niebla).
+- Documentación: `S2_BSP_TRAVERSAL.md` (§5 alcance + nota de implementación),
+  `docs/D3D11_FIRST_SCENE_PLAN.md` (§11 contrato definitivo), `PROJECT_STATE.md`,
+  `ROADMAP.md` y este `CHANGELOG.md`.
+- `PROJECT_STATUS.svg` sin cambios (MAIN 40 %). S-2 **no** se declara completo:
+  falta validación dinámica contra el ejecutable original.
+
 ## 2026-11-10 - 0.0.0 - Decimoséptima corrección (proyección y niebla exactas)
 
 - Reconstrucción **estática y solo documental** de la proyección y de la niebla

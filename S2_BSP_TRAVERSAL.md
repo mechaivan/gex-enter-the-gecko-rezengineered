@@ -108,13 +108,18 @@ implementación definida.
 `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11). Su ruta
 está reconstruida con evidencia en §5.
 
-## 5. Ruta de emisión de polígonos — reconstruida (2026-11-10)
+## 5. Ruta de emisión de polígonos — reconstruida e implementada (2026-11-10)
 
 **Alcance:** reconstrucción estática (solo lectura del desensamblado) de cómo las
 hojas visibles se convierten en registros de comando y llegan al consumidor
-Glide. **No se implementa nada**: `port/` sigue sin emisión, sin buffers D3D11,
-sin shaders y sin texturas. Esta sección es la especificación de entrada para el
-generador de buffers (S-3).
+Glide, y su implementación como módulo puro `gex_level_emit` en
+`port/src/emit/` (C11, sin D3D11, sin Win32, sin Glide). Esta sección documenta
+el comportamiento original y el contrato del módulo; el detalle de la API está
+en `docs/D3D11_FIRST_SCENE_PLAN.md` §11.
+
+Marcas: **[A]** demostrado en el desensamblado; **[B]** parcialmente demostrado
+(estructura sí, semántica no); **[C]** hipótesis o decisión de seguridad del
+port.
 
 Marcas: **[A]** demostrado en el desensamblado; **[B]** parcialmente demostrado
 (estructura sí, semántica no); **[C]** hipótesis.
@@ -627,6 +632,24 @@ se consulta la tabla. `0x65BF04` separa el emisor con pasada de niebla
 > vector a 1/16 (Q14) y elige el subnodo por distancia al plano `+0x1E..+0x24`,
 > escribiendo `+0xA0` (nodo), `+0xA4..+0xA8` (dirección) y `+0xAA` (factor).
 > No toca la niebla ni la proyección.
+
+**Implementación en `port/`:** el módulo `port/src/emit/emit.c` (cabecera
+`port/include/gex/emit.h`) implementa `gex_level_emit` y sus fases separadas
+(`gex_emit_collect`, `gex_emit_project`, `gex_emit_classify`,
+`gex_emit_subdivide`, `gex_emit_sort`) reproduciendo esta ruta estáticamente.
+Diferencias de seguridad/port respecto al original:
+- El índice de la LUT de niebla `z >> 2` se acota a `[0, 3463]` (el original no
+  lo acota y puede leer fuera de tabla para `z >= 0x3620`) **[C]**.
+- La capacidad del buffer de salida se reserva dinámicamente por triángulo
+  emitido; el desbordamiento silencioso del original se sustituye por
+  `GEX_EMIT_ERR_OVERFLOW` **[C]**.
+- Los vértices se conservan como `int32` de profundidad y `int16` de píxeles
+  sin el recorte a 10 bits del original (decisión del renderizador) **[C]**.
+- La ordenación usa una clave `(promedio(z) >> 2) + 4 * capa` descendente con
+  desempate LIFO por secuencia de inserción **[A]** para el orden, **[C]** para
+  la estabilidad del desempate.
+- No se implementa la ruta de modelos (`0x4013A0`, traslación `sar 4`); queda
+  fuera de este módulo.
 
 ## 6. Historial de auditorías (no es estado actual)
 
