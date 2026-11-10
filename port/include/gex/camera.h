@@ -10,8 +10,14 @@
  *   0x402DC0  build_local_frame(cam)     -> corner rays + normals (approx norm)
  *   0x401C00  walk(desc, cam, out)       -> sphere vs 6 semiplanos culling
  *
- * All arithmetic is integer Q12 fixed-point (4096 = 1.0), matching the
- * original x86 code exactly. No floating point is used.
+ * All arithmetic is integer Q12 fixed-point (4096 = 1.0) with the same
+ * operation order and `sar 12` steps as the original x86 code.
+ *
+ * The retail sine/cosine tables (BSS at 0x00646C20 / 0x00645C20) have no
+ * statically located initializer, so the port generates them
+ * mathematically in Q12. An exact bit-for-bit match with the retail
+ * tables is NOT proven (see S2_CAMERA_VISIBILITY.md). The lookup keeps
+ * the original quadrant structure over a half-turn sine table.
  *
  * Ingeniería inversa estática y de solo lectura. No se modifican
  * ejecutables ni assets originales.
@@ -90,19 +96,23 @@ typedef struct {
 } gex_camera;
 
 /* Trigonometric tables (Q12). Filled by gex_cam_init_tables().
- * Indexed as table[angle & 0xFFF], angle in [0, 0x1000). */
+ * Full-turn tables, indexed by angle & 0xFFF; the internal lookup uses
+ * quadrant identities on the sine table, as the original does.
+ * gex_cam_cos_tab is exposed for reference/testing. */
 extern int16_t gex_cam_sin_tab[0x1000];
 extern int16_t gex_cam_cos_tab[0x1000];
 
 /* Initialize sine/cosine tables in Q12 fixed point.
- * Reproduces the runtime initialization of the original BSS tables
- * at 0x00646C20 (sin) and 0x00645C20 (cos). */
+ * The original BSS tables at 0x00646C20 (sin) and 0x00645C20 (cos) are
+ * filled at runtime; no initializer was located statically, so the port
+ * generates equivalent mathematical values. */
 void gex_cam_init_tables(void);
 
 /* --- Rotation helpers --- */
 
-/* Build rotation matrix about axis (row-major Q12).
- * angle: Q12 turns, already negated by the caller. */
+/* Build rotation matrix about axis (row-major Q12) and pre-multiply:
+ *   m = Rot(axis, angle) · m
+ * angle: raw Q12 turns (0x1000 = one full turn), NOT pre-negated. */
 void gex_cam_rot_z(gex_cam_mat3 *m, int16_t angle);
 void gex_cam_rot_y(gex_cam_mat3 *m, int16_t angle);
 void gex_cam_rot_x(gex_cam_mat3 *m, int16_t angle);
@@ -121,9 +131,11 @@ void gex_cam_apply_m2(gex_cam_mat3 *o, const gex_cam_mat3 *r);
 /* --- Camera orientation chain --- */
 
 /* build_orientation (0x46DD40):
- * R = RotZ(-z) · RotY(-y) · RotX(-x) · base   (pre-multiplication)
+ * R = RotX(x) · RotY(y) · RotZ(z) · base   (pre-multiplication, raw angles)
  * O = M2 · R
- * Writes O by columns into out_o. Returns 0 on success. */
+ * Writes O by columns into out_o. Returns 0 on success.
+ * If flag_identity != 0 (or base == NULL, a port safety guard) the chain
+ * starts from the identity matrix. */
 int gex_cam_build_orientation(const gex_camera *cam, gex_cam_mat3 *out_o);
 
 /* orientation_finalize (0x46E643):
@@ -132,15 +144,18 @@ int gex_cam_build_orientation(const gex_camera *cam, gex_cam_mat3 *out_o);
 void gex_cam_orientation_finalize(const gex_cam_mat3 *o, gex_cam_mat3 *out_m);
 
 /* build_local_frame (0x402DC0):
- * Builds cam->local[0..3] from cam->width and cam->focal,
- * with approximate normalization. */
+ * Builds local[0..4] from width and focal. Each corner cross product is
+ * computed in int32, shifted with sar 12, truncated to int16 and then
+ * approximately normalized. */
 void gex_cam_build_local_frame(gex_camera *cam);
 
 /* build_visibility_matrices (0x405C41):
- * A[row] = M · local[row]  (truncated to int16)
- * B[0..1] = M · local[2..3] (truncated to int16)
- * a_cam = A · camPos   (int32, no truncate)
- * b_cam = B · camPos   (int32, no truncate) */
+ * A[row]      = M · local[row]   for row 0..2   (truncated to int16)
+ * B[row 0..1] = M · local[row+3]               (truncated to int16)
+ * B row 2 (+0xB4..0xB8) is preserved from the caller: the original reads
+ * it but the writer was not located.
+ * a_cam = A · camPos   (int32[3], no truncation)
+ * b_cam = B · camPos   (int32[3], no truncation, includes B row 2) */
 void gex_cam_build_visibility_matrices(gex_camera *cam);
 
 /* Run the full orientation chain: local frame → M → A/B.
@@ -173,6 +188,8 @@ static inline int gex_cam_node_is_leaf(uint16_t type) {
 
 /* Test a sphere (center c, unsigned radius r) against the six semiplanos
  * defined by camera matrices A/B and far distance. Returns 1 if visible.
+ * The original rejects when a distance is <= -r (or >= far+r on the near
+ * plane), i.e. it accepts:
  *
  *   (T_A.x − A_cam.x) > −r   &&  (T_A.x − A_cam.x) < far + r
  *   (T_A.y − A_cam.y) > −r
@@ -180,7 +197,8 @@ static inline int gex_cam_node_is_leaf(uint16_t type) {
  *   (T_B.x − B_cam.x) > −r
  *   (T_B.y − B_cam.y) > −r
  *
- * with T_A = A·c >> 12, T_B = B·c >> 12. */
+ * with T_A = (A·c) >> 12, T_B = (B·c) >> 12, and A_cam/B_cam taken from
+ * cam->a_cam / cam->b_cam. B row 2 is never compared. */
 int gex_cam_sphere_visible(const gex_camera *cam,
                            const int16_t c[3], uint16_t radius);
 

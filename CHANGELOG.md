@@ -2,6 +2,53 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-10 - 0.0.0 - Decimocuarta correccion (auditoria de orientacion y visibilidad de camara)
+
+- Auditoria estatica del commit `a3f433e` contra el desensamblado de
+  `GEX3D.EXE`; cinco defectos corregidos en `port/src/camera/camera.c`:
+  - `gex_cam_build_visibility_matrices()` calculaba `a_cam`/`b_cam` con `M` en
+    lugar de con `A`/`B`. Ahora `a_cam = transform3(A, pos)` y
+    `b_cam = transform3(B, pos)` (B completo, incluida su fila 2).
+  - `gex_cam_sphere_visible()` calculaba `T_A`/`T_B` con `M` y volvia a
+    transformar `pos`. Ahora usa `A`/`B` y lee `cam->a_cam`/`cam->b_cam`.
+  - `gex_cam_build_local_frame()` truncaba los productos vectoriales a `int16`
+    antes de `sar 12`; ahora el producto es `int32`, luego `sar 12` y despues
+    truncado a `int16`.
+  - La normalizacion aproximada ordenaba los valores con signo y permutaba las
+    componentes; ahora ordena solo magnitudes y cada componente conserva su
+    posicion.
+  - `tab_sin`/`tab_cos` negaban el angulo y el builder volvia a negar los
+    angulos de Euler. Ahora las identidades de cuadrante son correctas
+    (`tab_cos` = `S[0x400-a]`, `-S[a-0x400]`, `-S[0xC00-a]`, `S[a-0xC00]`) y el
+    builder pasa los angulos crudos, en orden Z -> Y -> X.
+- `gex_cam_mat_mul` y el transformador de vectores usan acumulador `uint32`
+  para reproducir el wrap de 32 bits de x86 sin comportamiento indefinido.
+- B fila 2 (`cam+0xB4..0xB8`) se preserva desde el llamador: el original la lee
+  para `b_cam` pero no se localizo su escritor. Se documenta como decision del
+  port y nunca se compara en la visibilidad.
+- `port/tests/test_camera.c` reescrito: **103 comprobaciones, 0 fallos**.
+  Cubre tablas exactas, rotaciones exactas por eje (positivas, negativas y con
+  vuelta), composicion Z->Y->X, rama alternativa y base, marco local exacto,
+  cableado M/A/B con matrices no triviales, `a_cam`/`b_cam`, preservacion de B
+  fila 2, limites de los seis semiplanos, radio unsigned, orden de hijos y
+  predicado de hoja. La prueba BSP sintetica se desacopla del frustum (centros
+  en el origen).
+- `port/build.ps1` y `port/Makefile`: `test_camera` enlaza `src/bsp/bsp.c`;
+  nuevo objetivo `test_bsp` con `-DGEX_BSP_TEST_FAULT_INJECT`, `bsp.c`,
+  `camera.c`, `dfx.c`, `sag.c` y `-lm`. `.\build.ps1 test` completo pasa
+  (camera 103, BSP 29, resto de suites OK); ASan/UBSan y `gcc` limpios.
+- Documentacion actualizada: `S2_CAMERA_VISIBILITY.md` (angulos crudos,
+  formulas de rotacion, valores normalizados, §11 y correcciones de auditoria),
+  `S2_BSP_TRAVERSAL.md` (estado, comando de test, predicado `& 1`, historial
+  13.ª), `PROJECT_STATE.md`, `ROADMAP.md` y
+  `docs/D3D11_FIRST_SCENE_PLAN.md` (Modulo 2, Hito 2, siguiente hito).
+- Limitaciones declaradas: las tablas sin/cos se generan como
+  `round(4096*sin/cos(2*pi*i/4096))` y **no** se ha demostrado equivalencia bit
+  a bit con las tablas retail; sigue sin haber validacion dinamica contra el
+  ejecutable. S-2 no se declara completo: la emision de poligonos y la
+  integracion D3D11 siguen pendientes. Sin cambios de `PROJECT_STATUS.svg`
+  (MAIN 40 %).
+
 ## 2026-11-09 - 0.0.0 - Decimotercera correccion (implementacion de orientacion y visibilidad de camara en port/)
 
 - Implementada la cadena de orientacion de camara en `port/`:
@@ -29,6 +76,13 @@ Formato: `YYYY-MM-DD - versión - descripción`.
 - `port/build.ps1` y `port/Makefile`: agregado `test_camera` al target `test`.
 - Sin cambios de `PROJECT_STATUS.svg` (MAIN 40 %). S-2 no se declara completo
   mientras falte integracion con emisión y validacion dinamica.
+- **Nota (2026-11-10):** la auditoria de la entrada del 2026-11-10 (decimocuarta
+  correccion) encontro cinco defectos en la implementacion descrita aqui:
+  `a_cam`/`b_cam` y `T_A`/`T_B` se calculaban con `M` en lugar de `A`/`B`, el
+  `sar 12` del marco local llegaba tarde, la normalizacion permutaba
+  componentes y la trigonometria negaba el angulo dos veces. Las cifras de esta
+  entrada (39 pruebas) y la lectura de «angulos negados» quedan superadas por
+  la decimocuarta correccion.
 
 ## 2026-11-09 - 0.0.0 - Undecima correccion (visibilidad original de camara documentada)
 

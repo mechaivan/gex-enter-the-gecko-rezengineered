@@ -1,13 +1,14 @@
 # S-2 — Recorrido BSP de AZTEC16
 
-**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), sin visibilidad original de cámara implementada, sin emisión de polígonos, sin buffers D3D11, shaders ni texturas.
+**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), con visibilidad original de cámara implementada y validada estáticamente, sin emisión de polígonos, sin buffers D3D11, shaders ni texturas.
 
 **Referencias:** `S1_DFX_PARSER.md`, `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md`, `S2_CAMERA_VISIBILITY.md`, `docs/D3D11_FIRST_SCENE_PLAN.md`, `U1_DFX_RELOCATION_AUDIT.md`.
 
-**Estado actual:** recorrido estructural implementado y validado en `port/`.
-La visibilidad original de cámara está **documentada** (no implementada) en
+**Estado actual:** recorrido estructural y visibilidad de cámara implementados y
+validados en `port/`. La visibilidad se documenta en
 [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md). No se declara S-2
-completo: la emisión de geometría sigue pendiente.
+completo: la emisión de geometría sigue pendiente y falta validación dinámica
+contra el ejecutable original.
 
 ---
 
@@ -22,11 +23,14 @@ completo: la emisión de geometría sigue pendiente.
   anti-overflow, capacidades independientes, liberación en todos los caminos.
 - Instrumentación de fallos exclusiva de tests (`GEX_BSP_TEST_FAULT_INJECT`),
   declarada solo en `test_bsp.c`, no en la API pública.
-- Pruebas: **29 comprobaciones, 0 fallos**. ASan+UBSan sin errores.
-  AZTEC16.DFX = **exactamente 815 hojas** (predicado NULL).
+- Pruebas: **29 comprobaciones de BSP, 0 fallos** (más 103 de cámara en
+  `test_camera`). ASan+UBSan sin errores. AZTEC16.DFX = **exactamente 815
+  hojas** (predicado NULL).
 - Compilación normal (sin macro): sin símbolos de inyección.
-- Compilación de tests:
-  `clang -DGEX_BSP_TEST_FAULT_INJECT -Wall -Wextra -Wpedantic -std=c11 -O2 -I include tests/test_bsp.c src/bsp/bsp.c src/asset/dfx.c -o tests/test_bsp.exe`
+- Compilación de tests (integrada en `build.ps1 test` y en `make test`):
+  `clang -DGEX_BSP_TEST_FAULT_INJECT -std=c11 -O2 -Wall -Wextra -Wpedantic -I include tests/test_bsp.c src/bsp/bsp.c src/camera/camera.c src/asset/dfx.c src/asset/sag.c -lm -o test_bsp`
+- `test_camera` enlaza `src/bsp/bsp.c`, porque incluye la prueba de orden de
+  hijos con `gex_bsp_walk`.
 
 ## 2. Nodo BSP (0x20 B)
 
@@ -43,8 +47,8 @@ completo: la emisión de geometría sigue pendiente.
 | +0x1C | uint32 | hijo 2 (offset relativo; 0 = ausente) |
 
 La clasificación del original es `(word[+0x12] & 1) == 0` → hoja. Con los tipos
-reales 1/2 equivale a `& 2 != 0`, que es lo que usa `port/`; no son equivalentes
-para otros valores de tipo.
+reales 1/2 equivale a `& 2 != 0`, pero no son equivalentes para otros valores de
+tipo. `port/` usa el predicado original `(tipo & 1) == 0`.
 
 ## 3. Evidencia que lo respalda
 
@@ -66,7 +70,7 @@ y aplicadas al centro del nodo con `0x0046999C` (`(M·v) sar 12`). `M` es el
 resultado de la cadena de orientación
 `0x46DD40` → `0x46E643` (documentada en
 [`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md)): rotaciones Euler
-**Z → Y → X** con ángulos negados sobre `cam+0x30/0x32/0x34` (o
+**Z → Y → X** con ángulos crudos sobre `cam+0x30/0x32/0x34` (o
 `cam+0x128/0x12A/0x12C` en la rama alternativa), cambio de ejes `M2`, y
 `M = transpose(O) = R^T · M2^T`. La prueba es una esfera de radio `r` contra
 **seis semiplanos** (near, far y cuatro laterales) con tolerancia `-r`:
@@ -111,28 +115,39 @@ llamada y orden de apilado fijo).
   de hoja.
 - 11.ª: cadena de orientación de cámara reconstruida en
   [`S2_CAMERA_VISIBILITY.md` §6](S2_CAMERA_VISIBILITY.md) (`0x46DD40` →
-  `0x46E643` → `0x405C41`: rotaciones Euler Z→Y→X con ángulos negados, matriz
+  `0x46E643` → `0x405C41`: rotaciones Euler Z→Y→X con ángulos crudos —la 13.ª
+  retiró la lectura previa de «ángulos negados»—, matriz
   base o identidad, cambio de ejes `M2`, `M = transpose(O)`, ramas alternativa
   y base forzada) (solo documentación; sin cambios de código).
 - 12.ª: implementación de orientación y visibilidad en `port/` (`camera.h`,
   `camera.c`, `test_camera.c`, cambios en `bsp.c`/`bsp.h`/`test_bsp.c`);
   39 pruebas de cámara + 29 de BSP, 0 fallos, ASan/UBSan limpios
-  (solo código; sin cambios de PROJECT_STATUS.svg).
+  (solo código; sin cambios de PROJECT_STATUS.svg). Cifra superada por la 13.ª
+  (103 comprobaciones de cámara).
+- 13.ª (2026-11-10): auditoría del commit `a3f433e` contra el desensamblado.
+  Se corrigen `a_cam`/`b_cam` (A/B en lugar de M), `T_A`/`T_B` (A/B en lugar
+  de M), el `sar 12` del marco local, la permutación de la normalización y la
+  doble negación trigonométrica; se documenta la aproximación de tablas y la
+  preservación de B fila 2. `test_camera` pasa a 103 comprobaciones y
+  `test_bsp` se integra en `build.ps1`/`Makefile` (29 comprobaciones).
+  Resultado: `build.ps1 test` completo, ASan/UBSan y gcc limpios.
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
-intermedios y no son el resultado vigente. El resultado vigente es 29
-comprobaciones, 0 fallos.
+intermedios y no son el resultado vigente. El resultado vigente es **29
+comprobaciones de BSP + 103 de cámara**, 0 fallos.
 
 ## 6. Limitaciones
 
-- Sin visibilidad implementada: está **documentada** en
-  [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md), pero `port/` sigue
-  usando un predicado inyectado.
+- Visibilidad implementada, pero **sin validación dinámica** contra el
+  ejecutable original: no hay traza de cámaras concretas ni comparación de
+  hojas visibles. Las tablas trigonométricas son una aproximación matemática
+  (equivalencia bit a bit no demostrada).
 - Sin emisión de polígonos ni buffers.
 - Sin D3D11, shaders, texturas.
 - `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
 
 ---
 
-**No se declara S-2 completo**: la visibilidad original está documentada pero no
-implementada, y la emisión de geometría sigue pendiente.
+**No se declara S-2 completo**: la visibilidad original está implementada y
+documentada, pero falta la validación dinámica y la emisión de geometría sigue
+pendiente.

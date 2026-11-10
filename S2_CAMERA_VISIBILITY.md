@@ -50,7 +50,7 @@ toca `C:\GEX_REZ` ni ningún binario o asset.
 7. La pila del recorrido vive en `0x647740` con centinela `stack[0] =
    &stack[0]` y **sin comprobación de capacidad**. **[A]**
 8. La cadena de orientación `0x46DD40 → 0x46E643 → 0x405C41` está reconstruida:
-   rotaciones Euler **Z → Y → X** (pre-multiplicación, ángulos negados) sobre
+   rotaciones Euler **Z → Y → X** (pre-multiplicación, ángulos **crudos**) sobre
    `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama
    alternativa si `[0x551644+0xa0] & 0x8`), base `*[cam+0xF0]` o identidad si
    `cam+0x43C != 0`, cambio de ejes `M2 = 4096·[[1,0,0],[0,0,-1],[0,1,0]]`,
@@ -352,7 +352,20 @@ v4 = ( a,  b, f)
 | `cam+0x78..0x7C` | `v2 × v4` | `(−2bf, 0, +2ab)` | `(−30, 0, +24)` |
 | `cam+0x80..0x84` | `v4 × v3` | `(0, −2af, +2ab)` | `(0, −40, +24)` |
 
-Los valores numéricos son los de `w = 0x180`, `f = 0x140`. **[A]**
+Los valores numéricos son los de `w = 0x180`, `f = 0x140`, **después de
+`sar 12` y antes de la normalización**. El producto vectorial se calcula en
+`int32` (dos `imul` + `sub`), se desplaza con `sar 12` y se **trunca a `int16`**
+al almacenarlo; solo entonces se aplica §5.4. Con esos mismos valores, las
+normales finales almacenadas son:
+
+| Destino | Norma final (Q12) |
+|---|---|
+| `cam+0x68..0x6C` | `(0, 3523, 2114)` |
+| `cam+0x70..0x74` | `(3321, 0, 2656)` |
+| `cam+0x78..0x7C` | `(-3321, 0, 2656)` |
+| `cam+0x80..0x84` | `(0, -3523, 2114)` |
+
+**[A]**
 
 Semántica geométrica **[B]**:
 
@@ -428,19 +441,24 @@ Se lee el byte global `[0x00551644 + 0xa0]`:
 
 **Paso 2 — rotaciones Euler (líneas `0x46de4a..0x46df3d`).**
 Se aplican **tres rotaciones por pre-multiplicación** sobre la matriz
-acumulativa `ebp-0x54`, cada una con el ángulo **negado** (`neg`):
+acumulativa `ebp-0x54`, pasando los ángulos **sin negar**:
 
 | Paso | Función | Eje | Ángulo (rama normal) | Ángulo (rama alternativa) |
 |---|---|---|---|---|
-| 1 | `0x0046CD38` | **Z** | `-(int16)cam+0x34` | `-(int16)cam+0x12C` |
-| 2 | `0x0046C3A4` | **Y** | `-(int16)cam+0x32` | `-(int16)cam+0x12A` |
-| 3 | `0x0046BA10` | **X** | `-(int16)cam+0x30` | `-(int16)cam+0x128` |
+| 1 | `0x0046CD38` | **Z** | `(int16)cam+0x34` | `(int16)cam+0x12C` |
+| 2 | `0x0046C3A4` | **Y** | `(int16)cam+0x32` | `(int16)cam+0x12A` |
+| 3 | `0x0046BA10` | **X** | `(int16)cam+0x30` | `(int16)cam+0x128` |
 
 Cada función recibe `(matriz_ptr, ángulo)` y hace
-`matriz = Rot_eje(ángulo) · matriz` (pre-multiplicación). El ángulo está en
-unidades Q12 de giro (`0x1000` = una vuelta completa) y el seno/coseno se lee
-de las tablas globales `0x00646C20` / `0x00645C20` (BSS, inicializadas en
-runtime) con reducción modular a `[0, 0x1000)`.
+`matriz = Rot_eje(ángulo) · matriz` (pre-multiplicación), con
+`RotZ(θ)=[[c,-s,0],[s,c,0],[0,0,1]]`,
+`RotY(θ)=[[c,0,s],[0,1,0],[-s,0,c]]` y
+`RotX(θ)=[[1,0,0],[0,c,-s],[0,s,c]]`, donde `s=sin(θ)`, `c=cos(θ)`. El ángulo
+está en unidades Q12 de giro (`0x1000` = una vuelta completa). Las secuencias
+`neg` que aparecen en `0x46CD38`/`0x46C3A4`/`0x46BA10` pertenecen a la
+reducción de cuadrante del **lookup** de seno/coseno, no a una negación del
+ángulo por parte del builder. Las tablas globales son `0x00646C20` (sin) y
+`0x00645C20` (cos) (BSS, inicializadas en runtime). **[A]**
 
 **Ejes verificados por la matriz que cada función construye:**
 - `0x46CD38` → fila 2 = `(0, 0, 0x1000)` → **eje Z**. **[A]**
@@ -450,12 +468,12 @@ runtime) con reducción modular a `[0, 0x1000)`.
 Producto acumulado:
 
 ```
-R = RotX(−cam+0x30) · RotY(−cam+0x32) · RotZ(−cam+0x34) · base        (rama normal)
-R = RotX(−cam+0x128) · RotY(−cam+0x12A) · RotZ(−cam+0x12C) · base   (rama alternativa)
+R = RotX(cam+0x30) · RotY(cam+0x32) · RotZ(cam+0x34) · base              (rama normal)
+R = RotX(cam+0x128) · RotY(cam+0x12A) · RotZ(cam+0x12C) · base           (rama alternativa)
 ```
 
-Es un orden Euler **Z → Y → X** (aplicadas Z primero, X última), con **signos
-negados** en los tres ángulos. **[A]**
+Es un orden Euler **Z → Y → X** (aplicadas Z primero, X última), con los
+ángulos **crudos**. **[A]**
 
 **Paso 3 — cambio de ejes M2 (líneas `0x46dfa2..0x46e0a4`).**
 Se construye y aplica por columnas:
@@ -785,7 +803,7 @@ fidelidad, son legibilidad):**
 |---|---|
 | `cam+0xB4/+0xB6/+0xB8` (B fila 2) | Sin escritor localizado en rutas de cámara. Alimenta `cam+0xD4`, que `0x401C00` no usa. **[C]** |
 | Semántica de `cam+0x40` y `cam+0x44` | `+0x40` se usa como distancia focal `f`; `+0x44` no interviene en `0x402DC0`. Su consumidor real (p. ej. `0x427DA2`) no se ha trazado. **[C]** |
-| Orden exacto de las rotaciones Euler en `0x46DD40` | **Demostrado:** Z → Y → X (pre-multiplicación, ángulos negados) sobre `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama alternativa si `[0x551644+0xa0] & 0x8`); base `*[cam+0xF0]` o identidad si `cam+0x43C != 0`. §6.1. **[A]** |
+| Orden exacto de las rotaciones Euler en `0x46DD40` | **Demostrado:** Z → Y → X (pre-multiplicación, ángulos crudos) sobre `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama alternativa si `[0x551644+0xa0] & 0x8`); base `*[cam+0xF0]` o identidad si `cam+0x43C != 0`. §6.1. **[A]** |
 | Escalado por columna `cam+0x490/+0x492/+0x494` | Se aplica a `*[cam+0xE0]` con `imul` + `sar 0xc` en `0x46DD40`; su consumidor y significado no se han localizado. No afecta a `M = *[cam+0xE8]`. **[C]** |
 | Consumidor de `cam+0x14/+0x18/+0x1C` | `0x46DD40` escribe `O·(−camPos)` allí; no se ha localizado quién lo lee. **[C]** |
 | Consumidor de `cam+0x43C` | Actúa como bandera para forzar base identidad en `0x46DD40`; quién la escribe no se ha trazado. **[C]** |
@@ -830,17 +848,48 @@ La cadena de orientación y la prueba de visibilidad están implementadas en
   (0x46E643), `gex_cam_build_local_frame()` (0x402DC0),
   `gex_cam_build_visibility_matrices()` (0x405C41), `gex_cam_update()`,
   `gex_cam_sphere_visible()`, `gex_cam_plane_distance()`.
-- `port/tests/test_camera.c` — 39 comprobaciones deterministas (tablas, rotaciones
-  por eje, composición Z→Y→X, normalización aproximada, seis semiplanos,
-  radio unsigned, orden de hijos, predicado de hoja).
+- `port/tests/test_camera.c` — 103 comprobaciones deterministas: valores
+  exactos de las tablas, matrices de rotación exactas por eje (ángulos
+  positivos, negativos y con vuelta), composición Z→Y→X, rama alternativa y
+  base, valores exactos del marco local, cableado M/A/B con matrices no
+  triviales, `a_cam`/`b_cam`, preservación de B fila 2, límites de los seis
+  semiplanos, radio unsigned, orden de hijos y predicado de hoja.
+- `port/tests/test_bsp.c` — 29 comprobaciones, 0 fallos; AZTEC16 = 815 hojas.
+  Integrado en `build.ps1 test` y en el objetivo `test` del `Makefile` con
+  `-DGEX_BSP_TEST_FAULT_INJECT`, `src/asset/dfx.c`, `src/asset/sag.c` y
+  `-lm`.
 - `port/src/bsp/bsp.c` — `gex_bsp_walk()` acepta ahora `cam_ctx` opcional: cuando
   se proporciona, aplica la prueba de esfera contra 6 semiplanos y el orden de
   apilado basado en `d = ((camPos·N) >> 12) − distance`. Predicado de hoja
   corregido a `(tipo & 1) == 0`.
-- `port/tests/test_bsp.c` — actualizado a la nueva firma de `gex_bsp_walk`; 29
-  comprobaciones, 0 fallos; AZTEC16 = 815 hojas.
 
 Todas las pruebas pasan con ASan/UBSan sin comportamiento indefinido.
+
+### Correcciones tras auditoría (2026-11-10)
+
+La revisión estática del commit `a3f433e` contra el desensamblado encontró
+cinco defectos en `port/src/camera/camera.c`; todos corregidos:
+
+| Defecto | Corrección |
+|---|---|
+| `build_visibility_matrices()` calculaba `a_cam` y `b_cam` con **M** en lugar de **A** y **B**. | `a_cam = transform3(A, pos)`, `b_cam = transform3(B, pos)`, con B completo (incluida su fila 2). |
+| `sphere_visible()` calculaba `T_A` y `T_B` con **M**, y volvía a transformar `pos` con M. | `T_A = transform3(A, c)`, `T_B = transform3(B, c)`; se leen `cam->a_cam` / `cam->b_cam`. |
+| `build_local_frame()` truncaba los productos vectoriales a `int16` **antes** de `sar 12`. | Producto en `int32`, `sar 12`, luego truncado a `int16`; después normalización. |
+| La normalización ordenaba los **valores con signo**, permutando las componentes de salida. | Se ordenan solo las **magnitudes** (`|g|`) para `max/mid/min`; cada componente conserva su posición. |
+| `tab_sin`/`reduce_angle` negaban el ángulo (`tab_sin(θ) = −sin θ`) y el builder volvía a negar los ángulos. | `tab_sin(θ)` y `tab_cos(θ)` usan las identidades de cuadrante correctas sobre la tabla de seno; el builder pasa los ángulos crudos. |
+
+Además, `test_bsp.c` no se compilaba en `build.ps1`/`Makefile` y `test_camera`
+no enlazaba `src/bsp/bsp.c`; ambas reglas están corregidas. La prueba BSP
+sintética de orden de hijos se desacopló de la geometría del frustum (centros
+en el origen), para que verifique solo el orden de apilado.
+
+Resultados: `build.ps1 test` completo pasa; `test_camera` = **103 checks, 0
+fallos**; `test_bsp` = **29 checks, 0 fallos** (AZTEC16 = 815 hojas); ambas
+baterías también pasan con `clang -fsanitize=address,undefined` y con `gcc`.
+
+La aproximación de las tablas trigonométricas sigue siendo una limitación
+declarada: los valores se generan como `round(4096·sin/cos(2π·i/4096))` y **no**
+se ha demostrado equivalencia bit a bit con las tablas retail.
 
 ### Decisiones de implementación
 
@@ -849,8 +898,9 @@ Todas las pruebas pasan con ASan/UBSan sin comportamiento indefinido.
 | Tablas `sin`/`cos` generadas matemáticamente en Q12 | Las tablas originales están en BSS (no en el PE); el código de inicialización en runtime no se localizó estáticamente. Se reproducen como `round(sin/cos(2π·i/4096)·4096)`. |
 | `cam->use_alt_angles` en lugar de dirección `0x551644+0xa0` | La dirección global es específica del proceso original; el port expone un campo de struct en su lugar. |
 | `cam->m` embebido (no puntero) | Evita punteros colgantes; la matriz M se copia directamente en la estructura de cámara. |
-| B fila 2 (`cam+0xB4..0xB8`) no se inicializa | El original nunca la escribe; se deja como está en memoria. El port no la usa para visibilidad. |
-| `cam+0xD4` (B·camPos) se calcula pero no se usa | El original lo escribe; el port lo calcula para fidelidad pero la visibilidad solo usa B filas 0-1. |
+| B fila 2 (`cam+0xB4..0xB8`) | El original la **lee** para `b_cam` pero no se le localizó escritor en la ruta de cámara. El port **no la escribe**: preserva lo que el llamador dejó en `mat_b[6..8]`. Si la cámara se inicializa a cero, es determinista y vale 0. Nunca se compara en la visibilidad. |
+| `cam+0xC8`/`cam+0xD4` (`A·camPos` / `B·camPos`) | Se calculan y se usan como origen de los semiplanos (`A_cam`/`B_cam`), igual que `0x401C00`. |
+| Ángulos crudos en `gex_cam_build_orientation` | El builder original no niega los ángulos; las `neg` del desensamblado pertenecen al lookup trigonométrico. |
 | Pila dinámica mediante `grow_frames` | El original no tiene cota; el port la mantiene para seguridad. |
 
 ## 12. Qué falta para implementar (fuera de alcance de esta ronda)

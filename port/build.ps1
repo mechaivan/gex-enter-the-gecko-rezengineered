@@ -6,7 +6,8 @@
     There is no `make` in this environment, so this script mirrors the POSIX
     Makefile targets:
 
-        .\build.ps1 test    build and run the native checks (container + audio
+        .\build.ps1 test    build and run the native checks (container + camera
+                            orientation/visibility + BSP traversal + audio
                             + the real-device backend, which self-skips when no
                             sound device exists + the D3D11 device R-1)
         .\build.ps1 demo    build sagdump/sagplay and run their synthetic demos
@@ -57,6 +58,8 @@ $coreSrc = @(
     (Join-Path $PSScriptRoot 'src/core/frame.c')
 )
 $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
+$bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
+$dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
 $inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
 $renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
 $d3d11Src = @((Join-Path $PSScriptRoot 'src/render/d3d11_device.c'))
@@ -92,7 +95,8 @@ New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 
 if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
-    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera.c') 'test_camera.exe' $cameraSrc) 'camera orientation + visibility checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera.c') 'test_camera.exe' ($cameraSrc + $bspSrc) @('-lm')) 'camera orientation + visibility checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_bsp.c') 'test_bsp.exe' ($bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_BSP_TEST_FAULT_INJECT', '-lm')) 'BSP traversal checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'
