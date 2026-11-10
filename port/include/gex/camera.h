@@ -204,7 +204,11 @@ int gex_cam_sphere_visible(const gex_camera *cam,
 
 /* Plane test for child ordering (0x00401C00 §7.4):
  * d = ((camPos · N) >> 12) − node_distance.
- * Returns d. */
+ *
+ * Every step is 32-bit x86 register arithmetic: the three products are
+ * summed modulo 2^32 (the sum can exceed INT32_MAX for large
+ * coordinates), the shift is an arithmetic `sar 12` and the subtraction
+ * wraps too. No signed overflow is involved. Returns d. */
 int32_t gex_cam_plane_distance(const gex_camera *cam,
                                const int16_t normal[3], int32_t distance);
 

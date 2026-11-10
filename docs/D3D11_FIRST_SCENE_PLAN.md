@@ -319,8 +319,8 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
 estructural y la visibilidad de cámara (Módulo 2) están implementados y
 auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
-[`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 103 comprobaciones
-de cámara + 29 de BSP, 0 fallos. La emisión de polígonos sigue pendiente, y con
+[`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
+de cámara + 37 de BSP, 0 fallos. La emisión de polígonos sigue pendiente, y con
 ella la integración del culling en un pipeline real. Los Módulos 3 (generador
 de buffers D3D11), 4 (cargador de texturas) y 5 (integración con renderer)
 siguen pendientes. La investigación de la carga `.DFX` está cerrada
@@ -405,7 +405,7 @@ variante `0x00461ECA` en §H).
 NULL. La visibilidad original (cámara) está implementada en
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) — prueba de esfera
 contra 6 semiplanos con matrices A/B y orden de apilado — y auditada contra el
-desensamblado: 103 comprobaciones de cámara + 29 de BSP, 0 fallos, integradas
+desensamblado: 889 comprobaciones de cámara + 37 de BSP, 0 fallos, integradas
 en `build.ps1 test` y `make test`. No hay emisión ni validación dinámica contra
 el ejecutable; `port/` sigue usando el predicado inyectado cuando no se pasa
 `cam_ctx`.

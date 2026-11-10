@@ -5,6 +5,7 @@ extern void gex_bsp_set_grow_visited_fail(int which);
 extern void gex_bsp_reset_grow_visited_fail(void);
 #endif
 #include "gex/asset/dfx.h"
+#include "gex/camera.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,6 +249,52 @@ static void test_fault_inject_first(void) {
     free(img);
 }
 
+static void test_child_order_distance_bits(void) {
+    size_t sz = 3 * GEX_BSP_NODE_SIZE;
+    uint8_t *img = calloc(sz, 1);
+    *(uint16_t*)(img + 0 + 0x06) = 100;          /* radius */
+    *(uint16_t*)(img + 0 + 0x0C) = 4096;         /* normal +X */
+    *(uint16_t*)(img + 0 + 0x12) = 0x0001;
+    *(uint32_t*)(img + 0 + 0x18) = GEX_BSP_NODE_SIZE;
+    *(uint32_t*)(img + 0 + 0x1C) = 2 * GEX_BSP_NODE_SIZE;
+    *(uint16_t*)(img + GEX_BSP_NODE_SIZE + 0x06) = 100;
+    *(uint16_t*)(img + GEX_BSP_NODE_SIZE + 0x12) = 0x0002;
+    *(uint16_t*)(img + 2 * GEX_BSP_NODE_SIZE + 0x06) = 100;
+    *(uint16_t*)(img + 2 * GEX_BSP_NODE_SIZE + 0x12) = 0x0002;
+
+    gex_camera cam;
+    memset(&cam, 0, sizeof(cam));
+    cam.width = 0x180;
+    cam.focal = 0x140;
+    cam.far = 1000;
+    cam.flag_identity = 1;
+    gex_cam_update(&cam);
+
+    gex_bsp_walk_result r;
+    memset(&r, 0, sizeof(r));
+
+    /* distance = 0 -> d = 0 >= 0 -> lo child first. */
+    *(uint32_t*)(img + 0 + 0x14) = 0;
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &cam, &r) == GEX_BSP_OK);
+    CHECK(r.count == 2);
+    CHECK(r.leaves[0] == GEX_BSP_NODE_SIZE);
+    CHECK(r.leaves[1] == 2 * GEX_BSP_NODE_SIZE);
+    gex_bsp_walk_free(&r);
+
+    /* distance bits 0x80000000 -> d = INT32_MIN (< 0) -> hi child first.
+     * The field is read as an unsigned dword and reinterpreted, so this
+     * value is guaranteed regardless of the compiler. */
+    memset(&r, 0, sizeof(r));
+    *(uint32_t*)(img + 0 + 0x14) = 0x80000000u;
+    CHECK(gex_bsp_walk(img, sz, 0, NULL, NULL, &cam, &r) == GEX_BSP_OK);
+    CHECK(r.count == 2);
+    CHECK(r.leaves[0] == 2 * GEX_BSP_NODE_SIZE);
+    CHECK(r.leaves[1] == GEX_BSP_NODE_SIZE);
+    gex_bsp_walk_free(&r);
+
+    free(img);
+}
+
 static void test_real_aztec(void) {
     const char *path = "C:/GEX_REZ/E2_A_ORIGINAL/LEVEL/AZTEC16.DFX";
     FILE *f = fopen(path,"rb"); if(!f){ printf("skip aztec\n"); return; } fclose(f);
@@ -277,6 +324,7 @@ int main(void) {
     test_visibility_predicate();
     test_leaf_cap();
     test_fault_inject_first();
+    test_child_order_distance_bits();
     test_real_aztec();
     printf("Tests completed: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

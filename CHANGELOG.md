@@ -2,6 +2,53 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-10 - 0.0.0 - Decimoquinta correccion (aritmetica de 32 bits con wrap x86 en BSP)
+
+- Hallazgo: `gex_cam_plane_distance()` (`port/src/camera/camera.c`) sumaba los
+  tres productos en `int32_t`. Con coordenadas grandes la suma supera
+  `INT32_MAX` (o baja de `INT32_MIN`) y el desbordamiento con signo es
+  comportamiento indefinido en C, aunque el original x86 envuelve el registro
+  de 32 bits. El `>> 12` sobre un valor negativo tambien era de implementacion
+  definida, y la distancia `+0x14` se leia con un cast `int32_t* -> uint32_t*`
+  (violacion de aliasing estricto).
+- Correccion en `camera.c`:
+  - `gex_cam_plane_distance()` acumula en `uint32_t` (modulo 2^32), aplica
+    `sar12()` sobre los bits del registro y resta `distance` con `sub_wrap()`.
+  - `sar12()` se implementa sobre `uint32_t` con mascara `0xFFF00000`, sin
+    depender de `>>` sobre negativos.
+  - `gex_cam_sphere_visible()` usa `sub_wrap()`/`add_wrap()` para
+    `T_A/B[i] - a_cam/b_cam[i]`, `-r` y `far + r`.
+  - Se anaden `bits_i32()`, `bits_i16()`, `low_i16()` y `neg_i16()` (copias de
+    bits con `memcpy` / truncado a 16 bits) y se usan en todas las conversiones
+    que antes dependian de la implementacion: productos de matrices, `neg` de
+    16 bits en las rotaciones y en `M2`, truncado de A/B, normalizacion y
+    marco local. `norm_angle()` calcula el signo con una comparacion en lugar
+    de `>> 31`.
+- Correccion en `bsp.c`: la distancia `+0x14` se lee en un `uint32_t` local y
+  se reinterpreta con `bits_i32()`; centros y normales usan `bits_i16()`. Sin
+  casts de punteros ni conversiones de implementacion definida.
+- Pruebas nuevas:
+  - `test_camera`: modelo de referencia x86 independiente (`ref_sar12`,
+    `ref_add32`, `ref_sub32`, `ref_plane_distance`, `ref_sphere_visible`) y
+    casos deterministas: suma superior a `INT32_MAX` (3 x 32767^2 ->
+    `-262192`), suma inferior a `INT32_MIN` (3 x -32768 x 32767 -> `262168`),
+    resultado negativo antes de `sar 12` (-100), `0 - INT32_MIN`,
+    `5 - INT32_MAX`, `-5 - INT32_MAX` (wrap a `2147483644`), 512
+    configuraciones aleatorias de distancia de plano y 256 de visibilidad
+    comparadas contra el modelo. Total: **889 comprobaciones, 0 fallos**.
+  - `test_bsp`: distancia cruda `0x80000000` (`INT32_MIN`) y orden de hijos
+    resultante, mas el caso `distance = 0`. Total: **37 comprobaciones,
+    0 fallos**; AZTEC16 sigue en 815 hojas.
+- Verificacion: `.\build.ps1 test` completo pasa; ambas baterias tambien
+  pasan con `clang -fsanitize=address,undefined` y con `gcc`.
+- Documentacion: `S2_CAMERA_VISIBILITY.md` (nueva subseccion de auditoria
+  aritmetica y cifras), `S2_BSP_TRAVERSAL.md` (lectura de la distancia,
+  historial 14.ª y cifras), `PROJECT_STATE.md`, `ROADMAP.md`,
+  `docs/D3D11_FIRST_SCENE_PLAN.md` y contrato de `port/include/gex/camera.h`.
+- Sin cambios de `PROJECT_STATUS.svg` (MAIN 40 %). S-2 **no** se declara
+  completo: la emision de poligonos, la integracion D3D11 y la validacion
+  dinamica contra el ejecutable siguen pendientes.
+
 ## 2026-11-10 - 0.0.0 - Decimocuarta correccion (auditoria de orientacion y visibilidad de camara)
 
 - Auditoria estatica del commit `a3f433e` contra el desensamblado de

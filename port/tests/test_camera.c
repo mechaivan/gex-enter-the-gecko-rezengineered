@@ -422,6 +422,229 @@ static void test_plane_distance(void) {
     CHECK(d == 4096);
 }
 
+/* ------------------------------------------------------------------ */
+/* Explicit x86 reference model                                       */
+/* ------------------------------------------------------------------ */
+
+/* The reference model below does the arithmetic the way the original
+ * instructions do it: 32-bit registers, wrap-around, `sar 12`, and a
+ * bit-copy instead of any implementation-defined signed conversion. It is
+ * written independently of the implementation under test so the two can
+ * be compared. */
+
+static int32_t ref_bits_i32(uint32_t u) {
+    int32_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
+static int16_t ref_bits_i16(uint16_t u) {
+    int16_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
+static int32_t ref_sar12(uint32_t bits) {
+    uint32_t s = bits >> 12;
+    if (bits & 0x80000000u) s |= 0xFFF00000u;
+    return ref_bits_i32(s);
+}
+
+static int32_t ref_add32(int32_t a, int32_t b) {
+    return ref_bits_i32((uint32_t)a + (uint32_t)b);
+}
+
+static int32_t ref_sub32(int32_t a, int32_t b) {
+    return ref_bits_i32((uint32_t)a - (uint32_t)b);
+}
+
+/* Model of 0x00401C00: three imul + two add, sar 12, sub distance. */
+static int32_t ref_plane_distance(const gex_camera *cam,
+                                  const int16_t normal[3], int32_t distance) {
+    uint32_t acc = 0;
+    for (int i = 0; i < 3; i++) {
+        acc += (uint32_t)((int32_t)cam->pos[i] * (int32_t)normal[i]);
+    }
+    return ref_sub32(ref_sar12(acc), distance);
+}
+
+static void ref_xform(const gex_cam_mat3 *m, const int16_t v[3],
+                      int32_t out[3]) {
+    for (int r = 0; r < 3; r++) {
+        uint32_t acc = (uint32_t)((int32_t)m->w[3 * r + 0] * (int32_t)v[0]);
+        acc += (uint32_t)((int32_t)m->w[3 * r + 1] * (int32_t)v[1]);
+        acc += (uint32_t)((int32_t)m->w[3 * r + 2] * (int32_t)v[2]);
+        out[r] = ref_sar12(acc);
+    }
+}
+
+/* Model of the six-semiplane test in 0x00401C00. */
+static int ref_sphere_visible(const gex_camera *cam,
+                              const int16_t c[3], uint16_t radius) {
+    int32_t r = (int32_t)radius;
+    gex_cam_mat3 a_mat, b_mat;
+    memcpy(a_mat.w, cam->mat_a, sizeof(a_mat.w));
+    memcpy(b_mat.w, cam->mat_b, sizeof(b_mat.w));
+
+    int32_t T_A[3], T_B[3];
+    ref_xform(&a_mat, c, T_A);
+    ref_xform(&b_mat, c, T_B);
+
+    int32_t neg_r = ref_sub32(0, r);
+    int32_t far_plus_r = ref_add32(cam->far, r);
+    int32_t d0 = ref_sub32(T_A[0], cam->a_cam[0]);
+    if (d0 <= neg_r) return 0;
+    if (d0 >= far_plus_r) return 0;
+    if (ref_sub32(T_A[1], cam->a_cam[1]) <= neg_r) return 0;
+    if (ref_sub32(T_A[2], cam->a_cam[2]) <= neg_r) return 0;
+    if (ref_sub32(T_B[0], cam->b_cam[0]) <= neg_r) return 0;
+    if (ref_sub32(T_B[1], cam->b_cam[1]) <= neg_r) return 0;
+    return 1;
+}
+
+/* Deterministic pseudo-random source with a bias toward the int16 edges,
+ * so the wrap paths are reached often. */
+static uint32_t lcg_next(uint32_t *s) {
+    *s = *s * 1664525u + 1013904223u;
+    return *s;
+}
+
+static int16_t lcg_i16(uint32_t *s) {
+    uint32_t r = lcg_next(s);
+    switch (r & 7u) {
+    case 0: return INT16_MIN;
+    case 1: return INT16_MAX;
+    case 2: return ref_bits_i16((uint16_t)(r >> 8));
+    default: return ref_bits_i16((uint16_t)(r >> 16));
+    }
+}
+
+static void test_plane_distance_wrap(void) {
+    gex_camera c = cam_default();
+
+    /* Sum of the three products above INT32_MAX:
+     *   3 * 32767^2 = 3 221 028 867
+     *   wraps to -1 073 938 429; sar 12 -> -262 192. */
+    int16_t npos[3] = { 32767, 32767, 32767 };
+    c.pos[0] = 32767; c.pos[1] = 32767; c.pos[2] = 32767;
+    CHECK(gex_cam_plane_distance(&c, npos, 0) == -262192);
+    CHECK(gex_cam_plane_distance(&c, npos, 0) ==
+          ref_plane_distance(&c, npos, 0));
+
+    /* Sum below INT32_MIN:
+     *   3 * (-32768 * 32767) = -3 221 127 168
+     *   wraps to 1 073 840 128; sar 12 -> 262 168. */
+    c.pos[0] = -32768; c.pos[1] = -32768; c.pos[2] = -32768;
+    CHECK(gex_cam_plane_distance(&c, npos, 0) == 262168);
+    CHECK(gex_cam_plane_distance(&c, npos, 0) ==
+          ref_plane_distance(&c, npos, 0));
+
+    /* Negative value before sar 12: 100 * -4096 = -409 600 -> -100. */
+    int16_t nneg[3] = { -4096, 0, 0 };
+    c.pos[0] = 100; c.pos[1] = 0; c.pos[2] = 0;
+    CHECK(gex_cam_plane_distance(&c, nneg, 0) == -100);
+    CHECK(gex_cam_plane_distance(&c, nneg, 0) ==
+          ref_plane_distance(&c, nneg, 0));
+
+    /* distance subtraction wraps in 32 bits:
+     *   0 - INT32_MIN = INT32_MIN
+     *   5 - INT32_MAX = -2 147 483 642
+     *   -5 - INT32_MAX = 2 147 483 644  (wrapped) */
+    int16_t nzero[3] = { 0, 0, 0 };
+    CHECK(gex_cam_plane_distance(&c, nzero, INT32_MIN) == INT32_MIN);
+    int16_t n4096[3] = { 4096, 0, 0 };
+    c.pos[0] = 5;                         /* d = (5 * 4096) >> 12 = 5 */
+    CHECK(gex_cam_plane_distance(&c, n4096, INT32_MAX) == -2147483642);
+    c.pos[0] = -5;                        /* d = -5 */
+    CHECK(gex_cam_plane_distance(&c, n4096, INT32_MAX) == 2147483644);
+    CHECK(gex_cam_plane_distance(&c, n4096, INT32_MAX) ==
+          ref_plane_distance(&c, n4096, INT32_MAX));
+}
+
+/* 512 deterministic configurations against the reference model. */
+static void test_plane_distance_reference(void) {
+    gex_camera c = cam_default();
+    uint32_t s = 0x9E3779B9u;
+    for (int i = 0; i < 512; i++) {
+        int16_t n[3];
+        int32_t dist = ref_bits_i32(lcg_next(&s));
+        for (int k = 0; k < 3; k++) {
+            c.pos[k] = lcg_i16(&s);
+            n[k] = lcg_i16(&s);
+        }
+        CHECK(gex_cam_plane_distance(&c, n, dist) ==
+              ref_plane_distance(&c, n, dist));
+    }
+}
+
+/* Extreme a_cam / far values make the signed differences overflow; the
+ * result must still be the wrapped 32-bit one. */
+static void test_visibility_wrap(void) {
+    gex_camera c = cam_default();
+    mat_diag(c.mat_a, 4096, 4096, 4096);
+    mat_diag(c.mat_b, 4096, 4096, 4096);
+    memset(c.a_cam, 0, sizeof(c.a_cam));
+    memset(c.b_cam, 0, sizeof(c.b_cam));
+    c.far = 1000;
+
+    int16_t p[3] = { 0, 0, 0 };
+
+    /* T_A.x - INT32_MAX = -INT32_MAX, rejected by the near plane. */
+    c.a_cam[0] = INT32_MAX;
+    CHECK(!gex_cam_sphere_visible(&c, p, 10));
+    CHECK(gex_cam_sphere_visible(&c, p, 10) ==
+          ref_sphere_visible(&c, p, 10));
+
+    /* T_A.y - INT32_MIN wraps to INT32_MIN + T_A.y: huge positive, so the
+     * lateral plane accepts it. This is the value plain signed arithmetic
+     * cannot represent. Both A row 1 and B row 1 use the offset, so both
+     * origins are set to INT32_MIN. */
+    memset(c.a_cam, 0, sizeof(c.a_cam));
+    memset(c.b_cam, 0, sizeof(c.b_cam));
+    c.a_cam[1] = INT32_MIN;
+    c.b_cam[1] = INT32_MIN;
+    int16_t py[3] = { 0, -4096, 0 };
+    CHECK(gex_cam_sphere_visible(&c, py, 10) == 1);
+    CHECK(gex_cam_sphere_visible(&c, py, 10) ==
+          ref_sphere_visible(&c, py, 10));
+
+    /* far + radius wraps when far is INT32_MAX: 0 >= (INT32_MIN + 9) is
+     * true, so the far limit rejects the point. */
+    memset(c.a_cam, 0, sizeof(c.a_cam));
+    c.far = INT32_MAX;
+    CHECK(!gex_cam_sphere_visible(&c, p, 10));
+    CHECK(gex_cam_sphere_visible(&c, p, 10) ==
+          ref_sphere_visible(&c, p, 10));
+    c.far = 1000;
+}
+
+/* 256 deterministic camera configurations against the reference model,
+ * with at least one accepted and one rejected case. */
+static void test_visibility_reference(void) {
+    uint32_t s = 0x51ED2701u;
+    int seen_visible = 0, seen_rejected = 0;
+    for (int i = 0; i < 256; i++) {
+        gex_camera c = cam_default();
+        int16_t center[3];
+        for (int k = 0; k < 9; k++) c.mat_a[k] = lcg_i16(&s);
+        for (int k = 0; k < 9; k++) c.mat_b[k] = lcg_i16(&s);
+        for (int k = 0; k < 3; k++) {
+            center[k] = lcg_i16(&s);
+            c.a_cam[k] = ref_bits_i32(lcg_next(&s));
+            c.b_cam[k] = ref_bits_i32(lcg_next(&s));
+        }
+        c.far = ref_bits_i32(lcg_next(&s));
+        uint16_t radius = (uint16_t)(lcg_next(&s) >> 16);
+
+        int got = gex_cam_sphere_visible(&c, center, radius);
+        int want = ref_sphere_visible(&c, center, radius);
+        CHECK(got == want);
+        if (got) seen_visible++; else seen_rejected++;
+    }
+    CHECK(seen_visible > 0);
+    CHECK(seen_rejected > 0);
+}
+
 static void test_leaf_predicate(void) {
     CHECK(gex_cam_node_is_leaf(0x0000) == 1);
     CHECK(gex_cam_node_is_leaf(0x0001) == 0);
@@ -482,6 +705,10 @@ int main(void) {
     test_visibility_cam_offsets();
     test_visibility_unsigned_radius();
     test_plane_distance();
+    test_plane_distance_wrap();
+    test_plane_distance_reference();
+    test_visibility_wrap();
+    test_visibility_reference();
     test_leaf_predicate();
     test_bsp_child_order_camera();
     printf("Tests completed: %d checks, %d failures\n", checks, failures);

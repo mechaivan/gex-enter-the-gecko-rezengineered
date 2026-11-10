@@ -14,6 +14,22 @@ void gex_bsp_reset_grow_visited_fail(void) { g_grow_visited_fail = 0; }
 #define READ_U32(p) ((uint32_t)((p)[0] | ((uint32_t)(p)[1] << 8) | \
                    ((uint32_t)(p)[2] << 16) | ((uint32_t)(p)[3] << 24)))
 
+/* Bit-level reinterpretation of raw little-endian fields. The node data is
+ * unsigned bytes, so signed fields are read as uintN and reinterpreted by
+ * copying the bits: no implementation-defined conversion, no aliasing
+ * violation (the old code cast an int32_t* to uint32_t*). */
+static int32_t bits_i32(uint32_t u) {
+    int32_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
+static int16_t bits_i16(uint16_t u) {
+    int16_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
 static int node_in_bounds(size_t image_size, uint32_t node_offset) {
     if (node_offset > image_size) return 0;
     return GEX_BSP_NODE_SIZE <= (image_size - node_offset);
@@ -201,9 +217,9 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                 result = GEX_BSP_ERR_BOUNDS;
                 break;
             }
-            center[0] = (int16_t)c0;
-            center[1] = (int16_t)c1;
-            center[2] = (int16_t)c2;
+            center[0] = bits_i16(c0);
+            center[1] = bits_i16(c1);
+            center[2] = bits_i16(c2);
             vis = gex_cam_sphere_visible(cam, center, radius);
         }
         if (!vis) {
@@ -268,20 +284,24 @@ gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                 int16_t normal[3];
                 int32_t distance;
                 uint16_t n0, n1, n2;
+                uint32_t distance_bits = 0;
                 if (!read_u16(image, image_size, node, GEX_BSP_NORMAL_X, &n0) ||
                     !read_u16(image, image_size, node, GEX_BSP_NORMAL_Y, &n1) ||
                     !read_u16(image, image_size, node, GEX_BSP_NORMAL_Z, &n2)) {
                     result = GEX_BSP_ERR_BOUNDS;
                     break;
                 }
-                normal[0] = (int16_t)n0;
-                normal[1] = (int16_t)n1;
-                normal[2] = (int16_t)n2;
+                normal[0] = bits_i16(n0);
+                normal[1] = bits_i16(n1);
+                normal[2] = bits_i16(n2);
+                /* +0x14 is a raw little-endian dword: read it as unsigned
+                 * and reinterpret the bits as the signed distance. */
                 if (!read_u32(image, image_size, node, GEX_BSP_DISTANCE,
-                              (uint32_t *)&distance)) {
+                              &distance_bits)) {
                     result = GEX_BSP_ERR_BOUNDS;
                     break;
                 }
+                distance = bits_i32(distance_bits);
                 int32_t d = gex_cam_plane_distance(cam, normal, distance);
                 if (d >= 0) {
                     /* push hi (0x1C) then lo (0x18) → visit lo first */

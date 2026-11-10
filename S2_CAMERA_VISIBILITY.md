@@ -848,16 +848,20 @@ La cadena de orientación y la prueba de visibilidad están implementadas en
   (0x46E643), `gex_cam_build_local_frame()` (0x402DC0),
   `gex_cam_build_visibility_matrices()` (0x405C41), `gex_cam_update()`,
   `gex_cam_sphere_visible()`, `gex_cam_plane_distance()`.
-- `port/tests/test_camera.c` — 103 comprobaciones deterministas: valores
+- `port/tests/test_camera.c` — 889 comprobaciones deterministas: valores
   exactos de las tablas, matrices de rotación exactas por eje (ángulos
   positivos, negativos y con vuelta), composición Z→Y→X, rama alternativa y
   base, valores exactos del marco local, cableado M/A/B con matrices no
   triviales, `a_cam`/`b_cam`, preservación de B fila 2, límites de los seis
-  semiplanos, radio unsigned, orden de hijos y predicado de hoja.
-- `port/tests/test_bsp.c` — 29 comprobaciones, 0 fallos; AZTEC16 = 815 hojas.
+  semiplanos, radio unsigned, orden de hijos, predicado de hoja, aritmética de
+  `gex_cam_plane_distance()` con wrap de 32 bits (productos y sumas fuera de
+  rango, `sar 12` negativo, resta de `distance` con wrap) y comparación con un
+  modelo de referencia x86 independiente sobre casos deterministas.
+- `port/tests/test_bsp.c` — 37 comprobaciones, 0 fallos; AZTEC16 = 815 hojas.
   Integrado en `build.ps1 test` y en el objetivo `test` del `Makefile` con
   `-DGEX_BSP_TEST_FAULT_INJECT`, `src/asset/dfx.c`, `src/asset/sag.c` y
-  `-lm`.
+  `-lm`. Incluye la reinterpretación de la distancia cruda (`0x14`) con el bit
+  alto activo (`0x80000000` → `INT32_MIN`) y el orden de hijos resultante.
 - `port/src/bsp/bsp.c` — `gex_bsp_walk()` acepta ahora `cam_ctx` opcional: cuando
   se proporciona, aplica la prueba de esfera contra 6 semiplanos y el orden de
   apilado basado en `d = ((camPos·N) >> 12) − distance`. Predicado de hoja
@@ -883,13 +887,38 @@ no enlazaba `src/bsp/bsp.c`; ambas reglas están corregidas. La prueba BSP
 sintética de orden de hijos se desacopló de la geometría del frustum (centros
 en el origen), para que verifique solo el orden de apilado.
 
-Resultados: `build.ps1 test` completo pasa; `test_camera` = **103 checks, 0
-fallos**; `test_bsp` = **29 checks, 0 fallos** (AZTEC16 = 815 hojas); ambas
+Resultados: `build.ps1 test` completo pasa; `test_camera` = **889 checks, 0
+fallos**; `test_bsp` = **37 checks, 0 fallos** (AZTEC16 = 815 hojas); ambas
 baterías también pasan con `clang -fsanitize=address,undefined` y con `gcc`.
 
 La aproximación de las tablas trigonométricas sigue siendo una limitación
 declarada: los valores se generan como `round(4096·sin/cos(2π·i/4096))` y **no**
 se ha demostrado equivalencia bit a bit con las tablas retail.
+
+### Auditoría aritmética: wrap de 32 bits (2026-11-10, segunda corrección)
+
+La misma revisión encontró que la aritmética de 32 bits todavía dependía de
+comportamiento indefinido o definido por la implementación en varios puntos.
+El original x86 opera con registros de 32 bits que **envuelven** (`imul`/`add`/
+`sub`/`sar`); C no permite ese desbordamiento en tipos con signo. Correcciones:
+
+| Punto | Antes | Ahora |
+|---|---|---|
+| `gex_cam_plane_distance()` | Suma de tres productos en `int32_t` (desbordamiento signed) y `>> 12` sobre un valor con signo. | Acumulador `uint32_t` (wrap módulo 2³²), `sar12()` sobre los bits del registro y resta de `distance` con wrap explícito. |
+| `sar12()` | `v >> 12` sobre `int32_t` negativo (definido por la implementación). | Desplazamiento sobre `uint32_t` más máscara `0xFFF00000` cuando el bit 31 está activo; replica `sar` exacto hacia −∞. |
+| `gex_cam_sphere_visible()` | `T_A[i] − a_cam[i]`, `−r` y `far + r` en signed `int32_t`. | `sub_wrap()`/`add_wrap()` con wrap de 32 bits sobre los bits del registro. |
+| Conversiones `int32_t`↔`uint32_t` e `int16_t` | Casts de implementación definida (`(int32_t)acc`, `(int16_t)t`, `(int16_t)(-s)`). | `bits_i32()`, `bits_i16()` y `low_i16()` copian los bits con `memcpy`; `neg_i16()` reproduce el `neg` de 16 bits con wrap. |
+| `bsp.c`: lectura de la distancia `+0x14` | `read_u32(..., (uint32_t *)&distance)`: violación de aliasing estricto y conversión de implementación definida. | Se lee en un `uint32_t` local y se reinterpreta con `bits_i32()`. Los centros y normales (`int16`) se reinterpretan igual con `bits_i16()`. |
+
+Ninguna operación del camino de cámara o de recorrido depende ya de
+desbordamiento con signo, de `>>` sobre negativos ni de conversiones entre
+tipos de distinto signo no controladas. Las pruebas nuevas comparan
+`gex_cam_plane_distance()` y `gex_cam_sphere_visible()` con un modelo de
+referencia x86 escrito de forma independiente (512 y 256 configuraciones
+deterministas respectivamente, con sesgo hacia los límites de `int16`), además
+de casos fijos: suma superior a `INT32_MAX`, suma inferior a `INT32_MIN`,
+resultado negativo antes de `sar 12`, `0 − INT32_MIN`, `±5 − INT32_MAX` y
+`far + radio` con `far = INT32_MAX`.
 
 ### Decisiones de implementación
 

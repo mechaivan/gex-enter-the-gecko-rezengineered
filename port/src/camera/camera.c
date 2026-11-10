@@ -53,7 +53,9 @@ void gex_cam_init_tables(void) {
  */
 static int32_t norm_angle(int16_t angle) {
     int32_t v = (int32_t)angle;      /* movsx */
-    int32_t edx = v >> 31;           /* cdq */
+    /* cdq: all-ones for negatives. Written as a comparison because >>
+     * of a negative value is implementation-defined in C. */
+    int32_t edx = (v < 0) ? -1 : 0;
     int32_t ax = v ^ edx;
     ax -= edx;
     ax &= 0xFFF;
@@ -98,9 +100,53 @@ static int16_t tab_cos(int16_t angle) {
 /* Q12 helpers                                                        */
 /* ------------------------------------------------------------------ */
 
-/* sar 12 on int32: arithmetic shift right, rounds toward -inf. */
-static int32_t sar12(int32_t v) {
-    return v >> 12;  /* arithmetic on every supported compiler */
+/* Bit-level reinterpretation helpers.
+ *
+ * Every 32-bit value in the original lives in a register, so "signed" and
+ * "unsigned" are only a matter of how the next instruction reads the bits.
+ * Going through memcpy keeps the port free of both signed overflow and
+ * implementation-defined integer conversions: the bits are copied
+ * verbatim. (uint32_t and int32_t have the same size on every supported
+ * target; the memcpy is the standard bit-cast idiom.) */
+static int32_t bits_i32(uint32_t u) {
+    int32_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
+static int16_t bits_i16(uint16_t u) {
+    int16_t v;
+    memcpy(&v, &u, sizeof(v));
+    return v;
+}
+
+/* Truncate an int32 to int16 the way a `mov word ptr` store does: keep the
+ * low 16 bits, no saturation. */
+static int16_t low_i16(int32_t v) {
+    return bits_i16((uint16_t)((uint32_t)v & 0xFFFFu));
+}
+
+/* 16-bit `neg` with wrap (e.g. -(-32768) stays -32768). */
+static int16_t neg_i16(int16_t v) {
+    return low_i16(-(int32_t)v);
+}
+
+/* add/sub with x86 32-bit wrap-around. */
+static int32_t add_wrap(int32_t a, int32_t b) {
+    return bits_i32((uint32_t)a + (uint32_t)b);
+}
+
+static int32_t sub_wrap(int32_t a, int32_t b) {
+    return bits_i32((uint32_t)a - (uint32_t)b);
+}
+
+/* sar 12 on a 32-bit register: arithmetic shift right, rounding toward
+ * -inf. Implemented on the unsigned bits so the result does not depend on
+ * the implementation-defined behaviour of >> on negative ints. */
+static int32_t sar12(uint32_t bits) {
+    uint32_t s = bits >> 12;
+    if (bits & 0x80000000u) s |= 0xFFF00000u;
+    return bits_i32(s);
 }
 
 /* Each rotation function builds a Q12 matrix for a rotation about its
@@ -113,7 +159,7 @@ void gex_cam_rot_z(gex_cam_mat3 *m, int16_t angle) {
     int16_t c = tab_cos(angle);
     /* RotZ: [[c, -s, 0],[s, c, 0],[0, 0, 4096]] */
     gex_cam_mat3 r;
-    r.w[0] = c;                       r.w[1] = (int16_t)(-s); r.w[2] = 0;
+    r.w[0] = c;                       r.w[1] = neg_i16(s);    r.w[2] = 0;
     r.w[3] = s;                       r.w[4] = c;             r.w[5] = 0;
     r.w[6] = 0;                       r.w[7] = 0;             r.w[8] = GEX_CAM_Q12;
     gex_cam_mat_mul(m, &r, m);
@@ -126,7 +172,7 @@ void gex_cam_rot_y(gex_cam_mat3 *m, int16_t angle) {
     gex_cam_mat3 r;
     r.w[0] = c;                       r.w[1] = 0;             r.w[2] = s;
     r.w[3] = 0;                       r.w[4] = GEX_CAM_Q12;   r.w[5] = 0;
-    r.w[6] = (int16_t)(-s);           r.w[7] = 0;             r.w[8] = c;
+    r.w[6] = neg_i16(s);              r.w[7] = 0;             r.w[8] = c;
     gex_cam_mat_mul(m, &r, m);
 }
 
@@ -136,7 +182,7 @@ void gex_cam_rot_x(gex_cam_mat3 *m, int16_t angle) {
     /* RotX: [[4096, 0, 0],[0, c, -s],[0, s, c]] */
     gex_cam_mat3 r;
     r.w[0] = GEX_CAM_Q12; r.w[1] = 0;  r.w[2] = 0;
-    r.w[3] = 0;           r.w[4] = c;  r.w[5] = (int16_t)(-s);
+    r.w[3] = 0;           r.w[4] = c;  r.w[5] = neg_i16(s);
     r.w[6] = 0;           r.w[7] = s;  r.w[8] = c;
     gex_cam_mat_mul(m, &r, m);
 }
@@ -154,7 +200,7 @@ void gex_cam_mat_mul(gex_cam_mat3 *dst, const gex_cam_mat3 *a,
                 acc += (uint32_t)((int32_t)a->w[3 * row + k] *
                                   (int32_t)b->w[3 * k + col]);
             }
-            r.w[3 * row + col] = (int16_t)sar12((int32_t)acc);
+            r.w[3 * row + col] = low_i16(sar12(acc));
         }
     }
     *dst = r;
@@ -175,21 +221,23 @@ void gex_cam_apply_m2(gex_cam_mat3 *o, const gex_cam_mat3 *r) {
     /* Column 0 of R: (r.w[0], r.w[3], r.w[6]) -> M2 * col0 = (r0, r6, -r3) */
     /* Column 1 of R: (r.w[1], r.w[4], r.w[7]) -> M2 * col1 = (r1, r7, -r4) */
     /* Column 2 of R: (r.w[2], r.w[5], r.w[8]) -> M2 * col2 = (r2, r8, -r5) */
-    o->w[0] = r->w[0]; o->w[1] = r->w[6]; o->w[2] = (int16_t)(-r->w[3]);
-    o->w[3] = r->w[1]; o->w[4] = r->w[7]; o->w[5] = (int16_t)(-r->w[4]);
-    o->w[6] = r->w[2]; o->w[7] = r->w[8]; o->w[8] = (int16_t)(-r->w[5]);
+    o->w[0] = r->w[0]; o->w[1] = r->w[6]; o->w[2] = neg_i16(r->w[3]);
+    o->w[3] = r->w[1]; o->w[4] = r->w[7]; o->w[5] = neg_i16(r->w[4]);
+    o->w[6] = r->w[2]; o->w[7] = r->w[8]; o->w[8] = neg_i16(r->w[5]);
 }
 
 /* Transform a vector by a Q12 matrix: out = (m * v) >> 12.
- * v is int16[3], out is int32[3]. No saturation; 32-bit wrap-around
- * matches the original imul/add sequence. */
+ * v is int16[3], out is int32[3]. The products are exact in int32
+ * (|a*b| <= 32768*32767); the three-term sum is accumulated modulo 2^32
+ * and the shift is applied to the resulting register, exactly like the
+ * original imul/add/sar sequence (which can overflow the signed range). */
 static void transform3(const gex_cam_mat3 *m, const int16_t v[3],
                        int32_t out[3]) {
     for (int r = 0; r < 3; r++) {
         uint32_t acc = (uint32_t)((int32_t)m->w[3 * r + 0] * (int32_t)v[0]);
         acc += (uint32_t)((int32_t)m->w[3 * r + 1] * (int32_t)v[1]);
         acc += (uint32_t)((int32_t)m->w[3 * r + 2] * (int32_t)v[2]);
-        out[r] = sar12((int32_t)acc);
+        out[r] = sar12(acc);
     }
 }
 
@@ -223,14 +271,14 @@ static void approx_normalize(int16_t g[3]) {
     int32_t approx = (30 * maxv + 12 * midv + 9 * minv) / 8;
 
     if (approx != 0) {
-        /* idiv: truncation toward zero.  Left shift of a negative int32 is
-         * UB in C; replicate x86 shl via unsigned shift then reinterpret. */
-        int32_t sh0 = (int32_t)((uint32_t)g0 << 14);
-        int32_t sh1 = (int32_t)((uint32_t)g1 << 14);
-        int32_t sh2 = (int32_t)((uint32_t)g2 << 14);
-        g[0] = (int16_t)(sh0 / approx);
-        g[1] = (int16_t)(sh1 / approx);
-        g[2] = (int16_t)(sh2 / approx);
+        /* idiv: truncation toward zero. The `shl` of a negative value is
+         * done on the unsigned bits and reinterpreted, as x86 does. */
+        int32_t sh0 = bits_i32((uint32_t)g0 << 14);
+        int32_t sh1 = bits_i32((uint32_t)g1 << 14);
+        int32_t sh2 = bits_i32((uint32_t)g2 << 14);
+        g[0] = low_i16(sh0 / approx);
+        g[1] = low_i16(sh1 / approx);
+        g[2] = low_i16(sh2 / approx);
     }
     /* if approx == 0: vector stays (0,0,0) */
 }
@@ -244,9 +292,9 @@ static void cross_shift(const int16_t u[3], const int16_t v[3], int16_t out[3]) 
                   (uint32_t)((int32_t)u[0] * (int32_t)v[2]);
     uint32_t g2 = (uint32_t)((int32_t)u[0] * (int32_t)v[1]) -
                   (uint32_t)((int32_t)u[1] * (int32_t)v[0]);
-    out[0] = (int16_t)sar12((int32_t)g0);
-    out[1] = (int16_t)sar12((int32_t)g1);
-    out[2] = (int16_t)sar12((int32_t)g2);
+    out[0] = low_i16(sar12(g0));
+    out[1] = low_i16(sar12(g1));
+    out[2] = low_i16(sar12(g2));
 }
 
 void gex_cam_build_local_frame(gex_camera *cam) {
@@ -254,22 +302,22 @@ void gex_cam_build_local_frame(gex_camera *cam) {
     int16_t f = cam->focal;            /* +0x40, int16 */
 
     /* half = trunc(w / 2)   (idiv, toward zero) */
-    int16_t b = (int16_t)(w / 2);
+    int16_t b = low_i16(w / 2);
     /* a = trunc(w / 3) * 2  (idiv, toward zero) */
-    int16_t a = (int16_t)((w / 3) * 2);
+    int16_t a = low_i16((w / 3) * 2);
 
     /* Corner rays:
      *   v1 = (-a, -b, f)   v2 = ( a, -b, f)
      *   v3 = (-a,  b, f)   v4 = ( a,  b, f) */
-    const int16_t v1[3] = { (int16_t)(-a), (int16_t)(-b), f };
-    const int16_t v2[3] = { a,            (int16_t)(-b), f };
-    const int16_t v3[3] = { (int16_t)(-a), b,            f };
-    const int16_t v4[3] = { a,             b,            f };
+    const int16_t v1[3] = { neg_i16(a), neg_i16(b), f };
+    const int16_t v2[3] = { a,          neg_i16(b), f };
+    const int16_t v3[3] = { neg_i16(a), b,          f };
+    const int16_t v4[3] = { a,          b,          f };
 
     /* cam+0x60 = (0, 0, 0x1000): advance axis. */
     cam->local[0][0] = 0;
     cam->local[0][1] = 0;
-    cam->local[0][2] = (int16_t)GEX_CAM_Q12;
+    cam->local[0][2] = GEX_CAM_Q12;
 
     /* cam+0x68 = v1 x v2 = (0, +2af, +2ab) / 4096 */
     cross_shift(v1, v2, cam->local[1]);
@@ -353,9 +401,9 @@ void gex_cam_build_visibility_matrices(gex_camera *cam) {
     for (int row = 0; row < 3; row++) {
         int32_t t[3];
         transform3(&m, cam->local[row], t);
-        A[3 * row + 0] = (int16_t)t[0];
-        A[3 * row + 1] = (int16_t)t[1];
-        A[3 * row + 2] = (int16_t)t[2];
+        A[3 * row + 0] = low_i16(t[0]);
+        A[3 * row + 1] = low_i16(t[1]);
+        A[3 * row + 2] = low_i16(t[2]);
     }
     /* B rows 0-1: local[3] (right), local[4] (up).
      * B row 2 (+0xB4..0xB8) is NOT written here: the original reads it
@@ -364,12 +412,12 @@ void gex_cam_build_visibility_matrices(gex_camera *cam) {
     {
         int32_t t[3];
         transform3(&m, cam->local[3], t);
-        B[0] = (int16_t)t[0]; B[1] = (int16_t)t[1]; B[2] = (int16_t)t[2];
+        B[0] = low_i16(t[0]); B[1] = low_i16(t[1]); B[2] = low_i16(t[2]);
     }
     {
         int32_t t[3];
         transform3(&m, cam->local[4], t);
-        B[3] = (int16_t)t[0]; B[4] = (int16_t)t[1]; B[5] = (int16_t)t[2];
+        B[3] = low_i16(t[0]); B[4] = low_i16(t[1]); B[5] = low_i16(t[2]);
     }
 
     /* a_cam = A * camPos; b_cam = B * camPos (all nine B entries,
@@ -408,25 +456,40 @@ int gex_cam_sphere_visible(const gex_camera *cam,
     transform3(&a_mat, c, T_A);
     transform3(&b_mat, c, T_B);
 
-    int32_t far = cam->far;
+    /* x86 `neg`/`add`/`sub` wrap at 32 bits. a_cam/b_cam are caller data
+     * and `far` comes from the camera, so none of these differences may
+     * rely on signed overflow not happening. */
+    const int32_t neg_r = sub_wrap(0, r);
+    const int32_t far_plus_r = add_wrap(cam->far, r);
 
-    /* Near/far plane: A row 0. */
-    int32_t d0 = T_A[0] - cam->a_cam[0];
-    if (d0 <= -r) return 0;
-    if (d0 >= far + r) return 0;
+    int32_t d0 = sub_wrap(T_A[0], cam->a_cam[0]);
+    if (d0 <= neg_r) return 0;
+    if (d0 >= far_plus_r) return 0;
     /* Lateral semiplanos: A rows 1-2, B rows 0-1. */
-    if (T_A[1] - cam->a_cam[1] <= -r) return 0;
-    if (T_A[2] - cam->a_cam[2] <= -r) return 0;
-    if (T_B[0] - cam->b_cam[0] <= -r) return 0;
-    if (T_B[1] - cam->b_cam[1] <= -r) return 0;
+    if (sub_wrap(T_A[1], cam->a_cam[1]) <= neg_r) return 0;
+    if (sub_wrap(T_A[2], cam->a_cam[2]) <= neg_r) return 0;
+    if (sub_wrap(T_B[0], cam->b_cam[0]) <= neg_r) return 0;
+    if (sub_wrap(T_B[1], cam->b_cam[1]) <= neg_r) return 0;
     return 1;
 }
 
+/* Plane test for child ordering (0x00401C00):
+ *
+ *   acc = pos.x*N.x + pos.y*N.y + pos.z*N.z     (three imul + add, 32-bit)
+ *   d   = sar(acc, 12)                          (arithmetic shift)
+ *   d   = d - node_distance                     (32-bit sub)
+ *
+ * Each product is exact in int32 (|pos|,|N| <= 32768), but the three-term
+ * sum overflows int32 for large coordinates: the original register wraps.
+ * The accumulator is therefore uint32_t, the shift is applied to the
+ * register bits and the subtraction wraps too. No signed overflow and no
+ * implementation-defined conversion is involved. */
 int32_t gex_cam_plane_distance(const gex_camera *cam,
                                const int16_t normal[3], int32_t distance) {
-    int32_t d = ((int32_t)cam->pos[0] * (int32_t)normal[0] +
-                 (int32_t)cam->pos[1] * (int32_t)normal[1] +
-                 (int32_t)cam->pos[2] * (int32_t)normal[2]) >> 12;
-    d -= distance;
-    return d;
+    uint32_t acc = 0;
+    for (int i = 0; i < 3; i++) {
+        acc += (uint32_t)((int32_t)cam->pos[i] * (int32_t)normal[i]);
+    }
+    int32_t d = sar12(acc);
+    return sub_wrap(d, distance);
 }

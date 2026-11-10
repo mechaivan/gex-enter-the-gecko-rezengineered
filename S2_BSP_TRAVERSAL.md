@@ -15,7 +15,7 @@ contra el ejecutable original.
 ## 1. Estado actual (vigente)
 
 - Módulo `port/`: `include/gex/bsp.h`, `src/bsp/bsp.c`, `tests/test_bsp.c`.
-- API: `gex_bsp_walk(image, image_size, root_offset, visible, ctx, out)`,
+- API: `gex_bsp_walk(image, image_size, root_offset, visible, ctx, cam_ctx, out)`,
   `gex_bsp_walk_free`, `gex_bsp_node_type`, `gex_bsp_node_is_leaf`.
 - Algoritmo: DFS iterativo con marcos enter/exit, protección de ciclos (coloreado
   de 3 estados), referencias compartidas procesadas una vez, tope de 0x800 hojas.
@@ -23,7 +23,7 @@ contra el ejecutable original.
   anti-overflow, capacidades independientes, liberación en todos los caminos.
 - Instrumentación de fallos exclusiva de tests (`GEX_BSP_TEST_FAULT_INJECT`),
   declarada solo en `test_bsp.c`, no en la API pública.
-- Pruebas: **29 comprobaciones de BSP, 0 fallos** (más 103 de cámara en
+- Pruebas: **37 comprobaciones de BSP, 0 fallos** (más 889 de cámara en
   `test_camera`). ASan+UBSan sin errores. AZTEC16.DFX = **exactamente 815
   hojas** (predicado NULL).
 - Compilación normal (sin macro): sin símbolos de inyección.
@@ -96,6 +96,13 @@ hoja es `(tipo & 1) == 0` (coincide con `& 2` para tipos 1/2). Cuando `cam_ctx`
 es NULL se conserva el comportamiento anterior (predicado de devolución de
 llamada y orden de apilado fijo).
 
+La distancia `+0x14` se lee como dword sin signo y se **reinterpreta** con una
+copia de bits (`bits_i32`), no con un cast de punteros: el original la usa como
+entero con signo y el wrap de 32 bits de `(camPos·N) >> 12 − distance` se
+reproduce en `gex_cam_plane_distance()` con acumulador `uint32_t`. Centros y
+normales se reinterpretan igual (`bits_i16`), sin conversiones de
+implementación definida.
+
 `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
 `0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11).
 
@@ -130,11 +137,21 @@ llamada y orden de apilado fijo).
   doble negación trigonométrica; se documenta la aproximación de tablas y la
   preservación de B fila 2. `test_camera` pasa a 103 comprobaciones y
   `test_bsp` se integra en `build.ps1`/`Makefile` (29 comprobaciones).
-  Resultado: `build.ps1 test` completo, ASan/UBSan y gcc limpios.
+  Resultado: `build.ps1 test` completo, ASan/UBSan y gcc limpios. Cifras
+  superadas por la 14.ª (889 de cámara y 37 de BSP).
+- 14.ª (2026-11-10): auditoría aritmética del recorrido. Se elimina el
+  desbordamiento con signo de `gex_cam_plane_distance()` (acumulador
+  `uint32_t`, `sar 12` sobre los bits del registro y resta con wrap), se
+  sustituyen los casts de implementación definida por copias de bits
+  (`bits_i32`/`bits_i16`) y se corrige la lectura de la distancia `+0x14`,
+  que se hacía con un cast `int32_t* → uint32_t*` (aliasing estricto).
+  `test_camera` pasa a 889 comprobaciones (modelo de referencia x86 para
+  distancia de plano y visibilidad) y `test_bsp` a 37 (distancia cruda
+  `0x80000000` y orden de hijos). `build.ps1 test`, ASan/UBSan y gcc limpios.
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
-intermedios y no son el resultado vigente. El resultado vigente es **29
-comprobaciones de BSP + 103 de cámara**, 0 fallos.
+intermedios y no son el resultado vigente. El resultado vigente es **37
+comprobaciones de BSP + 889 de cámara**, 0 fallos.
 
 ## 6. Limitaciones
 
