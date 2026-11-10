@@ -319,7 +319,32 @@ y las llamadas Glide de cada handler.
 |---|---|---|
 | `0x2C` | **emisor** que escriba el opcode | handler `0x466B3E`; 4 vértices stride 8; 2 triángulos; longitud `0x2C` |
 | `0x28` | **layout/semántica** de los 4 vértices pasados a Glide | emisores `0x42DEC1`/`0x504C44`; registro `0x1C` B; handler `0x46636C` construye 4 structs de `0x3C` B |
-| `0x426588` | propósito del **segundo registro** | se emite siempre: `0x24` B, prefijo `0xE1`, opcode `0x32` en `+0x0F` |
+| `0x426588` | propósito del **segundo registro** | **resuelto 2026-11-10**: es la pasada de niebla (base blanca); ver §4.4 |
+
+### 4.4 Proyección y niebla — cerrado (2026-11-10)
+
+La emisión usa una **tercera** matriz, distinta de la de visibilidad:
+
+| Elemento | Contenido | Estado |
+|---|---|---|
+| `cam+0xE0` | puntero a 0x20 B: 9 `int16` Q12 row-major (x pantalla, y pantalla, profundidad) + traslación `int32[3]` en `+0x14/+0x18/+0x1C` | **demostrado** |
+| `0x46DD40` | construye `+0xE0` y `+0xE4` (`O`) cada frame: rotación → `M2` → escalado por columna (`cam+0x490/0x492/0x494`) → traslación `-camPos` | **demostrado** |
+| `0x46A1D0` | `cam[r] = (M·v) sar 12`; `+t`; descarte si `z<0xA0` o `z>0xFFFF`; `xs=(x*0x140) idiv z + 0x100`, `ys=(y*0x140) idiv z + 0xC0`; clamp `[-0x400,0x3FF]`; empaqueta `(y<<16)|x` | **demostrado** |
+| `0x46B6B5` | `det = (x1-x0)(y2-y0) - (x2-x0)(y1-y0)`; descarta si `>= 0` | **demostrado** |
+| `0x64FEA8` | puntero a `int16[3464]` en `[desc+0x54]`; índice `z>>2`; relleno por `0x461895` desde `+0x4C/+0x4E` | **demostrado** |
+| `0x65BF80`/`0x65BF04` | umbrales de niebla y de selección de emisor, fijados por `0x461895` | **demostrado** |
+| `0x46B727` | `out[c] = desde[c] + (((hacia[c]-desde[c])*factor) sar 12)`, clamp 0..255 | **demostrado** |
+
+Reparto de color: `0x4269C2` usa `dword[vtx+8]` como base; `0x426588` emite el
+registro principal con los colores del llamador y una **segunda pasada** con
+base blanca (niebla pura); `0x426256` no aplica niebla.
+
+`0x46AA14` **no proyecta**: es iluminación + niebla de modelos (normales por
+`0x646860`/`0x646880`, modulación `sar 12`, mezcla con `and 0xFF`).
+
+Incógnitas: punto de reserva del buffer de `0x64FEA8`, semántica de
+`fog+0x44..+0x4A`/`+0x50`, generador de `byte[uv+0x0B]`, escritor del bit
+`0x20000` de `0x647578` y equivalencia bit a bit de las tablas trigonométricas.
 
 ---
 
@@ -345,10 +370,17 @@ Sustituye a la afirmación «todos los campos identificados al 100 %».
 | `+0x34` | ptr | tabla no identificada | **parcial** | apunta dentro de la imagen; sin consumidor localizado |
 | `+0x38` | u32 | `0x10000` (posible `1.0` en 16.16) | **hipótesis** | constante en los tres niveles; consumidor no localizado |
 | `+0x3C` | u32 | constantes; mitad baja siempre `0x0002` | **parcial / sin identificar** | `0xC0800002`, `0x00010002`, `0x00000002`; sin consumidor |
+| `+0x40/+0x41/+0x42` | u8[3] | color de niebla R/G/B | **demostrado** | copiado a `0x6468A0`/`0x647574`/`0x647560` en `0x43B6F0..0x43B70B` |
+| `+0x44/+0x45/+0x46` | u8[3] | segundo color (paleta Glide) | **parcial** | copiado a `0x64FB48` y `0x65BF48`; consumidor Glide no trazado |
+| `+0x4C` | `int16` | profundidad de niebla **total** | **demostrado** | `0x43B6C7` y `0x461895` |
+| `+0x4E` | `int16` | profundidad de niebla **nula** | **demostrado** | idem |
+| `+0x50` | `int32` | override del umbral de emisor | **parcial** | `0x65BF04 = dword[+0x50]` si `(int16)+0x50 == -1`; sin caso real observado |
+| `+0x54` | `ptr` | tabla de niebla `int16[3464]` | **demostrado** | `[0x64FEA8] = [+0x54]` en `0x43B7DC`; relleno en `0x461895` |
 
-**Recuento:** 10 campos con semántica demostrada (7 por cadena/consumidor +
-3 estructurales), 1 hipótesis (`+0x38`), 3 sin identificar (`+0x04`, `+0x08`,
-`+0x0C`) y 2 parciales (`+0x34`, `+0x3C`).
+**Recuento:** 14 campos con semántica demostrada (7 por cadena/consumidor +
+3 estructurales + 4 de niebla), 1 hipótesis (`+0x38`), 3 sin identificar
+(`+0x04`, `+0x08`, `+0x0C`) y 4 parciales (`+0x34`, `+0x3C`, `+0x44..+0x46`,
+`+0x50`).
 
 **Lo que no cambia:** las tres igualdades de U-1h §3.2 se cumplen sin excepción
 en `AZTEC16`, `CIRCUIT0` y `REZOP2`. El encadenado no depende de los campos
@@ -396,15 +428,24 @@ abiertos.
   de `0x3C` B (qué campos alimentan `ooz`, color, UV, etc.). No es un problema
   de emisión: los emisores están localizados.
 
-### 6.4 Segundo registro de `0x00426588`
+### 6.4 Segundo registro de `0x00426588` — **resuelto** (2026-11-10)
 
 * **Demostrado:** `0x426588` escribe el registro texturizado de `0x34` B con
   opcode `0xB6` y `0x4000` en `word[+0x1E]`, **más** un segundo registro de
   `0x24` B con prefijo `0xE1` y opcode `0x32` en `+0x0F`.
-* **Estado:** el segundo registro se emite siempre; su propósito (segunda
-  pasada, reserva para alpha, *z-buffer* o *fallback*) **no está establecido**.
-* **Pendiente:** requiere observar el resultado en ejecución o localizar un
-  consumidor específico del opcode `0x32`.
+* **Resuelto:** el segundo registro es la **pasada de niebla** del triángulo.
+  Sus tres colores (`+0x0C/+0x14/+0x1C`) son `0x46B727` aplicado a base
+  `0x00FFFFFF` con `factor = (int16)tabla[0x64FEA8][z>>2]`, es decir el color de
+  niebla puro por vértice; sus tres posiciones (`+0x10/+0x18/+0x20`) son los
+  mismos xy empaquetados. El registro principal conserva los colores del
+  llamador **sin** mezclar. Evidencia: 4267C0-426847 (cálculo), 42695A-42696F
+  (escritura), 4268F0-426904 (registro principal).
+* **Consecuencia:** `0x426588` es el emisor de polígonos lejanos (con niebla) y
+  `0x426256` el de cercanos o forzados (`poly+0x06 & 4`), que recibe los colores
+  ya calculados. Corrige la idea previa de que `0x426588` «usaba blanco como
+  color base» en su registro principal.
+* **Pendiente menor:** el modo de mezcla concreto que habilita el prefijo
+  `0xE1` (`dword[+0x08] = 0xE1000040`) en Glide; no afecta a la emisión.
 
 ### 6.5 Otros pendientes ya registrados
 

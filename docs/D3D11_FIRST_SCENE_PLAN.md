@@ -543,3 +543,171 @@ visibles → polígonos) y, después, el Módulo 3 (Generador de Buffers D3D11).
 
 Este hito conecta la geometría BSP con D3D11 y es el fundamento para los Módulos 4
 (cargador de texturas) y 5 (integración con renderer).
+
+---
+
+## 11. Contrato propuesto de `gex_level_emit` (2026-11-10)
+
+Propuesta **no implementada**. Deriva de la reconstrucción estática de
+[`S2_BSP_TRAVERSAL.md` §5](../S2_BSP_TRAVERSAL.md) y de
+[`S2_CAMERA_VISIBILITY.md` §13](../S2_CAMERA_VISIBILITY.md).
+
+### 11.1 Principios
+
+1. **Matriz de emisión propia.** `gex_level_emit` **no** acepta `gex_camera` ni
+   usa `gex_camera.m` (`+0xE8`, visibilidad). Recibe un contexto de emisión
+   independiente con la matriz de `cam+0xE0`.
+2. **Separación de fases.** Extracción de polígonos, transformación,
+   clasificación, subdivisión y ordenación son funciones distintas con
+   estructuras propias; ninguna fase llama a otra implícitamente.
+3. **Capacidad segura.** El original reserva 0x34 B por polígono y puede
+   desbordar al subdividir en cuatro. El módulo reserva por comando emitido y
+   devuelve error si no puede crecer.
+4. **Sin dependencias de plataforma.** Nada de D3D11, Win32 ni Glide; solo
+   `stdint.h`/`stddef.h`.
+5. **Incógnitas aisladas.** Lo no demostrado (override `+0x50`, capa
+   `byte[uv+0x0B]`, segundo color de niebla) se expone como parámetro opcional
+   con valor por defecto explícito, nunca se inventa una fórmula.
+
+### 11.2 Contexto de emisión
+
+```c
+/* Matriz de emisión: 3x3 Q12 row-major + traslación int32.
+ * Equivale al buffer de 0x20 B apuntado por cam+0xE0.
+ * NO es gex_cam_mat3 y NO es la matriz de visibilidad. */
+typedef struct {
+    int16_t m[9];      /* fila 0 = x pantalla, 1 = y pantalla, 2 = profundidad */
+    int32_t t[3];      /* traslación, ya en unidades de profundidad */
+    int32_t focal;     /* [0x646850] = 0x140 */
+    int32_t cx, cy;    /* [0x646814] = 0x100, [0x646818] = 0xC0 */
+    int32_t near_z;    /* [0x6474E8] = 0xA0 */
+} gex_emit_matrix;
+
+typedef struct {
+    int16_t x, y, z;   /* Q4 si el origen es geometría de modelo */
+} gex_emit_vertex;
+```
+
+`gex_emit_matrix_from_camera()` (futuro) construiría la matriz a partir de la
+rotación de `gex_cam_build_orientation` **sin** reutilizar `gex_cam_mat3`, y
+aplicaría el escalado por columna y la traslación. Queda fuera de esta ronda.
+
+### 11.3 Niebla
+
+```c
+typedef struct {
+    int16_t lut[3464];   /* [0x64FEA8]; índice z>>2; relleno por 0x461895 */
+    uint8_t fog_rgb[3];  /* +0x40/+0x41/+0x42 */
+    int32_t fog_total_z; /* +0x4C */
+    int32_t fog_none_z;  /* +0x4E */
+    int32_t threshold;   /* [0x65BF80] */
+    int32_t split_z;     /* [0x65BF04] */
+    int have_lut;        /* 0 => usar la fórmula analítica A/z + B */
+    int32_t a_q12, b_q12;/* [0x647564], [0x647570] */
+} gex_emit_fog;
+
+int gex_emit_fog_factor(const gex_emit_fog *fog, int32_t z);   /* 0..0x1000 */
+```
+
+`gex_emit_fog_factor` acota el índice a `0..3463` (el original no lo hace) y
+devuelve el factor sin mezclar colores.
+
+### 11.4 Triángulo normalizado de salida
+
+```c
+typedef struct {
+    uint32_t color[3];     /* AARRGGBB por vértice, ya con niebla si procede */
+    int16_t  x[3], y[3];   /* píxeles enteros (sin recortar a 10 bits) */
+    int32_t  z[3];         /* profundidad de emisión */
+    uint8_t  u[3], v[3];   /* UV 8 bits */
+    uint16_t texture;      /* índice 14 bits; bits altos = modo de textura */
+    uint8_t  layer;        /* byte[uv+0x0B]: desplazamiento de bucket */
+    uint8_t  flags;        /* GEX_EMIT_F_FOG_PASS, GEX_EMIT_F_SUBDIVIDED, ... */
+    uint32_t source_poly;  /* índice de polígono de origen, para trazabilidad */
+} gex_emit_triangle;
+```
+
+- `z` se conserva como `int32` sin recortar: el recorte a `0xFFFF` y el
+  `[-0x400,0x3FF]` son decisiones del renderizador, no del extractor.
+- `color` ya incluye la niebla cuando corresponde; la pasada de niebla de
+  `0x426588` se emite como triángulo separado con `GEX_EMIT_F_FOG_PASS` y
+  colores de niebla puros, igual que el original.
+- `source_poly` permite contrastar contra el ejecutable en la futura validación
+  dinámica.
+
+### 11.5 API
+
+```c
+typedef enum {
+    GEX_EMIT_OK = 0,
+    GEX_EMIT_ERR_ARG,        /* puntero nulo o descriptor incoherente */
+    GEX_EMIT_ERR_RANGE,      /* offset/índice fuera de la imagen DFX */
+    GEX_EMIT_ERR_INCONSIST,  /* conteos o tablas que no cuadran */
+    GEX_EMIT_ERR_NOMEM,      /* fallo de reserva */
+    GEX_EMIT_ERR_OVERFLOW    /* capacidad máxima de seguridad alcanzada */
+} gex_emit_status;
+
+typedef struct {
+    gex_emit_triangle *tris;
+    size_t             count;
+    size_t             capacity;
+    size_t             fog_pass_count;  /* subconjunto con GEX_EMIT_F_FOG_PASS */
+    gex_emit_status    status;
+} gex_emit_output;
+
+/* Fase 1: hojas visibles -> polígonos (sin transformar). */
+gex_emit_status gex_emit_collect(const gex_dfx_image *img,
+                                 const gex_level_desc *desc,
+                                 const gex_leaf_list *leaves,
+                                 gex_poly_list *out);
+
+/* Fase 2: transformar y proyectar un polígono (0x46A1D0). */
+gex_emit_status gex_emit_project(const gex_emit_matrix *mat,
+                                 const gex_emit_vertex v[3],
+                                 gex_projected *out);
+
+/* Fase 3: clasificar (0x46B6B5 + umbrales) y decidir emisor. */
+gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
+                                  const gex_projected *p,
+                                  const gex_poly *poly,
+                                  gex_emit_class *out);
+
+/* Fase 4: subdividir en cuatro (0x6A4). */
+gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
+                                   const gex_emit_fog *fog,
+                                   const gex_poly *poly,
+                                   gex_emit_output *out);
+
+/* Fase 5: ordenar por (z>>2) + 4*layer. */
+gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count);
+
+/* Orquestador. */
+gex_emit_status gex_level_emit(const gex_dfx_image *img,
+                               const gex_level_desc *desc,
+                               const gex_leaf_list *leaves,
+                               const gex_emit_matrix *mat,
+                               const gex_emit_fog *fog,
+                               gex_emit_output *out);
+```
+
+### 11.6 Errores y garantías
+
+- `GEX_EMIT_ERR_RANGE` cubre los offsets de hoja tratados como **offsets dentro
+  de la imagen**, nunca como punteros absolutos.
+- `GEX_EMIT_ERR_INCONSIST` cubre el descriptor DFX frente al descriptor del
+  buffer de comandos: son estructuras distintas y el módulo solo acepta el
+  primero.
+- El *bucket array* no se modela: `gex_level_emit` produce una lista de
+  triángulos ordenada; el equivalente al buffer secuencial de comandos es
+  responsabilidad del renderizador.
+- Toda reserva se comprueba; `GEX_EMIT_ERR_OVERFLOW` sustituye al desbordamiento
+  silencioso del original.
+- La geometría de modelo (`0x4013A0`, traslación `sar 4`) **no** entra en este
+  módulo: tiene su propia ruta y su propio contrato.
+
+### 11.7 Lo que este contrato no decide
+
+- El valor real de `+0x50` (override) y de `+0x44..+0x46`.
+- El generador de `byte[uv+0x0B]`; se transporta tal cual desde la imagen.
+- La equivalencia bit a bit de las tablas trigonométricas.
+- El modo de mezcla Glide del prefijo `0xE1`.

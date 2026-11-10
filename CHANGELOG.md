@@ -2,6 +2,70 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-10 - 0.0.0 - Decimoséptima corrección (proyección y niebla exactas)
+
+- Reconstrucción **estática y solo documental** de la proyección y de la niebla
+  de la ruta BSP. No se implementa `gex_level_emit`, no se tocan D3D11, Win32 ni
+  Glide.
+- **Matriz de emisión `cam+0xE0`** (`S2_BSP_TRAVERSAL.md` §5.14,
+  `S2_CAMERA_VISIBILITY.md` §13): puntero a 0x20 B con 9 `int16` Q12
+  **row-major** (`+0x00..+0x10`: fila 0 = x de pantalla, 1 = y de pantalla,
+  2 = profundidad) y traslación `int32[3]` en `+0x14/+0x18/+0x1C`. La escribe
+  `0x46DD40` cada frame (rotación → `M2` → escalado por columna con
+  `cam+0x490/0x492/0x494` → traslación `-camPos`). **No** es `cam+0xE8`
+  (visibilidad, `M = transpose(O)`) ni `cam+0xE4` (`O`); `gex_camera.m` no puede
+  usarse como matriz de emisión.
+- **`0x46A1D0` línea a línea** (§5.5, `U1H_RESULTADOS.md` §21.2): `M·v sar 12`
+  + traslación; descarte si algún `z < 0xA0` o `z > 0xFFFF`
+  (`[0x647578] |= 0x40000`) **antes** de dividir; `xs=(x*0x140) idiv z + 0x100`,
+  `ys=(y*0x140) idiv z + 0xC0` con truncamiento hacia cero; clamp
+  `[-0x400,0x3FF]` **después** de dividir; empaquetado `(y<<16)|(x&0xFFFF)`;
+  `avgz = (z0+z1+z2) idiv 3`, bucket `avgz>>2` y factor de niebla.
+- **Determinante de `0x46B6B5`** (§5.10): `(x1-x0)(y2-y0) - (x2-x0)(y1-y0)`,
+  el convencional; se descarta si `>= 0`. Corrige la descripción previa, que lo
+  daba negado.
+- **LUT de niebla `0x64FEA8`** (§5.15, `U1_CONSOLIDACION.md` §4.4): es un
+  puntero global fijado a `[desc+0x54]` en `0x43B7DC`; apunta a `int16[3464]`
+  rellenada por `0x461895` con `B=(x<<12) idiv (x-y)`,
+  `A=-((x*y) idiv (x-y))` clampado, `tabla[0]=0` y
+  `tabla[i>>2]=clamp(B+((A<<12) idiv i),0,0x1000)` para `i=1,5,9,…<0x3620`.
+  Equivale a niebla lineal en `1/z` (`factor(+0x4C)=0x1000`, `factor(+0x4E)=0`).
+  La emisión no acota el índice `z>>2`; el puerto debe acotarlo.
+- **Umbrales**: `0x65BF80 = (-(A<<12)) idiv B` y
+  `0x65BF04 = ((int16)+0x50 != -1) ? 0x65BF80 : dword[+0x50]`, fijados por
+  `0x461895`. Corrige la atribución previa a `0x4611ED`, que es **selección de
+  LOD / dirección de portal** (escribe `+0xA0/+0xA4..+0xA8/+0xAA`) y no toca la
+  niebla.
+- **Reparto de color** (§5.7, `U1_CONSOLIDACION.md` §6.4 resuelto):
+  `0x426256` no aplica niebla (usa los colores ya calculados por el llamador) y
+  es el emisor de polígonos cercanos o forzados (`poly+0x06 & 4`);
+  `0x426588` es el de polígonos lejanos y emite el registro principal de 0x34
+  **sin** niebla más un **segundo registro de 0x24 con prefijo `0xE1`** que es
+  la pasada de niebla (base blanca `0x00FFFFFF`). Corrige la afirmación previa
+  de que `0x426588` usaba blanco en su registro principal.
+- **`0x46AA14`, `0x40172B` y `0x4013A0`** (§5.10, §5.14): `0x46AA14` es
+  iluminación + niebla de **modelos** (no proyecta; mezcla con `and 0xFF`);
+  `0x40172B` es un *flush* de registros de objeto instalado en
+  `level+0x4CA4`, no configuración de proyección; `0x4013A0` es el emisor de
+  geometría de modelos y copia la traslación **`sar 4`** (vértices en Q4).
+- **Contrato propuesto de `gex_level_emit`** (`docs/D3D11_FIRST_SCENE_PLAN.md`
+  §11): contexto de emisión propio (`gex_emit_matrix`), niebla
+  (`gex_emit_fog` + `gex_emit_fog_factor` con índice acotado), triángulo
+  normalizado (`gex_emit_triangle`) y cinco fases separadas
+  (`gex_emit_collect`, `gex_emit_project`, `gex_emit_classify`,
+  `gex_emit_subdivide`, `gex_emit_sort`) con errores explícitos
+  (`GEX_EMIT_ERR_*`) y capacidad dinámica segura.
+- Documentación: `S2_BSP_TRAVERSAL.md` (§5.5, §5.7, §5.8, §5.10, §5.12,
+  §5.13, nuevas §5.14 y §5.15, 16.ª auditoría, §7), `S2_CAMERA_VISIBILITY.md`
+  (§13 nueva), `U1H_RESULTADOS.md` (§21 nueva y Anexo A), `U1_CONSOLIDACION.md`
+  (§4.4 nueva, tabla del descriptor ampliada con `+0x40..+0x54`, §6.4 resuelto),
+  `docs/D3D11_FIRST_SCENE_PLAN.md` (§11 nueva), `PROJECT_STATE.md`,
+  `ROADMAP.md` y este `CHANGELOG.md`.
+- Sin cambios de código, sin cambios de cifras de prueba (`test_camera` 889,
+  `test_bsp` 37, 0 fallos) y sin cambios de `PROJECT_STATUS.svg` (MAIN 40 %).
+  S-2 **no** se declara completo: falta la emisión en código y la validación
+  dinámica contra el ejecutable.
+
 ## 2026-11-10 - 0.0.0 - Decimosexta correccion (ruta de emision de poligonos BSP documentada)
 
 - Reconstruccion **estatica y solo documental** de la ruta de emision de

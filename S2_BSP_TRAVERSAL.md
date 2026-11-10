@@ -226,25 +226,68 @@ Flags consumidos **en esta ruta** (el resto sigue en U1H §5.2):
 | `0x0004` | fuerza el emisor `0x426256` aunque la profundidad pida `0x426588` (42539-42543) **[A]** |
 | `0x0001`/`0x0002` | sin consumidor localizado en la emisión **[C]** |
 
-### 5.5 Proyección y clasificación por profundidad
+### 5.5 Proyección exacta (`0x0046A1D0`) y clasificación
 
 `0x004269C2` copia los tres vértices a `0x646820`, `0x646828` y `0x646830`
-(6 B cada uno: x/y/z) y llama `0x0046A1D0` sin argumentos (42420-42447). Ese
-procedimiento usa la matriz de `cam+0xE0` (copiada a `0x646BE0..0x646BF0` y
-`0x646BB4/B8/BC`, 42267-42313) y deja: **[A]**
+(6 B cada uno: `int16` x/y/z) y llama `0x0046A1D0` sin argumentos
+(42420-42447). Antes copia la **matriz de emisión** `*[cam+0xE0]` a los
+globales (42267-42313):
 
-| Global | Contenido |
-|---|---|
-| `0x647430`, `0x64742C`, `0x6474A0` | profundidades `z0`, `z1`, `z2` (16 bits útiles; se usan como divisor) |
-| `0x647550` | `(y0<<16) | (x0 & 0xFFFF)` |
-| `0x647558` | `(y1<<16) | (x1 & 0xFFFF)` |
-| `0x647554` | `(y2<<16) | (x2 & 0xFFFF)` |
+| Global | Origen | Tipo |
+|---|---|---|
+| `0x646BE0..0x646BF0` (9 words) | `[+0x00..+0x10]` | `int16` Q12, row-major |
+| `0x646BB4/B8/BC` | `[+0x14/+0x18/+0x1C]` | `int32`, traslación |
 
-Las coordenadas se recortan a `[-0x400, 0x3FF]` antes de empaquetar
-(120640-120685): son **píxeles enteros de 10 bits con signo**, no coma flotante.
-El mapeo `0x647558 → vértice 1` y `0x647554 → vértice 2` se deduce del
-emparejamiento con colores y UV en el registro (§5.8); el interior de
-`0x46A1D0` no está trazado línea a línea **[B]**.
+`0x46A1D0` (120410-120712) aplica a **cada** vértice la misma aritmética de
+32 bits (120412-120560):
+
+```
+; r = 0,1,2 (fila);  v = (x,y,z) del vértice
+cam[r] = (M[r][0]*x + M[r][1]*y + M[r][2]*z) sar 12
+x' = cam[0] + tx        ; +0x646BB4
+y' = cam[1] + ty        ; +0x646BB8
+z' = cam[2] + tz        ; +0x646BBC
+```
+
+- Nueve `imul` de 32 bits con operandos `movsx` de `int16`; suma de 32 bits con
+  wrap modular, sin comprobación de desbordamiento.
+- `sar 12` aritmético; acumulador de **32 bits**, nunca 64.
+- `z'` **no** se reescala: es la profundidad usada para bucket, niebla y
+  subdivisión.
+
+Descarte (120520-120560): si **algún** vértice cumple `z' < [0x6474E8]`
+(`0xA0` = 160) **o** `z' > 0xFFFF`, escribe `[0x647578] |= 0x40000` y retorna
+sin proyectar: los tres se validan antes de dividir. **[A]**
+
+Proyección (120560-120640), por vértice, con `z' != 0`:
+
+```
+xs = (x' * F) idiv z' + cx     ; F  = [0x646850] = 0x140 (320)
+ys = (y' * F) idiv z' + cy     ; cx = [0x646814] = 0x100 (256)
+                               ; cy = [0x646818] = 0xC0  (192)
+```
+
+- `imul` de 32 bits + `idiv` de 32 bits: **truncamiento hacia cero**, no `sar`.
+  El dividendo puede desbordar y no se comprueba.
+- Si `z' == 0` el original no divide (conserva el valor previo de los globales);
+  el caso solo es alcanzable si `[0x6474E8] <= 0`, porque `z' < 0xA0` ya descarta.
+- El recorte `[-0x400, 0x3FF]` se aplica **después** de la división y **antes**
+  del empaquetado (120640-120685): dos `cmp`/`mov` por eje, no un clamp
+  vectorial. Son píxeles enteros de 10 bits con signo.
+
+Empaquetado: `(y<<16) | (x & 0xFFFF)` en `0x647550` (v0), `0x647558` (v1),
+`0x647554` (v2). Los 16 bits altos son `y` con signo; los bajos, `x` de 16 bits.
+
+Al final (120680-120712):
+
+```
+avgz       = (z0 + z1 + z2) idiv 3        -> [0x646C00]
+[0x6474A4] = avgz >> 2                    -> índice de bucket base
+[0x646854] = clamp(([0x647564] idiv avgz) + [0x647570], 0, 0x1000)
+```
+
+`[0x647564]`/`[0x647570]` son constantes del nivel (§5.15) y `[0x646854]` es el
+factor de niebla **analítico**, que `0x4269C2` sustituye por la LUT (§5.15).
 
 Clasificación (42483-42543):
 
@@ -253,13 +296,12 @@ maxz = max(z0, z1, z2)
 if (maxz < 0x6A4)                  -> subdividir (§5.6)
 else if (maxz >= [0x65BF80])       -> color por vértice con niebla (§5.7)
 else                               -> color crudo = dword[vtx+8]
-emisor = (maxz < [0x65BF04] || (poly+0x06 & 4)) ? 0x426256 : 0x426588
+emisor = (maxz >= [0x65BF04] && !(poly+0x06 & 4)) ? 0x426588 : 0x426256
 ```
 
-`0x65BF80` y `0x65BF04` son umbrales de distancia que reescribe cada frame
-`0x004611ED` a partir del registro de niebla y de `cam+0x4C/0x4E/0x50`
-(111191-111259); la fórmula exacta queda **[B]**. `0x6A4` (1700) es el umbral de
-subdivisión **[A]** como constante, sin unidad establecida **[C]**.
+`0x65BF80` y `0x65BF04` son umbrales de profundidad que fija `0x461895`
+(§5.15), no `0x4611ED`. `0x6A4` (1700) es el umbral de subdivisión **[A]** como
+constante, sin unidad establecida **[C]**.
 
 ### 5.6 Subdivisión en cuatro triángulos
 
@@ -283,27 +325,46 @@ perspectiva, pero **cambia la topología** (un triángulo pasa a cuatro).
 
 ### 5.7 Color por vértice y niebla
 
-`0x0046B727` (121657-121720) mezcla cada byte del color del vértice hacia el
+`0x0046B727` (121657-121720) mezcla cada byte de `[0x6474C4/C5/C6]` hacia el
 color de niebla:
 
 ```
-salida[c] = desde[c] + ((hacia[c] - desde[c]) * factor) sar 12     ; clamp 0..255
+para c en {R,G,B}:
+    desde = byte_c(0x6474C4)                       ; lo carga el llamador
+    hacia = [0x6468A0] / [0x647574] / [0x647560]   ; fog+0x40/+0x41/+0x42
+    out[c] = desde + (((hacia - desde) * factor) sar 12)   ; clamp 0..255
 ```
 
-- `desde` = bytes de `0x6474C4/C5/C6`, cargados con `dword[vtx+8]`.
-- `hacia` = `0x6468A0`, `0x647574`, `0x647560`.
-- `factor` = `[0x646854] = (int16)tabla[0x64FEA8][z >> 2]` (**[A]** para el
-  cálculo; contenido y longitud de `0x64FEA8` **[C]**).
-- El resultado se escribe de vuelta en `0x6474C4..C6`. **[A]**
+- `factor` = `[0x646854]`, que el llamador carga con
+  `(int16)tabla[0x64FEA8][z >> 2]` (LUT, §5.15).
+- `(hacia - desde) * factor` es `imul` de 32 bits; `sar 12` aritmético; el clamp
+  `0..255` se aplica **después** del desplazamiento.
+- El resultado se escribe de vuelta en `0x6474C4..C6`.
 
-Los tres destinos se cargan desde el registro de niebla
-(`fog+0x40/+0x41/+0x42`) en `0x0043DE45..0x0043DE69`; `+0x44..+0x4A` y
-`+0x4C/+0x4E` alimentan las tablas y umbrales de `0x0043B6C7` (67470-67489).
-La semántica de esos campos (color, rango, factor) es **[B]**.
+El color base **no es el mismo** en todas las rutas:
 
-`0x426588` parte de **blanco** (`[0x6474C4] = 0x00FFFFFF`, 42109-42111) y aplica
-la misma mezcla con `tabla[z>>2]` por vértice, de modo que su color final es la
-niebla pura, no el color almacenado en el vértice. **[A]**
+| Ruta | Color base | Efecto |
+|---|---|---|
+| `0x4269C2`, rama con niebla (42493-42525) | `dword[vtx+8]` por vértice | color del vértice mezclado con niebla |
+| `0x4269C2`, rama sin niebla (42527-42535) | `dword[vtx+8]` copiado | color del vértice intacto |
+| `0x426588`, registro principal de 0x34 (426889-4268a4) | argumentos del llamador | color **sin** niebla |
+| `0x426588`, segundo registro de 0x24 (42695a-42696f) | `0x00FFFFFF` (blanco) | niebla pura como color por vértice |
+
+Esto **corrige** la conclusión anterior («`0x426588` parte de blanco y su color
+final es la niebla pura»): eso vale solo para su **segundo** registro. El
+registro texturado conserva los colores del llamador y el segundo registro de
+0x24 B con prefijo `0xE1` es la **pasada de niebla** del triángulo, no un
+duplicado sin propósito (§5.8, `U1_CONSOLIDACION.md` §6.4).
+
+Consecuencia de orden: `0x426588` es el emisor de polígonos **lejanos**
+(`maxz >= [0x65BF04]`, con niebla) y `0x426256` el de polígonos **cercanos o
+forzados** (`poly+0x06 & 4`), que recibe los colores ya calculados por el
+llamador.
+
+`0x46AA14` (120848-121018) es la rutina **equivalente para modelos**: transforma
+la normal por `0x646860`/`0x646880`, modula `0x6474C4..C6` por la intensidad
+(`imul` + `sar 12`, clamp a `0x1000`) y aplica niebla con `[0x646854]` usando
+`and 0xFF` en lugar de clamp. **No proyecta** y no interviene en la ruta BSP.
 
 ### 5.8 Emisores y formato de comando
 
@@ -352,8 +413,13 @@ con opcode `0x20` (sólido plano, posiciones en `+0x0C/+0x10/+0x14`). **[A]**
 registro de 0x24 B con prefijo `0xE1` (`dword[+0x08] = 0xE1000040`) y opcode
 `0x32` en `+0x0F`. El prefijo lo consume `0x46558A`: extrae el modo de
 transparencia de `dword[+0x08]`, avanza el puntero 4 B y relee el opcode. **[A]**
-El propósito del segundo registro sigue sin establecer (`U1_CONSOLIDACION.md`
-§6.4).
+
+Ese segundo registro es la **pasada de niebla** del triángulo (§5.7): sus
+vértices `+0x10/+0x18/+0x20` son los mismos xy empaquetados y sus colores
+`+0x0C/+0x14/+0x1C` son `0x46B727` aplicado a base **blanca**, es decir el
+color de niebla puro por vértice. El registro principal (0x34) conserva los
+colores del llamador sin mezclar. Esto **resuelve** el pendiente
+`U1_CONSOLIDACION.md` §6.4. **[A]**
 
 ### 5.9 Orden de dibujo y consumidor
 
@@ -388,7 +454,7 @@ mapa `0x469765`. Detalle completo en `U1H_RESULTADOS.md` §8 y
 | Bucket | pool de nivel `0x64FF00 + 0x6000*k` | array global `0x558800` |
 | Índice de bucket | `(maxz>>2) + 4*byte[uv+0xB]` | suma de profundidades y flags de cara |
 | Salida | 0x18/0x20/0x34, opcodes 0x20/0x4C/0xB4/0xB6 | 0x18/0x20/0x24/0x2C, opcodes 0x20/0x24/0x30/0x34 |
-| Culling | determinante 2D en `0x46B6B5` | ruta propia (`0x46AA14`) |
+| Culling | determinante 2D en `0x46B6B5` | sin `0x46B6B5`; color por `0x46AA14` |
 
 El emparejamiento exacto longitud↔opcode por rama en el emisor de modelos y la
 semántica de `+6`/`+7` quedan **[B]**; no afectan a S-2.
@@ -405,18 +471,20 @@ una **línea 2D** de 0x14 B (opcode `0x40`) en el bucket 0 del pool
 
 Requisitos derivados de la evidencia anterior (no implementados):
 
-1. **Transformación**: `M` de `cam+0xE0` (3×3 Q12 + traslación) y proyección a
-   píxeles enteros recortados a `[-0x400, 0x3FF]`. Para D3D11 conviene conservar
-   la matriz y proyectar en coma flotante; el recorte a 10 bits es una pérdida
-   del original, no un requisito.
+1. **Transformación**: la matriz de emisión `*[cam+0xE0]` (3×3 Q12 row-major
+   + traslación `int32`, §5.14) y la proyección entera de §5.5. Para D3D11
+   conviene conservar la matriz y proyectar en coma flotante; el recorte a 10
+   bits es una pérdida del original, no un requisito.
 2. **Culling**: el original descarta por determinante 2D `>= 0`. Un pipeline
    D3D11 puede usar *winding order* + `CullMode`, pero el signo debe fijarse
-   contra el original (el determinante es el negativo del convencional).
+   contra el original: el determinante es `(x1-x0)(y2-y0) - (x2-x0)(y1-y0)`,
+   el convencional, y se descarta cuando es `>= 0`.
 3. **Subdivisión**: si se quiere equivalencia visual exacta, replicar el umbral
    `0x6A4` y los cuatro subtriángulos; si se usa interpolado por perspectiva, se
    puede omitir, pero entonces la topología y el color por vértice difieren.
 4. **Color**: `dword[vtx+8]` es el color base; la niebla mezcla hacia
-   `fog+0x40..0x42` con factor `tabla[z>>2]`. `0x426588` usa blanco como base.
+   `fog+0x40..0x42` con factor `tabla[z>>2]` (LUT de §5.15). `0x426588` añade
+   una segunda pasada de niebla con base blanca; `0x426256` no aplica niebla.
 5. **UV**: `u8`/`v8` por vértice + word de textura compartido. Índice de 14 bits
    hacia `0x6488F4`; los 2 bits altos del word son el **modo de textura**, no
    parte del índice.
@@ -432,11 +500,133 @@ Requisitos derivados de la evidencia anterior (no implementados):
 
 - Todo es **estático**: no hay traza de una frame real, ni comparación de
   registros emitidos contra el original.
-- `0x46A1D0` (proyección) y `0x46AA14`/`0x46B6B5` se han caracterizado por sus
-  entradas y salidas, no línea a línea.
-- No se ha determinado el significado de `0x64FEA8` (tabla de factor de niebla),
-  `0x65BF80`/`0x65BF04` (umbrales) ni `byte[uv+0x0B]` (capa) más allá de su uso.
-- `0x0040172B` (`level+0x4CA4`) no se ha trazado.
+- `0x46A1D0`, `0x46B6B5`, `0x46B727`, `0x461895` y `0x46DD40` están
+  reconstruidos línea a línea; `0x46AA14` está caracterizado por su efecto
+  (iluminación + niebla de modelos) sin trazar las nueve multiplicaciones.
+- Queda **[B]** la semántica exacta de `+0x44..+0x4A` del registro de niebla
+  (segundo color / paleta Glide) y del override `+0x50`.
+- No se ha localizado el **punto de reserva** del buffer de la LUT
+  (`[desc+0x54]`): solo su escritura (`0x43B7DC`) y su relleno (`0x461895`).
+- `byte[uv+0x0B]` (capa) se usa como índice pero no se ha encontrado su
+  generador.
+- `0x004013A0` (emisor de geometría de modelos) está identificado por su
+  contrato, no trazado por completo.
+
+### 5.14 La matriz de emisión `cam+0xE0`
+
+`cam+0xE0` es un **puntero** a una estructura de 0x20 B, distinta de la matriz
+de visibilidad:
+
+| Offset | Tipo | Contenido |
+|---|---|---|
+| `+0x00..+0x10` | `int16[9]` Q12, **row-major** | fila 0 = x de pantalla, fila 1 = y de pantalla, fila 2 = profundidad |
+| `+0x14` | `int32` | traslación x (en unidades de profundidad) |
+| `+0x18` | `int32` | traslación y |
+| `+0x1C` | `int32` | traslación z |
+
+Construcción: `0x46DD40(cam)` (124412-124964) la reescribe **cada frame**:
+
+1. `R = RotX·RotY·RotZ` sobre `cam+0xF0` (identidad si `cam+0x43C != 0`).
+2. Cambio de ejes `M2 = [0x1000,0,0; 0,0,0xF000; 0,0x1000,0]` aplicado por
+   columnas.
+3. Escalado **por columna** con los words `cam+0x490` (col 0), `+0x492`
+   (col 1) y `+0x494` (col 2).
+4. Traslación: `0x46999C` multiplica por `-camPos` (y por `0x647520/524/528`)
+   y deja el resultado en `+0x14/+0x18/+0x1C`.
+
+Relación con las otras matrices de cámara:
+
+| Campo | Tipo real | Papel |
+|---|---|---|
+| `cam+0xE0` | puntero a matriz de emisión (0x20 B) | **proyección**: mundo → pantalla |
+| `cam+0xE4` | puntero a `O` (9 words) | rotación intermedia, por columnas |
+| `cam+0xE8` | puntero a `M` (9 words) | visibilidad = `transpose(O)` |
+
+`+0xE0` y `+0xE8` **no son la misma matriz ni un alias**: `0x46DD40` escribe
+`+0xE0` y `+0xE4`; `0x46E643` deriva `+0xE8` de `+0xE4`. Comparten la rotación
+de partida, pero `+0xE0` añade cambio de ejes, escalado por columna y
+traslación; `+0xE8` no lleva traslación (la visibilidad usa `a_cam`/`b_cam`).
+
+Consumidores de `*[cam+0xE0]`:
+
+- `0x4269C2` (polígonos BSP): copia las 9 words y la traslación **tal cual** a
+  `0x646BE0..`/`0x646BB4..` y llama `0x46A1D0` (§5.5).
+- `0x4013A0` (geometría de modelos/objetos): copia las 9 words y la traslación
+  **`sar 4`** a los mismos globales y llama `0x46A1D0`. Ese `>>4` es el único
+  cambio de escala entre ambas rutas: los vértices de modelo están en Q4.
+
+`0x40172B` **no** construye la matriz. `0x43DCA5` lo instala en `level+0x4CA4`
+como *callback* y `0x43DDE9` lo invoca como `0x40172B(lista, cam, a, b)`.
+Recorre registros de 0x18 B (`+0x20` cuenta, `+0x24` base), descarta
+`word[rec] & 1`, prueba el registro contra `-radius` y llama
+`0x4013A0(*[cam+0xE0], rec, a, b)`. Es un *flush* de registros de objeto, no
+configuración de proyección. **[A]**
+
+`0x4013A0` recorre registros de 0x0C B (tres índices `int16`), toma los
+vértices de una tabla de 8 B (`int16 x/y/z + relleno`), proyecta con `0x46A1D0`
+y descarta con la máscara `[0x647578] & 0x7E07E000` — **distinta** de la
+`0x60000` de la ruta BSP — antes de escribir comandos planos de 0x20 B
+(opcodes `0x4C`/`0x20`) en la lista de `[arg+0x5FFC]`. No aplica niebla.
+
+### 5.15 LUT de niebla `0x64FEA8` y umbrales `0x65BF80`/`0x65BF04`
+
+`0x64FEA8` **no es una tabla estática**: es un puntero global
+(`dword[0x64FEA8]`) que el cargador de nivel fija a `[desc+0x54]` en
+`0x43B7DC`. Apunta a una tabla de `int16` de **3464 entradas** (6928 B,
+0x1B10) que rellena `0x461895`, llamada desde `0x43B7E6`.
+
+Campos del registro de niebla del nivel:
+
+| Campo | Uso |
+|---|---|
+| `+0x40/+0x41/+0x42` | color de niebla R/G/B → `0x6468A0`/`0x647574`/`0x647560` |
+| `+0x44/+0x45/+0x46` | segundo color (paleta Glide `0x64FB48`/`0x65BF48`) |
+| `+0x4C` | profundidad A (`int16`) |
+| `+0x4E` | profundidad B (`int16`) |
+| `+0x50` | override de umbral (`dword`) |
+| `+0x54` | puntero a la tabla de niebla |
+
+Generación (`0x461895`, 111177-111293) con `x = +0x4C`, `y = +0x4E`:
+
+```
+si x == y: no se rellena nada
+B   = (x << 12) idiv (x - y)
+A   = -((x * y) idiv (x - y))                 ; idiv con signo
+lim = ([0x551644]->+0x8 ->+0x40) * 0x7FFF sar 8
+A   = clamp(A, -lim, lim)
+tabla[0] = 0
+para i = 1; i < 0x3620; i += 4:
+    f = B + (A << 12) idiv i
+    tabla[i >> 2] = (int16)clamp(f, 0, 0x1000)
+```
+
+- Índice válido `0..3463`, es decir `z < 0x3620` (13856). La ruta de emisión
+  **no comprueba** ese límite: con `z` entre `0x3620` y `0xFFFF` el original lee
+  fuera de la tabla. El puerto debe acotar el índice, no reproducir el defecto.
+- La función equivale a `factor(+0x4C) = 0x1000` y `factor(+0x4E) = 0`: niebla
+  **lineal en 1/z** entre ambas profundidades. `+0x4C` es la profundidad de
+  niebla total y `+0x4E` la de niebla nula.
+- `[0x647564]` (§5.5) es `A` antes del `<<12` y `[0x647570]` es `B`: el cálculo
+  analítico y la tabla son la misma función, evaluada por dos caminos.
+
+Umbrales (111244-111259):
+
+```
+0x65BF80 = (-(A << 12)) idiv B          ; equivale a y = +0x4E
+0x65BF04 = ((int16)+0x50 != -1) ? 0x65BF80 : dword[+0x50]
+```
+
+`0x65BF80` es la profundidad a la que la niebla deja de ser nula; por encima no
+se consulta la tabla. `0x65BF04` separa el emisor con pasada de niebla
+(`0x426588`) del pre-coloreado (`0x426256`).
+
+> **Corrección:** la ronda anterior atribuía estos umbrales a `0x4611ED`.
+> `0x4611ED` (110672-111176) es una rutina de **selección de LOD / dirección de
+> portal**: compara dos puntos `+0x48..+0x4C` y `+0x18..+0x1C`, ordena las
+> diferencias absolutas, calcula `(30*|a| + 12*|b| + 9*|c|) / 8`, normaliza el
+> vector a 1/16 (Q14) y elige el subnodo por distancia al plano `+0x1E..+0x24`,
+> escribiendo `+0xA0` (nodo), `+0xA4..+0xA8` (dirección) y `+0xAA` (factor).
+> No toca la niebla ni la proyección.
 
 ## 6. Historial de auditorías (no es estado actual)
 
@@ -491,6 +681,19 @@ Requisitos derivados de la evidencia anterior (no implementados):
   se comprueba por comando: solo se reserva 0x34 por polígono. Solo
   documentación; **sin cambios de código** y sin alterar las cifras de prueba.
 
+- 16.ª (2026-11-10): reconstrucción **línea a línea** de la proyección y de la
+  niebla. Se documentan la estructura y construcción de la matriz de emisión
+  `cam+0xE0` (§5.14), la aritmética exacta de `0x46A1D0` (§5.5), el
+  determinante 2D de `0x46B6B5`, la LUT de niebla `0x64FEA8` y su generador
+  `0x461895` (§5.15), los umbrales `0x65BF80`/`0x65BF04` y el reparto de color
+  entre `0x426256` y `0x426588` (§5.7). Se corrigen tres afirmaciones previas:
+  (a) el determinante es el convencional, no su negación; (b) `0x426588` no usa
+  blanco en su registro principal, solo en la pasada de niebla; (c) los
+  umbrales los fija `0x461895`, no `0x4611ED` (que es selección de LOD). Se
+  identifica el segundo registro de 0x24 B como pasada de niebla y se caracteriza
+  `0x40172B`/`0x4013A0` como *flush* de geometría de modelos. Solo
+  documentación; **sin cambios de código** y sin alterar las cifras de prueba.
+
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es **37
 comprobaciones de BSP + 889 de cámara**, 0 fallos.
@@ -503,6 +706,9 @@ comprobaciones de BSP + 889 de cámara**, 0 fallos.
   aproximación matemática (equivalencia bit a bit no demostrada).
 - Emisión de polígonos **documentada (§5), no implementada**: no hay lista de
   polígonos visibles ni registros de comando en `port/`.
+- La matriz de emisión `cam+0xE0` está reconstruida pero **no existe en el
+  puerto**: `port/include/gex/camera.h` solo modela `+0xE4`/`+0xE8`. No debe
+  usarse `gex_camera.m` como sustituto (son matrices distintas, §5.14).
 - Sin D3D11, shaders, texturas.
 - `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
 

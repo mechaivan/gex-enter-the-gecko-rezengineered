@@ -949,4 +949,46 @@ resultado negativo antes de `sar 12`, `0 − INT32_MIN`, `±5 − INT32_MAX` y
 2. Integración con la emisión de polígonos (`0x4269C2`) y el renderer D3D11.
 3. Declarar S-2 completo.
 
+## 13. Tercera matriz: la de emisión `cam+0xE0` (2026-11-10)
+
+La cadena documentada en §6 produce **tres** matrices, no dos. `cam+0xE4`,
+`cam+0xE8` y `cam+0xE0` son punteros a buffers distintos:
+
+| Campo | Tipo real | Escritor | Contenido |
+|---|---|---|---|
+| `cam+0xE0` | `ptr` → 0x20 B | `0x46DD40` | matriz de **emisión**: 9 `int16` Q12 row-major + traslación `int32[3]` |
+| `cam+0xE4` | `ptr` → 18 B | `0x46DD40` | `O` = `M2·R` por columnas |
+| `cam+0xE8` | `ptr` → 18 B | `0x46E643` | `M = transpose(O)` (visibilidad) |
+
+`0x46DD40` escribe `+0xE0` y `+0xE4`; `0x46E643` deriva `+0xE8` de `+0xE4`.
+Comparten la rotación de partida, pero `+0xE0` aplica además el cambio de ejes,
+el escalado por columna (`cam+0x490/0x492/0x494`) y la traslación
+`-camPos` transformada; `+0xE8` no tiene traslación.
+
+Formato de la matriz de emisión (offsets dentro del buffer apuntado):
+
+| Offset | Tipo | Fila |
+|---|---|---|
+| `+0x00/+0x02/+0x04` | `int16` | 0 → x de pantalla |
+| `+0x06/+0x08/+0x0A` | `int16` | 1 → y de pantalla |
+| `+0x0C/+0x0E/+0x10` | `int16` | 2 → profundidad |
+| `+0x14/+0x18/+0x1C` | `int32` | traslación x/y/z |
+
+Consecuencias para el puerto:
+
+- `port/include/gex/camera.h` **no** modela `+0xE0`: define
+  `GEX_CAM_PTR_O 0xE4`, `GEX_CAM_PTR_M 0xE8` y `gex_camera.m` (M embebida).
+  `gex_camera.m` **no** puede usarse como matriz de emisión: le falta el cambio
+  de ejes, el escalado por columna y la traslación, y su orientación es la
+  transpuesta.
+- El futuro `gex_level_emit` necesita un **contexto de emisión** propio
+  (`gex_emit_mat3` + traslación), construido a partir de la misma rotación pero
+  sin reutilizar `gex_camera.m`. Contrato propuesto en
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §11.
+- Dos consumidores del original copian la matriz a los globales
+  `0x646BE0..0x646BF0`/`0x646BB4..0x646BBC` con una diferencia: `0x4269C2`
+  (BSP) copia la traslación **tal cual** y `0x4013A0` (modelos) la copia
+  **`sar 4`** porque los vértices de modelo están en Q4. El puerto debe
+  mantener esa distinción en el contexto de emisión, no dentro de la cámara.
+
 ---
