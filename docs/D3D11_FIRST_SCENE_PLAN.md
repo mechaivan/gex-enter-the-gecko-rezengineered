@@ -207,7 +207,19 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
     citado) para construir `M = *[cam+0xE8]`, las matrices A/B y la prueba de
     esfera contra seis semiplanos. Se activa pasando `cam_ctx` a `gex_bsp_walk`.
     La integración con la emisión de polígonos sigue pendiente.
-  - Generar lista de polígonos visibles: **pendiente** (emisión)
+  - Generar lista de polígonos visibles: **ruta reconstruida, no implementada**
+    ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5). La cadena original
+    `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
+    `0x469836` → `0x46558A` está documentada con evidencia estática, pero en
+    `port/` no existe todavía ni lista de polígonos ni registro de comando.
+  - Requisitos que el futuro generador debe cubrir (resumen de §5.12):
+    transformación con `M = *[cam+0xE0]`, *culling* 2D por determinante,
+    subdivisión a cuatro triángulos si `maxz < 0x6A4`, color por vértice con
+    niebla, UV de 8 bits + word de textura de 14 bits, orden por
+    `(z>>2) + 4*capa` y respeto de los flags `0x8000` (oculto) y `0x0004`
+    (forzar sólido). La capacidad debe reservarse **por comando**, no por
+    polígono: el original reserva `0x34` B por polígono y puede desbordar al
+    subdividir.
 - **Estructuras de datos (implementadas):**
   ```c
   typedef struct gex_bsp_walk_result {
@@ -224,6 +236,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   gex_bsp_status gex_bsp_walk(const uint8_t *image, size_t image_size,
                               uint32_t root_offset,
                               gex_bsp_visible_fn visible, void *ctx,
+                              const void *cam_ctx,
                               gex_bsp_walk_result *out);
   void gex_bsp_walk_free(gex_bsp_walk_result *r);
   ```
@@ -391,13 +404,16 @@ variante `0x00461ECA` en §H).
 - **Estado:** 🔄 PARCIAL (2026-11-10). Recorrido estructural y visibilidad de
   cámara implementados y auditados en `port/`
   ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); la emisión de
-  polígonos sigue pendiente, por lo que el hito no se declara completo.
+  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); la **ruta de
+  emisión de polígonos está reconstruida con evidencia estática** (§5 del primer
+  documento) pero **no implementada**, por lo que el hito no se declara
+  completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
   lista de polígonos visibles.
 - **Criterio de éxito:**
   - Recorrido completo del árbol BSP (estructural: hecho)
-  - Lista de polígonos visibles generada (pendiente: implementar emisión)
+  - Lista de polígonos visibles generada (pendiente: implementar emisión a
+    partir de la especificación de §5)
   - Validación con nodos conocidos de AZTEC
 
 **Estado 2026-11-10:** recorrido estructural implementado en `port/`
@@ -409,6 +425,13 @@ desensamblado: 889 comprobaciones de cámara + 37 de BSP, 0 fallos, integradas
 en `build.ps1 test` y `make test`. No hay emisión ni validación dinámica contra
 el ejecutable; `port/` sigue usando el predicado inyectado cuando no se pasa
 `cam_ctx`.
+
+**Emisión (2026-11-10):** la ruta está descrita de extremo a extremo en
+[`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada, descriptores,
+proyección a píxeles de 10 bits, subdivisión, niebla, emisores, buckets,
+diferencias con modelos y con la primitiva 2D `0x4FF06F`). Es documentación, no
+código: el Módulo 3 (generador de buffers) sigue sin implementar y debe usar
+§5.12 como especificación de entrada.
 
 
 ### Hito 3: Buffers D3D11 Generados

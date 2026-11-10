@@ -1412,6 +1412,130 @@ UV, recorridos, emisores de nivel y despacho siguen verificados.
 
 ---
 
+## 20. Ruta de emisión de polígonos (2026-11-10)
+
+Esta sección completa §6.2, §7 y §8 sin reescribir el histórico. La
+especificación detallada, con las marcas **[A]** demostrado / **[B]**
+parcialmente demostrado / **[C]** hipótesis por afirmación, está en
+[`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) §5. Aquí se fija el estado.
+
+### 20.1 Cadena de llamada
+
+`0x0043DC3A` instala los emisores en el struct de nivel (70261-70267):
+`+0x4C98 = 0x4258BD` (caras de modelo por rango), `+0x4C9C = 0x425010` (todas
+las caras de modelo), `+0x4CA0 = 0x4269C2` (hojas BSP) y `+0x4CA4 = 0x40172B`
+(sin trazar). Cada frame, `0x0043DED0` llama `0x00401C00` (lista de hojas
+visibles en `[0x64FEA4]`, formato `{u32 count; void *leaf[count]}`), y si
+`dword[level+0x4C94] & 0x200 == 0` llama `[level+0x4CA0]` con **cinco**
+argumentos: lista de hojas, `*(level+4)`, `*(level+8)` (cámara),
+`*(level+0x24)` (descriptor de comandos) y `0x64FF00 + 0x6000*level[+0x14]`
+(bucket array). El valor devuelto se escribe en `[level+0x24]+4`.
+
+**Corrección a §6.2:** `0x4269C2` devuelve el **cursor final** del buffer de
+comandos (43305-43306), no un 0/1. `0x426256` y `0x426588` sí devuelven 0/1
+(emitido / descartado), y `0x4269C2` aborta el polígono si alguno devuelve 0.
+
+### 20.2 Doble buffer: comandos frente a buckets
+
+Son **dos estructuras distintas**, no una:
+
+| Estructura | Base | Contenido |
+|---|---|---|
+| Buffer de comandos | descriptor `[0x64FEE0 + 4*k]` | `+0 contador`, `+4 cursor`, `+8 límite`; comandos contiguos desde `+0x0C` |
+| Bucket array | `0x64FF00 + 0x6000*k` | 0xC00 slots de 8 B; solo punteros encadenados a comandos |
+
+`0x00424B0F..0x00424C0E` inicializa `level+0x4C10`, `+0x4C14`, `+0x24`,
+`+0x6F7C` y `+0x6F80` (bucket activo y alterno), y llama
+`0x00465530(pool, 0xC00)`: para cada slot `i`, `slot[i][+4] = slot[i-1]`,
+`slot[0][+4] = -1`, `slot[i][0] = 0`. El encadenado real empieza en `+4`; el
+campo `[0]` actúa de separador. El buffer se reserva con el asignador
+`0x00464FB3` y se inicializa con `desc[+4] = desc+0x0C` y
+`desc[+8] = desc+tamaño-0x28`.
+
+### 20.3 Formatos operativos
+
+| Estructura | Tamaño / campos |
+|---|---|
+| Polígono | `0x14` B: índices `u16` en `+0/+2/+4`, flags en `+6`, puntero UV en `+0x10` |
+| Vértice de nivel | `12` B: `int16 x/y/z` en `+0/+2/+4`; color empaquetado en `+8` |
+| Registro UV | `12` B: tres grupos `{u8, v8, word textura}` en `+0/+1`, `+4/+5`, `+8/+9`; word en `+6`; **`byte[+0x0B]` = capa de bucket** |
+| Comando `0x34` | `+0x08/+0x0C/+0x10` color0/xy0/uv0; `+0x14/+0x18/+0x1C` y `+0x20/+0x24/+0x28` los otros dos vértices; `+0x2C/+0x2E/+0x30` `z0/z1/z2`; opcode en `+0x0B` |
+
+`0x426256` emite `0x34` B con opcode `0xB4 | ((color0>>24)&3)`; en wireframe
+(`[0x551644]+0xA0 & 1`) emite `0x20` B opcode `0x4C`, y con `& 0x1000` un `0x18`
+B opcode `0x20`. `0x426588` emite el mismo `0x34` con opcode `0xB6` y `0x4000`
+en `word[+0x1E]`, **más** un segundo registro de `0x24` B con prefijo `0xE1`
+(`dword[+0x08] = 0xE1000040`) y opcode `0x32` en `+0x0F`; el prefijo lo consume
+`0x46558A`, que avanza 4 B y relee el opcode. Su propósito sigue **[C]** (§6.4).
+
+### 20.4 Proyección, clasificación y subdivisión
+
+`0x4269C2` copia `*[cam+0xE0]` (3×3 `int16` Q12 en `+0x00..+0x10` y traslación
+`int32` en `+0x14/+0x18/+0x1C`) a `0x646BE0..0x646BF0` y `0x646BB4/B8/BC`,
+copia los tres vértices a `0x646820/28/30` y llama `0x46A1D0`, que deja las
+profundidades en `0x647430/2C/A0` y las coordenadas empaquetadas
+`(y<<16)|(x&0xFFFF)` en `0x647550/58/54`, con recorte a `[-0x400, 0x3FF]`
+(píxeles enteros de 10 bits). El interior de `0x46A1D0` es **[B]**.
+
+```
+maxz = max(z0,z1,z2)
+if (maxz < 0x6A4)            -> subdividir en 4 triángulos con 0x426256
+else if (maxz >= [0x65BF80]) -> color por vértice + niebla (0x46B727)
+else                         -> color crudo = dword[vtx+8]
+emisor = (maxz < [0x65BF04] || (poly+6 & 4)) ? 0x426256 : 0x426588
+```
+
+Subdivisión: puntos medios `(a+b)/2` truncado; color y UV medios (u y v por
+separado, word de textura copiado de `+0x06`); cuatro subtriángulos, nunca con
+`0x426588`. Niebla: `salida = desde + ((hacia-desde)*factor) sar 12` por byte,
+`desde = 0x6474C4..C6`, `hacia = 0x6468A0/0x647574/0x647560`, `factor =
+(int16)tabla[0x64FEA8][z>>2]`; `0x426588` parte de blanco (`0x00FFFFFF`).
+Contenido y longitud de `0x64FEA8` y fórmula de `0x65BF80`/`0x65BF04`
+(`0x4611ED`) quedan **[B]/[C]**.
+
+**Capacidad:** solo se reserva `0x34` B por polígono, no por comando, y los
+emisores no vuelven a comprobar `desc+8`; un polígono subdividido puede emitir
+hasta `0xD0` B. La cota es aproximada (**[A]** para la ausencia de
+comprobación; el desbordamiento real no se ha observado). Queda corregida la
+frase de §6.2 «comprueba capacidad antes de escribir».
+
+### 20.5 Orden de dibujo
+
+Ambos emisores llaman `0x46B6B5` (determinante 2D
+`(x2-x0)(y1-y0)-(x1-x0)(y2-y0)` en `0x6468E0`) y **descartan si `>= 0`**: el
+*culling* es 2D, posterior a la proyección. Luego calculan
+`idx = (maxz>>2) + 4*byte[uv0+0x0B]`, salen si `idx` cae fuera de `[0, 0xC00)`
+e insertan al frente del bucket (`cmd[+4] = bucket[8*idx+4]; bucket[8*idx+4] =
+cmd`). `0x469836(start)` recorre mientras `start != -1`, salta slots vacíos
+(`dword[start] == 0`) y dibuja con `0x46558A`; desde `bucket + 0x5FF8` recorre
+**0xBFF → 0** (lejos → cerca) con **LIFO** por bucket: *painter's algorithm* por
+profundidad cuantizada (`z>>2`) y capa (`4*byte[uv+0x0B]`).
+
+### 20.6 Modelos y primitiva 2D
+
+`0x425010` **no comparte ruta** con el BSP: recibe un `faceSet`
+`{+4 vértices, +0x10 count, +0x14 caras}`, usa vértices de **16 B** y caras de
+12 B con `+6` (índice a la tabla `0x558800`, stride 8) y `+7` (flags), encadena
+en el array global `0x558800` y escribe registros `0x18/0x20/0x24/0x2C` con
+opcodes `0x20/0x24/0x30/0x34`. El emparejamiento exacto longitud↔opcode por
+rama y la semántica de `+6`/`+7` son **[B]**.
+
+`0x4FF06F(r,g,b,x0,y0,x1,y1,flag)` **no** emite geometría 3D: escribe una línea
+2D de `0x14` B (opcode `0x40`) en el bucket 0 del pool, con color RGB en `+0x08`
+y cuatro `int16` en `+0x0C..+0x12`, y opcionalmente un registro de `0x0C` con
+prefijo `0xE1` (`0xE1000068`). No interviene en la ruta BSP.
+
+### 20.7 Límites
+
+Toda la reconstrucción es **estática**: no hay traza de una frame real ni
+comparación de registros emitidos. Quedan abiertos el interior de `0x46A1D0` y
+`0x46AA14`, el contenido de `0x64FEA8`, la fórmula de los umbrales, el
+significado de los bits `0x0001/0x0002/0x0008/0x2000` en esta ruta y el
+propósito del segundo registro de `0x426588`. **No se implementa nada**: S-2
+sigue sin emisión en código ni buffers D3D11.
+
+---
+
 ## Anexo A — Tabla de funciones citadas
 
 | Dirección | Papel | Evidencia |

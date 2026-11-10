@@ -2,6 +2,44 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-10 - 0.0.0 - Decimosexta correccion (ruta de emision de poligonos BSP documentada)
+
+- Reconstruccion **estatica y solo documental** de la ruta de emision de
+  poligonos del BSP de nivel. No se implementan buffers D3D11, shaders ni
+  texturas.
+- Documentado con evidencia del desensamblado (`S2_BSP_TRAVERSAL.md` §5):
+  - Cadena `0x43DC3A` (instala emisores en `level+0x4C98..+0x4CA4`) ->
+    `0x43DED0` -> `0x401C00` -> `0x4269C2` -> `0x426256`/`0x426588` ->
+    buckets -> `0x469836` -> `0x46558A`, con los cinco argumentos de la
+    llamada y el contrato de retorno (cursor final, no 0/1).
+  - Buffer de comandos (`[0x64FEE0 + 4*k]`, `{contador, cursor, limite}`,
+    comandos desde `+0x0C`) y bucket array (`0x64FF00 + 0x6000*k`, 0xC00
+    slots de 8 B) como **estructuras distintas**; inicializacion con
+    `0x465530(pool, 0xC00)`.
+  - Formatos: poligono `0x14` B, vertice `12` B, registro UV `12` B (con
+    `byte[+0x0B]` como capa de bucket) y comando `0x34` B con opcode en
+    `+0x0B`; variantes `0x18`/`0x20` y segundo registro `0x24` de `0x426588`.
+  - Proyeccion a **pixeles enteros de 10 bits** recortados a `[-0x400, 0x3FF]`
+    y empaquetado `(y<<16)|(x&0xFFFF)`; clasificacion por `maxz`; subdivision
+    en cuatro triangulos si `maxz < 0x6A4`; mezcla de niebla
+    `desde + ((hacia-desde)*factor) sar 12`.
+  - Culling 2D por determinante `0x46B6B5 >= 0`; orden de buckets
+    `(z>>2) + 4*capa` recorrido de 0xBFF a 0 con LIFO (painter).
+  - Diferencias con modelos (`0x425010`, vertices de 16 B, array `0x558800`,
+    opcodes propios) y con la primitiva 2D `0x4FF06F` (linea, opcode `0x40`).
+  - Correccion: la capacidad solo se reserva `0x34` B **por poligono**, no por
+    comando, y los emisores no vuelven a comprobar el limite; un poligono
+    subdividido puede desbordar.
+- Documentacion: `S2_BSP_TRAVERSAL.md` (§5 nueva, §1/estado, historial 15.ª,
+  limitaciones), `U1H_RESULTADOS.md` (§20 nueva), `U1_CONSOLIDACION.md`
+  (§4.1 fila y cierre, §4.2 precision de modelos), `S2_CAMERA_VISIBILITY.md`
+  (§9, consumidor de `cam+0xE0`), `docs/D3D11_FIRST_SCENE_PLAN.md`
+  (Modulo 2 / Hito 2), `PROJECT_STATE.md`, `ROADMAP.md` y este `CHANGELOG.md`.
+  Corregida la firma obsoleta de `gex_bsp_walk` con `const void *cam_ctx`.
+- Sin cambios de codigo, sin cambios de cifras de prueba y sin cambios de
+  `PROJECT_STATUS.svg` (MAIN 40 %). S-2 **no** se declara completo: falta la
+  emision en codigo y la validacion dinamica contra el ejecutable.
+
 ## 2026-11-10 - 0.0.0 - Decimoquinta correccion (aritmetica de 32 bits con wrap x86 en BSP)
 
 - Hallazgo: `gex_cam_plane_distance()` (`port/src/camera/camera.c`) sumaba los

@@ -230,13 +230,30 @@ geometría.
 | Vértice | `12` B; `x/y/z` en `+0/+2/+4` | tabla `desc+0x24` |
 | Normal | `6` B; escala 4096 | `|n| = 4096 ± 1` |
 | Auxiliar UV | `12` B; U/V de 8 bits y `word[+6]` = índice de textura de 14 bits | emisor añade `0x4000` |
-| Recorrido de dibujo | `0x401C00` → `[0x64FEA4]` → `0x4269C2` → `0x426256`/`0x426588` → pool → `0x469836` → `0x46558A` | trazas estáticas |
+| Recorrido de dibujo | `0x401C00` → `[0x64FEA4]` → `0x4269C2` → `0x426256`/`0x426588` → buckets → `0x469836` → `0x46558A` | trazas estáticas; detalle en `S2_BSP_TRAVERSAL.md` §5 |
 | Colisión | `0x41A203` segmento–BSP | no es dibujo |
 | Consulta esférica | `0x4024B9` + `0x5015A9`, marca `0x8000 \| 0x40` | uso de juego = hipótesis |
 
-**Cierre:** la geometría de nivel está descrita de extremo a extremo; lo que
-queda abierto son **campos sin consumidor** y **una rama sin datos reales**
-(§6, §7), no la estructura.
+**Cierre:** la geometría de nivel está descrita de extremo a extremo, incluida
+la emisión de polígonos; lo que queda abierto son **campos sin consumidor**,
+**constantes sin semántica** y **una rama sin datos reales** (§6, §7), no la
+estructura.
+
+> **Precisión 2026-11-10 — ruta de emisión.** `S2_BSP_TRAVERSAL.md` §5
+> reconstruye el tramo que faltaba:
+> `0x43DC3A` instala `0x4269C2` en `level+0x4CA0`; `0x43DED0` pasa cinco
+> argumentos (lista de hojas, descriptor de nivel, cámara, descriptor de
+> comandos, bucket array) y guarda el **cursor final** devuelto. `0x4269C2`
+> reserva `0x34` B por polígono (no por comando), proyecta con `0x46A1D0` a
+> **píxeles enteros de 10 bits** (`[-0x400, 0x3FF]`), subdivide en cuatro
+> triángulos si `maxz < 0x6A4`, mezcla niebla con `0x46B727` cuando
+> `maxz >= [0x65BF80]` y elige `0x426256` o `0x426588` según `[0x65BF04]` y el
+> flag `0x0004`. Ambos emisores descartan por **determinante 2D** `0x46B6B5 >= 0`
+> y encadenan por `idx = (maxz>>2) + 4*byte[uv+0x0B]` en 0xC00 buckets; el
+> **buffer de comandos** (`desc+0x0C..límite`) y el **bucket array**
+> (`0x64FF00 + 0x6000*k`) son estructuras distintas. `0x469836` recorre de
+> 0xBFF a 0 y dibuja lejos→cerca con LIFO por bucket. `0x4FF06F` es una línea
+> 2D, no geometría de nivel.
 
 > **Precisión 2026-11-09.** El tipo `+0x12` es 1/2, pero el predicado del
 > original es `(word[+0x12] & 1) == 0` (hoja); `port/` usa `& 2`, equivalente
@@ -276,6 +293,17 @@ nivel: `image[0] = 0x2E0` no está relocalizado, no hay BSP ni cadena de
 regiones, y aparecen `image+0x08 = 0x00350001`, `image+0x0C = 0x4C` (tabla de
 frames), `image+0x34 = "gex______"` e `image+0x8C` como puntero a datos no
 textuales.
+
+> **Precisión 2026-11-10.** `0x425010` **no comparte ruta** con el BSP de
+> nivel (`S2_BSP_TRAVERSAL.md` §5.10). Recibe un `faceSet`
+> `{+4 vértices, +0x10 nº de caras, +0x14 caras}`, usa vértices de **16 B**
+> (`idx << 4`) y caras de 12 B con dos bytes de control: `+6` (índice a la
+> tabla global `0x558800`, stride 8) y `+7` (flags: `&1` rama, `&2`
+> texturizado, `&8` atributo precalculado). Encadena en el array de buckets
+> **`0x558800`**, no en el pool de nivel `0x64FF00 + 0x6000*k`, y escribe
+> registros de 0x18/0x20/0x24/0x2C con opcodes 0x20/0x24/0x30/0x34. El
+> emparejamiento exacto longitud↔opcode por rama y la semántica de `+6`/`+7`
+> quedan **[B]**; no afectan a S-2.
 
 ### 4.3 Formatos de comandos — parcial
 

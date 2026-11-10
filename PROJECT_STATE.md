@@ -104,6 +104,18 @@
   `grDrawPlanarPolygonVertexList` para `0x28` y propósito del segundo
   registro de `0x426588`.
 
+- **Ruta de emisión de polígonos (2026-11-10, solo documentación):**
+  `S2_BSP_TRAVERSAL.md` §5 reconstruye con evidencia estática el tramo
+  `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
+  `0x469836` → `0x46558A`: cinco argumentos de llamada, contrato de retorno
+  (cursor final), buffer de comandos frente a bucket array, formatos de
+  polígono/vértice/UV/comando, proyección a píxeles de 10 bits, subdivisión
+  en cuatro triángulos, niebla, *culling* 2D por determinante y orden de
+  buckets `(z>>2) + 4*capa`. Se corrige que la capacidad se reserva por
+  polígono (`0x34` B), no por comando. **No hay código nuevo**: `port/` sigue
+  sin emisión, sin buffers D3D11 y sin validación dinámica. Detalle en
+  `U1H_RESULTADOS.md` §20.
+
 ### Pendientes
 
 - **Sin bloques de U-1:** Subfase C cerrada documentalmente. Quedan campos

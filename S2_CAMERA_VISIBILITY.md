@@ -813,6 +813,16 @@ fidelidad, son legibilidad):**
 | Desbordamiento de la pila `0x647740` | No hay comprobación. Un árbol más profundo que el espacio disponible corrompe memoria. No se ha medido el espacio reservado. **[A]/[C]** |
 | Radio como `uint16` | Se usa sin signo; un radio `> 0x7FFF` es legal en el código aunque no se ha observado en datos. **[A]** |
 
+> **Consumidor de `cam+0xE0` localizado (2026-11-10).** La entrada «escalado por
+> columna» deja de estar sin consumidor conocido: `0x004269C2` (emisión de hojas
+> BSP) copia `*[cam+0xE0]` —3×3 `int16` en Q12 en `+0x00..+0x10` y traslación
+> `int32` en `+0x14/+0x18/+0x1C`— a `0x646BE0..0x646BF0` y
+> `0x646BB4/B8/BC` antes de proyectar con `0x46A1D0` (42267-42313). Es, por
+> tanto, la matriz **de proyección/emisión**, distinta de `M = *[cam+0xE8]`
+> que usa la visibilidad. La relación entre ambas no se ha trazado; el
+> significado del escalado por columna sigue **[C]**. La ruta de emisión está
+> en [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) §5.5.
+
 ---
 
 ## 10. Discrepancias con la documentación previa
