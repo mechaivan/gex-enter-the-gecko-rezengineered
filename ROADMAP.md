@@ -97,8 +97,21 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     UV en lugar del segundo, de modo que se cargaban y muestreaban las
     texturas equivocadas. El modo de mezcla pasa a ser **por polígono** (solo
     las texturas ARGB_4444 se mezclan con alfa) sin tocar el orden de dibujo
-    ni introducir un *depth buffer*. Los 1123 colores por vértice coinciden
-    con los del original. Queda abierto el color de niebla por objeto.
+     ni introducir un *depth buffer*. Los 1123 colores por vertice coinciden
+     con los del original.
+  - **Septima tanda (2026-11-11, auditoria correctiva):** la hipotesis del
+    «tinte de niebla por poligono» del modulo anterior **resulto ser
+    incorrecta**: la variacion entre poligonos la produce el factor de
+    niebla (funcion de la profundidad), no el color destino. Medido sobre
+    las 3476 mezclas del frame 0 de MAP7, el color destino es constante
+    `(B=0x14, G=0x14, R=0x5A)` y las mezclas con color negro tienen factor
+    0 (sin efecto visible). La prueba pasa a exigir la coincidencia
+    **exacta** de los 1123 colores. Se resuelve ademas la hipotesis que
+    U-1f dejo abierta sobre el campo `+0x0C` del registro de textura: es
+    el **formato** (`0x0C` = ARGB_4444, el unico que conserva el canal
+    alfa). Se documenta el papel de la tabla NCC (descompresion YIQ_422 en
+    la TMU, tipo NCC0, confirmado en ejecucion) y que la ruta de
+    emision de nivel **no** lleva iluminacion (la de modelos si).
   - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
     estado de cámara original en la ruta de escena y en el renderer D3D11:
     la matriz de emisión `cam+0xE0` se reconstruye desde la cámara

@@ -378,6 +378,12 @@ para c en {R,G,B}:
 
 - `factor` = `[0x646854]`, que el llamador carga con
   `(int16)tabla[0x64FEA8][z >> 2]` (LUT, §5.15).
+- El color destino de la mezcla es `[0x6468A0]` (B), `[0x647574]` (G) y
+  `[0x647560]` (R), que el juego actualiza **por objeto** durante la emisión
+  (`0x43DE14` toma los bytes `+0x48/+0x49/+0x4A` de una estructura y
+  `0x43DE4D` los `+0x40/+0x41/+0x42`). Medido sobre las 3476 mezclas del
+  frame 0 de MAP7, el valor es constante (`B=0x14, G=0x14, R=0x5A`) y las
+  mezclas con otro color (negro) tienen factor 0, sin efecto visible. **[A]**
 - `(hacia - desde) * factor` es `imul` de 32 bits; `sar 12` aritmético; el clamp
   `0..255` se aplica **después** del desplazamiento.
 - El resultado se escribe de vuelta en `0x6474C4..C6`.

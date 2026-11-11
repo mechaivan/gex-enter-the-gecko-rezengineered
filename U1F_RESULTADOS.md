@@ -371,12 +371,22 @@ mov  eax, [edx + 4*ecx]               ; puntero a registro de textura
   compara `registro[+0x0C]` con `0x0C` y con `0` (`0x465667`, `0x465679`) para
   fijar dos banderas y elegir entre dos llamadas a `grAlphaCombine`:
   `(3,4,1,0,0)` en un caso y `(1,0,0,2,0)` en el otro.
-* **Hipótesis no verificada:** por la disposición de `GrTexInfo`
+* ~~**Hipótesis no verificada**~~ **RESUELTA (2026-11-11, auditoría
+  correctiva de materiales).** Por la disposición de `GrTexInfo`
   (`largeLod,+0`; `smallLod,+4`; `aspectRatio,+8`; `format,+0xC`; `data,+0x10`),
-  `+0x0C` sería el **formato de textura**, y los valores `0`/`0x0C` podrían ser
-  `GR_TEXFMT_RGB_332` / `GR_TEXFMT_AP_88` (textura con paleta). **No se ha
-  comprobado con los headers del SDK Glide 2.x**, que no están en el repo, así
-  que el significado exacto de esos dos valores queda abierto.
+  `+0x0C` es el **formato de textura**, confirmado de dos formas:
+  1. el `map7.vfx` del juego tiene los formatos 1 (YIQ_422), 11 (ARGB_1555) y
+     12 (ARGB_4444) (`docs/VFX_TEXTURE_FORMAT.md` § 4.2), y
+  2. comparando comando a comando los 1123 comandos del frame 0 de MAP7 con el
+     estado de Glide que fija el original, las seis texturas que este mezcla
+     con alfa (`grAlphaCombine(3,4,1,0,0)`) son **exactamente** las de
+     formato **ARGB_4444** (`0x0C`), y las demás son opacas
+     (`grAlphaCombine(1,0,0,2,0)`).
+  Lo que queda abierto no es el significado del campo, sino la **aritmética
+  exacta** de `grAlphaCombine`: los encabezados del SDK Glide 2.x no están en
+  el repo, de modo que la equivalencia con la mezcla `SRC_ALPHA`/`INV_SRC_ALPHA`
+  que usa el port es la lectura habitual, no una lectura verificada
+  (`docs/D3D11_FIRST_SCENE_PLAN.md` § 19.6 y § 19.7).
 
 ### 8.3 Vértices
 

@@ -2111,12 +2111,82 @@ Para MAP7 en el frame 0 el valor general es `B=0x14, G=0x14, R=0x5A`.
 La ruta lejana (`0x426588`, que MAP7 no usa porque `[0x65BF04] = 0xFFFF`) sí
 hace la niebla **después** de la textura, con un segundo comando de 0x24 B.
 
-### 19.5 Qué queda abierto
+### 19.5 La niebla por objeto: hipótesis descartada (2026-11-11)
 
-- El color de niebla por objeto: el original lo actualiza durante la emisión
-  (`0x43DE14`/`0x43DE4D` lo leen de una estructura cuyo origen en el `.DFX`
-  todavía no está identificado; con el valor general del frame los colores
-  coinciden, pero un nivel con varios tintes por sector no).
+El módulo anterior dejó abierta la idea de que el color de niebla cambiaba por
+polígono u objeto. **Es incorrecta**, y la auditoría lo demuestra capturando
+el color destino y el factor en el punto exacto de la mezcla (`0x46B727`, con
+breakpoint en esa dirección) para las 3476 mezclas del frame 0 de MAP7:
+
+| Color destino (B,G,R) | mezclas | con factor ≠ 0 |
+|---|---|---|
+| `(0x14, 0x14, 0x5A)` | 749 | 722 |
+| `(0, 0, 0)` | 2728 | **0** |
+
+- El color destino **no cambia** durante la emisión del nivel (un solo cambio
+  en 3476 mezclas consecutive), salvo el paso desde el estado anterior.
+- Las mezclas con color negro tienen **factor 0**: el color no influye en el
+  resultado (queda el color base del vértice).
+- Por tanto la variación de color entre polígonos la produce el **factor** de
+  niebla (que depende de la profundidad mediante la LUT), no un tinte por
+  objeto.
+
+Consecuencia: el port, que usa el valor general del frame
+`(B=0x14, G=0x14, R=0x5A)`, reproduce los **1123 colores por vértice de
+forma exacta**. La regresión `test_material_reference()` exige ahora la
+coincidencia exacta (`same_rgb == 1123`) y no una coincidencia parcial.
+
+**Lo que sí es cierto** es que el juego *mecanismo* actualiza el color por
+objeto: `0x43DE14` lo toma de los bytes `+0x48/+0x49/+0x4A` de una estructura
+y `0x43DE4D` de los bytes `+0x40/+0x41/+0x42` de la misma (después de la
+llamada a `0x471E5F`). En MAP7 todos los objetos del nivel tienen el mismo
+valor, así que no se nota; un nivel con niebla distinta por sector sí
+divergiría. La procedencia de esa estructura en el `.DFX` sigue sin
+identificarse.
+
+### 19.6 La tabla NCC y la iluminación
+
+**La tabla NCC no es una paleta ni una fuente de iluminación**: es la tabla
+de descompresión del formato **YIQ_422** (112 B: `yRGB[16]`, `iRGB[4][3]`,
+`qRGB[4][3]`, `packed_data[12]`), y el juego la sube a la TMU con
+`grTexDownloadTable(tmu=0, type=0, registro+0x14)` **solo** para las texturas
+de formato 1 (`0x466136`). Comprobado en ejecución: en el punto de la llamada
+los argumentos son `tmu=0`, `type=0` (= `GR_TEXTABLE_NCC0`) y el puntero a la
+tabla de cada textura.
+
+Es decir: en Glide la expansión YIQ→RGB la hace el hardware con esa tabla; el
+port la reproduce **en la CPU** al decodificar el `.VFX` y sube el resultado
+al atlas. La equivalencia está verificada contra la referencia del SDK
+(`docs/VFX_TEXTURE_FORMAT.md` § 6: el `packed_data` del fichero coincide byte
+a byte con el que calcula el SDK, y los decodificadores del port son los del
+SDK). Lo que **no** se ha verificado es una comparación **a nivel de píxel**
+con la salida del hardware original, que exigiría capturar el framebuffer del
+juego.
+
+**La iluminación no interviene en la ruta de emisión de nivel.** El camino de
+nivel (`0x4269C2` → `0x426256`) solo aplica la niebla al color del vértice;
+la routine que modula por la normal y la luz (`0x46AA14`, que usa
+`0x646860`/`0x646880`) es la de **modelos** (`0x46AA14` en `S2_BSP_TRAVERSAL.md`
+§ 5.7) y no se ha implementado en el port (el port todavía no dibuja modelos).
+
+Las diferencias que el port debe reproducir de forma explícita son, por
+tanto, solo tres: la expansión YIQ_422 con la tabla NCC (hecha en CPU), el
+formato de píxel por textura (ARGB_4444 con alfa de 4 bits, ARGB_1555 con un
+bit de alfa, YIQ_422 sin alfa) y el modo de mezcla por polígono.
+
+### 19.7 Qué queda abierto
+
+- El color de niebla por objeto: el mecanismo existe (`0x43DE14`/`0x43DE4D`
+  lo actualizan durante la emisión) pero en MAP7 no produce diferencias
+  (§ 19.5); la procedencia de la estructura en el `.DFX` no está identificada.
+- La equivalencia **a nivel de píxel** de la expansión YIQ_422 del port con la
+  del hardware original: verificada contra la referencia del SDK, no contra el
+  framebuffer del juego.
+- La semántica exacta de los argumentos de `grAlphaCombine`: el port usa la
+  mezcla alfa habitual (`SRC_ALPHA`/`INV_SRC_ALPHA`), que es la lectura
+  habitual de `grAlphaCombine(3,4,1,0,0)`; los encabezados del SDK Glide 2.x
+  no están en el repo, así que la aritmética exacta de la llamada queda sin
+  verificar (afecta a 32 de los 1123 triángulos del frame 0).
 - El emisor lejano y su segunda pasada de niebla: implementados en el port
   pero sin validación dinámica (MAP7 no los usa).
 - La tabla NCC y los modos de filtrado: el port usa el atlas con filtrado

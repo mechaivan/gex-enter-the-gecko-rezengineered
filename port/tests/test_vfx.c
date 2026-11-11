@@ -11,6 +11,8 @@
 
 #include "gex/vfx.h"
 #include "gex/vfx_texture.h"
+#include "ref_material.h"
+#include "ref_material.h"
 
 #include "gex/asset/dfx.h"
 #include "gex/bsp.h"
@@ -1099,6 +1101,64 @@ static void test_texture_bank(void)
     CHECK(bank.texture_count == 0u);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Las texturas que el original MEZCLA con alfa son las de ARGB_4444.
+ *
+ * El consumidor de comandos (0x46558A) decide el modo de mezcla por comando
+ * comparando el campo +0x0C del registro de textura en tiempo de ejecucion
+ * (el formato) con 0x0C (ARGB_4444: trae alfa) y con 0 (opaco). Capturado del
+ * GEX3D.EXE en ejecucion con el escenario map7.dfx, las seis texturas que el
+ * original mezcla con alfa (indices 6, 8, 185, 188, 234 y 241) son
+ * exactamente las de formato ARGB_4444 del `map7.vfx`: el juego convierte el
+ * YIQ_422 y el ARGB_1555 a un formato opaco de 8 bits.
+ * ------------------------------------------------------------------------- */
+#define MAP7_VFX_PATH "C:/GEX_REZ/GEX2/level/map7.vfx"
+
+static void test_map7_alpha_textures(void)
+{
+    gex_vfx_file vfx;
+    gex_vfx_texture_bank bank;
+    uint32_t i;
+    uint32_t found = 0;
+    uint32_t total_alpha = 0;
+    FILE *f = fopen(MAP7_VFX_PATH, "rb");
+
+    if (!f) {
+        printf("skip map7 alpha textures (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&vfx, 0, sizeof(vfx));
+    memset(&bank, 0, sizeof(bank));
+    if (gex_vfx_open(&vfx, MAP7_VFX_PATH) != GEX_VFX_OK) {
+        printf("skip map7 alpha textures (open)\n");
+        return;
+    }
+    for (i = 0; i < vfx.record_count; i++) {
+        int in_ref = 0;
+        uint32_t k;
+        for (k = 0; k < sizeof(REF_ALPHA_TEXTURES) / sizeof(REF_ALPHA_TEXTURES[0]); k++) {
+            if (REF_ALPHA_TEXTURES[k] == i) in_ref = 1;
+        }
+        if (vfx.records[i].format == GEX_VFX_FORMAT_ARGB_4444) {
+            if (in_ref) found++;
+            total_alpha++;
+        } else if (in_ref) {
+            CHECK(0); /* la referencia dice que trae alfa y no lo trae */
+        }
+    }
+    /* Las seis texturas que el original mezcla con alfa son ARGB_4444. El
+     * .vfx puede traer mas texturas ARGB_4444 que el nivel no usa: solo
+     * importan las que aparecen en la geometria. */
+    CHECK(found == sizeof(REF_ALPHA_TEXTURES) / sizeof(REF_ALPHA_TEXTURES[0]));
+    printf("map7 .vfx: %u texturas ARGB_4444 en total, %u de ellas usadas "
+           "por la geometria con mezcla de alfa\n", total_alpha, found);
+    gex_vfx_close(&vfx);
+    (void)bank;
+}
+
 int main(void)
 {
     test_names_and_args();
@@ -1114,6 +1174,7 @@ int main(void)
     test_decode_record();
     test_decode_originals();
     test_texture_bank();
+    test_map7_alpha_textures();
     test_ncc_table_twins();
     test_real_aztec();
     test_real_gex_vfx();

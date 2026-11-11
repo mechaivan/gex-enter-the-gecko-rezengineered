@@ -1347,12 +1347,18 @@ static void test_material_reference(void)
     CHECK(bad_z == 0);
     CHECK(bad_uv == 0);
     CHECK(bad_tex == 0);
-    /* El tinte de niebla del original cambia por objeto durante la emision;
-     * el port usa el valor general del frame, asi que solo una parte de los
-     * poligonos coincide todavia (lo que queda abierto esta documentado). */
-    CHECK(same_rgb > 0);
+    /* Los colores por vertice se comparan canal a canal (el alfa del comando
+     * del original lo ocupa el opcode, asi que no se compara).
+     *
+     * Medido en el frame 0 de MAP7: los 1123 triangulos coinciden en los tres
+     * canales RGB. El color destino de la mezcla de niebla que usa el port
+     * (B=0x14, G=0x14, R=0x5A) es el que el original mantiene durante toda
+     * la emision del nivel; el juego lo actualiza por objeto (0x43DE14 y
+     * 0x43DE4D), pero en MAP7 todos los objetos del nivel comparten el mismo
+     * valor. La comprobacion es exacta, no una coincidencia parcial. */
+    CHECK(same_rgb == REF_MATERIAL_COUNT);
     printf("map7 material: %d triangulos, %d con el RGB del original "
-           "(el resto tiene tinte propio por objeto)\n",
+           "(coincidencia exacta)\n",
            (int)out.count, same_rgb);
 
     gex_emit_output_free(&out);

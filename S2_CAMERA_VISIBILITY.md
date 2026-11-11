@@ -1224,9 +1224,14 @@ que el juego mantiene en `[0x6468A0]` (B), `[0x647574]` (G) y `[0x647560]`
 `0x43DE4D`). Para MAP7 en el frame 0 el valor general es
 `B=0x14, G=0x14, R=0x5A`, que es el que usa el port (`scene_camera_view`).
 Con él, los 1123 colores por vértice del port coinciden con los del original.
-El valor por objeto queda pendiente: su origen en el `.DFX` (la estructura
-que lee `0x43DE14`, con los bytes de color en `+0x40` y `+0x48`) todavía no
-está identificado.
+Medido sobre las 3476 mezclas del frame 0 de MAP7, el color destino **no cambia
+durante la emisión del nivel** (las mezclas con color negro tienen factor 0 y
+no producen efecto visible), así que el port reproduce los 1123 colores por
+vértice de forma exacta. Lo que queda pendiente es el caso de un nivel con
+colores de niebla distintos por objeto: el mecanismo existe (`0x43DE14` y
+`0x43DE4D` los actualizan desde una estructura con los bytes de color en
+`+0x40/+0x48`, cuyo origen en el `.DFX` aún no está identificado), pero
+MAP7 no lo exercise.
 
 ### 15.7 Lo que sigue abierto
 

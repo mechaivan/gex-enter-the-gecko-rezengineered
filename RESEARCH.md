@@ -55,6 +55,17 @@ por vertice) es la referencia del modulo; los dos fallos que encontro --
 el indice de textura leido del dword equivocado y el modo de mezcla global
 en lugar de por poligono -- solo se ven al comparar comando a comando.
 
+La auditoria correctiva (2026-11-11) aplico la misma disciplina al material:
+la hipotesis del "tinte de niebla por poligono" se contrasto contra las 3476
+mezclas reales del frame 0 de MAP7 y resulto **incorrecta** (la variacion la
+produce el factor de niebla, no el color destino; el color destino es
+constante durante toda la emision del nivel). La prueba que la sostenia
+comprobaba `same_rgb > 0`, una coincidencia parcial: ahora exige la
+coincidencia exacta de los 1123 colores. El mismo principio se aplico al
+campo `+0x0C` del registro de textura, que U-1f dejo abierto: es el formato
+de la textura, y solo el ARGB_4444 conserva el canal alfa (comprobado contra
+el `map7.vfx`).
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

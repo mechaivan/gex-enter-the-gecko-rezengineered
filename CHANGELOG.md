@@ -140,6 +140,84 @@ tipo de comando, y validar la semantica de una comparacion con datos),
 `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
 `docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
 
+## 2026-11-11 - 0.0.0 - Auditoria correctiva de materiales: la niebla por objeto era una hipotesis falsa, colores exactos y NCC aclarada
+
+Auditoria del modulo anterior de materiales, con comparacion comando a
+comando contra el GEX3D.EXE en ejecucion.
+
+**LO QUE SE DESCARTA.** El modulo anterior afirmaba que el color de niebla
+cambiaba por poligono u objeto y dejaba esa parte "pendiente". Es
+**incorrecto**: la variacion de color entre poligonos la produce el
+**factor** de niebla (que depende de la profundidad mediante la LUT), no el
+color destino. Capturado el color destino y el factor en el punto exacto de
+la mezcla (breakpoint en `0x46B727`) para las 3476 mezclas del frame 0 de
+MAP7:
+
+| Color destino (B,G,R) | mezclas | con factor distinto de cero |
+|---|---|---|
+| `(0x14, 0x14, 0x5A)` | 749 | 722 |
+| `(0, 0, 0)` | 2728 | **0** |
+
+El color destino no cambia durante la emision del nivel (un solo cambio en
+3476 mezclas consecutivas) y las mezclas con color negro tienen factor 0, sin
+efecto visible. Lo que si es cierto es que el juego *mecanismo* actualiza el
+color por objeto (`0x43DE14` toma los bytes `+0x48/+0x49/+0x4A` de una
+estructura y `0x43DE4D` los `+0x40/+0x41/+0x42`, despues de la llamada a
+`0x471E5F`); en MAP7 todos los objetos del nivel tienen el mismo valor, asi
+que no se nota.
+
+**LA PRUEBA SE ENDURECE.** `test_material_reference()` comprobaba
+`same_rgb > 0`, es decir una coincidencia parcial que no demostraba
+equivalencia. Ahora exige la coincidencia **exacta**: `same_rgb == 1123`. El
+valor medido es 1123/1123 (los tres canales RGB de los tres vertices de los
+1123 triangulos). El byte de alfa del color0 del original no se compara
+porque lo ocupa el opcode del comando.
+
+**LO QUE SE RESUELVE.** La hipotesis que U1F_RESULTADOS.md § 8.2 dejo
+abierta sobre el campo `+0x0C` del registro de textura en tiempo de
+ejecucion: **es el formato** de la textura. Las seis texturas que el original
+mezcla con alfa (`grAlphaCombine(3,4,1,0,0)`) son exactamente las de
+formato **ARGB_4444** (`0x0C`) del `map7.vfx`; el juego convierte el YIQ_422 y
+el ARGB_1555 a un formato opaco de 8 bits. Nueva regresion en
+`port/tests/test_vfx.c`: `test_map7_alpha_textures()` comprueba que los
+indices de referencia {6, 8, 185, 188, 234, 241} son ARGB_4444 y que ninguna
+otra textura usada por la geometria lo es.
+
+**NCC E ILUMINACION.** La tabla NCC de 112 B no es una paleta ni una fuente
+de iluminacion: es la tabla de descompresion del formato **YIQ_422**, y el
+juego la sube a la TMU con `grTexDownloadTable(tmu=0, type=0, registro+0x14)`
+solo para el formato 1. Comprobado en ejecucion: en el punto de la llamada
+(`0x466146`) los argumentos son `tmu=0`, `type=0` (= `GR_TEXTABLE_NCC0`) y el
+puntero a la tabla de cada textura. En Glide la expansion YIQ->RGB la hace el
+hardware con esa tabla; el port la reproduce en CPU al decodificar el `.VFX`
+(verificada contra la referencia del SDK, no a nivel de pixel contra el
+framebuffer del juego). La **iluminacion no interviene en la ruta de emision
+de nivel**: el camino de nivel solo aplica la niebla al color del vertice; la
+rutina que modula por la normal y la luz (`0x46AA14`) es la de **modelos**, que
+el port todavia no dibuja.
+
+**LO QUE SIGUE ABIERTO.** La semantica exacta de los argumentos de
+`grAlphaCombine`: el port usa la mezcla alfa habitual
+(`SRC_ALPHA`/`INV_SRC_ALPHA`), que es la lectura habitual de
+`grAlphaCombine(3,4,1,0,0)`; los encabezados del SDK Glide 2.x no estan en el
+repo, asi que la aritmetica exacta de la llamada queda sin verificar (afecta a
+32 de los 1123 triangulos del frame 0). La procedencia en el `.DFX` de la
+estructura de la que el juego toma el color de niebla por objeto. La
+equivalencia a nivel de pixel de la expansion YIQ_422 del port con el hardware
+original.
+
+**PRUEBAS.** Suite verde con `port/build.ps1 test` y con `-O0`, `-O2`, ASan y
+UBSan sobre camera, bsp, level_emit y scene_level.
+
+**DOCUMENTACION.** `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.5-19.7 (la
+hipotesis descartada con sus medidas, la NCC, la iluminacion y los limites
+reales), `S2_BSP_TRAVERSAL.md` § 5.7 (el color destino de la niebla y
+quien lo actualiza), `S2_CAMERA_VISIBILITY.md` § 15.6,
+`U1F_RESULTADOS.md` § 8.2 (la hipotesis cerrada, marcada como resuelta),
+`PROJECT_STATE.md`, `ROADMAP.md` (septima tanda), `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` y este `CHANGELOG.md`. Las afirmaciones del modulo
+anterior que quedaban obsoletas se corrigen sin borrar el historial.
+
 ## 2026-11-11 - 0.0.0 - Materiales de MAP7: estado por poligono reconstruido, textura correcta y mezcla por poligono
 
 La emision de S-2 ya reproducia al original triangulo a triangulo; este

@@ -383,8 +383,16 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    alfa y por tanto el unico que se mezcla, y el indice de textura sale de
    la mitad alta del **segundo** dword del registro UV (un byte de diferencia
    seleccionaba 4 texturas en lugar de 62).
-10. **Validar la semantica de una comparacion con datos, no con la lectura del
-   desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
+10. **Una prueba que dice "mas de cero" no demuestra equivalencia.** Cuando una
+    regresion compara el port con el original, hay que medir el **numero
+    exacto** de coincidencias y exigir ese numero en la asercion. Una
+    asercion debil ("same_rgb > 0") deja abierta la posibilidad de que solo
+    coincida una parte, y ese fue exactamente el fallo de la auditoria
+    correctiva de 2026-11-11 (la hipotesis del tinte de niebla por poligono
+    se sostenia sobre una comprobacion parcial; al medir las 3476 mezclas
+    reales se demostro que la variacion la produce el factor de niebla).
+11. **Validar la semantica de una comparacion con datos, no con la lectura del
+    desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
    redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
    al reves cambia el resultado de maximo a minimo. La comprobacion decisiva
    fue dinamica: de 55 poligonos con profundidad *minima* menor que `0x6A4`,
