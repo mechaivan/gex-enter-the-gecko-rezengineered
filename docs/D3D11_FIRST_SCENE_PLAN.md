@@ -1733,7 +1733,7 @@ El documento técnico completo está en
 - **El índice de 14 bits del `.DFX` indexa esta tabla directamente**; en
   AZTEC16 los 9 609 polígonos usan los índices 0..3 sobre 260 entradas.
 - **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` (portable) con
-  `port/tests/test_vfx.c`: 1 122 comprobaciones, 0 fallos (`-O0`, `-O2` y
+  `port/tests/test_vfx.c`: 1 668 comprobaciones, 0 fallos (`-O0`, `-O2` y
   ASan/UBSan).
 - **No hay decodificador de píxel**: los bytes se entregan tal cual a Glide
   (`grTexDownloadMipMap`), así que el formato de píxel, las dimensiones y la

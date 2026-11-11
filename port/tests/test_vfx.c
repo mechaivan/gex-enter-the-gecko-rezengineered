@@ -146,6 +146,13 @@ static void test_synthetic_container(void)
     CHECK(memcmp(file.records[1].data, d1, sizeof(d1)) == 0);
     CHECK(file.records[1].file_offset == 4u + GEX_VFX_RECORD_HEADER_SIZE + 4u);
 
+    /* La tabla de paleta SOLO existe para el formato 1: para los formatos 11
+     * y 12 el parser no publica ninguna paleta. */
+    CHECK(file.records[0].palette != NULL);
+    CHECK(file.records[0].palette_size == 0x84u - 0x14u);
+    CHECK(file.records[1].palette == NULL);
+    CHECK(file.records[1].palette_size == 0u);
+
     /* La tabla de paleta solo existe para el formato 1. */
     CHECK(gex_vfx_format_has_palette(GEX_VFX_FORMAT_1) == 1);
     CHECK(gex_vfx_format_has_palette(GEX_VFX_FORMAT_11) == 0);
@@ -209,6 +216,60 @@ static void test_broken_containers(void)
 
     /* 5. Fichero de menos de 4 bytes. */
     CHECK(gex_vfx_parse(&file, (const uint8_t *)"ab", 2) == GEX_VFX_ERR_FORMAT);
+}
+
+/* ------------------------------------------------------------------ */
+/* Validación estricta del EOF                                         */
+/* ------------------------------------------------------------------ */
+
+static void test_trailing_bytes(void)
+{
+    uint8_t buf[512];
+    gex_vfx_file file;
+    size_t at;
+    size_t i;
+
+    /* Contenedor bien formado: el último bloque termina exactamente en el
+     * EOF -> válido. */
+    memset(buf, 0, sizeof(buf));
+    put32(buf, 1);
+    at = 4;
+    at += put_record(buf, at, 4, 4, 3, GEX_VFX_FORMAT_1, (const uint8_t *)"ab",
+                     2);
+    CHECK(gex_vfx_parse(&file, buf, at) == GEX_VFX_OK);
+    CHECK(file.record_count == 1u);
+    gex_vfx_close(&file);
+
+    /* Con un byte de más al final: la tabla no cubre el fichero -> error. */
+    for (i = 1; i <= 8u; i++) {
+        memset(buf, 0, sizeof(buf));
+        put32(buf, 1);
+        at = 4;
+        at += put_record(buf, at, 4, 4, 3, GEX_VFX_FORMAT_1,
+                         (const uint8_t *)"ab", 2);
+        memset(buf + at, 0x5A, i);
+        CHECK(gex_vfx_parse(&file, buf, at + i) == GEX_VFX_ERR_FORMAT);
+        CHECK(file.data == NULL && file.records == NULL);
+    }
+
+    /* Con dos registros y basura al final, también. */
+    memset(buf, 0, sizeof(buf));
+    put32(buf, 2);
+    at = 4;
+    at += put_record(buf, at, 4, 4, 3, GEX_VFX_FORMAT_1, (const uint8_t *)"ab",
+                     2);
+    at += put_record(buf, at, 2, 2, 3, GEX_VFX_FORMAT_12, (const uint8_t *)"cd",
+                     2);
+    memset(buf + at, 0x33, 16u);
+    CHECK(gex_vfx_parse(&file, buf, at + 16u) == GEX_VFX_ERR_FORMAT);
+
+    /* Y un contenedor con `count` 0 y datos: también es incoherente. */
+    memset(buf, 0, sizeof(buf));
+    put32(buf, 0);
+    CHECK(gex_vfx_parse(&file, buf, 4) == GEX_VFX_OK);
+    CHECK(file.record_count == 0u);
+    gex_vfx_close(&file);
+    CHECK(gex_vfx_parse(&file, buf, 8) == GEX_VFX_ERR_FORMAT);
 }
 
 /* ------------------------------------------------------------------ */
@@ -280,6 +341,14 @@ static void test_real_aztec(void)
         CHECK(file.records[i].data_size > 0u);
         CHECK((file.records[i].data_size & (file.records[i].data_size - 1u)) ==
               0u);
+        /* La paleta solo se publica para el formato 1. */
+        if (fmt == GEX_VFX_FORMAT_1) {
+            CHECK(file.records[i].palette != NULL);
+            CHECK(file.records[i].palette_size == 0x84u - 0x14u);
+        } else {
+            CHECK(file.records[i].palette == NULL);
+            CHECK(file.records[i].palette_size == 0u);
+        }
     }
     printf("AZTEC16.VFX: count=%u formatos 1=%u 11=%u 12=%u otros=%u\n",
            file.record_count, f1, f11, f12, otros);
@@ -402,6 +471,7 @@ int main(void)
     test_names_and_args();
     test_synthetic_container();
     test_broken_containers();
+    test_trailing_bytes();
     test_real_aztec();
     test_real_gex_vfx();
     test_dfx_to_vfx_correspondence();

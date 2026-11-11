@@ -2,6 +2,42 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Auditoría correctiva del parser VFX (cierre del Módulo 4A)
+
+Dos correcciones sobre el commit `a7d8f0f`, **sin ampliar el alcance**: no se
+implementan decodificadores, no se integran texturas en D3D11 y no empieza el
+Módulo 4B.
+
+1. **Validación estricta del EOF.** El parser recorría los `count` registros y
+   aceptaba el fichero aunque sobraran bytes al final. Ahora, tras el recorrido,
+   el offset final tiene que coincidir **exactamente** con el tamaño del
+   fichero; si no, `GEX_VFX_ERR_FORMAT` y la estructura queda limpia y
+   liberable. La corrección no invalida ningún fichero real: los 37 `.VFX` de
+   `E2_A_ORIGINAL` (36 niveles + `GEX.VFX`) terminan exactamente en el EOF
+   (medido byte a byte).
+2. **Semántica de la paleta.** `gex_vfx_record.palette`/`palette_size` se
+   publicaban para todos los formatos. Ahora **solo el formato 1** —el único
+   para el que el juego sube una paleta con `grTexDownloadTable`— expone
+   `palette`; para los formatos 11 y 12 valen `NULL` y `0`.
+
+Pruebas: `test_vfx` sube de 1 122 a **1 668 comprobaciones, 0 fallos** en Clang
+`-O0`, `-O2` y ASan/UBSan (`-fsanitize=address,undefined
+-fno-sanitize-recover=all`). Se añaden casos sintéticos con 1, 2, 4 y 8 bytes de
+cola, con dos registros más 16 bytes de cola, y con `count` 0 y datos; y
+comprobaciones explícitas de la paleta para los tres formatos observados (1, 11
+y 12), tanto en el contenedor sintético como registro a registro en
+`AZTEC16.VFX`. Suite completa sin regresiones: test_sag 69 305, test_camera
+889, test_bsp 37, test_level_emit 38 855, test_geometry 6 963,
+test_geometry_shapes 355, test_scene_level 8 627, test_vfx 1 668, test_adpcm
+60 052, test_audio 215, test_frame 410, test_input 826, test_i4_app 117,
+test_d3d11_device 332, test_d3d11_mesh 108, test_d3d11_pipeline 287.
+
+Documentación: `docs/VFX_TEXTURE_FORMAT.md` (§2.2, §6.1, §6.1.1 y §6.2.1),
+`PROJECT_STATE.md`, `ROADMAP.md` y `RESEARCH.md` (S-28). **Sin cambios en las
+conclusiones**: el contenedor sigue demostrado, el formato de píxel, las
+dimensiones y la paleta completa **siguen sin demostrarse** y no se
+implementan decodificadores. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Módulo 4A: parser del contenedor de texturas .VFX
 
 Primera parte del Módulo 4: investigación del formato `.VFX` de Gex PC e
@@ -37,7 +73,7 @@ Implementación (portable, sin Windows ni D3D11):
   (`gex_vfx_open/parse/close`), tabla de entradas con los campos observados,
   bloques de datos crudos, y validación estricta de ruta, cabecera, offsets,
   tamaños, conteos y multiplicaciones; libera todo en error y es idempotente.
-- `port/tests/test_vfx.c`: **1 122 comprobaciones, 0 fallos** en Clang `-O0`,
+- `port/tests/test_vfx.c`: **1 668 comprobaciones, 0 fallos** en Clang `-O0`,
   `-O2` y ASan/UBSan: nombres y argumentos, contenedor sintético, entradas
   truncadas, tamaño desbordado, límite exacto, los ficheros originales
   (recorrido hasta el EOF, formatos y tamaños potencia de dos) y la

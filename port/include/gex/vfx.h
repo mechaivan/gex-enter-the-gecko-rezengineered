@@ -25,6 +25,10 @@
  *
  *   El registro siguiente está en registro + 0x8C + dword[+0x84].
  *
+ *   El recorrido de los `count` registros tiene que cubrir el fichero
+ *   EXACTO (en los 37 .VFX del inventario el último bloque termina en el
+ *   EOF): si sobran bytes, el contenedor se rechaza con GEX_VFX_ERR_FORMAT.
+ *
  * Lo que NO está demostrado (y por tanto NO se implementa): el formato de
  * píxel de cada FORMATO, las dimensiones y la semántica exacta de la paleta.
  * Ver docs/VFX_TEXTURE_FORMAT.md §4.
@@ -78,8 +82,11 @@ typedef struct gex_vfx_record {
     uint64_t file_offset;     /* offset del registro dentro del fichero */
     const uint8_t *data;      /* bloque de datos (+0x8C), NULL si size == 0 */
     uint32_t data_size;       /* +0x84 */
-    const uint8_t *palette;    /* +0x14, solo para el formato 1 */
-    uint32_t palette_size;    /* bytes disponibles desde +0x14 hasta +0x84 */
+    /* Tabla de paleta: SOLO para el formato 1 (el único que el juego sube
+     * con grTexDownloadTable). Para los formatos 11 y 12 vale NULL y
+     * palette_size vale 0. */
+    const uint8_t *palette;
+    uint32_t palette_size;    /* bytes desde +0x14 hasta +0x84 (solo formato 1) */
 } gex_vfx_record;
 
 /* Un fichero .VFX abierto. */
@@ -95,7 +102,7 @@ typedef enum gex_vfx_status {
     GEX_VFX_OK = 0,
     GEX_VFX_ERR_ARG,      /* ruta o puntero nulo */
     GEX_VFX_ERR_OPEN,     /* no se pudo abrir o leer el fichero */
-    GEX_VFX_ERR_FORMAT,   /* cabecera incoherente */
+    GEX_VFX_ERR_FORMAT,   /* cabecera incoherente, o sobran bytes tras la tabla */
     GEX_VFX_ERR_RANGE,    /* un offset o un tamaño sale del fichero */
     GEX_VFX_ERR_OVERFLOW, /* una multiplicación desborda */
     GEX_VFX_ERR_NOMEM     /* falta memoria */

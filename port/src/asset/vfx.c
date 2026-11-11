@@ -103,13 +103,29 @@ static gex_vfx_status parse_records(gex_vfx_file *file)
         }
         rec->data = file->data + offset + GEX_VFX_RECORD_DATA_OFFSET;
 
-        /* La tabla de paleta (solo formato 1) ocupa desde +0x14 hasta +0x84. */
-        rec->palette = file->data + offset + GEX_VFX_RECORD_PALETTE_OFFSET;
-        rec->palette_size = (uint32_t)(GEX_VFX_RECORD_SIZE_OFFSET -
-                                        GEX_VFX_RECORD_PALETTE_OFFSET);
+        /* La tabla de paleta solo existe para el formato 1: es el único que
+         * el juego sube con grTexDownloadTable. Para los demás formatos el
+         * bloque +0x14 está a cero en los ficheros originales y no se
+         * publica como paleta. */
+        if (rec->format == GEX_VFX_FORMAT_1) {
+            rec->palette = file->data + offset + GEX_VFX_RECORD_PALETTE_OFFSET;
+            rec->palette_size = (uint32_t)(GEX_VFX_RECORD_SIZE_OFFSET -
+                                            GEX_VFX_RECORD_PALETTE_OFFSET);
+        } else {
+            rec->palette = NULL;
+            rec->palette_size = 0;
+        }
 
         offset = data_end;
         file->record_count = i + 1u;
+    }
+
+    /* El recorrido tiene que cubrir el fichero EXACTO: en los 37 .VFX del
+     * inventario el último bloque termina en el EOF. Si sobran bytes, la
+     * tabla que describe `count` no cubre el fichero y el contenedor es
+     * incoherente. */
+    if (offset != (uint64_t)file->size) {
+        return GEX_VFX_ERR_FORMAT;
     }
 
     return GEX_VFX_OK;

@@ -792,13 +792,17 @@ que habrá que verificar contra el juego real (Fase 1–2):
   (`.DFX`) indexa directamente la tabla del `.VFX`; en AZTEC16 los 9 609
   polígonos usan los índices 0..3 y el `.VFX` tiene 260 entradas: todos los
   índices tienen entrada.
+- **Medición del EOF:** el recorrido de los `count` registros
+  termina **exactamente en el EOF** en los 37 `.VFX` de
+  `E2_A_ORIGINAL` (36 niveles + `GEX.VFX`): ninguno sobra ni
+  falta. El parser lo exige y rechaza los contenedores con cola.
 - **Comparación con las herramientas externas (referencia, sin copiar):**
   `gex2-tools` (H-01) coincide en el contenedor y en los **valores** de
   formato, pero sus nombres (`RGB8A1`, `R7G6B5A1`, `ARGB4`) y su obtención
   de dimensiones ("tamaño + aspecto") no están respaldados por el binario.
   `Gex3DViewer` (H-02) confirma que la unidad correcta es el par
   `.DFX`+`.VFX` por nivel.
-- **Confianza:** alta en el contenedor (verificado byte a byte en 44 ficheros
+- **Confianza:** alta en el contenedor (verificado byte a byte en 37 ficheros
   y contra el desensamblado), media en los identificadores de formato, **nula
   (no afirmada)** en el formato de píxel.
 

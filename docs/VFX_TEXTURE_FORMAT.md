@@ -94,8 +94,12 @@ exactamente en el EOF**:
 | `LEVEL/AZTEC16.VFX` | 1 140 276 | 260 | 260 | **sí** |
 | `GEX.VFX` | 1 588 | 4 | 4 | **sí** |
 
-Los 44 `.VFX` del inventario tienen la misma forma (el `count` del primer
-dword coincide con el número de registros que se pueden recorrer).
+Los 37 `.VFX` de `E2_A_ORIGINAL` (36 niveles + `GEX.VFX`) tienen la misma
+forma: el `count` del primer dword coincide con el número de registros que se
+pueden recorrer **y el recorrido termina exactamente en el EOF** (medido byte
+a byte en los 37 ficheros: ninguno sobra ni falta). Por eso el parser exige
+que el último bloque termine en el EOF: si sobran bytes, el contenedor es
+incoherente y se rechaza (ver §6.1).
 
 ### 2.3 Formato
 
@@ -275,7 +279,7 @@ modelos, sprites o de interfaz, que la geometría del nivel no recorre.
 |---|---|
 | `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_palette` |
 | `port/src/asset/vfx.c` | parser portable: recorre la tabla como el juego, valida offsets/tamaños/conteos y multiplicaciones, libera en error |
-| `port/tests/test_vfx.c` | 1 122 comprobaciones |
+| `port/tests/test_vfx.c` | 1 668 comprobaciones |
 
 La API es coherente con el resto del port (C11 portable, `gex_*_status` con
 `_name()`, `free`/`close` idempotente, cero en error). El módulo **no** crea
@@ -287,25 +291,64 @@ recursos D3D11 ni se integra todavía en el renderer (eso es el Módulo 4B).
 * fichero de menos de 4 bytes → `GEX_VFX_ERR_FORMAT`;
 * cabecera de registro que no cabe → `GEX_VFX_ERR_RANGE`;
 * bloque de datos que no cabe → `GEX_VFX_ERR_RANGE`;
+* **el recorrido de los `count` registros no termina en el EOF (sobran bytes)
+  → `GEX_VFX_ERR_FORMAT`**: la tabla no cubre el fichero y el contenedor es
+  incoherente;
 * `count * sizeof(registro)` que desborda `size_t` → `GEX_VFX_ERR_OVERFLOW`;
 * `count` enorme → reserva fallida → `GEX_VFX_ERR_NOMEM`;
 * en cualquier error, la estructura queda limpia y liberable.
 
+### 6.1.1 Semántica de la paleta
+
+`gex_vfx_record.palette`/`palette_size` describen una **tabla de paleta
+únicamente para el formato 1**, que es el único para el que el juego sube una
+paleta (`grTexDownloadTable` con `registro+0x14`). Para los formatos 11 y 12 el
+parser deja `palette = NULL` y `palette_size = 0`: el bloque `+0x14` está a
+cero en los ficheros originales y publicarlo como paleta sería afirmar algo no
+demostrado. `gex_vfx_format_has_palette(format)` deja el criterio explícito.
+
 ### 6.2 Pruebas (reales)
 
-`port/tests/test_vfx.c`: **1 122 comprobaciones, 0 fallos** en Clang `-O0`, `-O2`
+`port/tests/test_vfx.c`: **1 668 comprobaciones, 0 fallos** en Clang `-O0`, `-O2`
 y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
 
 * nombres de estado y argumentos inválidos;
 * contenedor sintético: campos, puntero de datos, tamaño, paleta, offsets;
 * entradas truncadas, tamaño desbordado y límite exacto (el bloque que termina
   en el EOF es válido);
+* **bytes sobrantes al final**: con 1, 2, 4 y 8 bytes de cola, y con dos
+  registros más 16 bytes de cola, el parser devuelve `GEX_VFX_ERR_FORMAT` y
+  deja la estructura limpia; un `count` de 0 con 4 bytes de datos también es
+  incoherente;
+* **semántica de la paleta** en los tres formatos observados: el formato 1
+  publica `palette` y `palette_size = 0x70`; los formatos 11 y 12 publican
+  `palette = NULL` y `palette_size = 0` (tanto en el contenedor sintético como
+  en los ficheros originales, registro a registro);
 * `AZTEC16.VFX`: 260 registros, el recorrido acaba exactamente en el EOF, los
   formatos son {1, 11, 12} (42/73/145) y todos los tamaños son potencias de
   dos;
 * `GEX.VFX`: 4 registros de 256 bytes, formato 1;
 * correspondencia DFX → VFX: los 9 609 polígonos del nivel usan índices 0..3 y
   todos existen en el `.VFX`.
+
+### 6.2.1 Auditoría correctiva (2026-11-11)
+
+Dos defectos detectados en la auditoría directa del commit `a7d8f0f` y
+corregidos:
+
+1. **Validación estricta del EOF.** El parser recorría los `count` registros y
+   aceptaba el fichero aunque sobraran bytes al final. Ahora, tras el
+   recorrido, **el offset final tiene que coincidir exactamente con el tamaño
+   del fichero**; si no, `GEX_VFX_ERR_FORMAT` y estructura limpia. La
+   corrección no invalida ningún fichero real: los 37 `.VFX` de `E2_A_ORIGINAL`
+   terminan exactamente en el EOF (medido).
+2. **Semántica de la paleta.** `palette`/`palette_size` se publicaban para
+   todos los formatos. Ahora **solo el formato 1** (el único con tabla de
+   paleta) expone `palette`; para 11 y 12 valen `NULL` y `0`.
+
+Con ello el comportamiento final del parser es: **acepta exactamente los
+contenedores que el juego leería** (tabla que cubre el fichero entero) y
+rechaza cualquier otro, sin dejar recursos vivos.
 
 ---
 

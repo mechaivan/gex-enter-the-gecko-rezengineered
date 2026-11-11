@@ -121,14 +121,17 @@
   desde el `.VFX`: `count` en `+0x00`, registros con cabecera de `0x8C` B,
   tamaño del bloque en `+0x84`, datos en `+0x8C`; el puntero de `+0x10` lo
   escribe el juego y en el fichero es un valor de relleno que hay que
-  ignorar). El recorrido así descrito termina exactamente en el EOF de los 44
-  `.VFX` del inventario. El formato de la textura está en `+0x0C` (1, 11, 12 en
+  ignorar). El recorrido así descrito termina exactamente en el EOF de los 37
+  `.VFX` de `E2_A_ORIGINAL` (36 niveles + `GEX.VFX`). El formato de la textura está en `+0x0C` (1, 11, 12 en
   los originales); solo el formato 1 sube una paleta desde `+0x14` y el
   formato 12 activa el blending alfa. Implementado en
   [`port/include/gex/vfx.h`](port/include/gex/vfx.h) +
   [`port/src/asset/vfx.c`](port/src/asset/vfx.c) (portable): parser con
   validación estricta de offsets, tamaños, conteos y desbordamientos, tabla de
-  entradas y bloques de datos crudos. Pruebas: `test_vfx` **1 122
+  entradas y bloques de datos crudos. **Auditoría correctiva (2026-11-11):** el recorrido tiene que
+  terminar **exactamente en el EOF** (si sobran bytes, `GEX_VFX_ERR_FORMAT`) y
+  la tabla de paleta **solo se publica para el formato 1** (para 11 y 12,
+  `palette = NULL` y `palette_size = 0`). Pruebas: `test_vfx` **1 668
   comprobaciones, 0 fallos** (`-O0`, `-O2` y ASan/UBSan), incluida la
   correspondencia DFX→VFX. **No se implementan decodificadores de píxel**: el
   formato de píxel, las dimensiones y la paleta completa **no están
