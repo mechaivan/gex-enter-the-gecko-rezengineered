@@ -554,21 +554,33 @@ static int32_t det2d(const int16_t x[3], const int16_t y[3]) {
     return sub_wrap(mul_wrap(a, b), mul_wrap(c, d));
 }
 
-/* Profundidad de referencia del original: NO es la maxima de los tres
- * vertices, sino la MINIMA.
+/* Profundidad de referencia del original: el MAXIMO de las tres
+ * profundidades proyectadas.
  *
- * 0x426CC1..0x426D06 calcula min(A,B,C) con A=[0x647430], B=[0x64742C] y
- * C=[0x6474A0] (las tres profundidades proyectadas que escribe
- * 0x46A1D0) y lo deja en -0x58(%ebp). Ese valor es el que se compara
- * con el umbral de subdivision (0x6A4, 0x426D09), con el umbral de niebla
- * (0x65BF80, 0x426D2F) y con el de seleccion de emisor (0x65BF04,
- * 0x426DE8).
+ * 0x426CC1..0x426D06 (y el mismo patron en 0x4262BE..0x426300 del emisor
+ * cercano y en 0x4278A6..0x4278E5) calcula:
  *
- * El nombre historico "maxz" era incorrecto. */
-static int32_t min_depth(const gex_emit_triangle *tri) {
+ *     if (A <= B)  r = (B <= C) ? C : B;   -> max(B, C)
+ *     else         r = (A <= C) ? C : A;   -> max(A, C)
+ *
+ * Como A > B en la segunda rama y B >= A en la primera, el resultado es
+ * max(A, B, C) con A = [0x647430], B = [0x64742C] y C = [0x6474A0] (las tres
+ * profundidades que escribe 0x46A1D0).
+ *
+ * Ese valor decide la subdivision (0x426D09, umbral 0x6A4), la niebla
+ * (0x426D2F), la eleccion de emisor (0x426DE8) y la clave de bucket
+ * (0x426303 en 0x426256).
+ *
+ * Evidencia dinamica (map7.dfx, 2026-11-11): de los 55 poligonos del frame
+ * de referencia cuya profundidad MINIMA es < 0x6A4, el original subdivide
+ * exactamente los 27 cuya profundidad MAXIMA es < 0x6A4 (55/55 aciertos con
+ * el maximo, 27/55 con el minimo). Ademas, con el maximo la secuencia de
+ * dibujo del port coincide triángulo a triángulo con la del original
+ * (1123/1123); con el minimo solo 14/1123. */
+static int32_t max_depth(const gex_emit_triangle *tri) {
     int32_t mz = tri->z[0];
-    if (tri->z[1] < mz) mz = tri->z[1];
-    if (tri->z[2] < mz) mz = tri->z[2];
+    if (tri->z[1] > mz) mz = tri->z[1];
+    if (tri->z[2] > mz) mz = tri->z[2];
     return mz;
 }
 
@@ -580,14 +592,13 @@ static int32_t min_depth(const gex_emit_triangle *tri) {
  *   5. poly+0x06 & 0x8000 (oculto) -> descarta
  *   6. todos x<0, x>0x200, y<0 o y>0x180 -> descarta
  * [A] reconstruido de 0x426256/0x426588 y 0x46B6B5. */
-static int emit_gate(const gex_emit_triangle *tri, uint16_t poly_flags,
-                     uint32_t state_flags, int8_t layer,
-                     int32_t *zmin_out, int32_t *bucket_out) {
+static int emit_gate_body(const gex_emit_triangle *tri, uint16_t poly_flags,
+                           uint32_t state_flags, int8_t layer,
+                           int32_t *maxz_out, int32_t *bucket_out) {
     if ((state_flags & GEX_EMIT_STATE_CLIP_MASK) != 0u) return 0;
     if (tri->flags & GEX_EMIT_F_DEPTH_CLIPPED) return 0;
-    if (det2d(tri->x, tri->y) >= 0) return 0;
 
-    int32_t mz = min_depth(tri);
+    int32_t mz = max_depth(tri);
     int32_t bucket = add_wrap(sar32(mz, 2), (int32_t)layer * 4);
     if (bucket < 0 || bucket >= (int32_t)GEX_EMIT_BUCKET_COUNT) return 0;
 
@@ -603,9 +614,28 @@ static int emit_gate(const gex_emit_triangle *tri, uint16_t poly_flags,
                    tri->y[2] > GEX_EMIT_SCREEN_MAX_Y;
     if (all_left || all_right || all_up || all_down) return 0;
 
-    if (zmin_out != NULL) *zmin_out = mz;
+    if (maxz_out != NULL) *maxz_out = mz;
     if (bucket_out != NULL) *bucket_out = bucket;
     return 1;
+}
+
+/* det2d (0x46B6B5 -> [0x6468E0]): (X1-X0)(Y2-Y0) - (X2-X0)(Y1-Y0).
+ *
+ * El original solo ABORTA la subdivision cuando este valor es >= 0 (cara
+ * trasera): es la unica situacion en la que el emisor cercano devuelve 0
+ * (0x42629A). El resto de rechazos (recorte, bucket fuera de rango, oculto,
+ * fuera de pantalla) devuelven 1 y la subdivision continua con el siguiente
+ * triangulo [A]. */
+static int emit_backfacing(const gex_emit_triangle *tri) {
+    return det2d(tri->x, tri->y) >= 0;
+}
+
+static int emit_gate(const gex_emit_triangle *tri, uint16_t poly_flags,
+                     uint32_t state_flags, int8_t layer,
+                     int32_t *maxz_out, int32_t *bucket_out) {
+    if (emit_backfacing(tri)) return 0;
+    return emit_gate_body(tri, poly_flags, state_flags, layer,
+                          maxz_out, bucket_out);
 }
 
 /* ------------------------------------------------------------------ */
@@ -620,12 +650,12 @@ gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
     if (fog == NULL || p == NULL || cls == NULL) return GEX_EMIT_ERR_ARG;
     memset(cls, 0, sizeof(*cls));
 
-    int32_t zmin = min_depth(p);
-    cls->zmin = zmin;
+    int32_t maxz = max_depth(p);
+    cls->maxz = maxz;
 
     /* 0x426D09: la subdivisión tiene prioridad absoluta sobre det2d, bucket,
      * niebla y selección de emisor; si maxz < 0x6A4 se salta a 0x426E71 [A]. */
-    if (zmin < GEX_EMIT_SUBDIV_Z) {
+    if (maxz < GEX_EMIT_SUBDIV_Z) {
         cls->subdivide = 1;
         cls->emitter = GEX_EMIT_NEAR;
         cls->fog_applies = 0;
@@ -634,24 +664,24 @@ gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
         return GEX_EMIT_OK;
     }
 
-    int32_t gate_zmin = 0, bucket = -1;
+    int32_t gate_maxz = 0, bucket = -1;
     if (!emit_gate(p, poly_flags, state_flags, p->layer,
-                   &gate_zmin, &bucket)) {
-        cls->zmin = -1; /* marca de descarte */
+                   &gate_maxz, &bucket)) {
+        cls->maxz = -1; /* marca de descarte */
         cls->bucket = -1;
         cls->emitter = GEX_EMIT_NEAR;
         for (int j = 0; j < 3; j++) cls->fog_color[j] = p->color[j];
         return GEX_EMIT_OK;
     }
-    cls->zmin = gate_zmin;
+    cls->maxz = gate_maxz;
     cls->bucket = bucket;
 
     /* Niebla por vértice si maxz >= [0x65BF80] [A]. */
-    cls->fog_applies = (gate_zmin >= fog->threshold) ? 1 : 0;
+    cls->fog_applies = (gate_maxz >= fog->threshold) ? 1 : 0;
 
     /* Emisor lejano si maxz >= [0x65BF04] y el polígono no fuerza cercano
      * (poly+0x06 & 4) [A]. */
-    cls->emitter = (gate_zmin >= fog->split_z &&
+    cls->emitter = (gate_maxz >= fog->split_z &&
                     (poly_flags & 0x0004u) == 0u)
                        ? GEX_EMIT_FAR
                        : GEX_EMIT_NEAR;
@@ -700,14 +730,20 @@ static gex_emit_status sub_emit(const gex_emit_matrix *mat,
                                 uint16_t texture, int8_t layer,
                                 uint16_t poly_flags, uint32_t state_flags,
                                 uint32_t source_poly,
-                                gex_emit_output *out, int *emitted) {
+                                gex_emit_output *out, int *emitted,
+                                int *fatal) {
     gex_emit_triangle tri;
     gex_emit_status st = gex_emit_project(mat, vs, cs, us, vv, texture, layer,
                                           source_poly, &tri);
     if (st != GEX_EMIT_OK) return st;
 
     *emitted = 0;
-    if (!emit_gate(&tri, poly_flags, state_flags, layer, NULL, NULL)) {
+    if (emit_backfacing(&tri)) {
+        *fatal = 1;
+        return GEX_EMIT_OK;
+    }
+    *fatal = 0;
+    if (!emit_gate_body(&tri, poly_flags, state_flags, layer, NULL, NULL)) {
         return GEX_EMIT_OK;
     }
 
@@ -715,6 +751,7 @@ static gex_emit_status sub_emit(const gex_emit_matrix *mat,
     st = push_tri(out, &tri);
     if (st != GEX_EMIT_OK) return st;
     *emitted = 1;
+    out->subtriangle_emitted++;
     return GEX_EMIT_OK;
 }
 
@@ -739,6 +776,8 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
     const int16_t *v0 = &vtx[0];
     const int16_t *v1 = &vtx[3];
     const int16_t *v2 = &vtx[6];
+
+    out->subdivide_count++;
 
     int16_t m01[3], m20[3], m12[3];
     for (int j = 0; j < 3; j++) {
@@ -778,13 +817,20 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
     };
 
     for (int t = 0; t < 4; t++) {
-        int emitted = 0;
+        int emitted = 0, fatal = 0;
+        out->subtriangle_count++;
         gex_emit_status st = sub_emit(mat, main4[t].vs, main4[t].cs,
                                       main4[t].us, main4[t].vv, texture,
                                       layer, poly_flags, state_flags,
-                                      source_poly, out, &emitted);
+                                      source_poly, out, &emitted, &fatal);
         if (st != GEX_EMIT_OK) return st;
-        if (!emitted) return GEX_EMIT_OK; /* aborta la subdivisión [A] */
+        /* 0x4272D4 / 0x4273AC / 0x4274A1: solo det2d >= 0 aborta la
+         * subdivision, y solo en los tres primeros principales. El cuarto
+         * (0x427571) y los slivers no abortan [A]. */
+        if (fatal && t < 3) {
+            out->subdivide_aborted++;
+            return GEX_EMIT_OK;
+        }
     }
 
     /* Slivers: solo si (color0 >> 24) & 2 == 0 [A]. Orden exacto:
@@ -809,13 +855,15 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
     };
 
     for (int t = 0; t < 3; t++) {
-        int emitted = 0;
+        int emitted = 0, fatal = 0;
+        out->subtriangle_count++;
         gex_emit_status st = sub_emit(mat, slivers[t].vs, slivers[t].cs,
                                       slivers[t].us, slivers[t].vv, texture,
                                       layer, poly_flags, state_flags,
-                                      source_poly, out, &emitted);
+                                      source_poly, out, &emitted, &fatal);
         if (st != GEX_EMIT_OK) return st;
         (void)emitted;
+        (void)fatal; /* los slivers nunca abortan la subdivision */
     }
     return GEX_EMIT_OK;
 }
@@ -830,8 +878,8 @@ static int tri_compare(const void *pa, const void *pb) {
     const gex_emit_triangle *a = (const gex_emit_triangle *)pa;
     const gex_emit_triangle *b = (const gex_emit_triangle *)pb;
 
-    int32_t ka = add_wrap(sar32(min_depth(a), 2), (int32_t)a->layer * 4);
-    int32_t kb = add_wrap(sar32(min_depth(b), 2), (int32_t)b->layer * 4);
+    int32_t ka = add_wrap(sar32(max_depth(a), 2), (int32_t)a->layer * 4);
+    int32_t kb = add_wrap(sar32(max_depth(b), 2), (int32_t)b->layer * 4);
     if (ka != kb) return (ka < kb) ? 1 : -1; /* descendente */
     if (a->seq != b->seq) return (a->seq < b->seq) ? 1 : -1; /* LIFO */
     return 0;
@@ -905,7 +953,7 @@ gex_emit_status gex_level_emit(const uint8_t *image, size_t image_size,
         gex_emit_class cls;
         st = gex_emit_classify(fog, &tri, p->poly_flags, state_flags, &cls);
         if (st != GEX_EMIT_OK) break;
-        if (cls.zmin < 0) continue; /* gate [A] */
+        if (cls.maxz < 0) continue; /* gate [A] */
 
         if (cls.subdivide) {
             /* La subdivisión ya proyecta y aplica el gate por subtriángulo. */

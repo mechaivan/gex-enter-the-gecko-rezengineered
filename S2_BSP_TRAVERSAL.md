@@ -1017,12 +1017,16 @@ Con esos datos como referencia, el port reproduce:
 La regresión vive en `port/tests/test_camera.c` (cámara) y
 `port/tests/test_bsp.c` + `port/tests/ref_map7_frames.h` (recorrido).
 
-### 9.5 Emisión: contexto real y profundidad de referencia (2026-11-11)
+### 9.5 Emisión: validación dinámica completa contra el original (2026-11-11)
 
-La emisión (`0x004269C2`) se ha validado también contra el original, con el
-mismo nivel `map7.dfx` y la cámara de referencia.
+La emisión de nivel (`0x004269C2`) se ha validado contra el ejecutable
+original con el mismo nivel `map7.dfx` y la cámara de referencia. El resultado
+es que **la emisión del port reproduce triángulo a triángulo la del
+original**, incluidos el orden de dibujo y las fases de la subdivisión.
 
-**Contexto de emisión capturado** (breakpoint en `0x004269C2`):
+#### 9.5.1 Contexto de emisión capturado
+
+Breakpoint de hardware en `0x004269C2`:
 
 | Dato | Dirección | Valor capturado |
 |---|---|---|
@@ -1034,13 +1038,12 @@ mismo nivel `map7.dfx` y la cámara de referencia.
 | Umbral de niebla | `[0x65BF80]` | `6299` |
 | `split` de emisor | `[0x65BF04]` | `65535` |
 | A / B de niebla | `[0x647564]` / `[0x647570]` | `-93584512` / `14848` |
-| LUT de niebla (3464 `int16`) | `[0x64FEA8]` | volcada integra |
-| Color de niebla | `[0x6474C4]` | `0,0,0` (frame 0), animado despues |
+| LUT de niebla (3464 `int16`) | `[0x64FEA8]` | volcada íntegra |
+| Color de niebla | `[0x6474C4]` | `0,0,0` (frame 0), animado después |
 
-La matriz de `0x65CD60` es **exactamente** la matriz `O` del port escalada
-por 1,6 en las filas 0 y 1 (`0x46DFA2`: `(v<<9)/0x140` y `(v*0x180)/0xF0`,
-despues `× cam[0x490]/4096` y `× cam[0x492]/4096`, que valen 1). Verificado
-bit a bit:
+La matriz de `0x65CD60` es **exactamente** la matriz `O` del port escalada por
+1,6 en las filas 0 y 1 (`0x46DFA2`: `(v<<9)/0x140` y `(v*0x180)/0xF0`, después
+`× cam[0x490]/4096` y `× cam[0x492]/4096`, que valen 1):
 
 ```text
 O (port)      [-1648,-3749,0] [-2144,1508,-3359] [3074,-1352,-2343]
@@ -1049,50 +1052,203 @@ original en 0x65CD60 =  [-2636,-5998,0] [-3430,1508,-5374] [3074,-1352,-2343]  �
 ```
 
 **La proyección coincide bit a bit.** Las tres profundidades que el original
-deja en `[0x647430]`/`[0x64742C]`/`[0x6474A0]` (`0x426D03`) son las del port:
-los 16 primeros polígonos del frame de referencia dan exactamente los mismos
-`z` (por ejemplo `1048,1092,1043`, `1043,999,1048`, `1173,1088,905`...). Queda
-como regresión en `port/tests/test_level_emit.c` con los datos en
-`port/tests/ref_emit_frames.h`.
+deja en `[0x647430]`/`[0x64742C]`/`[0x6474A0]` son las del port: los 3429
+polígonos del frame de referencia dan exactamente los mismos `z`, en el mismo
+orden (comparación elemento a elemento: 3429/3429, 0 diferencias).
 
-#### 9.5.1 Defecto encontrado y corregido: la profundidad de referencia es la MÍNIMA
+#### 9.5.2 La profundidad de referencia es el MÁXIMO (corrección)
 
-`0x426CC1..0x426D06` calcula **min(A,B,C)** (no el máximo) de las tres
-profundidades proyectadas y deja el resultado en `-0x58(%ebp)`. Ese valor es el
-que el original usa para:
+`0x426CC1..0x426D06` (y el mismo patrón en `0x4262BE..0x426300` del emisor
+cercano y en `0x4278A6..0x4278E5`) **no** calcula el mínimo de A, B y C, sino
+el **máximo**. La estructura de ramas es:
+
+```text
+if (A <= B)  r = (B <= C) ? C : B;   /* max(B, C) */
+else         r = (A <= C) ? C : A;   /* max(A, C) */
+```
+
+Como `A > B` en la segunda rama y `B >= A` en la primera, el resultado es
+`max(A, B, C)` con `A = [0x647430]`, `B = [0x64742C]` y `C = [0x6474A0]`. Ese
+valor decide:
 
 | Uso | Dirección original |
 |---|---|
 | Umbral de subdivisión (`0x6A4`) | `0x426D09` |
 | Umbral de niebla (`[0x65BF80]`) | `0x426D2F` |
 | Elección de emisor (`[0x65BF04]`) | `0x426DE8` |
-| Clave de bucket (`(min>>2)+4*layer`) | `0x426303` (emisor cercano `0x426256`) |
+| Clave de bucket (`(max>>2)+4*layer`) | `0x426303` (emisor cercano `0x426256`) |
 
-El port usaba la **máxima** de las tres profundidades (`max_depth()`), con el
-nombre `maxz` que despues se demostro incorrecto. Correccion aplicada:
-`min_depth()` en `port/src/emit/emit.c` y `gex_emit_class.maxz` renombrado a
-`zmin`. Efecto medido en el frame de referencia: los polígonos que entran en
-la rama de subdivisión pasan de **27** a **110**.
+> **Nota histórica.** La pasada anterior (commit `65ea2c6`) afirmó que ese valor
+> era el **mínimo** y cambió el port en consecuencia. Era una lectura incorrecta
+> de las comparaciones con signo: `cltd`/`subl`/`sarl` es la división por dos
+> con redondeo *hacia cero*, no una corrección de signo previa a un
+> desplazamiento. La afirmación queda desmentida por los datos (§9.5.3).
 
-#### 9.5.2 Lo que sigue sin cuadrar
+**Evidencia dinámica (frame de referencia).** De los 3429 polígonos, 55 tienen
+profundidad **mínima** `< 0x6A4` y 27 tienen profundidad **máxima** `< 0x6A4`.
+El original subdivide exactamente los 27:
+
+| Criterio | Aciertos |
+|---|---|
+| `max(A,B,C) < 0x6A4` | **27/27** (y 28/28 en los no subdivididos) |
+| `min(A,B,C) < 0x6A4` | 27/55 (falsos positivos: 28) |
+
+**Evidencia dinámica (orden de dibujo).** Capturando la secuencia real de
+comandos dibujados (`0x0046558A`, tipo `0x34` = triángulo de nivel) y
+comparándola con la secuencia que emite el port:
+
+| Versión del port | Triángulos en la misma posición |
+|---|---|
+| con `max_depth()` (original) | **1123/1123** |
+| con `min_depth()` (commit `65ea2c6`) | 14/1123 |
+
+Corrección aplicada: `max_depth()` restaurado en `port/src/emit/emit.c` y
+`gex_emit_class.maxz` vuelve a ser el nombre del campo (el nombre `zmin` que
+introdujo la pasada anterior era incorrecto).
+
+#### 9.5.3 La diferencia 1252 vs 1123 era un artefacto de medición
+
+El conteo `1252` de la pasada anterior venía de las llamadas a `0x0046558A`
+(*dibujar comando*), que **no** son solo triángulos de nivel. Descomponiendo
+el frame de referencia por tipo de comando:
+
+| Tipo de comando | Tamaño | Cantidad | ¿Triángulo de nivel? |
+|---|---|---|---|
+| `0x34` | 52 bytes | **1123** | sí (los del port) |
+| `0x1C` | 28 bytes | 128 | no (otras primitivas) |
+| `0x14` | 20 bytes | 1 | no |
+
+Los 129 comandos que faltaban **no son triángonos**: no proceden del emisor de
+nivel (`0x00426256`, único sitio que escribe comandos de `0x34` para el nivel,
+junto con `0x00426903` del emisor lejano, que en MAP7 no se usa porque
+`[0x65BF04] = 0xFFFF`). La equivalencia de la emisión de nivel estaba ya
+demonstrada; lo que faltaba era medirla en el punto correcto.
+
+**El punto de medida correcto es `0x0042649C`** (inserción del triángulo
+aceptado en el bucket). Por frame, el original acepta:
+
+| Frame | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| Triángulos aceptados (`0x0042649C`) | 1123 | 1128 | 1143 | 1169 | 1154 | 1157 |
+| Comandos dibujados de todo tipo (`0x0046558A`) | 1252 | 1356 | 1368 | 1395 | 1380 | 1386 |
+
+Los valores de la primera fila son los que el port reproduce.
+
+#### 9.5.4 La rama de subdivisión, reconstruida
+
+**Entrada.** `0x426D09` compara la profundidad de referencia con `0x6A4`; si es
+menor, salta a `0x426E71` (rama de subdivisión) y **no** ejecuta el emisor
+normal del polígono. La rama tiene dos etapas: la construcción de los vértices
+intermedios y siete bloques de emisión.
+
+**Vértices intermedios.** `0x426E7B..0x426EC6` copia los tres vértices del
+polígono a seis registros de 8 bytes (`[0x54F7C0]`..`[0x54F7D4]` →
+`0x6476A8`..`0x6476D8`, cada uno `x,y,z` en `int16`); `0x426EC9..0x426FD3`
+calcula los tres puntos medios:
+
+```text
+m01 = (v0 + v1) / 2      -> [0x54F7CC]  (0x6476C0)
+m12 = (v1 + v2) / 2      -> [0x54F7D0]  (0x6476C8)
+m20 = (v2 + v0) / 2      -> [0x54F7D4]  (0x6476D0)
+```
+
+La división es con signo y redondeo hacia cero (`cltd`/`subl`/`sarl`), es decir
+`(a+b)/2` truncado. Los puntos medios se calculan **en el espacio del vértice**
+(no en pantalla): luego cada subtriángulo se proyecta por separado.
+
+**Los siete bloques.** Cada bloque llena los globales de proyección
+(`0x646820`/`0x646828`/`0x646830`, con `x`,`y`,`z` de los tres vértices),
+llama a `0x46A1D0` (proyección) y después a `0x426256` (emisor cercano):
+
+| # | Proyección | Emisor | Vértices | Tipo |
+|---|---|---|---|---|
+| 1 | `0x427294` | `0x4272CC` | `(v0, m01, m20)` | principal |
+| 2 | `0x42736C` | `0x4273A4` | `(m20, m12, v2)` | principal |
+| 3 | `0x427464` | `0x427499` | `(m01, m12, m20)` | principal |
+| 4 | `0x427539` | `0x427571` | `(m01, v1, m12)` | principal |
+| 5 | `0x42761C` | `0x427657` | `(v0, v1, m01)` | sliver |
+| 6 | `0x427700` | `0x42773B` | `(m12, v1, v2)` | sliver |
+| 7 | `0x4277D3` | `0x42780E` | `(v0, m20, v2)` | sliver |
+
+Los slivers (5-7) **solo se ejecutan** si `(color0 >> 24) & 2 == 0`
+(`0x427579..0x427586`); si no, la subdivisión termina ahí.
+
+**Semántica de aborto.** El emisor `0x426256` devuelve **1** en todos los casos
+salvo uno: cuando el determinante 2D (`det2d`) es `>= 0`, es decir, cuando el
+triángulo es una cara trasera (`0x42629A: jge 0x426571` → `d4 = 0`). El resto
+de rechazos (flags de recorte, bucket fuera de rango, polígono oculto,
+triángulo fuera de pantalla) **no abortan**: el emisor devuelve 1 y la
+subdivisión continúa con el siguiente bloque. El original solo comprueba el
+valor de retorno **después de los bloques 1, 2 y 3** (`0x4272D4`, `0x4273AC`,
+`0x4274A1`); los bloques 4 a 7 no abortan nunca.
+
+> El port abortaba la subdivisión ante **cualquier** fallo del gate. Corregido:
+> solo `det2d >= 0` aborta, y solo en los tres primeros principales.
+
+#### 9.5.5 El gate del emisor, reconstruido
+
+`0x426256` (emisor cercano) en orden:
+
+1. `0x426273`: si `[0x647578] & 0x60000` (recorte global) → descarta, **sin**
+   abortar.
+2. `0x42628C`: calcula `det2d` en `0x46B6B5` →
+   `[0x6468E0] = (X1-X0)(Y2-Y0) - (X2-X0)(Y1-Y0)`, con las coordenadas de
+   pantalla empaquetadas en `0x647550` (vértice 0), `0x647554` (**vértice 2**)
+   y `0x647558` (**vértice 1**). Si `det2d >= 0` → cara trasera → **aborta la
+   subdivisión**.
+3. `0x426300..0x426327`: clave de bucket `= (max(A,B,C) >> 2) + 4*layer`;
+   si no está en `[0, 0xC00)` → descarta, sin abortar.
+4. `0x426430`: si `poly+0x06 & 0x8000` (oculto) → descarta, sin abortar.
+5. `0x426441..0x426496`: si los tres vértices caen al mismo lado de los
+   límites de pantalla (signos de `0x8000` sobre `x` e `y`, con
+   `0x1800200 = (y=0x180, x=0x200)`) → descarta, sin abortar.
+
+El port reproduce este gate y este orden.
+
+#### 9.5.6 Comparación fase a fase y por frame
 
 | Magnitud (frame de referencia) | Original | Port |
 |---|---|---|
-| Polígonos recogidos | 3429 (coincide) | 3429 |
-| Proyecciones (`0x46A1D0`) | 4260 | 3429 |
-| Llamadas al emisor cercano (`0x426256`) | 3441 | 1123 |
-| Emisor lejano (`0x426588`) | 0 | 0 |
-| Triángulos / dibujos emitidos | **1252** | **1123** |
+| Polígonos recogidos / proyectados | 3429 | 3429 ✔ |
+| Profundidades por polígono | 3429 tripletas | idénticas bit a bit ✔ |
+| Polígonos que subdividen | 27 | 27 ✔ (los mismos) |
+| Subtriángulos intentados | 39 | 39 ✔ |
+| Subtriángulos emitidos | 0 | 0 ✔ |
+| Triángulos aceptados | 1123 | 1123 ✔ |
+| **Orden de dibujo** | 1123 triángulos | **1123/1123 en la misma posición** ✔ |
 
-La diferencia (129 en el frame 0; 228, 225, 226, 226 y 229 en los frames
-1..5) queda **localizada en la rama de subdivisión**: el port intenta
-subdividir 110 polígonos y de ellos **no emite ni un subtriángulo** (el gate
-descarta 1115 triángulos por `det2d` y 1191 por estar fuera de pantalla), mientra
-que el original dibuja ~129 mas. El original proyecta 831 veces mas que polígonos
-tiene (4260 frente a 3429), lo que apunta a una entrada en la rama de
-subdivisión mas generosa que la del port (el port subdivide 110). La
-equivalencia exacta de esa rama (que subtriángulos se emiten y con que orden) es
-el punto pendiente de S-2.
+Por frame (triángulos aceptados / orden):
+
+| Frame | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| Original | 1123 | 1128 | 1143 | 1169 | 1154 | 1157 |
+| Port | 1123 | 1128 | 1143 | 1169 | 1154 | 1157 ✔ |
+
+Fases de la subdivisión por frame (original): bloque 1 = 27, 29, 27, 31;
+bloques 2-7 = 2, 2, 1, 3.
+
+Todo esto queda como regresión en `port/tests/test_level_emit.c` con los datos
+capturados en `port/tests/ref_emit_frames.h` (`REF_EMIT_ACCEPTED`,
+`REF_ORDER`, `REF_SUBDIV`, `REF_SUBDIV_PHASES`).
+
+#### 9.5.7 Lo que sigue abierto
+
+> **Alcance de la validación.** Lo demostrado aquí es la ruta de emisión de
+> nivel **ejercitada por MAP7**, en la que el emisor es siempre el cercano
+> (`0x426256`). El emisor lejano (`0x426588`) no se ejecuta en MAP7 y su ruta
+> queda pendiente de validación dinámica.
+
+- El **emisor lejano** (`0x426588`) no se ejercita en MAP7 (`[0x65BF04] =
+  0xFFFF`): su ruta (doble registro, `0x34` + `0x24`) está implementada en el
+  port pero no validada dinámicamente.
+- La **mezcla de niebla** (`0x46B727`) se aplica en el port con el mismo
+  umbral y la misma LUT, pero los **colores resultantes** no se han comparado
+  numéricamente con el original.
+- Las **ramas alternativas** (`[0x551644+0xa0] & 1` y `& 0x1000`) no se pueden
+  forzar de forma no invasiva; siguen sin validación dinámica.
+- La estructura interna de la tabla de buckets (0xC00 entradas) no está
+  documentada al detalle; lo que sí está validado es el **orden final** de
+  dibujo, que es lo que consume el renderer.
 
 ### 9.6 Lo que sigue abierto
 

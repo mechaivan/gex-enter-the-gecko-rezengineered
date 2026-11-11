@@ -115,6 +115,18 @@ typedef struct {
     size_t             count;
     size_t             capacity;
     size_t             fog_pass_count; /* subconjunto con GEX_EMIT_F_FOG_PASS */
+    /* Contadores de la rama de subdivision (0x426E71..0x427816), para poder
+     * comparar la emision fase a fase con el original:
+     *  - subdivide_count    poligonos que entran en la rama;
+     *  - subdivide_aborted  los que se abortan por det2d >= 0 (el unico
+     *    motivo que aborta en el original: 0x4272D4/0x4273AC/0x4274A1);
+     *  - subtriangle_count  subtriangulos proyectados (4 principales y hasta
+     *    3 slivers por poligono);
+     *  - subtriangle_emitted los subtriangulos que superan el gate. */
+    uint32_t           subdivide_count;
+    uint32_t           subdivide_aborted;
+    uint32_t           subtriangle_count;
+    uint32_t           subtriangle_emitted;
     int                overflow;      /* !=0 si se forzó parada por capacidad */
 } gex_emit_output;
 
@@ -146,10 +158,10 @@ typedef enum {
 } gex_emit_emitter;
 
 typedef struct {
-    int32_t            zmin;       /* min(z0,z1,z2) (0x426D03); -1 = descartado por el gate */
-    int32_t            bucket;     /* (zmin sar 2) + 4*layer; -1 si no se calculó */
-    int                subdivide;  /* zmin < 0x6A4 (tiene prioridad sobre el gate) */
-    int                fog_applies;/* zmin >= threshold (solo si no subdivide) */
+    int32_t            maxz;       /* max(z0,z1,z2) (0x426D03); -1 = descartado por el gate */
+    int32_t            bucket;     /* (maxz sar 2) + 4*layer; -1 si no se calculó */
+    int                subdivide;  /* maxz < 0x6A4 (tiene prioridad sobre el gate) */
+    int                fog_applies;/* maxz >= threshold (solo si no subdivide) */
     gex_emit_emitter   emitter;
     uint32_t           fog_color[3];/* color con niebla aplicada por vértice */
 } gex_emit_class;
@@ -192,9 +204,9 @@ gex_emit_status gex_emit_project(const gex_emit_matrix *mat,
                                  uint32_t source_poly,
                                  gex_emit_triangle *tri);
 
-/* Fase 3: clasificar. La subdivisión (zmin < 0x6A4) tiene prioridad sobre el
+/* Fase 3: clasificar. La subdivisión (maxz < 0x6A4) tiene prioridad sobre el
  * determinante 2D, el bucket y el gate de pantalla, igual que 0x4269C2 [A].
- * Si no subdivide, aplica el gate completo y devuelve zmin = -1 si se
+ * Si no subdivide, aplica el gate completo y devuelve maxz = -1 si se
  * descarta. `state_flags` es [0x647578] (solo se consulta 0x60000).
  * El gate reproduce la prueba empaquetada (y<<16)|x de 0x426256/0x426588. */
 gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
@@ -218,7 +230,7 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
                                    uint32_t source_poly,
                                    gex_emit_output *out);
 
-/* Fase 5: ordenar por (zmin sar 2) + 4 * layer, descendente; LIFO dentro
+/* Fase 5: ordenar por (maxz sar 2) + 4 * layer, descendente; LIFO dentro
  * de una misma clave (el último emitido se dibuja primero). */
 gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count);
 

@@ -1116,7 +1116,10 @@ A, B, `a_cam` y `b_cam` del original, y con ella el recorrido BSP reproduce
 
 La validación de la emisión (2026-11-11, §9.5 de `S2_BSP_TRAVERSAL.md`) uso
 ademas la matriz de `0x65CD60`, que es la `O` de esta cámara escalada por 1,6
-en las filas 0 y 1: el port reproduce ese contexto **bit a bit**.
+en las filas 0 y 1: el port reproduce ese contexto **bit a bit**. La emisión de
+nivel ha quedado validada contra el original **triángulo a triángulo**
+(conjunto, orden de dibujo y fases de subdivisión). La cámara no se ha tocado:
+ninguna de las correcciones de la emission afecta a la cadena validada aquí.
 
 Lo que **queda abierto** es la comparación cuantitativa de la **emisión de
 geometría** (polígonos y triángulos por frame): el port emite sobre un

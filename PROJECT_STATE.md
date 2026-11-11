@@ -43,18 +43,31 @@
   exactamente con el nodo raíz que el original entrega al recorrido
   (`desc[0] = B + 0x9CE94`). Regresión en `port/tests/test_bsp.c` +
   `port/tests/ref_map7_frames.h`.
-- **Emisión (2026-11-11, 3.ª tanda):** capturado el contexto real de emisión
-  del original (`0x65CD60` = la `O` escalada por 1,6, traslación en
-  `+0x14`, focal/cx/cy/near_z, LUT y umbrales de niebla) y **corregido un
-  defecto demostrado**: la profundidad de referencia del original es la
-  **mínima** de las tres (`0x426CC1..0x426D06`), no la máxima; el port usaba
-  el máximo. Con la corrección la proyección reproduce **bit a bit** las
-  profundidades capturadas.
-- **Lo que sigue abierto:** la equivalencia exacta de la **rama de
-  subdivisión**: el port emite 1123 triángulos frente a los 1252 dibujos del
-  original en el frame de referencia (el port subdivide 110 polígonos y de
-  ellos no emite ningún subtriángulo). **S-2 no se declara completa.** Detalle
-  en [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.5.
+- **Emisión (2026-11-11, 3.ª y 4.ª tanda):** capturado el contexto real de
+  emisión del original (`0x65CD60` = la `O` escalada por 1,6, traslación en
+  `+0x14`, focal/cx/cy/near_z, LUT y umbrales de niebla) y reconstruida la
+  rama de subdivisión. El port reproduce la emisión de nivel **triángulo a
+  triángulo**: mismas 1123 capturas con idénticas profundidades (3429/3429),
+  **mismo orden de dibujo** (1123/1123) y mismas fases de subdivisión (27
+  polígonos, 25 abortos, 39 subtriángulos intentados).
+- **Corrección de la 3.ª tanda:** la profundidad de referencia del original es
+  la **máxima** de las tres (`0x426CC1..0x426D06`), no la mínima; la pasada
+  anterior lo leyó al revés e introdujo una regresión en el orden de dibujo.
+  Y en la subdivisión **solo `det2d >= 0` aborta**, y solo en los tres
+  primeros subtriángulos.
+- **Lo que sigue abierto:** el emisor lejano (`0x426588`), que en MAP7 no se
+  usa nunca (`[0x65BF04] = 0xFFFF`) y cuya ruta (doble registro `0x34` +
+  `0x24`) está implementada en el port pero **sin validación dinámica**; la
+  comparación numérica de los colores con niebla; las ramas alternativas
+  (`[0x551644+0xa0] & 1` y `& 0x1000`), que no se pueden forzar de forma no
+  invasiva; y el detalle interno de la tabla de buckets (0xC00 entradas).
+- **Estado de S-2:** la ruta de emisión de nivel **ejercitada por MAP7**
+  (recorrido BSP, visibilidad y emisión con el emisor cercano) queda
+  **demostrada equivalente al original fase a fase**, no solo por el recuento:
+  profundidades bit a bit en los 3429 polígonos, mismo conjunto de 1123
+  triángulos, **mismo orden de dibujo** y mismas fases de subdivisión. La
+  ruta del emisor lejano sigue abierta. Detalle en
+  [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.5.
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 

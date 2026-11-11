@@ -364,9 +364,20 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
 6. **Comparar fases, no solo totales.** Un recuento igual no demuestra
    equivalencia: hay que comparar los **conteos por fase** (por ejemplo
    `0x46A1D0` = proyecciones, `0x426256` = emisor cercano, `0x46558A` =
-   dibujos) y las **magnitudes intermedias** (las tres profundidades
-   proyectadas). Asi se localizo que la profundidad de referencia del original
-   es la minima y no la maxima (`0x426CC1..0x426D06`).
+   comandos dibujados) y las **magnitudes intermedias** (las tres profundidades
+   proyectadas).
+7. **Medir en el punto correcto y clasificar por tipo.** `0x46558A` dibuja
+   comandos de **todo tipo**: en el frame de referencia son 1123 triangulos
+   (`0x34`), 128 de tipo `0x1C` y 1 de tipo `0x14`. Comparar "dibujos" con
+   "triangulos de nivel" produce una divergencia falsa. El punto de medida de
+   la emision de nivel es `0x42649C` (triangulo aceptado en el bucket).
+8. **Validar la semantica de una comparacion con datos, no con la lectura del
+   desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
+   redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
+   al reves cambia el resultado de maximo a minimo. La comprobacion decisiva
+   fue dinamica: de 55 poligonos con profundidad *minima* menor que `0x6A4`,
+   el original subdivide exactamente los 27 con profundidad *maxima* menor que
+   `0x6A4`, y el orden de dibujo solo coincide (1123/1123) usando el maximo.
 
 ## 5. Registro
 

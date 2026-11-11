@@ -55,6 +55,91 @@ cambia de verdad y S-2 sigue abierta.
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Emision de S-2 validada triangulo a triangulo contra el original: se corrige la profundidad de referencia (maximo, no minimo) y la semantica de aborto de la subdivision
+
+La emision de nivel del port reproduce ahora **exactamente** la del
+ejecutable original: mismo conjunto de triangulos, **mismo orden de dibujo** y
+mismas fases de la subdivision.
+
+**Defecto 1 (correccion de la pasada anterior): la profundidad de referencia
+es el MAXIMO de las tres, no el minimo.** `0x426CC1..0x426D06` (y el mismo
+patron en `0x4262BE..0x426300` y en `0x4278A6..0x4278E5`) calcula
+
+```text
+if (A <= B)  r = (B <= C) ? C : B;   /* max(B, C) */
+else         r = (A <= C) ? C : A;   /* max(A, C) */
+```
+
+es decir `max(A, B, C)` con `A = [0x647430]`, `B = [0x64742C]` y
+`C = [0x6474A0]`. El commit `65ea2c6` lo habia leido como minimo (confundiendo
+`cltd`/`subl`/`sarl`, que es division por dos con redondeo hacia cero, con una
+correccion de signo previa a un desplazamiento) e introduced una regresion en
+el port.
+
+Evidencia dinamica (frame de referencia, `map7.dfx`):
+
+- De los 3429 poligonos, 55 tienen profundidad *minima* `< 0x6A4` y 27 la
+  tienen *maxima* `< 0x6A4`. El original subdivide exactamente los 27
+  (27/27 con el maximo; 27/55 con el minimo).
+- El orden real de dibujo (`0x0046558A`, comandos de tipo `0x34`) coincide con
+  la secuencia del port **1123/1123** usando el maximo, y solo **14/1123**
+  usando el minimo.
+
+Correccion: `max_depth()` restaurado en `port/src/emit/emit.c` y
+`gex_emit_class.maxz` vuelve a llamarse `maxz` (el nombre `zmin` de la pasada
+anterior era incorrecto).
+
+**Defecto 2: en la subdivision solo `det2d >= 0` aborta.** El emisor cercano
+`0x426256` devuelve 0 (y por tanto aborta la subdivision) unicamente cuando el
+determinante 2D es `>= 0` (`0x42629A`); todos los demas rechazos (recorte,
+bucket fuera de rango, poligono oculto, fuera de pantalla) devuelven 1 y la
+subdivision continua. El original solo comprueba el valor de retorno tras los
+tres primeros bloques (`0x4272D4`, `0x4273AC`, `0x4274A1`); los bloques 4 a 7
+no abortan nunca. El port abortaba ante cualquier fallo del gate.
+
+**La diferencia "1252 frente a 1123" era un artefacto de medicion.**
+`0x0046558A` dibuja comandos de **todo tipo**: en el frame de referencia son
+1123 triangulos (`0x34`), 128 de tipo `0x1C` y 1 de tipo `0x14`; estos ultimos
+129 no son triangulos de nivel (el unico emisor de nivel es `0x00426256`, y el
+lejano `0x00426588` no se usa en MAP7 porque `[0x65BF04] = 0xFFFF`). El punto
+de medida correcto es `0x0042649C` (triangulo aceptado en el bucket).
+
+**Rama de subdivision reconstruida** (`0x426E71..0x427816`): los puntos medios
+se calculan en el espacio del vertice como `(a+b)/2` truncado y se guardan en
+`0x6476A8..0x6476D8`; hay siete bloques (cuatro principales: `(v0,m01,m20)`,
+`(m20,m12,v2)`, `(m01,m12,m20)`, `(m01,v1,m12)`; y tres slivers: `(v0,v1,m01)`,
+`(m12,v1,v2)`, `(v0,m20,v2)` solo si `(color0>>24)&2 == 0`), cada uno con su
+propia proyeccion (`0x46A1D0`) y su llamada al emisor.
+
+**Validacion resultante** (frame de referencia, con `map7.dfx`):
+
+| Magnitud | Original | Port |
+|---|---|---|
+| Poligonos proyectados | 3429 | 3429 (profundidades identicas bit a bit) |
+| Poligonos subdivididos | 27 | 27 (los mismos) |
+| Subtriangulos intentados / emitidos | 39 / 0 | 39 / 0 |
+| Triangulos aceptados | 1123 | 1123 |
+| Orden de dibujo | 1123 triangulos | 1123/1123 en la misma posicion |
+
+Por frame, los triangulos aceptados son 1123, 1128, 1143, 1169, 1154 y 1157 en
+ambos procesos.
+
+**Pruebas.** Regresion nueva en `port/tests/test_level_emit.c` (datos en
+`port/tests/ref_emit_frames.h`): conjunto y orden de dibujo, fases de la
+subdivision por frame, poligonos subdivididos y profundidades bit a bit. Se
+anaden contadores de fase a `gex_emit_output` (`subdivide_count`,
+`subdivide_aborted`, `subtriangle_count`, `subtriangle_emitted`). Suite del
+port verde con `build.ps1 test`, ademas de `-O0`, `-O2`, ASan y UBSan.
+
+**Documentacion.** `S2_BSP_TRAVERSAL.md` 9.5 (reescrito: contexto, las dos
+correcciones con su evidencia, la reconstruccion de la rama de subdivision y
+del gate, la comparacion fase a fase y lo que queda abierto),
+`S2_CAMERA_VISIBILITY.md` 14, `RESEARCH.md`, `REVERSE_ENGINEERING.md` 4.1
+(reglas 6 a 8: comparar fases, medir en el punto correcto y clasificar por
+tipo de comando, y validar la semantica de una comparacion con datos),
+`ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
+`docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
+
 ## 2026-11-11 - 0.0.0 - Emision de S-2 validada contra el original: contexto real capturado y corregida la profundidad de referencia
 
 **Contexto de emision capturado** (breakpoint de hardware en `0x004269C2`, nivel

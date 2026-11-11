@@ -38,8 +38,10 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 > encima de la relectura estática. Ojo: el original carga
 > `C:\GEX_REZ\GEX2\level\map7.dfx`, no `AZTEC16.DFX`; comparar el port
 > con otro nivel produce discrepancias falsas. La emision se ha validado con
-> el mismo procedimiento (contexto en `0x65CD60`, proyeccion, niebla y conteo
-> de dibujos). Resultados en
+> el mismo procedimiento (contexto en `0x65CD60`, proyeccion, niebla) y con dos
+> correcciones que solo aparecieron al comparar **fases** y no totales: la
+> profundidad de referencia es el maximo de las tres, y en la subdivision solo
+> `det2d >= 0` aborta. Resultados en
 > [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
 > [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
 > reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.

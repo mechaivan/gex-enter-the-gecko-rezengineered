@@ -217,7 +217,7 @@ static void test_determinant(void) {
     gex_emit_matrix m = mat_identity();
     gex_emit_fog f = fog_with_lut(400, 100);
 
-    /* zmin = 2000 >= 0x6A4: el gate se aplica (la subdivisión no interviene).
+    /* maxz = 2000 >= 0x6A4: el gate se aplica (la subdivisión no interviene).
      * (0,0),(100,0),(0,100): det = +10000 >= 0 -> DESCARTADO */
     int16_t vtx[9] = {0, 0, 2000, 100, 0, 2000, 0, 100, 2000};
     uint32_t color[3] = {0, 0, 0};
@@ -225,14 +225,14 @@ static void test_determinant(void) {
     CHECK(gex_emit_project(&m, vtx, color, NULL, NULL, 0, 0, 0, &tri) == GEX_EMIT_OK);
     gex_emit_class cls;
     CHECK(gex_emit_classify(&f, &tri, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin < 0); /* descartado por determinante >= 0 */
+    CHECK(cls.maxz < 0); /* descartado por determinante >= 0 */
     CHECK(cls.bucket == -1);
 
     /* Orden inverso: det = -10000 < 0 -> pasa; bucket 500, emisor lejano. */
     int16_t vtx2[9] = {0, 0, 2000, 0, 100, 2000, 100, 0, 2000};
     CHECK(gex_emit_project(&m, vtx2, color, NULL, NULL, 0, 0, 0, &tri) == GEX_EMIT_OK);
     CHECK(gex_emit_classify(&f, &tri, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 2000);
+    CHECK(cls.maxz == 2000);
     CHECK(cls.subdivide == 0);
     CHECK(cls.bucket == 500);
     CHECK(cls.emitter == GEX_EMIT_FAR);
@@ -247,7 +247,7 @@ static void test_classify_subdivide_priority(void) {
     t.x[0] = 100; t.x[1] = 0; t.x[2] = 0; /* det > 0 */
     gex_emit_class cls;
     CHECK(gex_emit_classify(&f, &t, 0x8000u, 0x20000u, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 100);
+    CHECK(cls.maxz == 100);
     CHECK(cls.subdivide == 1);
     CHECK(cls.emitter == GEX_EMIT_NEAR);
     CHECK(cls.fog_applies == 0);
@@ -260,42 +260,42 @@ static void test_gate(void) {
     /* Caso base: z = 0x800 -> bucket 512 */
     gex_emit_triangle t = tri_at(0x800, 0, 0, 0);
     CHECK(gex_emit_classify(&f, &t, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 0x800 && cls.bucket == 0x200);
+    CHECK(cls.maxz == 0x800 && cls.bucket == 0x200);
     CHECK(cls.subdivide == 0);
 
     /* 1. [0x647578] & 0x60000 */
     CHECK(gex_emit_classify(&f, &t, 0, 0x20000u, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
     CHECK(gex_emit_classify(&f, &t, 0, 0x40000u, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
 
     /* 2. vértice clipeado por profundidad */
     gex_emit_triangle tc = t;
     tc.flags |= GEX_EMIT_F_DEPTH_CLIPPED;
     CHECK(gex_emit_classify(&f, &tc, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
 
     /* 3. det2d >= 0 */
     gex_emit_triangle td = t;
     td.x[0] = 100; td.x[1] = 0; td.x[2] = 0;
     CHECK(gex_emit_classify(&f, &td, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
 
     /* 4. bucket: límite superior 0xC00 y capa negativa */
     gex_emit_triangle tb = tri_at(0x3000, 0, 0, 0); /* 0xC00 */
     CHECK(gex_emit_classify(&f, &tb, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
     tb = tri_at(0x2FFC, 0, 0, 0); /* 0xBFF: pasa */
     CHECK(gex_emit_classify(&f, &tb, 0, 0, &cls) == GEX_EMIT_OK);
     CHECK(cls.bucket == 0xBFF);
     gex_emit_triangle tn = tri_at(0x6A4, 0, 0, 0);
     tn.layer = -128; /* 425 - 512 = -87 */
     CHECK(gex_emit_classify(&f, &tn, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
 
     /* 5. poly+0x06 & 0x8000 */
     CHECK(gex_emit_classify(&f, &t, 0x8000u, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1);
+    CHECK(cls.maxz == -1);
 
     /* 6. fuera de pantalla: todos al mismo lado */
     gex_emit_triangle to;
@@ -304,28 +304,28 @@ static void test_gate(void) {
     to.x[0] = -100; to.x[1] = -1; to.x[2] = -1;
     to.y[0] = 0;    to.y[1] = 100; to.y[2] = 0; /* det = -9900 */
     CHECK(gex_emit_classify(&f, &to, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1); /* todos x < 0 */
+    CHECK(cls.maxz == -1); /* todos x < 0 */
 
     to.x[0] = 0x300; to.x[1] = 0x201; to.x[2] = 0x201;
     to.y[0] = 0;     to.y[1] = 0;     to.y[2] = 100; /* det = -25600 */
     CHECK(gex_emit_classify(&f, &to, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1); /* todos x > 0x200 */
+    CHECK(cls.maxz == -1); /* todos x > 0x200 */
 
     to.x[0] = 0; to.x[1] = 100; to.x[2] = 0;
     to.y[0] = -1; to.y[1] = -1; to.y[2] = -100; /* det = -9900 */
     CHECK(gex_emit_classify(&f, &to, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1); /* todos y < 0 */
+    CHECK(cls.maxz == -1); /* todos y < 0 */
 
     to.x[0] = 0; to.x[1] = 100; to.x[2] = 0;
     to.y[0] = 0x181; to.y[1] = 0x181; to.y[2] = 0x300; /* det = -100 */
     CHECK(gex_emit_classify(&f, &to, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == -1); /* todos y > 0x180 */
+    CHECK(cls.maxz == -1); /* todos y > 0x180 */
 
     /* Frontera: exactamente 0/0x200/0x180 no descarta */
     to.x[0] = 0; to.x[1] = 0; to.x[2] = 0x200;
     to.y[0] = 0; to.y[1] = 0x180; to.y[2] = 0;
     CHECK(gex_emit_classify(&f, &to, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 0x800);
+    CHECK(cls.maxz == 0x800);
 
     /* Determinante con wrap de 32 bits (defecto 2): coordenadas extremas.
      * a = -0xFFFF, b = -0xFFFF, c = d = 0 -> a*b = 0xFFFF0001 -> -0x1FFFF.
@@ -336,7 +336,7 @@ static void test_gate(void) {
     tw.x[0] = 0x7FFF; tw.x[1] = -0x8000; tw.x[2] = 0x7FFF;
     tw.y[0] = 0x7FFF; tw.y[1] = 0x7FFF; tw.y[2] = -0x8000;
     CHECK(gex_emit_classify(&f, &tw, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 0x800); /* det envuelto < 0: pasa el gate */
+    CHECK(cls.maxz == 0x800); /* det envuelto < 0: pasa el gate */
     CHECK(cls.bucket == 0x200);
 }
 
@@ -489,14 +489,14 @@ static void test_emitter_selection(void) {
     uint32_t color[3] = {0xFF102030u, 0xFF405060u, 0xFF708090u};
     uint8_t u[3] = {1, 2, 3}, v[3] = {4, 5, 6};
 
-    /* zmin = 2000 >= 0x6A4: no subdivide; 2000 >= 99 -> FAR.
+    /* maxz = 2000 >= 0x6A4: no subdivide; 2000 >= 99 -> FAR.
      * Orden de vértices tal que det2d < 0 (cara visible). */
     int16_t vtx[9] = {0, 0, 2000, 0, 10, 2000, 10, 0, 2000};
     gex_emit_triangle tri;
     CHECK(gex_emit_project(&m, vtx, color, u, v, 0x100, 3, 11, &tri) == GEX_EMIT_OK);
     gex_emit_class cls;
     CHECK(gex_emit_classify(&f, &tri, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 2000);
+    CHECK(cls.maxz == 2000);
     CHECK(cls.subdivide == 0);
     CHECK(cls.fog_applies == 1);
     CHECK(cls.emitter == GEX_EMIT_FAR);
@@ -507,11 +507,11 @@ static void test_emitter_selection(void) {
     CHECK(cls.emitter == GEX_EMIT_NEAR);
     CHECK(cls.fog_applies == 1);
 
-    /* Subdivisión (zmin < 0x6A4) manda sobre el emisor lejano */
+    /* Subdivisión (maxz < 0x6A4) manda sobre el emisor lejano */
     int16_t vtx2[9] = {0, 0, 400, 0, 10, 400, 10, 0, 400};
     CHECK(gex_emit_project(&m, vtx2, color, u, v, 0, 0, 0, &tri) == GEX_EMIT_OK);
     CHECK(gex_emit_classify(&f, &tri, 0, 0, &cls) == GEX_EMIT_OK);
-    CHECK(cls.zmin == 400);
+    CHECK(cls.maxz == 400);
     CHECK(cls.subdivide == 1);
     CHECK(cls.fog_applies == 0);
     CHECK(cls.emitter == GEX_EMIT_NEAR);
@@ -599,7 +599,7 @@ static void test_subdivide(void) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Ordenación por bucket (zmin>>2 + 4*layer) y LIFO                   */
+/* Ordenación por bucket (maxz>>2 + 4*layer) y LIFO                   */
 /* ------------------------------------------------------------------ */
 
 static void test_sort(void) {
@@ -867,7 +867,7 @@ static void test_level_emit_mini(void) {
     gex_emit_output out; memset(&out, 0, sizeof(out));
 
     CHECK(gex_level_emit(img, sz, &desc, &r, &m, &f, 0, &out) == GEX_EMIT_OK);
-    /* zmin 400 < 0x6A4 -> subdivisión en 4; alfa 0xFF -> sin slivers.
+    /* maxz 400 < 0x6A4 -> subdivisión en 4; alfa 0xFF -> sin slivers.
      * La subdivisión no aplica niebla: 0 pasadas. */
     CHECK(out.count == 4);
     CHECK(out.fog_pass_count == 0);
@@ -878,8 +878,8 @@ static void test_level_emit_mini(void) {
         CHECK(out.tris[i].layer == 7);
         CHECK(out.tris[i].texture == 0x123);
     }
-    /* Orden: clave (zmin>>2)+4*layer descendente; LIFO (seq descendente)
-     * dentro de la misma clave. Los subtriángulos tienen zmin 400 o 350. */
+    /* Orden: clave (maxz>>2)+4*layer descendente; LIFO (seq descendente)
+     * dentro de la misma clave. Los subtriángulos tienen maxz 400 o 350. */
     for (size_t i = 0; i + 1 < out.count; i++) {
         const gex_emit_triangle *a = &out.tris[i];
         const gex_emit_triangle *b = &out.tris[i + 1];
@@ -943,10 +943,10 @@ static void check_structural(const gex_emit_output *out, uint32_t poly_count) {
             CHECK(t->x[j] >= GEX_EMIT_XY_MIN && t->x[j] <= GEX_EMIT_XY_MAX);
             CHECK(t->y[j] >= GEX_EMIT_XY_MIN && t->y[j] <= GEX_EMIT_XY_MAX);
         }
-        /* La clave de bucket usa la profundidad MINIMA (0x426303). */
+        /* La clave de bucket usa la profundidad MAXIMA (0x426303). */
         int32_t mz = t->z[0];
-        if (t->z[1] < mz) mz = t->z[1];
-        if (t->z[2] < mz) mz = t->z[2];
+        if (t->z[1] > mz) mz = t->z[1];
+        if (t->z[2] > mz) mz = t->z[2];
         int32_t key = (int32_t)((uint32_t)mz >> 2) + 4 * (int32_t)t->layer;
         if (!first) {
             CHECK(prev_key >= key);
@@ -1052,10 +1052,30 @@ static void test_aztec_real(void) {
  * ------------------------------------------------------------------------- */
 #define MAP7_PATH "C:/GEX_REZ/GEX2/level/map7.dfx"
 
+/* ---------------------------------------------------------------------------
+ * Referencia dinamica del original (map7.dfx, 2026-11-11).
+ *
+ * Capturado del GEX3D.EXE en ejecucion con breakpoints de hardware:
+ *   0x004269C2  emision de nivel (una vez por frame)
+ *   0x00426D09  decision de subdivision (profundidades A,B,C del poligono)
+ *   0x00426E71  entrada en la rama de subdivision
+ *   0x0042649C  triangulo aceptado por el emisor (insercion en el bucket)
+ *   0x0046558A  comando dibujado (0x34 = triangulo de nivel)
+ *
+ * Se exige:
+ *  - que la proyeccion del port reproduzca bit a bit las profundidades
+ *    capturadas ([0x647430]/[0x64742C]/[0x6474A0]);
+ *  - el numero de triangulos aceptados (0x0042649C), que es lo que el port
+ *    debe producir;
+ *  - el ORDEN de dibujo, triangulo a triangulo (0x0046558A), que depende de
+ *    la clave de bucket (maximo de las tres profundidades >> 2) + 4*layer;
+ *  - las fases de la subdivision: los mismos poligonos, el mismo numero de
+ *    abortos (solo det2d >= 0 aborta) y el mismo numero de subtriangulos
+ *    intentados.
+ * ------------------------------------------------------------------------- */
+#define MAP7_PATH "C:/GEX_REZ/GEX2/level/map7.dfx"
+
 static void test_map7_reference_emit(void) {
-    static const uint32_t GOLDEN_TRIANGLES[REF_EMIT_COUNT] = {
-        1123u, 1128u, 1143u, 1169u, 1154u, 1157u
-    };
     gex_dfx_container c; gex_dfx_level lv;
     FILE *f = fopen(MAP7_PATH, "rb");
     if (!f) { printf("skip map7 reference (no file)\n"); return; }
@@ -1091,55 +1111,126 @@ static void test_map7_reference_emit(void) {
 
         memset(&leaves, 0, sizeof(leaves));
         leaves.leaves = (uint32_t *)REF_EMIT_LEAVES[i];
-        leaves.count = p[11];
+        leaves.count = (uint32_t)p[11];
 
         memset(&out, 0, sizeof(out));
         CHECK(gex_level_emit(c.image, c.image_size, &lv.descriptor, &leaves,
                              &m, &fog, 0, &out) == GEX_EMIT_OK);
 
-        /* Las profundidades proyectadas deben coincidir bit a bit con las
-         * capturadas del original (solo el frame 0 tiene profundidad
-         * capturada: el limite de volcado del trazador solo alcanzo el
-         * primer frame). */
-        if (i == 0) {
-            gex_emit_poly_list polys;
-            memset(&polys, 0, sizeof(polys));
-            CHECK(gex_emit_collect(c.image, c.image_size, &lv.descriptor,
-                                   &leaves, &polys) == GEX_EMIT_OK);
-            for (uint32_t k = 0; k < polys.count && k < REF_DEPTH_COUNT; k++) {
-                const gex_emit_poly *pp = &polys.polys[k];
-                int16_t vtx[9];
-                gex_emit_triangle tri;
-                int ok = 1;
-                for (int j = 0; j < 3; j++) {
-                    size_t voff = (size_t)lv.descriptor.vertex_table +
-                                  (size_t)pp->vtx[j] * GEX_VERTEX_SIZE;
-                    if (voff + 6u > c.image_size) { ok = 0; break; }
-                    const uint8_t *vp = c.image + voff;
-                    int16_t t0, t1, t2;
-                    memcpy(&t0, vp, 2);
-                    memcpy(&t1, vp + 2, 2);
-                    memcpy(&t2, vp + 4, 2);
-                    vtx[3 * j] = t0; vtx[3 * j + 1] = t1; vtx[3 * j + 2] = t2;
-                }
-                if (!ok) continue;
-                if (gex_emit_project(&m, vtx, pp->color, pp->u, pp->v,
-                                     pp->texture, pp->layer, pp->source_poly,
-                                     &tri) != GEX_EMIT_OK) {
-                    continue;
-                }
-                CHECK(tri.z[0] == REF_DEPTHS[k * 3 + 0]);
-                CHECK(tri.z[1] == REF_DEPTHS[k * 3 + 1]);
-                CHECK(tri.z[2] == REF_DEPTHS[k * 3 + 2]);
-                checked++;
-            }
-            CHECK(checked == REF_DEPTH_COUNT);
-            gex_emit_poly_list_free(&polys);
+        /* Numero de triangulos de nivel aceptados por el emisor. */
+        CHECK(out.count == REF_EMIT_ACCEPTED[i]);
+
+        /* FASES de la subdivision por frame: los poligonos que llegan al
+         * primer subtriangulo y los que superan su det2d. */
+        if (i < 4) {
+            CHECK(out.subdivide_count == REF_SUBDIV_PHASES[i][0]);
+            CHECK(out.subdivide_count - out.subdivide_aborted ==
+                  REF_SUBDIV_PHASES[i][1]);
+            CHECK(out.subtriangle_count ==
+                  REF_SUBDIV_PHASES[i][0] + 6u * REF_SUBDIV_PHASES[i][1]);
         }
 
-        CHECK(out.count == GOLDEN_TRIANGLES[i]);
-        printf("map7 frame %d: %u triangulos (original %u dibujos), %d profundidades comprobadas\n",
-               i, (unsigned)out.count, REF_EMIT_DRAWS[i], checked);
+        if (i == 0) {
+            /* ORDEN de dibujo: el port debe emitir exactamente la misma
+             * secuencia que el original (clave de bucket descendente y LIFO
+             * dentro de la misma clave). */
+            CHECK(out.count == REF_ORDER_COUNT);
+            for (size_t k = 0; k < out.count && k < REF_ORDER_COUNT; k++) {
+                CHECK(out.tris[k].z[0] == REF_ORDER[k][0]);
+                CHECK(out.tris[k].z[1] == REF_ORDER[k][1]);
+                CHECK(out.tris[k].z[2] == REF_ORDER[k][2]);
+            }
+
+            /* FASES de la subdivision: el original subdivide 27 poligonos
+             * del frame de referencia, de los cuales 25 se abortan en el
+             * primer subtriangulo (det2d >= 0) y 2 recorren los siete
+             * subtriangulos: 27 + 2*6 = 39 subtriangulos intentados. */
+            CHECK(out.subdivide_count == 27);
+            CHECK(out.subdivide_aborted == 25);
+            CHECK(out.subtriangle_count == 39);
+            CHECK(out.subtriangle_emitted == 0);
+
+            /* Los mismos poligonos: la decision depende de la profundidad
+             * MAXIMA (0x426D09), no de la minima. */
+            {
+                gex_emit_poly_list polys;
+                uint32_t nsub = 0;
+                memset(&polys, 0, sizeof(polys));
+                CHECK(gex_emit_collect(c.image, c.image_size, &lv.descriptor,
+                                       &leaves, &polys) == GEX_EMIT_OK);
+                for (uint32_t k = 0; k < polys.count; k++) {
+                    const gex_emit_poly *pp = &polys.polys[k];
+                    int16_t vtx[9];
+                    gex_emit_triangle tri;
+                    gex_emit_class cls;
+                    int ok = 1;
+                    for (int j = 0; j < 3; j++) {
+                        size_t voff = (size_t)lv.descriptor.vertex_table +
+                                      (size_t)pp->vtx[j] * GEX_VERTEX_SIZE;
+                        if (voff + 6u > c.image_size) { ok = 0; break; }
+                        const uint8_t *vp = c.image + voff;
+                        int16_t t0, t1, t2;
+                        memcpy(&t0, vp, 2); memcpy(&t1, vp + 2, 2); memcpy(&t2, vp + 4, 2);
+                        vtx[3*j] = t0; vtx[3*j+1] = t1; vtx[3*j+2] = t2;
+                    }
+                    if (!ok) continue;
+                    if (gex_emit_project(&m, vtx, pp->color, pp->u, pp->v,
+                                         pp->texture, pp->layer, pp->source_poly,
+                                         &tri) != GEX_EMIT_OK) {
+                        continue;
+                    }
+                    if (gex_emit_classify(&fog, &tri, pp->poly_flags, 0, &cls) != GEX_EMIT_OK)
+                        continue;
+                    if (!cls.subdivide) continue;
+                    if (nsub < REF_SUBDIV_COUNT) {
+                        CHECK(tri.z[0] == REF_SUBDIV[nsub][0]);
+                        CHECK(tri.z[1] == REF_SUBDIV[nsub][1]);
+                        CHECK(tri.z[2] == REF_SUBDIV[nsub][2]);
+                    }
+                    nsub++;
+                }
+                CHECK(nsub == REF_SUBDIV_COUNT);
+                gex_emit_poly_list_free(&polys);
+            }
+
+            /* Profundidades proyectadas bit a bit (16 primeros poligonos). */
+            {
+                gex_emit_poly_list polys;
+                memset(&polys, 0, sizeof(polys));
+                CHECK(gex_emit_collect(c.image, c.image_size, &lv.descriptor,
+                                       &leaves, &polys) == GEX_EMIT_OK);
+                for (uint32_t k = 0; k < polys.count && k < REF_DEPTH_COUNT; k++) {
+                    const gex_emit_poly *pp = &polys.polys[k];
+                    int16_t vtx[9];
+                    gex_emit_triangle tri;
+                    int ok = 1;
+                    for (int j = 0; j < 3; j++) {
+                        size_t voff = (size_t)lv.descriptor.vertex_table +
+                                      (size_t)pp->vtx[j] * GEX_VERTEX_SIZE;
+                        if (voff + 6u > c.image_size) { ok = 0; break; }
+                        const uint8_t *vp = c.image + voff;
+                        int16_t t0, t1, t2;
+                        memcpy(&t0, vp, 2); memcpy(&t1, vp + 2, 2); memcpy(&t2, vp + 4, 2);
+                        vtx[3*j] = t0; vtx[3*j+1] = t1; vtx[3*j+2] = t2;
+                    }
+                    if (!ok) continue;
+                    if (gex_emit_project(&m, vtx, pp->color, pp->u, pp->v,
+                                         pp->texture, pp->layer, pp->source_poly,
+                                         &tri) != GEX_EMIT_OK) {
+                        continue;
+                    }
+                    CHECK(tri.z[0] == REF_DEPTHS[k * 3 + 0]);
+                    CHECK(tri.z[1] == REF_DEPTHS[k * 3 + 1]);
+                    CHECK(tri.z[2] == REF_DEPTHS[k * 3 + 2]);
+                    checked++;
+                }
+                CHECK(checked == REF_DEPTH_COUNT);
+                gex_emit_poly_list_free(&polys);
+            }
+        }
+
+        printf("map7 frame %d: %u triangulos (original %u), %d profundidades comprobadas\n",
+               i, (unsigned)out.count, REF_EMIT_ACCEPTED[i], checked);
         gex_emit_output_free(&out);
     }
     gex_dfx_release_level(&lv);

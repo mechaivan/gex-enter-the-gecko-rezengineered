@@ -86,11 +86,20 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
     [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.
   - **Tercera tanda (2026-11-11, emisión):** capturado el contexto real de
-    emisión (`0x65CD60`, proyección, niebla) y corregido un defecto
-    demostrado: la profundidad de referencia del original es la **mínima** de
-    las tres, no la máxima (`0x426CC1..0x426D06`). El port reproduce ahora la
-    proyección **bit a bit**. Queda abierta la equivalencia exacta de la rama
-    de subdivisión (1123 frente a 1252 triángulos en el frame de referencia).
+    emisión (`0x65CD60`, proyección, niebla) y reconstruida la rama de
+    subdivisión del original. El port reproduce ahora la emisión de nivel
+    **triángulo a triángulo**: mismo conjunto, **mismo orden de dibujo** y
+    mismas fases de subdivisión (1123/1123 en el frame de referencia).
+  - **Cuarta tanda (2026-11-11, corrección de la tercera):** la profundidad de
+    referencia del original es la **máxima** de las tres, no la mínima
+    (`0x426CC1..0x426D06`); la pasada anterior lo había leído al revés y
+    había introducido una regresión en el orden de dibujo (14/1123 en lugar de
+    1123/1123). Además, en la subdivisión **solo `det2d >= 0` aborta** (y
+    solo en los tres primeros subtriángulos). La aparente diferencia de
+    "1252 frente a 1123" era un artefacto de medición: `0x46558A` cuenta
+    comandos de todo tipo (128 de tipo `0x1C` y 1 de tipo `0x14` no son
+    triángulos de nivel). Detalle en
+    [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.5.
  🔄 EN CURSO
 
 - [ ] S-1: Parser DFX (2026-11-07) — parser del contenedor `.DFX` **implementado y validado** en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)): contenedor, relocalización y descriptor de nivel sobre AZTEC16.DFX y GEX.DFX. La integración del primer escenario (buffers, texturas y renderer) sigue pendiente; S-1 no se declara completo.

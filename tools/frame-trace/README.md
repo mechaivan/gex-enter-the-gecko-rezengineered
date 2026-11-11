@@ -58,11 +58,44 @@ usa `ReadProcessMemory`. Se añaden como argumentos opcionales detrás de
 | `dumpind:<arg>:<ptrOff>:<off>,...` | dwords en la dirección contenida en `(argumento <arg> + <ptrOff>)`, más `<off>` |
 | `dumpraw:<arg>:<off>:<len>` | bytes contiguos en `(argumento <arg> + <off>)` |
 | `dumpabsraw:<base>:<len>` | bytes contiguos en la dirección absoluta `<base>` |
+| `dumpabsind:<ptrAddr>:<len>` | bytes contiguos en la dirección guardada en el puntero global `<ptrAddr>` (por ejemplo la LUT de niebla en `0x64FEA8`) |
 | `dumpstack:<off>,...` | dwords en `(esp + <off>)` del punto de interrupción (para argumentos por debajo de `a2`) |
 | `dumpindraw:<arg>:<ptrOff>:<len>` | bytes contiguos en la dirección contenida en `(argumento <arg> + <ptrOff>)` |
 | `dumpstr:<arg>:<off>:<max>` | cadena terminada en NUL en `(argumento <arg> + <off>)` (rutas de fichero) |
 | `regs` | registros del hilo en el punto de interrupción (`eax`..`ebp`, `esp`) |
 | `dumplimit:N` | máximo de bloques volcados por impacto (4 por defecto) |
+
+
+### Capturas de la validación de S-2 (emisión de nivel)
+
+Con el nivel `map7.dfx` (el que carga el original) y el juego en una copia
+aislada, estas son las capturas que reproducen la emisión original:
+
+```text
+# contexto de emisión (matriz 0x65CD60, proyección, niebla, LUT)
+hw:4269c2  dump:2:0,2,4  dumpabs:646814:0,4;646850:0,4;6474e8:0,4;65bf04:0,4;65bf80:0,4
+        dumpabsraw:65cd60:32  dumpabsind:64fea8:1B28
+
+# profundidades por polígono (decisión de subdivisión) y subfases
+hw:4269c2,426d09,426e71,427294  dumpabs:647430:0,4;64742c:0,4;6474a0:0,4
+
+# las siete fases de la subdivisión (una ejecución por bloque)
+hw:4269c2,427294,42736c,427464   # bloques 1-3
+hw:4269c2,427539,42761c,427700   # bloque 4 y slivers 1-2
+hw:4269c2,4277d3,427294,42649c   # sliver 3 y aceptados
+
+# triángulos aceptados por el emisor (el punto de medida de la emisión)
+hw:4269c2,42649c  dumpabs:647430:0,4;64742c:0,4;6474a0:0,4
+
+# orden de dibujo real (comandos de tipo 0x34 = triángulo de nivel)
+hw:4269c2,46558a  dumpraw:0:0:52
+
+# tipo de cada comando dibujado (0x34 = triángulo, 0x1C, 0x14 = otros)
+hw:4269c2,46558a  dump:0:0
+```
+
+`dumplimit:N` fija cuántos bloques se vuelcan por impacto; con miles de
+impactos hay que subirlo (por ejemplo `dumplimit:30000`).
 
 Los desplazamientos, direcciones y longitudes se interpretan en **hexadecimal**.
 Cada bloque volcado consume una unidad del límite `dumplimit`.
