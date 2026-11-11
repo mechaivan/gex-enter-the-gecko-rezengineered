@@ -34,12 +34,16 @@ int16_t gex_cam_cos_tab[0x1000];
 
 static int g_tables_ready = 0;
 
+/* Retail table values are TRUNCATED, not rounded: the table dumped from
+ * the running original (0x00646C20, half-turn sine) matches
+ * trunc(4096*sin(2*pi*i/4096)) on all 1024 live entries and differs from
+ * the rounded values on 502 of them. The port therefore truncates. */
 void gex_cam_init_tables(void) {
     const double two_pi = 6.2831853071795864769;
     for (int i = 0; i < 0x1000; i++) {
         double a = two_pi * (double)i / 4096.0;
-        gex_cam_sin_tab[i] = (int16_t)llround(sin(a) * 4096.0);
-        gex_cam_cos_tab[i] = (int16_t)llround(cos(a) * 4096.0);
+        gex_cam_sin_tab[i] = (int16_t)(sin(a) * 4096.0);
+        gex_cam_cos_tab[i] = (int16_t)(cos(a) * 4096.0);
     }
     g_tables_ready = 1;
 }
@@ -216,14 +220,27 @@ void gex_cam_mat_transpose(gex_cam_mat3 *dst, const gex_cam_mat3 *src) {
 }
 
 /* M2 = 4096 * [[1,0,0],[0,0,-1],[0,1,0]].
- * O = M2 * R applied column by column. */
+ *
+ * The original's working matrix W (0x46DD40) starts as the base matrix
+ * and the rotators post-multiply it, so W ends up as the transpose of
+ * the port's rotation product R. 0x46E038..0x46E11D copies one ROW of W
+ * into the scratch vector at 0x006474E0, runs it through the
+ * matrix/vector helper 0x004698B0 with M2 at 0x00646BE0, and writes the
+ * three results into the destination COLUMN. With W = transpose(R) that
+ * is O = M2 * R, i.e. M2 is applied to the COLUMNS of R:
+ *
+ *   O[r][c] = (M2 * column_c(R))[r] = (R[0][c], -R[2][c], R[1][c])
+ *
+ * The earlier port code applied M2 to the rows instead, which is a
+ * different matrix: it produced a visibly wrong M (see
+ * S2_CAMERA_VISIBILITY.md). */
 void gex_cam_apply_m2(gex_cam_mat3 *o, const gex_cam_mat3 *r) {
-    /* Column 0 of R: (r.w[0], r.w[3], r.w[6]) -> M2 * col0 = (r0, r6, -r3) */
-    /* Column 1 of R: (r.w[1], r.w[4], r.w[7]) -> M2 * col1 = (r1, r7, -r4) */
-    /* Column 2 of R: (r.w[2], r.w[5], r.w[8]) -> M2 * col2 = (r2, r8, -r5) */
-    o->w[0] = r->w[0]; o->w[1] = r->w[6]; o->w[2] = neg_i16(r->w[3]);
-    o->w[3] = r->w[1]; o->w[4] = r->w[7]; o->w[5] = neg_i16(r->w[4]);
-    o->w[6] = r->w[2]; o->w[7] = r->w[8]; o->w[8] = neg_i16(r->w[5]);
+    /* O[0][c] = R[0][c] */
+    o->w[0] = r->w[0];  o->w[1] = r->w[1];  o->w[2] = r->w[2];
+    /* O[1][c] = -R[2][c] */
+    o->w[3] = neg_i16(r->w[6]);  o->w[4] = neg_i16(r->w[7]);  o->w[5] = neg_i16(r->w[8]);
+    /* O[2][c] = R[1][c] */
+    o->w[6] = r->w[3];  o->w[7] = r->w[4];  o->w[8] = r->w[5];
 }
 
 /* Transform a vector by a Q12 matrix: out = (m * v) >> 12.
@@ -348,18 +365,30 @@ int gex_cam_build_orientation(const gex_camera *cam, gex_cam_mat3 *out_o) {
         gex_cam_init_tables();
     }
 
-    /* Select angle source. */
+    /* Select angle source.
+     *
+     * The original negates the Euler angles before handing them to the
+     * rotation helpers: 0x46DE51/0x46DE67/0x46DE7D do
+     * `movswl 0x34(%edx), %eax; negl %eax` (and the same for +0x32 and
+     * +0x30) before calling the Z, Y and X rotators, and the alternative
+     * branch at 0x46DECA/0x46DEE3/0x46DEFC negates +0x12C/+0x12A/+0x128
+     * the same way. The rotators then index the sine/cosine tables with
+     * the negated angle, so the net effect is a rotation by -euler.
+     * Captured from the running original (frame 1 of AZTEC16): with
+     * euler = (-397, 0, 2802) the resulting M is
+     * {{-1648,-2144,3074},{-3749,943,-1352},{0,-3359,-2343}}, which the
+     * port reproduces bit for bit only with the negated angles. */
     int use_alt = cam->use_alt_angles != 0;
 
     int16_t ax, ay, az;
     if (use_alt) {
-        ax = cam->euler_alt[0];  /* +0x128 */
-        ay = cam->euler_alt[1];  /* +0x12A */
-        az = cam->euler_alt[2];  /* +0x12C */
+        ax = neg_i16(cam->euler_alt[0]);  /* +0x128 */
+        ay = neg_i16(cam->euler_alt[1]);  /* +0x12A */
+        az = neg_i16(cam->euler_alt[2]);  /* +0x12C */
     } else {
-        ax = cam->euler[0];      /* +0x30 */
-        ay = cam->euler[1];      /* +0x32 */
-        az = cam->euler[2];      /* +0x34 */
+        ax = neg_i16(cam->euler[0]);      /* +0x30 */
+        ay = neg_i16(cam->euler[1]);      /* +0x32 */
+        az = neg_i16(cam->euler[2]);      /* +0x34 */
     }
 
     /* Start from base matrix. */

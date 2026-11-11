@@ -29,6 +29,17 @@ Recopilación inicial: 2026-10-08. El contraste propio comenzó en Fase 1
 [docs/ORIGINAL_ARTIFACT_INVENTORY.md](docs/ORIGINAL_ARTIFACT_INVENTORY.md));
 lo ya verificado se indica en § «Áreas de investigación futura».
 
+> **Nota (2026-11-11): S-2 tiene ya una fuente de contraste *dinámica*.** El
+> ejecutable original EU puede ejecutarse en este host (copia de trabajo
+> aislada, `C:\GEX_REZ` intacto) y observarse con puntos de interrupción de
+> hardware mediante [`tools/frame-trace`](tools/frame-trace/README.md). Eso
+> convierte al propio binario en la referencia primaria de primer orden para
+> S-2: los valores capturados del proceso vivo son la fuente de verdad, por
+> encima de la relectura estática. Resultados en
+> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
+> [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
+> reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.
+
 ## S-01 — PCGamingWiki: "Gex: Enter the Gecko" ⭐ referencia pública principal PC
 
 - URL: <https://www.pcgamingwiki.com/wiki/Gex:_Enter_the_Gecko>

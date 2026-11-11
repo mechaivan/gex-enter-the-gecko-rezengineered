@@ -168,6 +168,23 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 
 ---
 
+### 4.3 Estado tras la validación dinámica de S-2 (2026-11-11)
+
+- **Cadena de cámara: validada dinámicamente.** El port reproduce **bit a
+  bit** M, A, B, `a_cam` y `b_cam` del ejecutable original para la cámara
+  capturada en la ruta 3D de AZTEC16. Se corrigieron tres defectos reales (los
+  ángulos Euler se niegan, `M2` se aplica por columnas y la tabla
+  trigonométrica trunca). Detalle y valores en
+  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) § 14.
+- **Contrato de emisión (§ 11): sigue sin validar.** El original
+  encuentra **307** hojas visibles con esa cámara y el port **0**: la
+  divergencia está en el espacio de datos del nivel (el nodo raíz que el
+  original prueba no aparece en la imagen que decodifica `port/src/asset/dfx.c`).
+  Hasta que eso se resuelva, los conteos de polígonos y triángulos del
+  port **no** son comparables con los del original y este plan no puede
+  declarar la escena visualmente equivalente. Ver
+  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 8.
+
 ## 5. Arquitectura Mínima por Módulos
 
 ### 5.1 Módulos Requeridos

@@ -73,7 +73,17 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [x] R-4: Estabilidad y diagnóstico Direct3D 11/DXGI (2026-11-03)
 - [x] R-5: Renderer básico con pipeline D3D11 (2026-11-04)
 
-### Subfase E — Primer Escenario Original (S-1) 🔄 EN CURSO
+### Subfase E — Primer Escenario Original (S-1)
+  - **Validación dinámica de S-2 (2026-11-11):** la cadena de cámara del
+    port se validó contra el proceso original y quedó **equivalente bit a
+    bit** (M, A, B, a_cam, b_cam); se corrigieron tres defectos reales (negación
+    de ángulos, aplicación de `M2` por columnas, truncado de la tabla
+    trigonométrica). Queda abierto el **espacio de datos del nivel**, que
+    impide reproducir el recuento de hojas visibles (307 en el original frente
+    a 0 en el port). **S-2 no se cierra.** Detalle en
+    [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
+    [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8.
+ 🔄 EN CURSO
 
 - [ ] S-1: Parser DFX (2026-11-07) — parser del contenedor `.DFX` **implementado y validado** en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)): contenedor, relocalización y descriptor de nivel sobre AZTEC16.DFX y GEX.DFX. La integración del primer escenario (buffers, texturas y renderer) sigue pendiente; S-1 no se declara completo.
 - [ ] S-2: Recorrido BSP (2026-11-07) — **recorrido estructural y visibilidad de cámara implementados y validados** en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)): DFS con detección de ciclos, referencias compartidas, límite de hojas y 815 hojas en AZTEC16; la **visibilidad original de cámara y su cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`) están implementadas** ([`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md)) y auditadas (889 comprobaciones de cámara + 37 de BSP, 0 fallos; `build.ps1 test` y `make test`), con la aritmética de 32 bits reproduciendo el wrap de x86. La **ruta de emisión de polígonos está implementada en código** (17.ª–18.ª pasadas): módulo puro `port/src/emit/emit.c` + `port/include/gex/emit.h` con `gex_level_emit` y sus fases (`collect`, `project`, `classify`, `subdivide`, `sort`), reproduciendo la proyección exacta de `0x46A1D0`, la niebla `0x64FEA8`/`0x461895`, los umbrales `0x65BF80`/`0x65BF04`, el determinante de `0x46B6B5`, el reparto de color entre `0x426256` y `0x426588` (segunda pasada de niebla), la prioridad de la subdivisión (4 principales + hasta 3 *slivers*, sin niebla), el gate completo de los emisores y la ordenación por `(maxz >> 2) + 4*layer` con desempate LIFO. La 18.ª pasada audita y corrige seis defectos (x/y sin inicializar, aritmética con wrap x86, offsets comprobados, mezcla de color real, subdivisión/emisores/orden verificados y AZTEC16 estructural) y deja `port/tests/test_level_emit.c` en **38 855 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. Pendientes: validación dinámica contra el ejecutable y sustituir la aproximación de tablas trigonométricas por valores verificados; S-2 no se declara completo.

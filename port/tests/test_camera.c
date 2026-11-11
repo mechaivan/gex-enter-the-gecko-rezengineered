@@ -126,6 +126,8 @@ static void test_identity_orientation(void) {
     CHECK(m.w[6] == 0 && m.w[7] == -4096 && m.w[8] == 0);
 }
 
+/* The original negates the Euler angles before rotating (0x46DE51,
+ * 0x46DE67, 0x46DE7D), so a +90 degree Z angle rotates by -90. */
 static void test_simple_rot_z(void) {
     gex_camera c = cam_default();
     c.flag_identity = 1;
@@ -136,7 +138,7 @@ static void test_simple_rot_z(void) {
     int16_t zaxis[3] = { 0, 0, 4096 };
     int32_t out[3];
     xform(&m, zaxis, out);
-    CHECK(out[0] == 0 && out[1] == 4096 && out[2] == 0);
+    CHECK(out[0] == -4096 && out[1] == 0 && out[2] == 0);
 }
 
 static void test_simple_rot_y(void) {
@@ -149,7 +151,7 @@ static void test_simple_rot_y(void) {
     int16_t yaxis[3] = { 0, 4096, 0 };
     int32_t out[3];
     xform(&m, yaxis, out);
-    CHECK(out[0] == 0 && out[1] == 0 && out[2] == -4096);
+    CHECK(out[0] == -4096 && out[1] == 0 && out[2] == 0);
 }
 
 static void test_simple_rot_x(void) {
@@ -165,8 +167,10 @@ static void test_simple_rot_x(void) {
     CHECK(out[0] == 4096 && out[1] == 0 && out[2] == 0);
 }
 
-/* build_orientation must call Z, then Y, then X with the raw angles:
- * R = RotX(x) * RotY(y) * RotZ(z) * base. */
+/* build_orientation must call Z, then Y, then X with the NEGATED angles
+ * (as the original does at 0x46DE58/0x46DE6E/0x46DE84):
+ * R = RotX(-x) * RotY(-y) * RotZ(-z) * base, and M2 is applied to the
+ * columns of R. */
 static void test_composition_zyx(void) {
     gex_camera c = cam_default();
     c.flag_identity = 1;
@@ -175,9 +179,9 @@ static void test_composition_zyx(void) {
     c.euler[2] = 0x200;
 
     gex_cam_mat3 r = mat_identity();
-    gex_cam_rot_z(&r, 0x200);
-    gex_cam_rot_y(&r, 0x200);
-    gex_cam_rot_x(&r, 0x200);
+    gex_cam_rot_z(&r, (int16_t)-0x200);
+    gex_cam_rot_y(&r, (int16_t)-0x200);
+    gex_cam_rot_x(&r, (int16_t)-0x200);
     gex_cam_mat3 oexp;
     gex_cam_apply_m2(&oexp, &r);
 
@@ -185,7 +189,14 @@ static void test_composition_zyx(void) {
     CHECK(gex_cam_build_orientation(&c, &o) == 0);
     CHECK(memcmp(&o, &oexp, sizeof(o)) == 0);
 
-    /* The resulting M must be orthonormal. */
+    /* Golden values of the corrected chain (O = M2 * R). */
+    CHECK(o.w[0] == 2047 && o.w[1] == 2047 && o.w[2] == -2896);
+    CHECK(o.w[3] == -3494 && o.w[4] == 601 && o.w[5] == -2047);
+    CHECK(o.w[6] == -601 && o.w[7] == 3494 && o.w[8] == 2047);
+
+    /* The resulting M must stay (almost) orthonormal. The original
+     * truncates every product to Q12, so a few units of drift are
+     * expected and are reproduced by the port. */
     gex_cam_mat3 m;
     gex_cam_orientation_finalize(&o, &m);
     int16_t e1[3] = { 4096, 0, 0 };
@@ -196,7 +207,7 @@ static void test_composition_zyx(void) {
     int32_t dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     int32_t na = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
     int32_t nb = b[0] * b[0] + b[1] * b[1] + b[2] * b[2];
-    CHECK(dot > -4096 && dot < 4096);
+    CHECK(dot > -16384 && dot < 16384);
     CHECK(na > 16000000 && na < 16900000);
     CHECK(nb > 16000000 && nb < 16900000);
 }
@@ -215,8 +226,10 @@ static void test_alt_and_base(void) {
     CHECK(gex_cam_build_orientation(&c, &alt) == 0);
     CHECK(memcmp(&normal, &alt, sizeof(normal)) != 0);
 
+    /* The alternative branch negates its angles as well (0x46DED4,
+     * 0x46DEEC, 0x46DF06). */
     gex_cam_mat3 r = mat_identity();
-    gex_cam_rot_z(&r, 0x200);
+    gex_cam_rot_z(&r, (int16_t)-0x200);
     gex_cam_mat3 oexp;
     gex_cam_apply_m2(&oexp, &r);
     CHECK(memcmp(&alt, &oexp, sizeof(alt)) == 0);
@@ -687,9 +700,91 @@ static void test_bsp_child_order_camera(void) {
     free(img);
 }
 
+/* ---------------------------------------------------------------------------
+ * Dynamic reference: state of the retail camera captured from the running
+ * GEX3D.EXE (AZTEC16 forced as LEVEL\MAP7.DFX, frame 1 of the 3D route,
+ * 2026-11-11). The values were read out of the live process with hardware
+ * breakpoints, with no code patching:
+ *
+ *   camera object   0x0065CD80
+ *     +0x00 position        (0x0925, 0x0FE7, 0x0C02)
+ *     +0x30 Euler angles    (0xFE73, 0x0000, 0x0AF2)
+ *     +0x40 focal 0x0140, +0x44 0x0200, +0x48 width 0x0180, +0x5C far 0x2134
+ *     +0x60 local frame     (0,0,4096) (0,3523,2114) (3321,0,2656)
+ *                          (-3321,0,2656) (0,-3523,2114)
+ *     +0x88 matrix A       3074 -1352 -2343 / -258 113 -4099 / 657 -3917 -1520
+ *     +0xA8 matrix B       3329 2162 -1520 / 3430 -1509 1679 / 0 0 0
+ *     +0xC8 a_cam          -1346 -3112 -4659
+ *     +0xD4 b_cam          2910 1720 0
+ *     +0xE8 matrix M       -1648 -2144 3074 / -3749 943 -1352 / 0 -3359 -2343
+ *     +0xF0 base matrix    identity (4096 at 0, 4 and 8)
+ *
+ * The port must reproduce every one of those values exactly.
+ * --------------------------------------------------------------------- */
+static void test_dynamic_reference_camera(void) {
+    static const int16_t kPos[3]   = { 0x0925, 0x0FE7, 0x0C02 };
+    static const int16_t kEuler[3] = { 0xFE73, 0x0000, 0x0AF2 };
+    static const int16_t kLocal[5][3] = {
+        { 0, 0, 4096 }, { 0, 3523, 2114 }, { 3321, 0, 2656 },
+        { -3321, 0, 2656 }, { 0, -3523, 2114 }
+    };
+    static const int16_t kA[9] = { 3074, -1352, -2343, -258, 113, -4099,
+                                   657, -3917, -1520 };
+    static const int16_t kB[9] = { 3329, 2162, -1520, 3430, -1509, 1679,
+                                   0, 0, 0 };
+    static const int16_t kM[9] = { -1648, -2144, 3074, -3749, 943, -1352,
+                                   0, -3359, -2343 };
+    static const int32_t kACam[3] = { -1346, -3112, -4659 };
+    static const int32_t kBCam[3] = { 2910, 1720, 0 };
+
+    gex_camera c = cam_default();
+    gex_cam_mat3 base = mat_identity();
+    int i;
+
+    memcpy(c.pos, kPos, sizeof(kPos));
+    memcpy(c.euler, kEuler, sizeof(kEuler));
+    c.focal = 0x140;
+    c.field_0x44 = 0x200;
+    c.width = 0x180;
+    c.far = 0x2134;
+    c.base = &base;
+
+    gex_cam_update(&c);
+
+    for (i = 0; i < 5; i++) {
+        CHECK(c.local[i][0] == kLocal[i][0]);
+        CHECK(c.local[i][1] == kLocal[i][1]);
+        CHECK(c.local[i][2] == kLocal[i][2]);
+    }
+    for (i = 0; i < 9; i++) {
+        CHECK(c.m.w[i] == kM[i]);
+        CHECK(c.mat_a[i] == kA[i]);
+        CHECK(c.mat_b[i] == kB[i]);
+    }
+    for (i = 0; i < 3; i++) {
+        CHECK(c.a_cam[i] == kACam[i]);
+        CHECK(c.b_cam[i] == kBCam[i]);
+    }
+}
+
+/* The retail sine table (0x00646C20) truncates instead of rounding: the
+ * values dumped from the running game match trunc(4096*sin(2*pi*i/4096))
+ * on every live entry (0..0x400) and differ from the rounded ones on 502
+ * of the 1024. */
+static void test_table_truncation(void) {
+    gex_cam_init_tables();
+    CHECK(gex_cam_sin_tab[2] == 12);      /* 12.566 -> 12 (trunc), 13 (round) */
+    CHECK(gex_cam_sin_tab[3] == 18);      /* 18.849 -> 18 (trunc), 19 (round) */
+    CHECK(gex_cam_sin_tab[6] == 37);      /* 37.699 -> 37 (trunc), 38 (round) */
+    CHECK(gex_cam_cos_tab[2] == 4095);    /* 4095.98 -> 4095 (trunc), 4096 (round) */
+    CHECK(gex_cam_cos_tab[100] == 4047);  /* 4047.7 -> 4047 (trunc), 4048 (round) */
+    CHECK(gex_cam_sin_tab[100] == 625);   /* 625.9 -> 625 (trunc), 626 (round) */
+}
+
 int main(void) {
     printf("Running camera tests...\n");
     test_tables_init();
+    test_table_truncation();
     test_rotation_exact();
     test_identity_orientation();
     test_simple_rot_z();
@@ -700,6 +795,7 @@ int main(void) {
     test_q12_ops();
     test_local_frame_exact();
     test_build_visibility_matrices();
+    test_dynamic_reference_camera();
     test_visibility_a_planes();
     test_visibility_b_planes();
     test_visibility_cam_offsets();

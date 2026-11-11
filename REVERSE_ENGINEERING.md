@@ -330,6 +330,33 @@ estático de funciones, grafo de llamadas e imports sobre el exe EU, con
 validación sin binario (`check`) y tests offline. Resultados y límites en
 [docs/FUNCTION_MAP.md](docs/FUNCTION_MAP.md).
 
+Herramienta propia operativa (validación dinámica): [`tools/frame-trace`](tools/frame-trace/README.md)
+— trazador de puntos de interrupción de **hardware** (`Dr0..Dr3`) sobre el
+proceso del juego, con volcado de memoria de solo lectura (`ReadProcessMemory`),
+lectura de la pila al entrar en la función y guiones de teclas para navegar
+los menús. No parchea el ejecutable. Sobre esta base se hizo la validación
+dinámica de la cadena de cámara de S-2 (2026-11-11): ver
+[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) §14 y
+[`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) §8.
+
+### 4.1 Reglas de la validación dinámica (2026-11-11)
+
+1. **Solo lectura.** Nunca se escribe en el proceso observado: breakpoints de
+   hardware en vez de parcheo, y `ReadProcessMemory` para volcar.
+2. **Copia de trabajo aislada.** El juego se copia a una carpeta temporal con
+   sus assets; `C:\GEX_REZ` solo se lee. Los assets que hay que forzar
+   (p. ej. `LEVEL\MAP7.DFX` = `AZTEC16.DFX`) se copian **fuera** de
+   `C:\GEX_REZ` y se limpian al terminar.
+3. **Sin instalar nada.** El trazador se compila con el `csc.exe` del propio
+   .NET Framework del sistema y con el `clang`/`llvm-objdump` ya presentes.
+4. **Separar hechos de hipótesis.** Todo lo que se afirma del original en
+   ejecución se apoya en una lectura concreta (dirección, valor, instante) y
+   se cita; lo que no se pudo comprobar se declara como abierto.
+5. **Una conclusión por evidencia.** Si el port y el original no coinciden, se
+   primero **localiza la etapa** divergente (con capturas del mismo
+   instante), se corrige solo lo afectado y se añade una prueba de regresión
+   con el vector capturado.
+
 ## 5. Registro
 
 Cada sistema/problema relevante genera una entrada de engineering log según

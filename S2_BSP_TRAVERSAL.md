@@ -40,6 +40,13 @@ validación dinámica contra el ejecutable original.
   (`include/gex/render/d3d11_mesh.h`, `tests/test_d3d11_mesh.c`, 108
   comprobaciones). Sigue **pendiente la validación dinámica contra el ejecutable
   original**: S-2 no se declara completo.
+- **Validación dinámica (2026-11-11, §9):** la cadena de cámara del port se
+  validó contra el proceso original y ahora reproduce **bit a bit** M, A, B,
+  a_cam y b_cam (§14 de `S2_CAMERA_VISIBILITY.md`). El **recuento de hojas
+  visibles**, sin embargo, **no** coincide: el original encuentra **307** hojas
+  visibles con la cámara capturada y el port **0**. La divergencia está en el
+  espacio de datos del nivel, no en la cámara ni en la fórmula de visibilidad.
+  **S-2 sigue abierta.**
 
 ## 2. Nodo BSP (0x20 B)
 
@@ -841,8 +848,96 @@ comprobaciones de BSP + 889 de cámara + 38 855 de emisión**, 0 fallos.
 
 ---
 
+## 8. Validación dinámica contra el ejecutable original (2026-11-11)
+
+### 8.1 Qué se pudo observar en el proceso vivo
+
+Con el original en ejecución (copia de trabajo aislada, AZTEC16 forzado como
+`LEVEL\MAP7.DFX`, guion de teclas hasta la ruta 3D) y puntos de
+interrupción de **hardware**:
+
+| Dirección | Qué ocurre | Frecuencia observada |
+|---|---|---|
+| `0x401C00` | recorrido BSP (`desc`, `cam`, `out`) | 1 por frame (145 en 145 frames) |
+| `0x4269C2` | emisión (`hojas`, `desc`, `cam`) | 1 por frame |
+| `0x46558A` | dibujado de polígono | 219 998 en 145 frames → **~1517 por frame** |
+
+El buffer de salida del recorrido (`out[0]` = contador de hojas visibles, dword)
+da **307**, **306** y **303** hojas visibles en los tres primeros frames
+medidos.
+
+El nodo que el original somete a la prueba de esfera tiene, en su primer
+frame: centro `(−5818, −2134, 2124)` en `+0x00`, radio `1100` en `+0x06`,
+normal `(−2034, −3034, 536)` en `+0x0C` y tipo `1` en `+0x12` — es decir, la
+**misma disposición** que documenta el §2 de este archivo y que usa el port.
+
+### 8.2 Resultado de la comparación
+
+| Magnitud | Original | Port | Estado |
+|---|---|---|---|
+| Cadena de cámara (M, A, B, a_cam, b_cam) | valores capturados | **idénticos bit a bit** | ✅ validado |
+| Fórmula de prueba de hoja | `d0 <= −r` / `d0 >= far + r` | igual | ✅ validado |
+| Estructura del nodo BSP | centro/radio/normal/tipo | igual | ✅ validado |
+| Total de hojas del nivel | — | 815 (predecesor NULL) | ⚠️ sin contraparte en el original |
+| **Hojas visibles con la cámara capturada** | **307** | **0** | ❌ **diferencia real** |
+| Polígonos dibujados por frame | ~1517 | — | ⚠️ no comparable aún |
+
+### 8.3 Diagnóstico de la diferencia
+
+Como la cadena de cámara ya es **equivalente bit a bit** (§14 de
+`S2_CAMERA_VISIBILITY.md`) y la fórmula de visibilidad coincide con el
+desensamblado, la diferencia está en el **espacio de datos del nivel**: la
+secuencia de bytes del nodo raíz que el original prueba
+(`26 EE 8A F7 8A F7 4C 08 04 4C 04 61 40 16 92 16`, es decir centro
+`(−5818,−2134,2124)` y radio `1100`) **no aparece en ninguna** de las
+imágenes decodificadas por el port:
+
+- `AZTEC16.DFX` decodificado por `port/src/asset/dfx.c` (479 050 bytes),
+- `MAP7.DFX` = copia de `AZTEC16.DFX` (misma imagen),
+- `MAP7.DFX` de la copia `SMOKE_H4A` (926 400 bytes).
+
+En cambio, el port sí recorre **815** hojas con centros plausibles
+(`y ≈ 16 000`), mientras que la cámara capturada está en `y = 4071`: el
+original y el port **no están mirando el mismo espacio de coordenadas**.
+
+### 8.4 Montaje reproducible (todo fuera de `C:\GEX_REZ`)
+
+```powershell
+# 1) Copia de trabajo aislada del juego (ejecutable original + glide2x real)
+$dst = "$env:TEMP\gexrun"
+Copy-Item "C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE" $dst
+Copy-Item "C:\GEX_TEST\F03\glide2x_gex_real.dll" "$dst\glide2x.dll"
+Copy-Item "C:\GEX_REZ\E2_A_ORIGINAL\LEVEL" $dst -Recurse
+
+# 2) AZTEC16 como nivel 3D: el original carga <base>\level\map7.dfx
+#    (cadena en 0x551900, sprintf en 0x463403). InstallDir del registro:
+#    HKLM\SOFTWARE\Crystal Dynamics\Gex2\1.00
+Copy-Item "C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\AZTEC16.DFX" "C:\GEX_TEST\F03\LEVEL\MAP7.DFX" -Force
+Copy-Item "C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\AZTEC16.VFX" "C:\GEX_TEST\F03\LEVEL\MAP7.VFX" -Force
+
+# 3) Trazador: breakpoints de hardware, volcado de memoria, guion de teclas
+#    hasta la ruta 3D (el original arranca por menus; sin CD no entra solo)
+```
+
+Los dos `MAP7.*` son **copias de trabajo** y se pueden borrar cuando ya no
+se necesite repetir la medición; `C:\GEX_REZ` nunca se escribe.
+
+### 8.5 Consecuencia para el estado del proyecto
+
+La emisión del port (`gex_level_emit`) opera sobre el espacio de datos del
+port; como ese espacio **no** está demostrado equivalente al del original, el
+contrato de emisión de §5 y el §11 de
+`docs/D3D11_FIRST_SCENE_PLAN.md` **no se dan por validados**. S-2 permanece
+abierta. La vía de cierre es determinar qué transformación aplica el original
+al contenedor `.DFX` al cargarlo (reubicación de punteros, origen del nivel u
+otro chunk) y reproducirla en `port/src/asset/dfx.c`.
+
+---
+
 **No se declara S-2 completo**: la visibilidad original y la emisión están
-implementadas y documentadas, pero falta la validación dinámica contra el
-ejecutable. La integración con el renderizador ya tiene su primera mitad
-(Módulo 3: geometría y buffers); la segunda (shaders, texturas y dibujo) sigue
-pendiente.
+implementadas y documentadas, y la **cadena de cámara ya está validada
+dinámicamente bit a bit** contra el ejecutable (§8), pero el **recuento de
+hojas visibles no coincide** (307 en el original frente a 0 en el port) por una
+divergencia en el espacio de datos del nivel (§8.3). La integración con el
+renderizador ya tiene su primera mitad (Módulo 3: geometría y buffers); la
+segunda (shaders, texturas y dibujo) sigue pendiente.

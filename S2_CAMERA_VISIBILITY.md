@@ -2,11 +2,16 @@
 
 **Objeto:** ingeniería inversa **estática y de solo lectura** de la prueba de
 visibilidad de cámara que usa el recorrido BSP de nivel en el ejecutable
-original, y de las rutinas que preparan sus datos.
+original, de las rutinas que preparan sus datos y —**desde 2026-11-11**— de la
+**validación dinámica** de esa cadena contra el proceso original en ejecución.
 
-**Alcance:** documentar. **No** se implementa visibilidad, **no** se modifica el
-recorrido de `port/`, **no** se crean buffers, shaders ni código D3D11, **no** se
-toca `C:\GEX_REZ` ni ningún binario o asset.
+**Alcance:** documentar y validar. La visibilidad está implementada en
+`port/`; este documento la contrasta con el original. **No** se modifica el
+recorrido de `port/` más allá de lo que la validación demuestra, **no** se
+crean buffers, shaders ni código D3D11, **no** se toca `C:\GEX_REZ` ni
+ningún binario o asset. La validación dinámica se hizo sobre una **copia de
+trabajo** aislada del juego, con puntos de interruptión de hardware y sin
+parchear el ejecutable.
 
 **Binario de referencia:** `C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE` (PE32 i386,
 `imageBase = 0x00400000`), desensamblado completo con `llvm-objdump`.
@@ -50,12 +55,15 @@ toca `C:\GEX_REZ` ni ningún binario o asset.
 7. La pila del recorrido vive en `0x647740` con centinela `stack[0] =
    &stack[0]` y **sin comprobación de capacidad**. **[A]**
 8. La cadena de orientación `0x46DD40 → 0x46E643 → 0x405C41` está reconstruida:
-   rotaciones Euler **Z → Y → X** (pre-multiplicación, ángulos **crudos**) sobre
-   `cam+0x30/0x32/0x34` (rama normal) o `cam+0x128/0x12A/0x12C` (rama
-   alternativa si `[0x551644+0xa0] & 0x8`), base `*[cam+0xF0]` o identidad si
-   `cam+0x43C != 0`, cambio de ejes `M2 = 4096·[[1,0,0],[0,0,-1],[0,1,0]]`,
-   `O = M2 · R`, y `M = *[cam+0xE8] = transpose(O) = R^T · M2^T`. A y B se
-   construyen aplicando M a los vectores locales de `0x00402DC0`. **[A]**
+   rotaciones Euler **Z → Y → X** (pre-multiplicación) sobre `cam+0x30/0x32/0x34`
+   (rama normal) o `cam+0x128/0x12A/0x12C` (rama alternativa si
+   `[0x551644+0xa0] & 0x8`), **con los ángulos negados** (`0x46DE51`,
+   `0x46DE67`, `0x46DE7D`), base `*[cam+0xF0]` o identidad si `cam+0x43C != 0`,
+   cambio de ejes `M2 = 4096·[[1,0,0],[0,0,−1],[0,1,0]]` aplicado a las
+   **columnas** (`O[r][c] = (M2 · column_c(R))[r]`), y
+   `M = *[cam+0xE8] = transpose(O)`. A y B se construyen aplicando M a los
+   vectores locales de `0x00402DC0`. **[A]**, confirmado dinámicamente
+   (§14: el port reproduce bit a bit M, A, B, a_cam y b_cam del original).
 
 ---
 
@@ -990,5 +998,124 @@ Consecuencias para el puerto:
   (BSP) copia la traslación **tal cual** y `0x4013A0` (modelos) la copia
   **`sar 4`** porque los vértices de modelo están en Q4. El puerto debe
   mantener esa distinción en el contexto de emisión, no dentro de la cámara.
+
+---
+
+## 14. Validación dinámica contra el ejecutable original (2026-11-11)
+
+Esta sección cierra (parcialmente) la validación de S-2 comparando la cadena de
+cámara del port con el **proceso original en ejecución**, no solo con el
+desensamblado. Todo lo que sigue está respaldado por lectura de memoria del
+proceso vivo; el original **no** se modifica ni se parchea.
+
+### 14.1 Método
+
+- **Trazador propio** (`tools/frame-trace/tracer.cs` y su extensión temporal con
+  volcado de memoria): puntos de interruptión de **hardware** (`Dr0..Dr3`),
+  `ReadProcessMemory` para volcar estructuras, y guiones de teclas para
+  navegar los menús hasta la ruta 3D. Cero cambios en el binario.
+- **Copia de trabajo aislada** del juego (ejecutable original + `glide2x`
+  real + `LEVEL`/`AUDIO`), fuera de `C:\GEX_REZ`, que solo se lee.
+- **AZTEC16 como nivel de referencia**: el original construye
+  `<base>\level\map7.dfx` (cadena en `0x551900`, `sprintf` en `0x463403`).
+  Se copias `AZTEC16.DFX/VFX` como `MAP7.DFX/MAP7.VFX` en el `InstallDir`
+  del registro para que la ruta 3D use ese nivel.
+- **Ruta 3D alcanzada**: el guion de teclas documentado lleva a la misión 3D;
+  a partir de ahí el original ejecuta, por frame, **1** recorrido BSP
+  (`0x401C00`), **1** emisión (`0x4269C2`) y ~**1517** polígonos dibujados
+  (219 998 draws en 145 frames, breakpoint en `0x46558A`).
+
+### 14.2 Estado de cámara capturado (frame 1)
+
+Cámara del original en `0x0065CD80`; matrices en `0x57B508` (O),
+`0x57B528` (M) y `0x57B548` (base).
+
+| Campo | Valor capturado |
+|---|---|
+| `+0x00` posición | `0x0925, 0x0FE7, 0x0C02` (2341, 4071, 3074) |
+| `+0x30..0x34` Euler | `0xFE73, 0x0000, 0x0AF2` (−397, 0, 2802) |
+| `+0x40/+0x44/+0x48` | `0x0140` / `0x0200` / `0x0180` |
+| `+0x5C` corte lejano | `0x2134` (8500) |
+| `+0x60..0x84` marco local | `(0,0,4096) (0,3523,2114) (3321,0,2656) (−3321,0,2656) (0,−3523,2114)` |
+| `+0x88` matriz A | `3074 −1352 −2343 / −258 113 −4099 / 657 −3917 −1520` |
+| `+0xA8` matriz B | `3329 2162 −1520 / 3430 −1509 1679 / 0 0 0` |
+| `+0xC8` a_cam | `−1346 −3112 −4659` |
+| `+0xD4` b_cam | `2910 1720 0` |
+| `+0xE8` matriz M | `−1648 −2144 3074 / −3749 943 −1352 / 0 −3359 −2343` |
+| `+0xF0` base | identidad (`4096` en 0, 4 y 8) |
+
+La disposición de los offsets coincidía con la de `port/include/gex/camera.h`;
+los **valores**, no.
+
+### 14.3 Tres defectos reales encontrados y corregidos
+
+1. **Los ángulos Euler se niegan.** En `0x46DE51`, `0x46DE67` y `0x46DE7D`
+   el original hace `movswl 0x34(%edx), %eax; negl %eax` (y lo mismo en
+   `+0x32` y `+0x30`) antes de llamar a las rotaciones Z, Y y X; la rama
+   alternativa (`0x46DECA`, `0x46DEE3`, `0x46DF06`) niega igual sus ángulos
+   (`+0x12C`, `+0x12A`, `+0x128`). El port usaba los ángulos crudos.
+   *Corrección:* `gex_cam_build_orientation()` negate los tres ángulos.
+2. **`M2` se aplica a las columnas, no a las filas.** `0x46E038..0x46E11D`
+   copia una **fila** de la matriz de trabajo, la transforma con
+   `0x4698B0` usando `M2 = 4096·[[1,0,0],[0,0,−1],[0,1,0]]` en `0x646BE0` y
+   escribe el resultado en la **columna** destino. Como la matriz de trabajo
+   del original es la transpuesta del producto del port, el efecto sobre `R`
+   es `O[r][c] = (M2 · column_c(R))[r]`. El port aplicaba `M2` a las filas
+   (matriz distinta). *Corrección:* `gex_cam_apply_m2()` reescrito.
+3. **La tabla trigonométrica trunca, no redondea.** La tabla de seno del
+   original (`0x00646C20`, media vuelta) volcada del proceso vivo coincide
+   con `trunc(4096·sin(2πi/4096))` en las **1024** entradas vivas y
+   difiere del valor redondeado en **502** de ellas.
+   *Corrección:* `gex_cam_init_tables()` trunca.
+
+### 14.4 Comparación bit a bit (port vs. original)
+
+Con la cámara capturada y la base identidad:
+
+| Magnitud | Port (tras la corrección) | Original | Resultado |
+|---|---|---|---|
+| marco local (15 valores) | idéntico | idéntico | ✅ |
+| M (9 × `int16`) | `−1648 −2144 3074 / −3749 943 −1352 / 0 −3359 −2343` | igual | ✅ |
+| A (9 × `int16`) | `3074 −1352 −2343 / −258 113 −4099 / 657 −3917 −1520` | igual | ✅ |
+| B (9 × `int16`) | `3329 2162 −1520 / 3430 −1509 1679 / 0 0 0` | igual | ✅ |
+| a_cam | `−1346 −3112 −4659` | igual | ✅ |
+| b_cam | `2910 1720 0` | igual | ✅ |
+
+Además, la fórmula de visibilidad se comprobó contra el desensamblado de la
+prueba de hoja del original (`0x401F19..0x401F54`): `d0 = (A·centro) − a_cam`
+se rechaza si `d0 <= −r` o `d0 >= far + r`, con `r` leído como `uint16` en
+`node+0x06`; el port implementa exactamente eso.
+
+### 14.5 Regresión automatizada
+
+`port/tests/test_camera.c` incorpora ahora:
+
+- `test_dynamic_reference_camera()`: reproduce la cámara capturada arriba y
+  exige igualdad **exacta** de marco local, M, A, B, a_cam y b_cam.
+- `test_table_truncation()`: fija los valores truncados de la tabla.
+- `test_composition_zyx()`: valores dorados de la cadena corregida.
+
+La suite completa del port (20 binarios) pasa con `-O0`, `-O2`, ASan y UBSan.
+
+### 14.6 Lo que sigue abierto (no cerrado)
+
+Con la cámara ya **equivalente bit a bit**, el port sigue **sin** reproduciendo
+el recuento de hojas visibles del original: con la cámara capturada el
+original encuentra **307** hojas visibles (306 y 303 en los frames
+siguientes) y el port **0**. La divergencia **no** está en la cámara ni en la
+fórmula de visibilidad, sino en el **espacio de datos del nivel**: el nodo
+raíz que el original somete a prueba tiene centro
+`(−5818, −2134, 2124)`, radio `1100` y tipo `1` en `+0x12`, y esa secuencia de
+bytes **no aparece** en la imagen decodificada por el port de `AZTEC16.DFX`
+(ni en la de las copias `MAP7.DFX`). La estructura del nodo, en cambio,
+coincide (centro en `+0x00`, radio `+0x06`, normal en `+0x0C`, tipo en
+`+0x12`), y el port recorre **815** hojas, el mismo total que su test
+estático sobre `AZTEC16.DFX`.
+
+Queda por determinar si el original decodifica el contenedor `.DFX` en otro
+espacio (reubicación, origen del nivel u otro chunk) o si el BSP que usa no
+procede del `.DFX` que el port decodifica. **S-2 permanece abierta** por este
+punto; el contrato de emisión (`docs/D3D11_FIRST_SCENE_PLAN.md` §11) no se da
+por validado.
 
 ---

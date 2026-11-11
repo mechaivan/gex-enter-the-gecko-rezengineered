@@ -1,5 +1,58 @@
 # CHANGELOG
 
+## 2026-11-11 - 0.0.0 - Validación dinámica de S-2: la cadena de cámara del port, igualada bit a bit al ejecutable original
+
+**Contexto.** S-2 (recorrido BSP, visibilidad de cámara y emisión de
+geometría) se había validado solo de forma estática. Esta pasada
+contrasta el port con el **proceso original en ejecución**, con puntos de
+interrupción de **hardware** y volcado de memoria de solo lectura, sobre una
+copia de trabajo aislada del juego (`C:\GEX_REZ` intacto, sin parchear el
+binario). Nivel de referencia: **AZTEC16**, forzado como `LEVEL\MAP7.DFX`.
+
+**Lo observado en el original.**
+- 1 recorrido BSP (`0x401C00`), 1 emisión (`0x4269C2`) y ~1517 polígonos
+  dibujados por frame; **307** hojas visibles en el primer frame medido.
+- Estado completo de la cámara (`0x0065CD80`): posición
+  `(2341, 4071, 3074)`, Euler `(-397, 0, 2802)`, marco local de 5 vectores,
+  matrices A/B/M, `a_cam`, `b_cam` y base identidad.
+
+**Tres defectos reales del port, corregidos.**
+1. `ángulos Euler sin negar`: el original los niega antes de rotar
+   (`0x46DE51`, `0x46DE67`, `0x46DE7D`; también en la rama alternativa
+   `0x46DECA`/`0x46DEE3`/`0x46DF06`). Corregido en
+   `port/src/camera/camera.c` (`gex_cam_build_orientation`).
+2. `M2` aplicado por filas en vez de por columnas: el original transforma una
+   **fila** de la matriz de trabajo y escribe el resultado en la **columna**
+   destino (`0x46E038..0x46E11D`, helper `0x4698B0`, `M2` en `0x646BE0`).
+   Corregido en `gex_cam_apply_m2`.
+3. Tabla trigonométrica redondeada en vez de truncada: la tabla retail
+   (`0x00646C20`) coincide con `trunc(4096*sin(2πi/4096))` en las 1024
+   entradas vivas y difiere del redondeo en 502. Corregido en
+   `gex_cam_init_tables`.
+
+**Resultado.** Con la cámara capturada, el port reproduce **bit a bit** el
+marco local, M, A, B, `a_cam` y `b_cam` del original. Regresión añadida
+en `port/tests/test_camera.c`: `test_dynamic_reference_camera()` (valores
+capturados del proceso original) y `test_table_truncation()`. Suite completa
+del port (20 binarios) verde con `-O0`, `-O2`, ASan y UBSan.
+
+**Lo que sigue abierto (S-2 no se completa).** El recuento de hojas visibles
+no coincide: **307** en el original frente a **0** en el port con la misma
+cámara. Como la cadena de cámara ya es equivalente bit a bit, la
+divergencia está en el **espacio de datos del nivel**: el nodo raíz que
+el original somete a la prueba (centro `(-5818,-2134,2124)`, radio 1100, tipo
+1) no aparece en la imagen decodificada por `port/src/asset/dfx.c` de
+`AZTEC16.DFX` ni de las copias `MAP7.DFX`. La estructura del nodo y la
+fórmula de visibilidad sí coinciden; falta determinar qué
+transformación aplica el original al contenedor `.DFX` al cargarlo.
+
+**Documentación.** `S2_CAMERA_VISIBILITY.md` § 14 (validación
+dinámica y correcciones), `S2_BSP_TRAVERSAL.md` § 8 (comparativa y
+diagnóstico), `REVERSE_ENGINEERING.md` § 4.1 (reglas de la validación
+dinámica), `RESEARCH.md` (fuente de contraste dinámica), `ROADMAP.md` y
+`PROJECT_STATE.md` (estado). `PROJECT_STATUS.svg` **sin cambios**: MAIN no
+cambia de verdad y S-2 sigue abierta.
+
 Formato: `YYYY-MM-DD - versión - descripción`.
 
 ## 2026-11-11 - 0.0.0 - Auditoría documental posterior al Módulo 4C: consolidación del estado real
