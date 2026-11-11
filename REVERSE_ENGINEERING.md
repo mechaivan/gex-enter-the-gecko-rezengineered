@@ -391,7 +391,16 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
     correctiva de 2026-11-11 (la hipotesis del tinte de niebla por poligono
     se sostenia sobre una comprobacion parcial; al medir las 3476 mezclas
     reales se demostro que la variacion la produce el factor de niebla).
-11. **Validar la semantica de una comparacion con datos, no con la lectura del
+11. **Distinguir "demostrado" de "hipotesis" en la documentacion, incluso
+    cuando la lectura es la habitual.** Que `grAlphaCombine(3,4,1,0,0)` se lea
+    como `SRC_ALPHA`/`INV_SRC_ALPHA` es una hipotesis, no un hecho: sin los
+    encabezados del SDK no se puede derivar la ecuacion, y la DLL real
+    disponible (una implementacion software que genera el programa de la
+    unidad de mezcla) es el material para hacerlo. Documentar la lectura como
+    si estuviera demostrada induce a dar por bueno un resultado que no lo
+    esta; lo correcto es marcarla y acotar su impacto (32 de 1123
+    triangulos).
+12. **Validar la semantica de una comparacion con datos, no con la lectura del
     desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
    redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
    al reves cambia el resultado de maximo a minimo. La comprobacion decisiva

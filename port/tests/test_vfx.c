@@ -12,6 +12,10 @@
 #include "gex/vfx.h"
 #include "gex/vfx_texture.h"
 #include "ref_material.h"
+#include "ref_emit_frames.h"
+#include "gex/emit.h"
+#include "gex/bsp.h"
+#include "gex/asset/dfx.h"
 #include "ref_material.h"
 
 #include "gex/asset/dfx.h"
@@ -1112,51 +1116,138 @@ static void test_texture_bank(void)
  * original mezcla con alfa (indices 6, 8, 185, 188, 234 y 241) son
  * exactamente las de formato ARGB_4444 del `map7.vfx`: el juego convierte el
  * YIQ_422 y el ARGB_1555 a un formato opaco de 8 bits.
+ *
+ * La prueba NO se limita a comprobar seis indices fijos: obtiene los indices
+ * de textura REALMENTE usados por la geometria de MAP7 (recorriendo el BSP de
+ * referencia y emitiendo el nivel) y exige que:
+ *   - el conjunto de texturas usadas con formato ARGB_4444 sea exactamente el
+ *     de la referencia (ni una mas, ni una menos);
+ *   - cada indice de la referencia se use de verdad y sea ARGB_4444.
+ *
+ * Si los ficheros originales no estan, la prueba se salta (no pasa en
+ * vacio).
  * ------------------------------------------------------------------------- */
 #define MAP7_VFX_PATH "C:/GEX_REZ/GEX2/level/map7.vfx"
+#define MAP7_DFX_PATH "C:/GEX_REZ/GEX2/level/map7.dfx"
 
 static void test_map7_alpha_textures(void)
 {
     gex_vfx_file vfx;
-    gex_vfx_texture_bank bank;
+    gex_dfx_container container;
+    gex_dfx_level level;
+    gex_emit_matrix mat;
+    gex_emit_fog fog;
+    gex_emit_output out;
+    gex_bsp_walk_result leaves;
+    const int32_t *p = REF_EMIT_PARAMS[0];
+    uint32_t used[0x4000];
     uint32_t i;
+    uint32_t n_used = 0;
+    uint32_t n_alpha_used = 0;
     uint32_t found = 0;
-    uint32_t total_alpha = 0;
-    FILE *f = fopen(MAP7_VFX_PATH, "rb");
+    FILE *f;
 
+    f = fopen(MAP7_VFX_PATH, "rb");
     if (!f) {
-        printf("skip map7 alpha textures (no file)\n");
+        printf("skip map7 alpha textures (no .vfx)\n");
+        return;
+    }
+    fclose(f);
+    f = fopen(MAP7_DFX_PATH, "rb");
+    if (!f) {
+        printf("skip map7 alpha textures (no .dfx)\n");
         return;
     }
     fclose(f);
 
     memset(&vfx, 0, sizeof(vfx));
-    memset(&bank, 0, sizeof(bank));
+    memset(&container, 0, sizeof(container));
+    memset(&level, 0, sizeof(level));
+    memset(&mat, 0, sizeof(mat));
+    memset(&fog, 0, sizeof(fog));
+    memset(&out, 0, sizeof(out));
+    memset(&leaves, 0, sizeof(leaves));
+    memset(used, 0, sizeof(used));
+
     if (gex_vfx_open(&vfx, MAP7_VFX_PATH) != GEX_VFX_OK) {
-        printf("skip map7 alpha textures (open)\n");
+        printf("skip map7 alpha textures (open .vfx)\n");
         return;
     }
+    if (gex_dfx_load(MAP7_DFX_PATH, &container) != GEX_DFX_OK) {
+        printf("skip map7 alpha textures (load .dfx)\n");
+        gex_vfx_close(&vfx);
+        return;
+    }
+    if (gex_dfx_load_level(&container, &level) != GEX_DFX_OK) {
+        printf("skip map7 alpha textures (level)\n");
+        gex_dfx_release_container(&container);
+        gex_vfx_close(&vfx);
+        return;
+    }
+
+    /* Emision del nivel con la camara de referencia: de aqui salen los
+     * indices de textura que la geometria usa de verdad. */
+    memcpy(mat.m, REF_EMIT_M[0], sizeof(mat.m));
+    mat.t[0] = REF_EMIT_T[0][0];
+    mat.t[1] = REF_EMIT_T[0][1];
+    mat.t[2] = REF_EMIT_T[0][2];
+    mat.focal = p[0]; mat.cx = p[1]; mat.cy = p[2]; mat.near_z = p[3];
+    memcpy(fog.lut, REF_FOG_LUT, sizeof(fog.lut));
+    fog.have_lut = 1;
+    fog.threshold = p[4]; fog.split_z = p[5];
+    fog.a_q12 = p[6]; fog.b_q12 = p[7];
+    leaves.leaves = (uint32_t *)REF_EMIT_LEAVES[0];
+    leaves.count = (uint32_t)p[11];
+    if (gex_level_emit(container.image, container.image_size, &level.descriptor,
+                       &leaves, &mat, &fog, 0, &out) != GEX_EMIT_OK) {
+        CHECK(0);
+        gex_emit_output_free(&out);
+        gex_dfx_release_level(&level);
+        gex_dfx_release_container(&container);
+        gex_vfx_close(&vfx);
+        return;
+    }
+    for (i = 0; i < out.count; i++) {
+        uint32_t t = out.tris[i].texture;
+        if (t < 0x4000u && used[t] == 0u) {
+            used[t] = 1u;
+            n_used++;
+        }
+    }
+    gex_emit_output_free(&out);
+
+    /* Comprobacion 1: toda textura usada con formato ARGB_4444 esta en la
+     * referencia, y toda referencia se usa y es ARGB_4444. */
     for (i = 0; i < vfx.record_count; i++) {
         int in_ref = 0;
         uint32_t k;
+        int is_alpha = (vfx.records[i].format == GEX_VFX_FORMAT_ARGB_4444);
         for (k = 0; k < sizeof(REF_ALPHA_TEXTURES) / sizeof(REF_ALPHA_TEXTURES[0]); k++) {
             if (REF_ALPHA_TEXTURES[k] == i) in_ref = 1;
         }
-        if (vfx.records[i].format == GEX_VFX_FORMAT_ARGB_4444) {
-            if (in_ref) found++;
-            total_alpha++;
-        } else if (in_ref) {
-            CHECK(0); /* la referencia dice que trae alfa y no lo trae */
+        if (!is_alpha) {
+            CHECK(!in_ref); /* la referencia dice que trae alfa y no lo trae */
+            continue;
+        }
+        if (in_ref) {
+            CHECK(used[i] == 1u); /* la referencia dice que se usa y no */
+            found++;
+        }
+        if (used[i]) {
+            CHECK(in_ref); /* se usa con alfa y no esta en la referencia */
+            n_alpha_used++;
         }
     }
-    /* Las seis texturas que el original mezcla con alfa son ARGB_4444. El
-     * .vfx puede traer mas texturas ARGB_4444 que el nivel no usa: solo
-     * importan las que aparecen en la geometria. */
     CHECK(found == sizeof(REF_ALPHA_TEXTURES) / sizeof(REF_ALPHA_TEXTURES[0]));
-    printf("map7 .vfx: %u texturas ARGB_4444 en total, %u de ellas usadas "
-           "por la geometria con mezcla de alfa\n", total_alpha, found);
+    CHECK(n_alpha_used == found);
+
+    printf("map7: %u texturas usadas por la geometria, %u de ellas con "
+           "formato ARGB_4444 (las que el original mezcla con alfa)\n",
+           n_used, n_alpha_used);
+
+    gex_dfx_release_level(&level);
+    gex_dfx_release_container(&container);
     gex_vfx_close(&vfx);
-    (void)bank;
 }
 
 int main(void)

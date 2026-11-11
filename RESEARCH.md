@@ -66,6 +66,18 @@ campo `+0x0C` del registro de textura, que U-1f dejo abierto: es el formato
 de la textura, y solo el ARGB_4444 conserva el canal alfa (comprobado contra
 el `map7.vfx`).
 
+La semantica de la mezcla alfa de Glide se ha perseguido hasta el material
+disponible (2026-11-11): los encabezados del SDK no estan en el repo ni en el
+entorno, el glide-shim del repo es un proxy que no implementa la semantica, y
+la DLL real de `C:\GEX_REZ\SMOKE_H4A` esta empaquetada salvo
+`glide2x_gex_real.dll`, que es una implementacion **software** de Glide: su
+`grAlphaCombine` genera un programa para la unidad de mezcla del Voodoo con
+plantillas de operandos elegidas por el valor de cada parametro (`mov r5,
+v0`, `lrp r8, r7, r6, r5`, ...). Eso permite derivar la ecuacion en el
+siguiente paso, pero no se ha hecho: la lectura `SRC_ALPHA`/`INV_SRC_ALPHA`
+sigue siendo hipotesis y asi se documenta. La conclusion practica es que el
+caso opaco se reproduce sin depender de ella.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

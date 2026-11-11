@@ -387,6 +387,17 @@ mov  eax, [edx + 4*ecx]               ; puntero a registro de textura
   el repo, de modo que la equivalencia con la mezcla `SRC_ALPHA`/`INV_SRC_ALPHA`
   que usa el port es la lectura habitual, no una lectura verificada
   (`docs/D3D11_FIRST_SCENE_PLAN.md` § 19.6 y § 19.7).
+* **Material localizado para cerrarlo (2026-11-11).** La DLL real disponible en
+  el entorno, `C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`, es una
+  **implementación software de Glide 2.x, sin empaquetar**: su
+  `grAlphaCombine` (RVA `0x182A` → `0x1004CB90` → `0x10011510`) compara
+  los cinco parámetros con el estado cacheado y, cuando cambian, **genera un
+  programa** para la unidad de mezcla del Voodoo copiando plantillas de
+  operandos elegidas por el valor de cada parámetro (`mov r5, v0`,
+  `mul r8, r8, r7`, `lrp r8, r7, r6, r5`, `sub r7, c6, r6.a`, …). Las
+  plantillas están en `0x1013D010..0x1013D31C`. Es el material que
+  permitiría derivar la ecuación exacta; la derivación no está hecha y
+  la ecuación queda **pendiente** (`docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8).
 
 ### 8.3 Vértices
 

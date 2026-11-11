@@ -140,6 +140,76 @@ tipo de comando, y validar la semantica de una comparacion con datos),
 `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
 `docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
 
+## 2026-11-11 - 0.0.0 - Cierre de auditoria de materiales de MAP7: la semantica de grAlphaCombine queda pendiente y se acota su impacto; auditoria de YIQ_422
+
+Cierre de la auditoria de materiales: se corrigen las afirmaciones que
+presentaban como demostrada la semantica de la mezcla alfa de Glide, se
+localiza el material que permitiria derivarla y se audita la decodificacion
+YIQ_422 del port.
+
+**CORRECCION DOCUMENTAL.** La semantica exacta de `grAlphaCombine` **no**
+esta demostrada. Lo demostrado es que el original mezcla **por poligono**
+segun el formato de la textura y cuales son los argumentos exactos de las
+llamadas; lo hipotetico es que `(3,4,1,0,0)` equivalga a
+`SRC_ALPHA`/`INV_SRC_ALPHA`. Se corrigen `docs/D3D11_FIRST_SCENE_PLAN.md`
+4.2 y 18.5 (que lo daban por conocido) y se marca como hipotesis en el
+resto de la documentacion.
+
+**MATERIAL LOCALIZADO PARA CERRARLA.** No hay encabezados del SDK de Glide
+2.x en el repo ni en el entorno (busqueda recursiva). El glide-shim del repo
+es un proxy que no implementa la semantica y `glide2x.dll` esta empaquetado.
+Si, `C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll` es una **implementacion
+software de Glide sin empaquetar**: su `grAlphaCombine` (RVA 0x182A ->
+0x1004CB90 -> 0x10011510) genera el programa de la unidad de mezcla del
+Voodoo copiando plantillas de operandos elegidas por el valor de cada
+parametro (`mov r5, v0`, `mul r8, r8, r7`, `lrp r8, r7, r6, r5`,
+`sub r7, c6, r6.a`, ...), con las tablas en 0x1013D010..0x1013D31C. Queda
+documentado como el siguiente paso; **no se cambia el renderer** porque la
+diferencia no esta demostrada.
+
+**IMPACTO ACOTADO.** El caso opaco se reproduce con independencia de esa
+aritmetica (el pixel shader devuelve alfa 1 y el estado global
+SRC_ALPHA/INV_SRC_ALPHA substituye el destino, que es lo que hace el
+original). El caso ARGB_4444 usa la mezcla alfa habitual; si la aritmetica
+del original fuera otra, la diferencia se limitaria a los **32 triangulos** con
+textura ARGB_4444 del frame 0 de MAP7 (el **2,8 %** de la escena).
+
+**AUDITORIA DE YIQ_422.** La decodificacion en CPU del port coincide con la
+**referencia software del SDK** (`swlibs/texus/lib/dequant.c`,
+`_txImgDequantizeYIQ422` con `txYABtoPal256`, y `nccnnet.c`): disposicion de
+bits (`iy=(b>>4)&0x0F`, `ia=(b>>2)&0x03`, `ib=b&0x03`), coeficientes
+`Y+A+B` en escala 1:1, croma de 9 bits con signo, saturacion a 0..255, alfa
+255 y **un byte por texel** (el "422" del nombre es el nombre del SDK para el
+formato YAB de 8 bits con tabla NCC). El empaquetado de las **7 723 tablas
+NCC** de los 37 `.VFX` originales coincide byte a byte con el del SDK. **No
+se afirma equivalencia pixel a pixel** con el silicio del Voodoo: el juego
+sube la tabla a la TMU (`grTexDownloadTable(tmu=0, type=0, registro+0x14)`,
+comprobado en ejecucion) y el hardware expande el YIQ, mientras que el port
+lo expande en CPU; compararlo exigiria capturar el framebuffer del juego, que
+no es accesible con las herramientas disponibles.
+
+**PRUEBAS.** `test_map7_alpha_textures()` se amplia: ya no comprueba seis
+indices fijos, sino que obtiene los **indices de textura realmente usados**
+por la geometria de MAP7 (62) y exige que el subconjunto con formato
+ARGB_4444 sea exactamente el de la referencia, en los dos sentidos (que no
+falte ninguna y que no sobre ninguna). Se ha comprobado que la prueba
+**falla** ante una referencia incorrecta (4 fallos y salida != 0 al
+sustituir el indice 6 por el 7) y que se salta limpiamente si faltan los
+ficheros originales.
+
+**SIN CAMBIOS DE PRODUCCION.** No se tocan el renderer, la camara, el orden de
+dibujo, la profundidad ni la niebla. Suite verde con `port/build.ps1 test` y
+con `-O0`, `-O2`, ASan y UBSan.
+
+**DOCUMENTACION.** `docs/D3D11_FIRST_SCENE_PLAN.md` 4.2, 18.5 y nuevas
+secciones 19.8 (la semantica de `grAlphaCombine`: lo demostrado, lo
+descartado y lo pendiente, con las direcciones del driver software) y 19.9
+(auditoria de YIQ_422); `PROJECT_STATE.md`, `ROADMAP.md` (octava tanda),
+`RESEARCH.md`, `REVERSE_ENGINEERING.md` 4.1 (regla 11: distinguir
+"demostrado" de "hipotesis" en la documentacion) y `U1F_RESULTADOS.md` 8.2
+(material para cerrar la ecuacion). `PROJECT_STATUS.svg` sin cambios: MAIN no
+varia.
+
 ## 2026-11-11 - 0.0.0 - Auditoria correctiva de materiales: la niebla por objeto era una hipotesis falsa, colores exactos y NCC aclarada
 
 Auditoria del modulo anterior de materiales, con comparacion comando a

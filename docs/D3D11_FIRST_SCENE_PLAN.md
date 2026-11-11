@@ -161,11 +161,16 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
   explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
-- **Alpha blending:** **parcialmente resuelto.** La semántica del blending del
-  original es `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA` y el original lo activa
-  **por polígono** según el formato de la textura; el port usa un único estado
-  de blending para todo el dibujo (con alfa 255 el resultado es idéntico). Queda
-  documentado como diferencia pendiente (§18.5 y §18.8).
+- **Alpha blending:** **parcialmente resuelto.** Lo **demostrado** es que el
+  original activa la mezcla **por polígono** según el formato de la textura
+  (`0x46558A` compara el campo `+0x0C` del registro de textura en tiempo de
+  ejecución con `0x0C` = ARGB_4444) y que llama a `grAlphaCombine` con
+  `(3,4,1,0,0)` para esas texturas y con `(1,0,0,2,0)` para las opacas. Lo
+  que **no** está demostrado es la aritmética exacta de esos argumentos: la
+  lectura `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` es una **hipótesis** (§19.8).
+  El port reproduce el caso opaco de forma independiente de esa aritmética
+  (alfa de salida 1 → el destino se substituye) y usa la mezcla alfa habitual
+  para el caso ARGB_4444.
 
 ---
 
@@ -738,10 +743,13 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
    `0x401C00` ya está implementado en
    [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
-4. **Alpha blending:** la semántica del original es conocida
-   (`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA`, activada por polígono según el formato),
-   pero el port usa un estado único: queda pendiente el blending por polígono
-   (§18.8).
+4. **Alpha blending:** está **demostrado** que el original lo activa por
+   polígono según el formato de la textura y cuáles son los argumentos
+   exactos de `grAlphaCombine` (`(3,4,1,0,0)` para ARGB_4444 y
+   `(1,0,0,2,0)` para las opacas), pero **no** la aritmética exacta de esos
+   argumentos (§19.8). El port resuelve el caso opaco sin depender de ella
+   (alfa de salida 1) y aplica la mezcla alfa habitual a las 32 texturas
+   ARGB_4444 del frame 0.
 5. **Materiales de producción, *depth buffer* y niebla después de la
    textura:** el recorrido, la visibilidad y la emisión de nivel ya están
    validados contra el ejecutable original (§ 4.3 y § 18.8) y la **cámara real
@@ -1972,9 +1980,11 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
 - El **índice de textura** viaja como atributo `nointerpolation uint`: los
   tres vértices de un triángulo llevan el mismo valor (viene del polígono) y el
   rasterizador no lo interpola ✓.
-- El **blending alfa** se activa (`SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`), como
-  en el original; con alfa 255 (el cubo de prueba y las texturas `YIQ_422`) el
-  resultado es idéntico al de no mezclar.
+- El **blending alfa** se activa con `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`, que
+  es la **hipótesis** de lectura de `grAlphaCombine(3,4,1,0,0)` (§19.8); con
+  alfa 255 (el cubo de prueba y las texturas `YIQ_422`) el resultado es
+  idéntico al de no mezclar, y en el modo de cámara las texturas opacas
+  devuelven alfa 1 y substituyen el destino.
 
 ### 18.6 Pruebas
 
@@ -2191,4 +2201,111 @@ bit de alfa, YIQ_422 sin alfa) y el modo de mezcla por polígono.
   pero sin validación dinámica (MAP7 no los usa).
 - La tabla NCC y los modos de filtrado: el port usa el atlas con filtrado
   bilineal y direccionamiento *wrap*, como el original.
+
+
+### 19.8 `grAlphaCombine`: qué está demostrado y qué no
+
+**Observado en el original (dinámico).** Los argumentos exactos de las llamadas
+al thunk `grAlphaCombine` (`0x540532`), capturados en el frame 0 de MAP7:
+
+| `grAlphaCombine(rf, func, cf, af, cf2)` | llamadas | a qué |
+|---|---|---|
+| `(3, 4, 1, 0, 0)` | 32 | las texturas ARGB_4444 (las que traen alfa) |
+| `(1, 0, 0, 2, 0)` | 1091 | las texturas opacas del nivel |
+| `(1, 0, 1, 2, 0)` | 128 | las primitivas 2D (opcode `0x28`), fuera de la ruta de nivel |
+
+**Materiales revisados para cerrar la ecuación.**
+
+| Fuente | Resultado |
+|---|---|
+| Encabezados del SDK de Glide 2.x (`glide.h`) | **no existen** en el repo ni en el entorno (búsqueda recursiva en `C:\GEX_REZ`, el árbol de repositorios y `Descargas`) |
+| `tools/glide-shim/` | es un **proxy** que reenvía a la DLL real y registra `grBufferSwap`; no implementa la semántica |
+| `C:\GEX_REZ\SMOKE_H4A\glide2x.dll` | **empaquetado**: sus exportaciones apuntan a una sección sin código legible |
+| `C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll` | **implementación software de Glide, sin empaquetar**: contiene la respuesta |
+
+**Lo que revela el driver software.**
+
+- `grAlphaCombine` (RVA `0x182A`) reenvía a `0x1004CB90` y de ahí a
+  `0x10011510`.
+- Esa rutina compara los cinco parámetros con el estado cacheado (los globales
+  `0x10164F54..0x10164F64`) y, cuando cambian, **genera un pequeño programa**
+  para la unidad de mezcla del Voodoo: copia plantillas de operandos
+  seleccionadas **por el valor de cada parámetro**.
+- Las plantillas son cadenas legibles en el binario: `mov r5, v0`,
+  `mov r6, c0`, `mov r7, c5`, `sub r7, c6, r6.a`, `mul r8, r8, r7`,
+  `add r8, r8, r5.a`, `lrp r8, r7, r6, r5`, `lrp r9.rgb, r1.a, c0, v0`…
+- Tablas de plantillas: el 4.º parámetro (`af`) → `0x1013D29C` / `0x1013D28C` /
+  `0x1013D2AC`; el 5.º (`cf2`) → `0x1013D30C` / `0x1013D2FC` / `0x1013D2EC` /
+  `0x1013D2DC`; el resto entre `0x1013D010` y `0x1013D2BC`.
+- El dialecto es el de la unidad de mezcla del Voodoo: `v0` = color fuente
+  (`.a` = alfa fuente), `r0`/`r9` = destino, `c0` = color constante
+  (`grConstantColorValue4`), `c6` = 1.0 (de ahí `sub c6, x` = `1 - x`),
+  `lrp dest, x, y, z` = `z + x*(y - z)`.
+
+**Lo que queda pendiente.** La **ecuación exacta**: hay que trazar qué parámetro
+selecciona cada plantilla de la parte RGB (los tres primeros) y decodificar la
+semántica del «programa» resultante. Hasta entonces, la lectura
+`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` de `(3,4,1,0,0)` es una **hipótesis**.
+
+**Consecuencia para el port (no se cambia el renderer).**
+
+- El caso **opaco** se reproduce **con independencia** de esa aritmética: el
+  *pixel shader* devuelve alfa 1 para las texturas sin canal alfa y el estado
+  global `SRC_ALPHA`/`INV_SRC_ALPHA` produce `src*1 + dst*0 = src`, es decir
+  el destino se substituye, que es lo que hace el original.
+- El caso **ARGB_4444** usa la mezcla alfa habitual. Si la aritmética del
+  original resultara ser otra, la diferencia se limitaría a los **32
+  triángulos** con textura ARGB_4444 del frame 0 (el **2,8 %** de la escena) y
+  **no está demostrada**: no se modifica el renderer sin evidencia.
+
+### 19.9 Auditoría de YIQ_422
+
+**Qué hace el port.** `gex_vfx_decode_yiq422()`
+(`port/src/asset/vfx_decode.c`) decodifica **un byte por texel**:
+
+```text
+index = byte
+iy = (index >> 4) & 0x0F   ->  luminancia   yRGB[iy]
+ia = (index >> 2) & 0x03   ->  croma I      iRGB[ia]
+ib =  index        & 0x03  ->  croma Q      qRGB[ib]
+R = saturar(y + iRGB[ia][0] + qRGB[ib][0])   (y G B igual)
+alfa = 255 (el formato no lleva alfa)
+```
+
+**Contraste con la referencia.** La referencia es el decodificador software del
+propio SDK de Glide 2.x (`swlibs/texus/lib/dequant.c`,
+`_txImgDequantizeYIQ422`, que indexa una paleta de 256 construida con
+`txYABtoPal256`) y el constructor de la red neuronal que genera esas tablas
+(`nccnnet.c`: `iy = (i>>4)&0x0f; ia = (i>>2)&0x03; ib = i&0x03;` y
+`color = Y[iy] + A[ia] + B[ib]`), documentado en
+[`VFX_TEXTURE_FORMAT.md`](VFX_TEXTURE_FORMAT.md) § 4.4.
+
+| Aspecto | Port | Referencia del SDK | Estado |
+|---|---|---|---|
+| Disposición de bits | `iy/ia/ib` como arriba | idéntica | ✔ coincide |
+| Coeficientes | `Y + A + B` (suma directa, escala 1:1) | idéntica | ✔ coincide |
+| Croma | 9 bits con signo (complemento a dos) | idéntico | ✔ coincide |
+| Saturación | `clamp` a 0..255 | idéntica | ✔ coincide |
+| Alfa | 255 (el formato no lleva alfa) | idéntica | ✔ coincide |
+| Pares de píxeles | **no hay**: un byte por texel | el "422" del nombre es el nombre del SDK para el formato YAB de 8 bits con tabla NCC; los datos del `.VFX` son de un byte por texel (la lectura de 16 bits deja la imagen inservible) | ✔ coherente |
+| Rondeo | entero, sin redondeo | entero | ✔ coincide |
+
+**Construcción de la tabla NCC.** `gex_vfx_ncc_table_pack()` reproduce el
+empaquetado del SDK: los 16 niveles de luminancia en cuatro palabras y los
+vectores de croma I y Q en tres campos de 9 bits por palabra. El test
+`test_ncc_table()` del port **recalcula el empaquetado de las 7 723 tablas** de
+los 37 `.VFX` originales y lo compara byte a byte: coinciden las doce palabras
+de todas.
+
+**Lo que NO se puede verificar con los datos disponibles.** La equivalencia
+**a nivel de píxel** con la salida del hardware original: el juego sube la
+tabla a la TMU (`grTexDownloadTable(tmu=0, type=0, registro+0x14)`, comprobado
+en ejecución) y el Voodoo expande el YIQ en silicio, mientras que el port lo
+expande en CPU. La comparación exigiría capturar el framebuffer del juego, que
+no es accesible con las herramientas disponibles (la captura de ventana del
+`glide2x` original devuelve negro salvo en el estado ya capturado). Por tanto
+**no se afirma equivalencia píxel a píxel**: lo demostrado es la equivalencia
+con la **referencia software del SDK**, más el contraste empírico de la
+documentación (imagen coherente, saturación del 0,2 % con croma con signo
+frente al 66 % sin signo).
 

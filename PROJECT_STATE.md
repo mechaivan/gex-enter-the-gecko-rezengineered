@@ -72,6 +72,26 @@
   port reproduce los **1123 colores por vértice** del original de
   forma **exacta** (la prueba exige la coincidencia exacta, no una
   coincidencia parcial).
+- **Cierre de auditoría de materiales (2026-11-11):** la semántica
+  exacta de `grAlphaCombine` **sigue pendiente**: no hay encabezados del SDK de
+  Glide 2.x en el repo ni en el entorno, y la DLL real disponible
+  (`C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`) es una **implementación
+  software** que genera un programa para la unidad de mezcla (plantillas
+  legibles `mov/mul/add/sub/lrp` y tablas por valor de parámetro en
+  `0x1013D2xx`): es el material que permitiría cerrar la ecuación, pero
+  la derivación no está hecha. Lo **demostrado** es que el original
+  mezcla **por polígono** según el formato y cuáles son los argumentos
+  exactos; lo **hipotético** es que `(3,4,1,0,0)` equivalga a
+  `SRC_ALPHA`/`INV_SRC_ALPHA`. El caso opaco se reproduce con independencia de
+  esa aritmética (alfa de salida 1) y el impacto posible se limita a los 32
+  triángulos con ARGB_4444 del frame 0 (2,8 %). **No se cambia el renderer.**
+- **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
+  coincide con la **referencia software del SDK** ( disposición de bits,
+  coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un
+  byte por texel) y el empaquetado de las 7 723 tablas NCC de los 37 `.VFX`
+  originales coincide byte a byte. **No se afirma equivalencia píxel a
+  píxel** con el silicio del Voodoo: eso exigiría capturar el framebuffer
+  del juego, que no es accesible con las herramientas disponibles.
 - **Auditoría correctiva (2026-11-11):** la hipótesis del
   «tinte de niebla por polígono» del módulo anterior **era
   incorrecta**: la variación de color entre polígonos la produce el

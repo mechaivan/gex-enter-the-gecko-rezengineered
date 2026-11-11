@@ -112,6 +112,29 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     alfa). Se documenta el papel de la tabla NCC (descompresion YIQ_422 en
     la TMU, tipo NCC0, confirmado en ejecucion) y que la ruta de
     emision de nivel **no** lleva iluminacion (la de modelos si).
+  - **Octava tanda (2026-11-11, cierre de auditoría de materiales):** la
+    semántica exacta de `grAlphaCombine` queda **pendiente** y así se
+    documenta: no hay encabezados del SDK de Glide 2.x en el repo ni en el
+    entorno, pero la DLL real disponible
+    (`C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`) es una implementación
+    software que genera el programa de la unidad de mezcla del Voodoo
+    (plantillas por valor de parámetro en `0x1013D2xx`): es el material
+    para derivarla, pero la derivación no está hecha. Lo **demostrado**
+    es que el original mezcla **por polígono** según el formato y
+    cuáles son los argumentos exactos; lo **hipotético** es que
+    `(3,4,1,0,0)` equivalga a `SRC_ALPHA`/`INV_SRC_ALPHA`. El caso opaco se
+    reproduce con independencia de esa aritmética (alfa de salida 1) y el
+    impacto posible se limita a los 32 triángulos con ARGB_4444 del frame 0
+    (2,8 %). La auditoría de YIQ_422 confirma que la decodificación en
+    CPU del port coincide con la **referencia software del SDK** (bits,
+    coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255,
+    un byte por texel) y que el empaquetado de las 7 723 tablas NCC de los 37
+    `.VFX` originales coincide byte a byte; **no** se afirma equivalencia
+    píxel a píxel con el silicio del Voodoo, que exigiría capturar el
+    framebuffer del juego. La prueba de las texturas con alfa se amplía:
+    obtiene los índices de textura realmente usados por la geometría de MAP7
+    (62) y exige que el subconjunto ARGB_4444 sea exactamente el de la
+    referencia, en los dos sentidos.
   - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
     estado de cámara original en la ruta de escena y en el renderer D3D11:
     la matriz de emisión `cam+0xE0` se reconstruye desde la cámara
