@@ -1,5 +1,90 @@
 # CHANGELOG
 
+## 2026-11-12 - 0.0.0 - La ecuación de la mezcla alfa de Glide, cerrada sobre el driver real: `grAlphaCombine(3,4,1,0,0)` = alfa del texel × alfa del vértice, con `SRC_ALPHA`/`INV_SRC_ALPHA`
+
+Cierre de la auditoría de materiales: la semántica de `grAlphaCombine` que las
+rondas anteriores dejaron pendiente queda **demostrada** sobre el driver que el
+proyecto usa de verdad. **No se cambia el renderer**: el port ya reproduce
+exactamente el caso auditado.
+
+**EL DRIVER REAL, IDENTIFICADO.** `C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`
+no es el driver 3dfx SST-1: es **nGlide 2.10** (Zeus Software), una
+implementación *software* de Glide 2.x sobre D3D9. Evidencia: la cadena
+`Software\Zeus Software\nGlide2` (VA `0x1013CA58`) y el hecho de que el
+`glide2x.dll` empaquetado (243 472 B) reenvía sus exportaciones a
+`glide2x_gex_real._grAlphaCombine@20`, `..._grAlphaBlendFunction@16`, etc.
+(cadenas en `0xB5F3`, `0xB5B0`, …).
+
+**EL PROGRAMA, OBTENIDO DINÁMICAMENTE.** En vez de interpretar a mano las
+plantillas de operandos, un *harness* i686 (`i686-w64-mingw32-gcc`) carga la
+DLL, llama a `grGlideInit` y a `grAlphaCombine(...)` y **vuelca el programa que
+el driver genera** (buffer RVA `0x159250`, texto plano en el mini-lenguaje del
+driver). El barrido de los cinco parámetros es por tanto exhaustivo y no
+interpretativo.
+
+Para `(3,4,1,0,0)` (el caso ARGB_4444):
+
+```text
+mov r5, c0
+mov r6, v0
+mov r7, r4.a
+mul r8, r7, r6
+mov r9.a, r8
+```
+
+Con los registros del driver (`r4` = texel efectivo, `v0` = color de vértice
+interpolado, `c0` = color constante, `c5`/`c6` = 0.0/1.0, `r9` = color
+calculado, `r10` = color tras la niebla y `oC0` = salida), la ecuación es:
+
+```text
+alfa de salida r9.a = r4.a × v0.a = alfa del texel × alfa del color de vértice
+```
+
+**EL ESTADO DE MEZCLA, DESCIFRADO.** `grAlphaBlendFunction` traduce sus cuatro
+factores a estados D3D9 (`D3DRS_SRCBLEND`=19, `D3DRS_DESTBLEND`=20,
+`D3DRS_SRCBLENDALPHA`=207, `D3DRS_DESTBLENDALPHA`=208, más
+`D3DRS_ALPHABLENDENABLE`=27), con las constantes `D3DBLEND` verificadas en
+`d3d9types.h`. La tabla resultante (factor de Glide → factor D3D9) es
+**coherente con las nueve llamadas del juego**, que de otro modo no tendrían
+sentido gráfico.
+
+**LAS LLAMADAS REALES DEL JUEGO.** Desensamblando `GEX3D.EXE` (función
+`0x46558A`) se lee el argumento de cada `push`: el juego empareja el caso
+ARGB_4444 (`grAlphaCombine(3,4,1,0,0)`, elegido cuando el formato de la
+textura en tiempo de ejecución es `0x0C`) con
+`grAlphaBlendFunction(1,5,4,0)` → **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa
+`ONE`/`ZERO`**. Los otros modos que usa el juego son `(4,0,0,0)` (substituye),
+`(4,4,0,0)` (aditivo), `(0,0,6,0)` (borra), `(1,1,4,0)` y `(1,4,4,0)`.
+
+**CONSECUENCIA: EL PORT NO CAMBIA.** El *pixel shader* del port hace
+`color = float4(color.rgb·t.rgb, color.a·t.a)`
+(`port/src/render/d3d11_pipeline.c:160`) y su estado global es
+`SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`
+(`d3d11_pipeline.c:558-561`): **exactamente** lo que hace el original. Los **32
+triángulos** ARGB_4444 del frame 0 de MAP7 (2,8 % de la escena) **no requieren
+ningún cambio** y la hipótesis `SRC_ALPHA`/`INV_SRC_ALPHA` queda **confirmada
+con evidencia**.
+
+**PENDIENTES QUE SE REGISTRAN (sin tocar el renderer).**
+- El **modo de mezcla por comando**: el original cambia de estado de mezcla
+  según el comando (seis cuádruplas distintas) y el port usa uno global. Para
+  el caso auditado coinciden; no está establecido a qué geometría de MAP7
+  corresponden los modos aditivos.
+- **Qué es `v0.a`**: en nGlide es el byte alto del color de vértice, y en los
+  datos del juego ese byte es donde el emisor empaqueta el opcode
+  (`0xB4 | ((color0 >> 24) & 3)`), no un alfa. Ni el hardware 3dfx ni el port
+  se pueden afirmar equivalentes en ese punto sin el byte alto de la paleta de
+  vértices (`0x555158`) en ejecución o un framebuffer del juego.
+- La semántica **original del SDK 3dfx** y la equivalencia **píxel a píxel**
+  siguen sin poder afirmarse (no hay encabezados del SDK en el entorno y la
+  captura de ventana del juego devuelve negro).
+
+**DOCUMENTACIÓN ACTUALIZADA.** `docs/D3D11_FIRST_SCENE_PLAN.md` (§4.2, §19.3,
+§19.8 reescrita y §19.10 nueva), `PROJECT_STATE.md`, `ROADMAP.md` (novena
+tanda), `RESEARCH.md`, `REVERSE_ENGINEERING.md` (lección 11 resuelta y 13
+nueva) y `U1F_RESULTADOS.md` (§8.2/§8.4). **Sin cambios de producción**: no
+se toca el renderer, la cámara, el orden de dibujo, la profundidad ni la niebla.
+
 ## 2026-11-11 - 0.0.0 - Validación dinámica de S-2: la cadena de cámara del port, igualada bit a bit al ejecutable original
 
 **Contexto.** S-2 (recorrido BSP, visibilidad de cámara y emisión de

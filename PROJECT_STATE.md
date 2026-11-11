@@ -72,8 +72,8 @@
   port reproduce los **1123 colores por vértice** del original de
   forma **exacta** (la prueba exige la coincidencia exacta, no una
   coincidencia parcial).
-- **Cierre de auditoría de materiales (2026-11-11):** la semántica
-  exacta de `grAlphaCombine` **sigue pendiente**: no hay encabezados del SDK de
+- **Cierre de auditoría de materiales (2026-11-11, superado el 2026-11-12):**
+  la semántica exacta de `grAlphaCombine` **sigue pendiente**: no hay encabezados del SDK de
   Glide 2.x en el repo ni en el entorno, y la DLL real disponible
   (`C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`) es una **implementación
   software** que genera un programa para la unidad de mezcla (plantillas
@@ -85,6 +85,27 @@
   `SRC_ALPHA`/`INV_SRC_ALPHA`. El caso opaco se reproduce con independencia de
   esa aritmética (alfa de salida 1) y el impacto posible se limita a los 32
   triángulos con ARGB_4444 del frame 0 (2,8 %). **No se cambia el renderer.**
+- **Ecuación de la mezcla alfa, cerrada sobre el driver real (2026-11-12):** la
+  DLL de Glide del entorno es **nGlide 2.10** (Zeus Software), una
+  implementación *software* de Glide 2.x sobre D3D9 (cadena
+  `Software\Zeus Software\nGlide2` en `0x1013CA58`); el `glide2x.dll`
+  empaquetado le reenvía las exportaciones. Un *harness* i686 que carga la
+  DLL y llama a `grAlphaCombine` **obtiene dinámicamente** el programa que el
+  driver genera: para `(3,4,1,0,0)` es `mov r5,c0 / mov r6,v0 / mov r7,r4.a /
+  mul r8,r7,r6 / mov r9.a,r8`, o sea **alfa de salida = alfa del texel ×
+  alfa del color de vértice**. `grAlphaBlendFunction` se descifra igual
+  (`SetRenderState` a `D3DRS_SRCBLEND`/`DESTBLEND`/`SRCBLENDALPHA`/
+  `DESTBLENDALPHA`, con las constantes `D3DBLEND` verificadas en
+  `d3d9types.h`) y el juego empareja el caso ARGB_4444 con `(1,5,4,0)` →
+  **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`**. La lectura que era
+  hipótesis queda **confirmada con evidencia**, y el port hace **exactamente**
+  eso (`color.a * t.a` en el *pixel shader* y el estado global), de modo que
+  los **32 triángulos** ARGB_4444 **no requieren ningún cambio** y **el
+  renderer no se toca**. Quedan pendientes y **documentados**: el modo de
+  mezcla **por comando** (§ 19.10 del plan) y el significado del byte alto del
+  color de vértice (que en los datos del juego es el byte donde se empaqueta el
+  opcode, no un alfa). Detalle en
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) § 19.8.
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un

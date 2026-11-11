@@ -78,6 +78,29 @@ siguiente paso, pero no se ha hecho: la lectura `SRC_ALPHA`/`INV_SRC_ALPHA`
 sigue siendo hipotesis y asi se documenta. La conclusion practica es que el
 caso opaco se reproduce sin depender de ella.
 
+La ecuacion de la mezcla alfa se ha cerrado el 2026-11-12 con el mismo metodo
+y sin dejar nada por interpretar. El primer paso fue identificar el driver: la
+DLL de `C:\GEX_REZ\SMOKE_H4A` es **nGlide 2.10** (Zeus Software), una
+implementacion **software** de Glide 2.x sobre D3D9 -- la cadena
+`Software\Zeus Software\nGlide2` lo dice en `0x1013CA58` de
+`glide2x_gex_real.dll`, y el
+`glide2x.dll` empaquetado solo le reenvia las exportaciones. El segundo paso
+fue no leer las plantillas a mano: un *harness* i686 (`i686-w64-mingw32-gcc`)
+carga la DLL, llama a `grAlphaCombine` y vuelca el buffer de programa (RVA
+`0x159250`), de modo que el programa que el driver genera **se lee, no se
+infiere**. El tercero fue descifrar `grAlphaBlendFunction`, que traduce los
+cuatro factores a estados D3D9 (`D3DRS_SRCBLEND`=19, `D3DRS_DESTBLEND`=20,
+`D3DRS_SRCBLENDALPHA`=207, `D3DRS_DESTBLENDALPHA`=208), y desensamblar
+`GEX3D.EXE` para ver que argumentos pasa el juego en cada caso. Resultado:
+`(3,4,1,0,0)` genera `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 /
+mov r9.a,r8` (alfa de salida = alfa del texel x alfa del vertice) y el juego
+lo empareja con `(1,5,4,0)` = `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`.
+La lectura que era hipotesis queda confirmada con evidencia y, como el port
+hace exactamente lo mismo, el renderer no se toca. La disciplina se mantiene
+en los limites: lo demostrado es la semantica de **nGlide 2.10**, no la del
+SDK 3dfx (cuyos encabezados no existen en el entorno), y no se afirma
+equivalencia pixel a pixel porque no hay framebuffer del juego.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

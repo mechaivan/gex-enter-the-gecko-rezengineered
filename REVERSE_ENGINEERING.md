@@ -400,6 +400,14 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
     si estuviera demostrada induce a dar por bueno un resultado que no lo
     esta; lo correcto es marcarla y acotar su impacto (32 de 1123
     triangulos).
+    (Resuelto el 2026-11-12, y con el mismo metodo: el driver del entorno
+    es **nGlide 2.10**, una reimplementacion software de Glide sobre D3D9, y
+    su `grAlphaCombine` **genera** el programa de la unidad de mezcla; al
+    volcarlo se obtiene `r9.a = texel.a x v0.a` para `(3,4,1,0,0)`, y el
+    juego lo empareja con `grAlphaBlendFunction(1,5,4,0)` =
+    `SRC_ALPHA`/`INV_SRC_ALPHA`. La lectura era correcta, pero el merito
+    estaba en no darla por buena antes de medirla: ver
+    `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8.)
 12. **Validar la semantica de una comparacion con datos, no con la lectura del
     desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
    redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
@@ -407,6 +415,20 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    fue dinamica: de 55 poligonos con profundidad *minima* menor que `0x6A4`,
    el original subdivide exactamente los 27 con profundidad *maxima* menor que
    `0x6A4`, y el orden de dibujo solo coincide (1123/1123) usando el maximo.
+13. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
+   codigo en lugar de deducirlo de las plantillas.** La conclusion de que
+   `(3,4,1,0,0)` no se puede interpretar sin los encabezados del SDK era
+   correcta solo porque no se habia identificado la implementacion: el
+   `glide2x.dll` del juego reenvia sus exportaciones a `glide2x_gex_real.dll`,
+   que es **nGlide 2.10** (Zeus Software), una implementacion software de
+   Glide 2.x sobre D3D9 (cadena `Software\Zeus Software\nGlide2`). Y las
+   plantillas de operandos (`mov r5, v0`, `lrp r8, r7, r6, r5`, ...) no hay
+   que interpretarlas una a una: basta con **llamar** a la API y leer el
+   programa que genera (un *harness* i686 que carga la DLL y vuelca el buffer
+   de programa), con lo que el barrido de los cinco parametros es exhaustivo
+   y no interpretativo. La misma disciplina con el ejecutable: los argumentos
+   que el juego pasa a `grAlphaBlendFunction` se leen desensamblando el
+   `push` de cada llamada, no deducidos del SDK.
 
 ## 5. Registro
 

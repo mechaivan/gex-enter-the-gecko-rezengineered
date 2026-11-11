@@ -161,16 +161,18 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
   explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
-- **Alpha blending:** **parcialmente resuelto.** Lo **demostrado** es que el
+- **Alpha blending:** **resuelto** (2026-11-12). Lo **demostrado** es que el
   original activa la mezcla **por polígono** según el formato de la textura
   (`0x46558A` compara el campo `+0x0C` del registro de textura en tiempo de
   ejecución con `0x0C` = ARGB_4444) y que llama a `grAlphaCombine` con
-  `(3,4,1,0,0)` para esas texturas y con `(1,0,0,2,0)` para las opacas. Lo
-  que **no** está demostrado es la aritmética exacta de esos argumentos: la
-  lectura `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` es una **hipótesis** (§19.8).
-  El port reproduce el caso opaco de forma independiente de esa aritmética
-  (alfa de salida 1 → el destino se substituye) y usa la mezcla alfa habitual
-  para el caso ARGB_4444.
+  `(3,4,1,0,0)` para esas texturas y con `(1,0,0,2,0)` para las opacas. La
+  **aritmética** queda cerrada sobre el driver real (nGlide 2.10): el programa
+  que genera es `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 /
+  mov r9.a,r8`, o sea `alfa de salida = alfa del texel × alfa del vértice`, y el
+  juego lo empareja con `grAlphaBlendFunction(1,5,4,0)`, que en ese driver es
+  `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`: exactamente lo que hace el
+  port (§19.8). Quedan pendientes solo el **modo de mezcla por comando**
+  (§19.10) y el significado del byte alto del color de vértice (§19.8).
 
 ---
 
@@ -2078,11 +2080,11 @@ no del primero (`+2`).
 **registro de textura en tiempo de ejecución** (`[0x6488F4][índice]`, campo
 `+0x0C` = el formato con el que el juego tiene la textura):
 
-| Formato en tiempo de ejecución | `grAlphaCombine` | Efecto |
-|---|---|---|
-| `0x0C` (ARGB_4444: trae alfa) | `(3, 4, 1, 0, 0)` | **MEZCLA** con alfa |
-| `0x00` (opaco de 8 bits) | `(1, 0, 0, 2, 0)` | **opaco**: substituye el destino |
-| otros (ni alfa ni opaco) | no llama | el estado anterior persiste |
+| Formato en tiempo de ejecución | `grAlphaCombine` | `grAlphaBlendFunction` | Efecto |
+|---|---|---|---|
+| `0x0C` (ARGB_4444: trae alfa) | `(3, 4, 1, 0, 0)` | `(1, 5, 4, 0)` | **MEZCLA** con alfa: `src·a + dst·(1-a)` |
+| `0x00` (opaco de 8 bits) | `(1, 0, 0, 2, 0)` | `(4, 0, 0, 0)` | **opaco**: substituye el destino |
+| otros (ni alfa ni opaco) | no llama | no llama | el estado anterior persiste |
 
 Evidencia dinámica (MAP7, frame 0, 1123 comandos de nivel):
 
@@ -2103,6 +2105,12 @@ en el original: la tabla de texturas del shader lleva un flag por entrada
 Con el estado de mezcla global `SRC_ALPHA/INV_SRC_ALPHA` eso equivale a
 substituir el destino (`src*1 + dst*0`), de modo que **el orden de dibujo no
 cambia** y no hace falta un *depth buffer* ni agrupar por modo.
+
+La aritmética está **confirmada contra el driver real** (§19.8): para el caso
+ARGB_4444 el original usa `alfa de salida = alfa del texel × alfa del vértice`
+y el estado `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`, que es
+exactamente lo que hace el *pixel shader* (`color.a * t.a`) y el estado global
+del port.
 
 ### 19.4 La niebla, antes que la textura
 
@@ -2203,60 +2211,168 @@ bit de alfa, YIQ_422 sin alfa) y el modo de mezcla por polígono.
   bilineal y direccionamiento *wrap*, como el original.
 
 
-### 19.8 `grAlphaCombine`: qué está demostrado y qué no
+### 19.8 `grAlphaCombine`: la ecuación, cerrada sobre el driver real (2026-11-12)
 
-**Observado en el original (dinámico).** Los argumentos exactos de las llamadas
-al thunk `grAlphaCombine` (`0x540532`), capturados en el frame 0 de MAP7:
+**El driver que se usa de verdad no es el de 3dfx.** La DLL de Glide del
+entorno es **nGlide 2.10** (Zeus Software): una implementación *software* de
+Glide 2.x sobre D3D9. No es el driver del SST-1, y eso condiciona lo que se
+puede afirmar (ver «Lo que sigue sin poder afirmarse»).
 
-| `grAlphaCombine(rf, func, cf, af, cf2)` | llamadas | a qué |
-|---|---|---|
-| `(3, 4, 1, 0, 0)` | 32 | las texturas ARGB_4444 (las que traen alfa) |
-| `(1, 0, 0, 2, 0)` | 1091 | las texturas opacas del nivel |
-| `(1, 0, 1, 2, 0)` | 128 | las primitivas 2D (opcode `0x28`), fuera de la ruta de nivel |
-
-**Materiales revisados para cerrar la ecuación.**
-
-| Fuente | Resultado |
+| Evidencia | Dónde |
 |---|---|
-| Encabezados del SDK de Glide 2.x (`glide.h`) | **no existen** en el repo ni en el entorno (búsqueda recursiva en `C:\GEX_REZ`, el árbol de repositorios y `Descargas`) |
-| `tools/glide-shim/` | es un **proxy** que reenvía a la DLL real y registra `grBufferSwap`; no implementa la semántica |
-| `C:\GEX_REZ\SMOKE_H4A\glide2x.dll` | **empaquetado**: sus exportaciones apuntan a una sección sin código legible |
-| `C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll` | **implementación software de Glide, sin empaquetar**: contiene la respuesta |
+| Cadena `Software\Zeus Software\nGlide2` | VA `0x1013CA58` de `glide2x_gex_real.dll` |
+| `glide2x.dll` (empaquetado, 243 472 B) reenvía sus exportaciones a `glide2x_gex_real.dll` | cadenas `glide2x_gex_real._grAlphaCombine@20` (`0xB5F3`), `glide2x_gex_real._grAlphaBlendFunction@16` (`0xB5B0`), … |
+| El driver genera shaders D3D9 (`ps_2_0`) con un mini-ensamblador propio | `ps_2_0` (`0x1013CBB0`), `dcl t0.xy` (`0x1013CB90`), `texld r0, t0, s0` (`0x1013CB78`) |
 
-**Lo que revela el driver software.**
+**Método: el programa se obtiene dinámicamente, no leído a mano.** Un *harness*
+i686 (`i686-w64-mingw32-gcc`) carga la DLL, llama a `grGlideInit` y después a
+`grAlphaCombine(...)`, y vuelca el buffer de programa (RVA `0x159250`). El
+contenido es texto plano en el mini-lenguaje del driver, así que el barrido de
+los cinco parámetros es **exhaustivo y no interpretativo**: no hay que deducir
+qué plantilla corresponde a qué parámetro, el driver la elige y se lee.
 
-- `grAlphaCombine` (RVA `0x182A`) reenvía a `0x1004CB90` y de ahí a
-  `0x10011510`.
-- Esa rutina compara los cinco parámetros con el estado cacheado (los globales
-  `0x10164F54..0x10164F64`) y, cuando cambian, **genera un pequeño programa**
-  para la unidad de mezcla del Voodoo: copia plantillas de operandos
-  seleccionadas **por el valor de cada parámetro**.
-- Las plantillas son cadenas legibles en el binario: `mov r5, v0`,
-  `mov r6, c0`, `mov r7, c5`, `sub r7, c6, r6.a`, `mul r8, r8, r7`,
-  `add r8, r8, r5.a`, `lrp r8, r7, r6, r5`, `lrp r9.rgb, r1.a, c0, v0`…
-- Tablas de plantillas: el 4.º parámetro (`af`) → `0x1013D29C` / `0x1013D28C` /
-  `0x1013D2AC`; el 5.º (`cf2`) → `0x1013D30C` / `0x1013D2FC` / `0x1013D2EC` /
-  `0x1013D2DC`; el resto entre `0x1013D010` y `0x1013D2BC`.
-- El dialecto es el de la unidad de mezcla del Voodoo: `v0` = color fuente
-  (`.a` = alfa fuente), `r0`/`r9` = destino, `c0` = color constante
-  (`grConstantColorValue4`), `c6` = 1.0 (de ahí `sub c6, x` = `1 - x`),
-  `lrp dest, x, y, z` = `z + x*(y - z)`.
+(Las llamadas capturadas en ejecución y sus recuentos —32 con alfa, 1091
+opacas, 128 de primitivas 2D— están en § 19.3; aquí lo que se cierra es la
+**aritmética** que esas llamadas producen.)
 
-**Lo que queda pendiente.** La **ecuación exacta**: hay que trazar qué parámetro
-selecciona cada plantilla de la parte RGB (los tres primeros) y decodificar la
-semántica del «programa» resultante. Hasta entonces, la lectura
-`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` de `(3,4,1,0,0)` es una **hipótesis**.
+**El programa para `(3,4,1,0,0)`** (el caso ARGB_4444):
 
-**Consecuencia para el port (no se cambia el renderer).**
+```text
+mov r5, c0
+mov r6, v0
+mov r7, r4.a
+mul r8, r7, r6
+mov r9.a, r8
+```
 
-- El caso **opaco** se reproduce **con independencia** de esa aritmética: el
-  *pixel shader* devuelve alfa 1 para las texturas sin canal alfa y el estado
-  global `SRC_ALPHA`/`INV_SRC_ALPHA` produce `src*1 + dst*0 = src`, es decir
-  el destino se substituye, que es lo que hace el original.
-- El caso **ARGB_4444** usa la mezcla alfa habitual. Si la aritmética del
-  original resultara ser otra, la diferencia se limitaría a los **32
-  triángulos** con textura ARGB_4444 del frame 0 (el **2,8 %** de la escena) y
-  **no está demostrada**: no se modifica el renderer sin evidencia.
+Los registros del driver (deducidos de las plantillas del propio binario):
+
+| Registro | Qué es |
+|---|---|
+| `r0` / `r1` | texel de `t0` / `t1` (`texld r0, t0, s0`) |
+| `r4` | **texel efectivo** (el de la unidad activa: `mov r4, r1` / `mov r4, r0`) |
+| `v0` | **color de vértice interpolado** (`dcl v0`) |
+| `v1` | factor de niebla (`dcl v1`; `lrp r10.rgb, v1.a, r9, c7`) |
+| `c0` | color constante de `grConstantColorValue4` |
+| `c5` / `c6` | `0.0` / `1.0` (`def c5, 0.0…`, `def c6, 1.0…`) |
+| `r9` | color calculado (RGB y alfa) |
+| `r10` | color tras la niebla; `mov oC0, r10` es la salida |
+
+**Ecuación del caso ARGB_4444:**
+
+```text
+r9.a = r4.a × v0.a          (alfa del texel × alfa del color de vértice)
+```
+
+Los otros programas que el juego usa:
+
+| Llamada | Programa | Resultado |
+|---|---|---|
+| `(3,4,1,0,0)` | `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 / mov r9.a,r8` | `r9.a = texel.a × v0.a` |
+| `(3,4,1,2,0)` | `mov r5,c0 / mov r6,c0 / mov r7,r4.a / mul r8,r7,r6 / mov r9.a,r8` | `r9.a = texel.a × c0.a` (segunda ruta texturizada) |
+| `(1,0,0,2,0)` | `mov r5,v0 / mov r6,c0 / mov r7,c5 / mov r8,r5 / mov r9.a,r8` | `r9.a = v0.a` (opaco) |
+| `(1,0,1,2,0)` | `mov r5,c0 / mov r6,c0 / mov r7,c5 / mov r8,r5 / mov r9.a,r8` | `r9.a = c0.a` = 1.0 (el juego pone el alfa del color constante a `0x437F0000`) |
+
+**`grAlphaBlendFunction` también está descifrado, y es la otra mitad de la
+ecuación.** El driver traduce los cuatro factores a estados D3D9:
+
+| Argumento | Estado | Valor |
+|---|---|---|
+| `srcRGB` | `D3DRS_SRCBLEND` | `19` (`0x13`) |
+| `dstRGB` | `D3DRS_DESTBLEND` | `20` (`0x14`) |
+| `srcA` | `D3DRS_SRCBLENDALPHA` | `207` (`0xCF`) |
+| `dstA` | `D3DRS_DESTBLENDALPHA` | `208` (`0xD0`) |
+| — | `D3DRS_ALPHABLENDENABLE` | `27` (`0x1B`) |
+
+… con esta tabla de factores (constantes `D3DBLEND` verificadas en
+`d3d9types.h`):
+
+| Factor | RGB (`SRCBLEND`, `DESTBLENDALPHA`) | Alfa (`DESTBLEND`, `SRCBLENDALPHA`) |
+|---|---|---|
+| `0` | `ZERO` (1) | `ZERO` (1) |
+| `1` | `SRC_ALPHA` (5) | `SRC_ALPHA` (5) |
+| `2` | `DEST_COLOR` (9) | `SRC_COLOR` (3) |
+| `3` | `DEST_ALPHA` (7) | `DEST_ALPHA` (7) |
+| `4` | `ONE` (2) | `ONE` (2) |
+| `5` | `INV_SRC_ALPHA` (6) | `INV_SRC_ALPHA` (6) |
+| `6` | `INV_DEST_COLOR` (10) | `INV_SRC_COLOR` (4) |
+| `7` | `INV_DEST_ALPHA` (8) | `INV_DEST_ALPHA` (8) |
+| `15` | `SRC_ALPHA_SAT` (11) | `SRC_ALPHA_SAT` (11) |
+| otros | `ZERO` (1) | `ZERO` (1) |
+
+La tabla **no** procede de los encabezados del SDK (no existen en el entorno):
+es el comportamiento del driver real, y es **coherente con las nueve llamadas
+del juego**, que de otro modo no tendrían sentido gráfico.
+
+**Las llamadas reales del juego** (desensamblado de
+`C:\GEX_REZ\SMOKE_H4A\GEX3D.EXE`, función `0x46558A`):
+
+| `grAlphaBlendFunction(src,dst,srcA,dstA)` | Dónde | Efecto con la tabla |
+|---|---|---|
+| `(4,0,0,0)` | `0x4657BC` | `ONE/ZERO` → **substituye** el destino |
+| `(4,4,0,0)` | `0x465831`, `0x465881` | `ONE/ONE` → **aditivo** |
+| `(0,0,6,0)` | `0x465859`, `0x4659CA` | borra el RGB del destino |
+| `(1,1,4,0)` | `0x4658A3`, `0x4659F2` | `(src+dst)·a` |
+| `(1,4,4,0)` | `0x465A14` | `src·a + dst` |
+| **`(1,5,4,0)`** | `0x465A3D` | **`src·a + dst·(1-a)`** |
+
+Y el color: `guColorCombineFunction` con `2`, `3`, `6` y `7` (11 llamadas:
+`0x465E33`, `0x466346`, `0x466B1D`, `0x4673AF`, `0x467876`, `0x467E3E`,
+`0x4684CE`, `0x46873A`, `0x468AEB`, `0x4691B8`, `0x4696DC`). El modo `6` es el
+que modula por el color de vértice: `mov r5, v0 / mov r6, r4 / mov r3, r6 /
+mov r7, r5 / mul r8, r7, r6 / mov r9.rgb, r8` → `r9.rgb = v0.rgb × texel.rgb`.
+
+**Cómo elige el juego el caso ARGB_4444** (`0x46558A`): el byte de comando
+(`[ebp-0x34]`) se descompone en banderas; con la bandera `0x10` el juego
+consulta el registro de textura (`[0x6488F4][índice & 0x3FFF]`) y compara su
+campo `+0x0C` (el **formato**) con `0x0C`; si es ARGB_4444 marca
+`[ebp-0x14] = 1` y elige `grAlphaCombine(3,4,1,0,0)` (`0x465696`) y, en la
+misma pasada, `grAlphaBlendFunction(1,5,4,0)` (`0x465A3D`: camino
+`[ebp-8] != 0` → `0x4658B7` → `[ebp-0x28] == 0` → `0x465A25`).
+
+**La ecuación completa del caso auditado** (con `a = texel.a × v0.a`):
+
+```text
+rgb            = v0.rgb × texel.rgb
+alfa de salida = texel.a × v0.a
+framebuffer    = src.rgb·a + dst.rgb·(1-a)      (canal alfa: src·a)
+```
+
+**Contraste con el port: coincide. No se cambia el renderer.**
+
+| Elemento | Original (nGlide 2.10) | Port |
+|---|---|---|
+| Mezcla del alfa | `r9.a = texel.a × v0.a` | `color = float4(color.rgb·t.rgb, color.a·t.a)` (`port/src/render/d3d11_pipeline.c:160`) ✔ |
+| Estado de mezcla | `SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO` | `D3D11_BLEND_SRC_ALPHA`/`INV_SRC_ALPHA`, `ONE`/`ZERO` (`d3d11_pipeline.c:558-561`) ✔ |
+| Caso opaco | `r9.a = 1.0` con `ONE/ZERO` → substituye | alfa 1 con el mismo estado → substituye ✔ |
+| RGB | `v0.rgb × texel.rgb` (modo `6`) | `color.rgb × t.rgb` ✔ |
+
+La lectura `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` de `(3,4,1,0,0)` queda
+**confirmada con evidencia**, y los **32 triángulos** ARGB_4444 **no necesitan
+ningún cambio**.
+
+**Lo que sigue sin poder afirmarse.**
+
+- La semántica **original del SDK 3dfx**: los encabezados de `glide.h` no están
+  en el repo ni en el entorno. Lo demostrado es la semántica **de nGlide 2.10**,
+  el driver que el proyecto usa de verdad, más la coherencia interna de su
+  tabla con las nueve llamadas del juego.
+- La equivalencia **píxel a píxel** con el Voodoo original: la captura de
+  ventana del `glide2x` original devuelve negro, así que no hay framebuffer con
+  el que comparar; la comparación es a nivel de **ecuación**.
+- **Qué es exactamente `v0.a`.** En nGlide es el byte alto del color de vértice
+  interpolado. En los datos del juego ese byte **no es un alfa**: es donde el
+  emisor empaqueta el opcode (`0xB4 | ((color0 >> 24) & 3)`, § 8 de
+  `S2_BSP_TRAVERSAL.md`), y su valor en MAP7 es `0x34`, `0xB4`, `0x36` o
+  `0xB6`. Si el hardware 3dfx lo ignorase (y el juego usase siempre
+  `r9.a = texel.a`), el port y nGlide serían **igualmente** incorrectos. No se
+  cambia el renderer: haría falta el byte alto de la paleta de vértices
+  (`0x555158`) en ejecución o un framebuffer del juego.
+- **Los modos de mezcla por comando.** El original cambia de estado de mezcla
+  según el comando (seis cuádruplas distintas, tabla de arriba); el port usa un
+  único estado global. Para el caso auditado coinciden; para los modos
+  aditivos (`(4,4,0,0)`) no está establecido a qué geometría de MAP7
+  corresponden. Se registra como pendiente, no se toca el renderer (§ 19.10).
 
 ### 19.9 Auditoría de YIQ_422
 
@@ -2308,4 +2424,35 @@ no es accesible con las herramientas disponibles (la captura de ventana del
 con la **referencia software del SDK**, más el contraste empírico de la
 documentación (imagen coherente, saturación del 0,2 % con croma con signo
 frente al 66 % sin signo).
+
+### 19.10 Modos de mezcla por comando: pendiente, con la evidencia a mano
+
+El original **cambia el estado de mezcla según el comando**, no por polígono de
+forma global. La selección ocurre en `0x46558A` y depende de:
+
+- las banderas del byte de comando (`[ebp-0x34]`): `0x04` → camino de
+  alphablend (`0x4658B7`), `0x02` → camino de «modo de iluminación»;
+- el **modo de iluminación** en `[0x57B8EC]`, que el comando `0xE1` fija con
+  los bits 5-6 de una palabra (`0x4655C2`) y que las rutas `0xB4`/`0x34`/
+  `0x24`/`0x2C` reescriben con los dos bits altos del índice de textura
+  (`0x4658C1`…`0x46593C`).
+
+De ahí salen las seis cuádruplas de `grAlphaBlendFunction` de § 19.8: `ONE/ZERO`
+(substituye), `ONE/ONE` (aditivo), `ZERO/ZERO` (borra), `(1,1,4,0)`,
+`(1,4,4,0)` y `(1,5,4,0)` (mezcla alfa clásica).
+
+**El port usa un único estado global** (`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa
+`ONE`/`ZERO`). Eso reproduce **exactamente**:
+
+- el caso opaco (alfa de salida 1 → `src·1 + dst·0 = src`, el destino se
+  substituye), y
+- el caso ARGB_4444 auditado (§ 19.8).
+
+Lo que **no** está establecido es a qué geometría de MAP7 corresponden los modos
+aditivo (`(4,4,0,0)`) y de borrado (`(0,0,6,0)`). Por eso **no se toca el
+renderer**: haría falta capturar, en ejecución, las nueve llamadas con el
+comando que las origina (el mismo procedimiento que la captura de materiales
+del § 19.1) y, solo si aparecen sobre geometría real, implementar estados de
+mezcla por dibujo en D3D11 — un cambio de producción que no se hace sin
+evidencia.
 

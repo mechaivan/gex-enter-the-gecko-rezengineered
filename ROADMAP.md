@@ -135,6 +135,32 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     obtiene los índices de textura realmente usados por la geometría de MAP7
     (62) y exige que el subconjunto ARGB_4444 sea exactamente el de la
     referencia, en los dos sentidos.
+  - **Novena tanda (2026-11-12, ecuación de la mezcla alfa sobre el driver
+    real):** la semántica de `grAlphaCombine`, que las octava y octava
+    anteriores dejaron pendiente, **queda cerrada con evidencia**. El primer
+    paso es identificar el driver: la DLL del entorno es **nGlide 2.10**
+    (Zeus Software), una implementación *software* de Glide 2.x sobre D3D9
+    (cadena `Software\Zeus Software\nGlide2`), a la que el `glide2x.dll`
+    empaquetado reenvía sus exportaciones. El segundo paso es no leer las
+    plantillas a mano: un *harness* i686 carga la DLL, llama a
+    `grAlphaCombine` y **vuelca el programa que el driver genera**, así que
+    el barrido de los cinco parámetros es exhaustivo. Para `(3,4,1,0,0)` el
+    programa es `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 /
+    mov r9.a,r8` → **alfa de salida = alfa del texel × alfa del color de
+    vértice**. El tercer paso es descifrar `grAlphaBlendFunction`, que
+    traduce los cuatro factores a `D3DRS_SRCBLEND`/`DESTBLEND`/
+    `SRCBLENDALPHA`/`DESTBLENDALPHA` (19, 20, 207, 208), y desensamblar
+    `GEX3D.EXE` para ver que el juego empareja el caso ARGB_4444 con
+    `(1,5,4,0)` → **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`**. La
+    lectura que era hipótesis queda **confirmada**, el port hace exactamente
+    lo mismo (`color.a * t.a` y el estado global), los **32 triángulos**
+    ARGB_4444 **no requieren cambio** y **el renderer no se toca**. Se
+    registran dos pendientes nuevos con su evidencia: el **modo de mezcla
+    por comando** (el original cambia de estado entre comandos; el port usa
+    uno global) y el **significado del byte alto del color de vértice**, que
+    en los datos del juego es el byte donde se empaqueta el opcode y no un
+    alfa. La auditoría de YIQ_422 no cambia: sigue **sin** afirmarse
+    equivalencia píxel a píxel con el silicio del Voodoo.
   - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
     estado de cámara original en la ruta de escena y en el renderer D3D11:
     la matriz de emisión `cam+0xE0` se reconstruye desde la cámara

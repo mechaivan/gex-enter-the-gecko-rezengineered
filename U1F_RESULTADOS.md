@@ -398,6 +398,31 @@ mov  eax, [edx + 4*ecx]               ; puntero a registro de textura
   plantillas están en `0x1013D010..0x1013D31C`. Es el material que
   permitiría derivar la ecuación exacta; la derivación no está hecha y
   la ecuación queda **pendiente** (`docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8).
+* ~~**Ecuación pendiente**~~ **RESUELTA (2026-11-12).** El material anterior
+  era el correcto y la derivación se ha hecho **sobre el driver real**, no
+  sobre las plantillas:
+  1. **Identidad del driver**: `glide2x_gex_real.dll` es **nGlide 2.10**
+     (Zeus Software), una implementación *software* de Glide 2.x sobre D3D9;
+     la cadena `Software\Zeus Software\nGlide2` está en `0x1013CA58` y el
+     `glide2x.dll` empaquetado le reenvía las exportaciones
+     (`glide2x_gex_real._grAlphaCombine@20` en `0xB5F3`).
+  2. **Programa generado**: un *harness* i686 carga la DLL, llama a
+     `grAlphaCombine` y vuelca el buffer de programa (RVA `0x159250`). Para
+     `(3,4,1,0,0)` el programa es `mov r5, c0 / mov r6, v0 / mov r7, r4.a /
+     mul r8, r7, r6 / mov r9.a, r8`, o sea
+     **`r9.a = r4.a × v0.a` = alfa del texel × alfa del color de vértice**.
+  3. **Estado de mezcla**: `grAlphaBlendFunction` traduce sus cuatro factores
+     a `D3DRS_SRCBLEND`/`DESTBLEND`/`SRCBLENDALPHA`/`DESTBLENDALPHA`
+     (19, 20, 207, 208; constantes `D3DBLEND` verificadas en `d3d9types.h`).
+  4. **Llamadas del juego**: desensamblando `GEX3D.EXE` (`0x46558A`) se ve que
+     el caso ARGB_4444 se empareja con `grAlphaBlendFunction(1,5,4,0)` →
+     **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`**.
+
+  El port hace exactamente eso (`color.a * t.a` y el estado global): los 32
+  triángulos ARGB_4444 **no requieren cambio** y el renderer **no se toca**.
+  Detalle, tabla de factores y límites en
+  `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8; pendiente nuevo (el modo de mezcla
+  por comando) en § 19.10.
 
 ### 8.3 Vértices
 
@@ -447,6 +472,29 @@ el flujo de comandos y en buffers globales fijos, no en arrays por objeto.
 **no se ha determinado su layout** en U-1f. La función también emite
 `grDrawLine` (6 sitios) y descarga tablas de paleta con `grTexDownloadTable`
 (4 sitios); ambas cosas quedan sin analizar.
+
+**Argumentos de las llamadas de estado (2026-11-12).** Los argumentos
+exactos de los 9 `grAlphaBlendFunction` y los 7 `grAlphaCombine` de esta ruta
+se leen desensamblando el `push` de cada llamada en `GEX3D.EXE` (no están en
+el thunk):
+
+| Llamada | Argumentos | Dónde |
+|---|---|---|
+| `grAlphaCombine` | `(3,4,1,0,0)` | `0x465696` (formato ARGB_4444) |
+| `grAlphaCombine` | `(3,4,1,2,0)` | `0x465706` (segunda ruta texturizada) |
+| `grAlphaCombine` | `(1,0,0,2,0)` | `0x4656A7`, `0x465732` (opaco) |
+| `grAlphaCombine` | `(1,0,1,2,0)` | `0x465717`, `0x465743`, `0x465754` |
+| `grAlphaBlendFunction` | `(1,5,4,0)` | `0x465A3D` (**mezcla alfa**) |
+| `grAlphaBlendFunction` | `(4,0,0,0)` | `0x4657BC` (substituye) |
+| `grAlphaBlendFunction` | `(4,4,0,0)` | `0x465831`, `0x465881` (aditivo) |
+| `grAlphaBlendFunction` | `(0,0,6,0)` | `0x465859`, `0x4659CA` (borra) |
+| `grAlphaBlendFunction` | `(1,1,4,0)` | `0x4658A3`, `0x4659F2` |
+| `grAlphaBlendFunction` | `(1,4,4,0)` | `0x465A14` |
+| `guColorCombineFunction` | `2`, `3`, `6`, `7` | 11 sitios (`0x465E33` … `0x4696DC`) |
+
+Con la tabla de factores del driver (§ 8.2) el caso ARGB_4444 queda
+`SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`. Detalle en
+`docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8.
 
 ---
 
