@@ -376,7 +376,14 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    escaladas por 1,6 (`(v<<9)/0x140` y `(v*0x180)/0xF0`) y con una traslacion
    `E · (-camPos)`. Sin ese paso la geometria aparece con otra escala y otro
    encuadre aunque las matrices de visibilidad sean correctas.
-9. **Validar la semantica de una comparacion con datos, no con la lectura del
+9. **El material viaja en el comando, no en el renderer.** El estado por
+   poligono (textura, color, mezcla) se captura comparando el comando real
+   que dibuja el original, no inferiendolo del formato del fichero de
+   texturas: en MAP7 el formato ARGB_4444 es el unico que conserva el canal
+   alfa y por tanto el unico que se mezcla, y el indice de textura sale de
+   la mitad alta del **segundo** dword del registro UV (un byte de diferencia
+   seleccionaba 4 texturas en lugar de 62).
+10. **Validar la semantica de una comparacion con datos, no con la lectura del
    desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
    redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
    al reves cambia el resultado de maximo a minimo. La comprobacion decisiva

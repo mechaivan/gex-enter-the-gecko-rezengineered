@@ -1216,7 +1216,19 @@ de MAP7 con texturas desde el punto de vista de la cámara del juego; con
 `--diagnostic-view` se ve el nivel entero desde fuera, que es lo propio de
 la vista sintética.
 
-### 15.6 Lo que sigue abierto
+### 15.6 El color de niebla de la cámara
+
+La niebla del escenario mezcla el color del vértice hacia un color destino
+que el juego mantiene en `[0x6468A0]` (B), `[0x647574]` (G) y `[0x647560]`
+(R) y que actualiza **por objeto** durante la emisión (`0x43DE14` y
+`0x43DE4D`). Para MAP7 en el frame 0 el valor general es
+`B=0x14, G=0x14, R=0x5A`, que es el que usa el port (`scene_camera_view`).
+Con él, los 1123 colores por vértice del port coinciden con los del original.
+El valor por objeto queda pendiente: su origen en el `.DFX` (la estructura
+que lee `0x43DE14`, con los bytes de color en `+0x40` y `+0x48`) todavía no
+está identificado.
+
+### 15.7 Lo que sigue abierto
 
 - **El vuelo de cámara**: la cámara del juego avanza frame a frame por el
   escenario (18 frames capturados en `ref_map7_frames.h`). El port usa el

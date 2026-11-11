@@ -46,6 +46,15 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 > [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
 > reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.
 
+Los materiales (2026-11-11) se han reconstruido con el mismo metodo: se
+captura el comando real que dibuja el original (0x34 B) y el estado de
+Glide que fija antes de cada comando (grAlphaCombine/grAlphaTest), y se
+contrasta con lo que produce el port. La comparacion posicional de los 1123
+comandos del frame 0 de MAP7 (profundidades, UV, indice de textura y color
+por vertice) es la referencia del modulo; los dos fallos que encontro --
+el indice de textura leido del dword equivocado y el modo de mezcla global
+en lugar de por poligono -- solo se ven al comparar comando a comando.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

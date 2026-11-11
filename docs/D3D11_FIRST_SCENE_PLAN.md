@@ -2020,3 +2020,105 @@ reconoce en el panel con marco de la pared.
 5. El atlas tiene un límite de 64 texturas y 4 096 px de ancho por fila
    (`GEX_D3D11_TEXTURE_MAX_ENTRIES`, `..._ATLAS_MAX_WIDTH`): con más
    texturas habría que revisar el empaquetado.
+
+## 19. Materiales de MAP7: estado por polígono (2026-11-11)
+
+La emisión ya reproduce el original triángulo a triángulo (§ 18.8). Este
+apartado documenta el **material** de cada polígono, que es lo que decide el
+aspecto: la textura, el color, la mezcla y la niebla.
+
+### 19.1 El estado de material por polígono, en el original
+
+El comando de 0x34 B que escribe `0x426256` lleva por polígono:
+
+| Offset | Contenido |
+|---|---|
+| `+0x08` | color0 (AARRGGBB) |
+| `+0x0C` | xy0 empaquetado `(y<<16)\|x` |
+| `+0x10` | uv0: `u8 u`, `u8 v`, `u16` (indice de textura) |
+| `+0x14` | color1 |
+| `+0x18` | xy1 |
+| `+0x1C` | uv1 |
+| `+0x20` | color2 |
+| `+0x24` | xy2 |
+| `+0x28` | uv2 |
+| `+0x2C/+0x2E/+0x30` | `z0`, `z1`, `z2` |
+| `+0x0B` | opcode `0xB4 \| ((color0>>24)&3)` |
+
+**El byte de alfa de `color0` es el opcode**: el opcode se escribe en `+0x0B`,
+que es exactamente el byte de alfa de `color0`, y lo hace **después** del
+payload. Por eso el color del comando del original siempre muestra `0xB4` en
+esa posición aunque el color del vértice tuviera otro alfa.
+
+### 19.2 El índice de textura: el segundo dword del registro UV
+
+`0x46558A` toma el índice de textura de `word[cmd+0x1E] & 0x3FFF`, es decir
+de la **mitad alta del segundo dword** del registro UV de 12 B (offset `+6`),
+no del primero (`+2`).
+
+> **Defecto corregido en el port.** Se leía el primer dword (`+2`), de modo
+> que el port seleccionaba **texturas equivocadas**: con `map7.vfx` cargaba 4
+> texturas en lugar de 62 y muestrejaba otra cosa. Corregido y verificado:
+> los 1123 índices de textura del port coinciden ahora uno a uno con los del
+> original (ver `port/tests/ref_material.h`).
+
+### 19.3 El modo de mezcla, por polígono (no global)
+
+`0x46558A` decide el modo de mezcla antes de cada comando, a partir del
+**registro de textura en tiempo de ejecución** (`[0x6488F4][índice]`, campo
+`+0x0C` = el formato con el que el juego tiene la textura):
+
+| Formato en tiempo de ejecución | `grAlphaCombine` | Efecto |
+|---|---|---|
+| `0x0C` (ARGB_4444: trae alfa) | `(3, 4, 1, 0, 0)` | **MEZCLA** con alfa |
+| `0x00` (opaco de 8 bits) | `(1, 0, 0, 2, 0)` | **opaco**: substituye el destino |
+| otros (ni alfa ni opaco) | no llama | el estado anterior persiste |
+
+Evidencia dinámica (MAP7, frame 0, 1123 comandos de nivel):
+
+| `grAlphaCombine` | llamadas | texturas |
+|---|---|---|
+| `(3, 4, 1, 0, 0)` | 32 | 6, 8, 185, 188, 234, 241 |
+| `(1, 0, 0, 2, 0)` | 1091 | las demás |
+| `(1, 0, 1, 2, 0)` | 128 | las primitivas 2D (opcode `0x28`), fuera del nivel |
+
+Las **seis** texturas que el original mezcla con alfa son exactamente las de
+**formato ARGB_4444** del `map7.vfx`: el juego convierte el YIQ_422 y el
+ARGB_1555 a un formato opaco de 8 bits y solo conserva el canal alfa del
+ARGB_4444.
+
+**Implementación en el port.** El estado de mezcla viaja con la textura, como
+en el original: la tabla de texturas del shader lleva un flag por entrada
+("trae alfa") y el *pixel shader* devuelve alfa 1 para las texturas opacas.
+Con el estado de mezcla global `SRC_ALPHA/INV_SRC_ALPHA` eso equivale a
+substituir el destino (`src*1 + dst*0`), de modo que **el orden de dibujo no
+cambia** y no hace falta un *depth buffer* ni agrupar por modo.
+
+### 19.4 La niebla, antes que la textura
+
+En la ruta de nivel (`0x4269C2`) el original mezcla la niebla en el **color
+del vértice** (antes de la textura): `0x46B727` mezcla cada byte del color
+base hacia el color de niebla con el factor `LUT[z>>2]`, y ese color ya
+mezclado es el que va al comando. El port hace lo mismo ✓.
+
+El color destino de la mezcla son `[0x6468A0]` (B), `[0x647574]` (G) y
+`[0x647560]` (R); el original los actualiza por objeto durante la emisión.
+Para MAP7 en el frame 0 el valor general es `B=0x14, G=0x14, R=0x5A`.
+
+> Con esos valores el port reproduce **los 1123 colores por vértice** del
+> original (los tres canales RGB, triángulo a triángulo).
+
+La ruta lejana (`0x426588`, que MAP7 no usa porque `[0x65BF04] = 0xFFFF`) sí
+hace la niebla **después** de la textura, con un segundo comando de 0x24 B.
+
+### 19.5 Qué queda abierto
+
+- El color de niebla por objeto: el original lo actualiza durante la emisión
+  (`0x43DE14`/`0x43DE4D` lo leen de una estructura cuyo origen en el `.DFX`
+  todavía no está identificado; con el valor general del frame los colores
+  coinciden, pero un nivel con varios tintes por sector no).
+- El emisor lejano y su segunda pasada de niebla: implementados en el port
+  pero sin validación dinámica (MAP7 no los usa).
+- La tabla NCC y los modos de filtrado: el port usa el atlas con filtrado
+  bilineal y direccionamiento *wrap*, como el original.
+

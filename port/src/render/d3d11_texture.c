@@ -285,6 +285,23 @@ gex_d3d11_texture_status gex_d3d11_texture_set_create(
         constants.entry[slice_index][2] = (float)slots[slot].h; /* alto */
         constants.entry[slice_index][3] = (float)slots[slot].x; /* x */
         constants.entry[slice_index][4] = (float)slots[slot].y; /* y */
+        /* Flag de canal alfa (0 = opaca, 1 = con alfa).
+         *
+         * El original decide el modo de mezcla POR POLIGONO a partir del
+         * registro de textura en tiempo de ejecucion: en 0x46558A se compara
+         * el campo +0x0C del registro con 0x0C (la textura trae alfa) y con
+         * 0 (es opaca). Ese campo es el formato con el que el juego tiene la
+         * textura: solo el ARGB_4444 conserva el canal alfa; el YIQ_422 y el
+         * ARGB_1555 los convierte a un formato opaco de 8 bits.
+         *
+         * Comprobado en MAP7 con el original en ejecucion (2026-11-11): las
+         * seis texturas que el original MEZCLA con alfa (grAlphaCombine
+         * (3,4,1,0,0)) son exactamente las de formato ARGB_4444 del
+         * `map7.vfx` (indices 6, 8, 185, 188, 234 y 241); las demas se
+         * dibujan opacas (grAlphaCombine(1,0,0,2,0)). */
+        constants.entry[slice_index][5] =
+            (bank->vfx.records[i].format == GEX_VFX_FORMAT_ARGB_4444)
+                ? 1.0f : 0.0f;
         slice_index++;
         if (slice_index >= GEX_D3D11_TEXTURE_MAX_ENTRIES) {
             break;

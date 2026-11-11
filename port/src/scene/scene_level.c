@@ -222,7 +222,14 @@ static void scene_camera_view(const gex_camera *cam, gex_emit_matrix *mat,
         }
     }
     if (fog != NULL) {
-        static const uint8_t fog_rgb[3] = {0, 0, 0}; /* [0x6474C4] en el frame 0 */
+        /* Color destino de la mezcla de niebla: [0x6468A0] (B),
+         * [0x647574] (G) y [0x647560] (R), capturados del original en
+         * ejecucion con el nivel map7.dfx. El juego lo actualiza por
+         * objeto durante la emision, asi que este es el valor general
+         * del frame 0 (el mas frecuente en los 1123 comandos del
+         * original); los poligonos con tinte propio siguen sin
+         * reproducirse (ver la documentacion). */
+        static const uint8_t fog_rgb[3] = {0x14, 0x14, 0x5A}; /* B, G, R */
         memset(fog, 0, sizeof(*fog));
         memcpy(fog->fog_rgb, fog_rgb, sizeof(fog->fog_rgb));
         fog->threshold = 6299;       /* [0x65BF80] */

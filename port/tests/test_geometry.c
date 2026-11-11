@@ -323,8 +323,10 @@ static uint8_t *make_mini_image(size_t *out_sz, int16_t z0, int16_t z1,
     *(uint32_t *)(img + 0x70 + 0x10) = 0x90;
 
     uint8_t *uv = img + 0x90;
-    uv[0] = 1;  uv[1] = 2;  uv[2] = 0x23; uv[3] = 0x01;
-    uv[4] = 3;  uv[5] = 4;  uv[6] = 0;    uv[7] = 0;
+    /* El indice de textura esta en la mitad alta del SEGUNDO dword del
+     * registro UV (+6), igual que en el original (0x46558A). */
+    uv[0] = 1;  uv[1] = 2;  uv[2] = 0x34; uv[3] = 0x12;
+    uv[4] = 3;  uv[5] = 4;  uv[6] = 0x23; uv[7] = 0x01;
     uv[8] = 5;  uv[9] = 6;  uv[10] = 0;   uv[11] = 7;
 
     *(uint16_t *)(img + 0xA0 + 0x12) = 1;

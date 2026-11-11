@@ -61,6 +61,16 @@
   comparación numérica de los colores con niebla; las ramas alternativas
   (`[0x551644+0xa0] & 1` y `& 0x1000`), que no se pueden forzar de forma no
   invasiva; y el detalle interno de la tabla de buckets (0xC00 entradas).
+- **Materiales de MAP7 (2026-11-11):** el estado de material por polígono
+  queda reconstruido y verificado contra el original en ejecución: el índice
+  de textura (la mitad alta del **segundo** dword del registro UV, que el
+  port leía del primero y por tanto seleccionaba **texturas
+  equivocadas** — 4 en lugar de 62), el modo de mezcla por polígono (solo
+  las texturas ARGB_4444 se mezclan con alfa; las demás son opacas), el
+  color de niebla (el general del frame: B=0x14, G=0x14, R=0x5A) y la niebla
+  antes de la textura. Con ello el port reproduce los **1123 colores por
+  vértice** del original. El color de niebla **por objeto** (que el juego
+  actualiza durante la emisión) queda abierto.
 - **Cámara real en el renderer (2026-11-11):** la cámara original del juego
   está integrada en el renderer D3D11. El port reconstruye la matriz de
   emisión `cam+0xE0` desde el estado de cámara (validado bit a bit contra

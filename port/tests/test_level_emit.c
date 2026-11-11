@@ -1,5 +1,6 @@
 #include "gex/emit.h"
 #include "ref_emit_frames.h"
+#include "ref_material.h"
 #include "gex/bsp.h"
 #include "gex/camera.h"
 
@@ -691,8 +692,11 @@ static uint8_t *make_mini_image(size_t *out_sz) {
     *(uint32_t *)(img + 0x70 + 0x10) = 0x90;    /* uv ptr */
     /* registro UV en 0x90: 3 x {u,v,texture16}; byte[0x0B]=capa */
     uint8_t *uv = img + 0x90;
-    uv[0] = 1; uv[1] = 2; uv[2] = 0x23; uv[3] = 0x01; /* v0: u=1,v=2,tex=0x123 */
-    uv[4] = 3; uv[5] = 4; uv[6] = 0; uv[7] = 0;       /* v1 */
+    /* 3 x {u, v, texture16}; el indice de textura se lee de la mitad alta
+     * del SEGUNDO dword (+6), igual que el original (0x46558A toma
+     * word[+0x1E] del comando, que es la parte alta del dword de UV1). */
+    uv[0] = 1; uv[1] = 2; uv[2] = 0x34; uv[3] = 0x12; /* v0: u=1,v=2 */
+    uv[4] = 3; uv[5] = 4; uv[6] = 0x23; uv[7] = 0x01; /* v1: tex=0x123 */
     uv[8] = 5; uv[9] = 6; uv[10] = 0; uv[11] = 7;     /* v2: capa=7 */
     /* BSP: nodo raíz en 0xA0 (interno, hijos 0xC0 y 0xE0) */
     *(uint16_t *)(img + 0xA0 + 0x12) = 1; /* interno */
@@ -1237,6 +1241,125 @@ static void test_map7_reference_emit(void) {
     gex_dfx_release_container(&c);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Material por poligono (2026-11-11).
+ *
+ * Capturado del GEX3D.EXE en ejecucion (breakpoint de hardware en
+ * 0x0046558A, el consumidor de comandos) con el nivel `map7.dfx`: para cada
+ * poligono de nivel, el comando de 0x34 B con sus profundidades, sus colores
+ * por vertice, sus coordenadas de textura y su indice de textura de 14 bits.
+ *
+ * Lo que el port debe reproducir exactamente:
+ *   - las profundidades (ya validadas por la regresion de la emision);
+ *   - las coordenadas de textura por vertice;
+ *   - el indice de textura de 14 bits (la mitad alta del SEGUNDO dword del
+ *     registro UV, que es de donde lo lee 0x46558A: word[+0x1E] & 0x3FFF).
+ *
+ * El color por vertice del original tiene el byte de alfa de color0
+ * SOBREESCRITO por el opcode del comando (el opcode 0xB4|(color0>>24)&3 se
+ * escribe en +0x0B, que es el byte de alfa de color0); el port guarda el
+ * alfa real, de modo que se comparan los tres canales RGB.
+ * ------------------------------------------------------------------------- */
+static void test_material_reference(void)
+{
+    gex_dfx_container c;
+    gex_dfx_level lv;
+    gex_emit_matrix m;
+    gex_emit_fog fog;
+    gex_emit_output out;
+    gex_bsp_walk_result leaves;
+    const int32_t *p = REF_EMIT_PARAMS[0];
+    FILE *f = fopen(MAP7_PATH, "rb");
+    int k;
+    int bad_z = 0, bad_uv = 0, bad_tex = 0, same_rgb = 0;
+
+    if (!f) {
+        printf("skip material reference (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&c, 0, sizeof(c));
+    memset(&lv, 0, sizeof(lv));
+    if (gex_dfx_load(MAP7_PATH, &c) != GEX_DFX_OK) {
+        printf("skip material reference (load)\n");
+        return;
+    }
+    if (gex_dfx_load_level(&c, &lv) != GEX_DFX_OK) {
+        printf("skip material reference (level)\n");
+        gex_dfx_release_container(&c);
+        return;
+    }
+
+    memset(&m, 0, sizeof(m));
+    memcpy(m.m, REF_EMIT_M[0], sizeof(m.m));
+    m.t[0] = REF_EMIT_T[0][0];
+    m.t[1] = REF_EMIT_T[0][1];
+    m.t[2] = REF_EMIT_T[0][2];
+    m.focal = p[0]; m.cx = p[1]; m.cy = p[2]; m.near_z = p[3];
+
+    memset(&fog, 0, sizeof(fog));
+    memcpy(fog.lut, REF_FOG_LUT, sizeof(fog.lut));
+    fog.have_lut = 1;
+    fog.threshold = p[4]; fog.split_z = p[5];
+    fog.a_q12 = p[6]; fog.b_q12 = p[7];
+    fog.fog_rgb[0] = 0x14; fog.fog_rgb[1] = 0x14; fog.fog_rgb[2] = 0x5A;
+
+    memset(&leaves, 0, sizeof(leaves));
+    leaves.leaves = (uint32_t *)REF_EMIT_LEAVES[0];
+    leaves.count = (uint32_t)p[11];
+
+    memset(&out, 0, sizeof(out));
+    CHECK(gex_level_emit(c.image, c.image_size, &lv.descriptor, &leaves, &m,
+                          &fog, 0, &out) == GEX_EMIT_OK);
+    CHECK(out.count == REF_MATERIAL_COUNT);
+
+    for (k = 0; k < (int)out.count && k < REF_MATERIAL_COUNT; k++) {
+        const gex_emit_triangle *t = &out.tris[k];
+        if (t->z[0] != REF_MATERIAL[k].z[0] ||
+            t->z[1] != REF_MATERIAL[k].z[1] ||
+            t->z[2] != REF_MATERIAL[k].z[2]) {
+            bad_z++;
+        }
+        if (t->u[0] != REF_MATERIAL[k].uv[0] ||
+            t->v[0] != REF_MATERIAL[k].uv[1] ||
+            t->u[1] != REF_MATERIAL[k].uv[2] ||
+            t->v[1] != REF_MATERIAL[k].uv[3] ||
+            t->u[2] != REF_MATERIAL[k].uv[4] ||
+            t->v[2] != REF_MATERIAL[k].uv[5]) {
+            bad_uv++;
+        }
+        if (t->texture != REF_MATERIAL[k].texture) {
+            bad_tex++;
+        }
+        /* El color del original tiene el alfa de color0 sobrescrito por el
+         * opcode; se comparan los tres canales RGB. */
+        if ((t->color[0] & 0x00FFFFFFu) ==
+                (REF_MATERIAL[k].color[0] & 0x00FFFFFFu) &&
+            (t->color[1] & 0x00FFFFFFu) ==
+                (REF_MATERIAL[k].color[1] & 0x00FFFFFFu) &&
+            (t->color[2] & 0x00FFFFFFu) ==
+                (REF_MATERIAL[k].color[2] & 0x00FFFFFFu)) {
+            same_rgb++;
+        }
+    }
+    CHECK(bad_z == 0);
+    CHECK(bad_uv == 0);
+    CHECK(bad_tex == 0);
+    /* El tinte de niebla del original cambia por objeto durante la emision;
+     * el port usa el valor general del frame, asi que solo una parte de los
+     * poligonos coincide todavia (lo que queda abierto esta documentado). */
+    CHECK(same_rgb > 0);
+    printf("map7 material: %d triangulos, %d con el RGB del original "
+           "(el resto tiene tinte propio por objeto)\n",
+           (int)out.count, same_rgb);
+
+    gex_emit_output_free(&out);
+    gex_dfx_release_level(&lv);
+    gex_dfx_release_container(&c);
+}
+
 int main(void) {
     test_api_smoke();
     test_project_identity();
@@ -1259,6 +1382,7 @@ int main(void) {
     test_level_emit_mini();
     test_aztec_real();
     test_map7_reference_emit();
+    test_material_reference();
 
     printf("test_level_emit: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

@@ -178,7 +178,10 @@ static void test_aztec_real(void)
     /* La ruta lejana emite el registro principal y la pasada de niebla. */
     CHECK(scene.stats.triangles == 2854u);
     CHECK(scene.stats.fog_triangles == 1427u);
-    CHECK(scene.stats.vertices == 4914u);
+    /* El numero de vertices cambio al corregir el offset del indice de
+     * textura del registro UV (la textura forma parte de la clave de
+     * deduplicacion de vertices). */
+    CHECK(scene.stats.vertices == 5148u);
     CHECK(scene.stats.indices == 8562u);
     CHECK(scene.stats.skipped_clipped == 0u);
     /* El encuadre se recentró: el centro de pantalla ya no es el del

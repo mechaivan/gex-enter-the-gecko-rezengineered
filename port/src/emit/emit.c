@@ -447,7 +447,10 @@ gex_emit_status gex_emit_collect(const uint8_t *image, size_t image_size,
                 p->v[j] = uv[4u * (size_t)j + 1u];
             }
             uint16_t tw = 0;
-            read_u16(image, image_size, (size_t)uv_off + 2u, &tw);
+            read_u16(image, image_size, (size_t)uv_off + 6u, &tw);
+            /* El indice de textura sale de la mitad alta del SEGUNDO
+             * dword del registro UV (+6): el comando escribe el dword
+             * de UV en +0x1C y 0x46558A toma word[+0x1E] & 0x3FFF [A]. */
             p->texture = (uint16_t)(tw & 0x3FFFu); /* índice 14 bits [A] */
             p->layer = (int8_t)uv[0x0Bu];          /* movsx: con signo [A] */
 

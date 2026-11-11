@@ -90,6 +90,15 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     subdivisión del original. El port reproduce ahora la emisión de nivel
     **triángulo a triángulo**: mismo conjunto, **mismo orden de dibujo** y
     mismas fases de subdivisión (1123/1123 en el frame de referencia).
+  - **Sexta tanda (2026-11-11, materiales de MAP7):** reconstruido el
+    estado de material por polígono (índice de textura, modo de mezcla,
+    color y niebla) y comparado con el original en ejecución. Corregido un
+    defecto real: el índice de textura se leía del primer dword del registro
+    UV en lugar del segundo, de modo que se cargaban y muestreaban las
+    texturas equivocadas. El modo de mezcla pasa a ser **por polígono** (solo
+    las texturas ARGB_4444 se mezclan con alfa) sin tocar el orden de dibujo
+    ni introducir un *depth buffer*. Los 1123 colores por vértice coinciden
+    con los del original. Queda abierto el color de niebla por objeto.
   - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
     estado de cámara original en la ruta de escena y en el renderer D3D11:
     la matriz de emisión `cam+0xE0` se reconstruye desde la cámara

@@ -585,6 +585,16 @@ vértices con el registro principal del mismo triángulo.
 
 ### 5.14 La matriz de emisión `cam+0xE0`
 
+> **Material por polígono (2026-11-11).** El comando de 0x34 B lleva el
+> material de cada polígono: el índice de textura de 14 bits (la **mitad alta
+> del segundo dword** del registro UV, que el consumidor `0x46558A` lee como
+> `word[cmd+0x1E] & 0x3FFF`), los tres colores por vértice, las tres UV y las
+> tres profundidades. El modo de mezcla **no** es global: lo decide el
+> registro de textura en tiempo de ejecución y puede ser "mezcla con alfa" o
+> "opaco" según el formato. Detalle y evidencia en
+> [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) § 19.
+
+
 `cam+0xE0` es un **puntero** a una estructura de 0x20 B, distinta de la matriz
 de visibilidad:
 

@@ -140,6 +140,77 @@ tipo de comando, y validar la semantica de una comparacion con datos),
 `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
 `docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
 
+## 2026-11-11 - 0.0.0 - Materiales de MAP7: estado por poligono reconstruido, textura correcta y mezcla por poligono
+
+La emision de S-2 ya reproducia al original triangulo a triangulo; este
+modulo reconstruye el **material** de cada poligono (la parte que decide el
+aspecto) y lo contrasta comando a comando con el GEX3D.EXE en ejecucion.
+
+**Metodo.** Con breakpoints de hardware en 0x0046558A (el consumidor de
+comandos), 0x00540532 (grAlphaCombine) y 0x0054057A (grAlphaTest) se captura,
+para el frame 0 del escenario map7.dfx, el comando de 0x34 B que el original
+dibuja para cada poligono y el estado de Glide que fija antes de cada uno. La
+referencia queda en `port/tests/ref_material.h` (1123 comandos).
+
+**Defecto 1 (corregido): el indice de textura se leia del dword erroneo.**
+0x46558A toma el indice de textura de `word[cmd+0x1E] & 0x3FFF`, es decir de
+la mitad alta del **SEGUNDO** dword del registro UV de 12 B (offset +6). El
+port lo leia del primero (+2) y por tanto seleccionaba **texturas
+equivocadas**: con map7.vfx cargaba 4 texturas en lugar de 62 y muestreaba
+otra cosa. Corregido: los 1123 indices coinciden ahora uno a uno con los del
+original.
+
+**Defecto 2 (corregido): la mezcla era global, no por poligono.** El original
+decide el modo de mezcla por comando a partir del registro de textura en
+tiempo de ejecucion (el campo +0x0C = el formato con el que el juego tiene la
+textura): ARGB_4444 -> `grAlphaCombine(3,4,1,0,0)` (MEZCLA con alfa) y
+formato opaco -> `grAlphaCombine(1,0,0,2,0)` (opaco). En el frame 0 de MAP7
+las seis texturas que el original mezcla (6, 8, 185, 188, 234 y 241) son
+exactamente las de formato ARGB_4444 del map7.vfx: el juego convierte el
+YIQ_422 y el ARGB_1555 a un formato opaco de 8 bits.
+
+En el port el estado viaja con la textura, igual que en el original: la tabla
+de texturas del shader lleva un flag por entrada ("trae alfa") y el pixel
+shader devuelve alfa 1 para las texturas opacas. Con el estado de mezcla
+global SRC_ALPHA/INV_SRC_ALPHA eso equivale a substituir el destino
+(src*1 + dst*0), de modo que **no cambia el orden de dibujo** y no hace
+falta un depth buffer ni agrupar por modo.
+
+**Niebla.** En la ruta de nivel el original mezcla la niebla en el color del
+vertice, antes de la textura (0x46B727 con el factor LUT[z>>2]); el port ya
+lo hacia igual. El color destino de la mezcla ([0x6468A0] B, [0x647574] G,
+[0x647560] R) se captura del original: B=0x14, G=0x14, R=0x5A para el frame
+0. Con ese valor el port reproduce **los 1123 colores por vertice** del
+original (los tres canales RGB, triangulo a triangulo). La ruta lejana
+(0x426588, que MAP7 no usa) hace la niebla despues de la textura, con un
+segundo comando de 0x24 B.
+
+**Pruebas.** Regresion nueva `test_material_reference()` en
+port/tests/test_level_emit.c: profundidades, coordenadas de textura e indice
+de textura de los 1123 comandos, mas el recuento de colores coincidentes. Se
+actualizan los dos registros UV sinteticos de las pruebas (test_level_emit.c y
+test_geometry.c) al offset real (+6) y la expectativa de vertices
+deduplicados de test_scene_level.c (4914 -> 5148, porque el indice de
+textura forma parte de la clave de deduplicacion). Suite verde con
+port/build.ps1 test y con -O0, -O2, ASan y UBSan.
+
+**Ejecucion real** con GPU hardware (D3D11 11_1) y ventana Win32 de 960x540:
+MAP7 se dibuja con 62 texturas decodificadas de map7.vfx y la geometria
+aparece con su aspecto real (muros, suelos y texturas del nivel) desde el
+punto de vista de la camara del juego. Antes de la correccion la escena
+salia como una mancha oscura: con el indice de textura equivocado se
+muestreaban cuatro texturas ajenas y el color de niebla iba a negro.
+
+**Documentacion.** docs/D3D11_FIRST_SCENE_PLAN.md 19 (materiales),
+S2_BSP_TRAVERSAL.md 5.14, PROJECT_STATE.md, ROADMAP.md (sexta tanda),
+RESEARCH.md, REVERSE_ENGINEERING.md 4.1 (regla 9) y este CHANGELOG.md.
+
+**Limites abiertos.** El color de niebla **por objeto** (el original lo
+actualiza durante la emision, en 0x43DE14/0x43DE4D, desde una estructura
+cuyo origen en el .DFX no esta identificado); el emisor lejano y su segunda
+pasada de niebla (implementados pero sin validacion dinamica, porque MAP7 no
+los usa); los materiales NCC con iluminacion.
+
 ## 2026-11-11 - 0.0.0 - Camara original del juego integrada en el renderer D3D11: MAP7 se dibuja con la camara real
 
 El escenario `map7.dfx` (el que carga el original) se representa ahora en el
