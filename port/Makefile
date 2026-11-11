@@ -38,6 +38,8 @@ BSP_SRC   := src/bsp/bsp.c
 BSP_HDR   := include/gex/bsp.h
 DFX_SRC   := src/asset/dfx.c
 DFX_HDR   := include/gex/asset/dfx.h
+VFX_SRC   := src/asset/vfx.c
+VFX_HDR   := include/gex/vfx.h
 EMIT_SRC  := src/emit/emit.c
 EMIT_HDR  := include/gex/emit.h
 GEOMETRY_SRC := src/geometry/geometry.c
@@ -83,6 +85,9 @@ $(BUILD)/test_geometry_shapes: tests/test_geometry_shapes.c $(SHAPES_SRC) $(GEOM
 $(BUILD)/test_scene_level: tests/test_scene_level.c $(SCENE_SRC) $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SCENE_HDR) $(GEOMETRY_HDR) $(EMIT_HDR) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_scene_level.c $(SCENE_SRC) $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(LDLIBS)
 
+$(BUILD)/test_vfx: tests/test_vfx.c $(VFX_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(VFX_HDR) $(EMIT_HDR) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_vfx.c $(VFX_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(LDLIBS)
+
 $(BUILD)/test_adpcm: tests/test_adpcm.c $(AUDIO_SRC) $(AUDIO_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_adpcm.c $(AUDIO_SRC)
 
@@ -107,7 +112,7 @@ $(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(C
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_geometry_shapes $(BUILD)/test_scene_level $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_geometry_shapes $(BUILD)/test_scene_level $(BUILD)/test_vfx $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
 	./$(BUILD)/test_sag
 	./$(BUILD)/test_camera
 	./$(BUILD)/test_bsp
@@ -115,6 +120,7 @@ test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_lev
 	./$(BUILD)/test_geometry
 	./$(BUILD)/test_geometry_shapes
 	./$(BUILD)/test_scene_level
+	./$(BUILD)/test_vfx
 	./$(BUILD)/test_adpcm
 	./$(BUILD)/test_audio
 	./$(BUILD)/test_frame

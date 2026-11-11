@@ -2,6 +2,66 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 4A: parser del contenedor de texturas .VFX
+
+Primera parte del Módulo 4: investigación del formato `.VFX` de Gex PC e
+implementación portable del contenedor. La fuente de verdad es el ejecutable
+original (`GEX3D.EXE`, solo lectura) y los ficheros originales, no las
+herramientas externas.
+
+Hallazgos (documentados en `docs/VFX_TEXTURE_FORMAT.md`):
+
+- `0x00461C32` construye la tabla global de texturas `0x006488F4` desde el
+  `.VFX` del nivel: `count` en `+0x00` y una tabla de registros con cabecera
+  de `0x8C` B, tamaño del bloque de datos en `+0x84` y datos en `+0x8C`; el
+  registro siguiente está en `registro + 0x8C + dword[+0x84]`. El recorrido
+  así descrito termina **exactamente en el EOF** de los 44 `.VFX` del
+  inventario.
+- El puntero de `+0x10` lo **escribe el juego** (con `registro + 0x8C`): en
+  el fichero hay un valor de relleno (`0x0064FE04`) que hay que **ignorar**.
+- El formato de la textura está en `+0x0C`: en los originales solo aparecen
+  1, 11 y 12 (42/73/145 registros en AZTEC16.VFX). Solo el formato 1 sube una
+  tabla de paleta desde `+0x14` (`grTexDownloadTable`, `0x0046612C`) y el
+  formato 12 activa el blending alfa (`0x0046568C`).
+- El índice de textura de 14 bits de la geometría (`.DFX`) indexa **directo**
+  la tabla del `.VFX` (`0x00465648`). En AZTEC16 los 9 609 polígonos usan los
+  índices 0..3 y el `.VFX` tiene 260 entradas: todos los índices tienen entrada.
+- Los bytes se entregan **tal cual** a Glide (`grTexDownloadMipMap`): **no hay
+  descompresor** en el juego. Por tanto el formato de píxel, las dimensiones y
+  la paleta completa **no están demostrados** y, siguiendo el enunciado, **no
+  se implementan decodificadores**: no se inventa ningún formato.
+
+Implementación (portable, sin Windows ni D3D11):
+
+- `port/include/gex/vfx.h` + `port/src/asset/vfx.c`: parser del contenedor
+  (`gex_vfx_open/parse/close`), tabla de entradas con los campos observados,
+  bloques de datos crudos, y validación estricta de ruta, cabecera, offsets,
+  tamaños, conteos y multiplicaciones; libera todo en error y es idempotente.
+- `port/tests/test_vfx.c`: **1 122 comprobaciones, 0 fallos** en Clang `-O0`,
+  `-O2` y ASan/UBSan: nombres y argumentos, contenedor sintético, entradas
+  truncadas, tamaño desbordado, límite exacto, los ficheros originales
+  (recorrido hasta el EOF, formatos y tamaños potencia de dos) y la
+  correspondencia DFX→VFX.
+- `port/Makefile` y `port/build.ps1`: nuevo test y nueva fuente.
+
+Documentación: `docs/VFX_TEXTURE_FORMAT.md` (nuevo), `RESEARCH.md` (S-28),
+`REVERSE_ENGINEERING.md` (Etapa C), `ROADMAP.md` (S-4), `PROJECT_STATE.md` y
+este changelog.
+
+Comparación con las herramientas externas (referencia, **sin copiar código**,
+ambas sin licencia identificada): `gex2-tools` coincide en el contenedor y en
+los valores de formato, pero sus nombres (`RGB8A1`, `R7G6B5A1`, `ARGB4`) y su
+obtención de dimensiones ("tamaño + aspecto") no están respaldados por el
+binario; `Gex3DViewer` confirma que la unidad correcta es el par `.DFX`+`.VFX`
+por nivel.
+
+Lo que **no** se declara: no hay decodificador de píxel, ni texturas D3D11, ni
+integración en el renderer (eso es el Módulo 4B, y exige resolver antes el
+formato de píxel). Los ficheros originales se han usado **solo en lectura** y
+no se ha copiado ninguna textura ni imagen al repositorio. S-2 sigue sin
+validación dinámica contra el ejecutable y no se declara completo.
+`PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Módulo 5B: primera geometría real de AZTEC16.DFX
 
 La aplicación `gexloop.exe` dibuja geometría real del nivel `AZTEC16.DFX` en su

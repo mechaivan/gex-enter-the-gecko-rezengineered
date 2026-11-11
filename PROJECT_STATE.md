@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-11 (Módulo 5B: geometría real de AZTEC16.DFX)
+**Last updated:** 2026-11-11 (Módulo 4A: contenedor de texturas .VFX)
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 
@@ -116,12 +116,32 @@
   **8 627 comprobaciones, 0 fallos** (portable, `-O0`/`-O2`/ASan+UBSan) y
   `test_level_emit` sube a **38 855**. Detalle en
   [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §16.
-- **Pendiente de integración:** texturas VFX (Módulo 4), materiales, *depth
-  buffer*, blending del original, la cámara real del juego, el *resize* de la
-  ventana y la animación. El primer escenario original todavía no está
-  renderizado con texturas ni con la cámara real. Sigue pendiente la validación
-  dinámica de S-2 contra el ejecutable original. `PROJECT_STATUS.svg` no
-  cambia (MAIN 40 %).
+- **Módulo 4A (2026-11-11): el contenedor de texturas `.VFX`.** REA estática del
+  ejecutable original (`0x00461C32` construye la tabla global `0x006488F4`
+  desde el `.VFX`: `count` en `+0x00`, registros con cabecera de `0x8C` B,
+  tamaño del bloque en `+0x84`, datos en `+0x8C`; el puntero de `+0x10` lo
+  escribe el juego y en el fichero es un valor de relleno que hay que
+  ignorar). El recorrido así descrito termina exactamente en el EOF de los 44
+  `.VFX` del inventario. El formato de la textura está en `+0x0C` (1, 11, 12 en
+  los originales); solo el formato 1 sube una paleta desde `+0x14` y el
+  formato 12 activa el blending alfa. Implementado en
+  [`port/include/gex/vfx.h`](port/include/gex/vfx.h) +
+  [`port/src/asset/vfx.c`](port/src/asset/vfx.c) (portable): parser con
+  validación estricta de offsets, tamaños, conteos y desbordamientos, tabla de
+  entradas y bloques de datos crudos. Pruebas: `test_vfx` **1 122
+  comprobaciones, 0 fallos** (`-O0`, `-O2` y ASan/UBSan), incluida la
+  correspondencia DFX→VFX. **No se implementan decodificadores de píxel**: el
+  formato de píxel, las dimensiones y la paleta completa **no están
+  demostrados** (el juego entrega los bytes tal cual a Glide) y no se inventa
+  nada. Detalle en
+  [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md).
+- **Pendiente de integración:** el decodificador de píxel y la creación de
+  recursos D3D11 de textura (Módulo 4B), materiales, *depth buffer*, blending
+  del original, la cámara real del juego, el *resize* de la ventana y la
+  animación. El primer escenario original todavía no está renderizado con
+  texturas ni con la cámara real. Sigue pendiente la validación dinámica de
+  S-2 contra el ejecutable original. `PROJECT_STATUS.svg` no cambia
+  (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
 

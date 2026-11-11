@@ -319,32 +319,46 @@ del shader, que pertenece al Módulo 5. El layout queda descrito por
 `GEX_VERTEX_OFFSET_POSITION/COLOR/UV/TEXTURE/LAYER/FLAGS` y verificado con
 `_Static_assert`. Detalles y decisiones: §12 y §13.
 
-#### Módulo 4: Cargador de Texturas (`gex_texture_loader.h/c`)
-- **Responsabilidades:**
-  - Cargar archivo .VFX
-  - Construir tabla de texturas como en `0x006488F4`
-  - Convertir formatos NCC a D3D11
-- **Estructuras de datos:**
+#### Módulo 4: Cargador de Texturas — PARCIAL (4A: el contenedor, 2026-11-11)
+
+La interfaz que se había supuesto aquí (`gex_texture_loader.h/c` con
+`gex_vfx_parse` y `gex_texture_table_build`) **no existe**: se ha sustituido por
+la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
+`.VFX` ya demostrado contra el ejecutable original.
+
+**4A. Contenedor `.VFX` — IMPLEMENTADO** (`gex/vfx.h`, `src/asset/vfx.c`, portable)
+
+- **Responsabilidades (las que sí están demostradas):**
+  - cargar el `.VFX` del nivel y construir su **tabla de texturas**, la misma
+    que el original construye en `0x006488F4` desde `0x00461C32`;
+  - exponer, por entrada, el formato (`+0x0C`), el bloque de datos
+    (`+0x8C`, tamaño en `+0x84`) y la tabla de paleta del formato 1 (`+0x14`);
+  - validar estrictamente ruta, cabecera, offsets, tamaños, conteos y
+    multiplicaciones, liberando todo en error.
+- **Interfaz real:**
   ```c
-  typedef struct {
-      ID3D11Texture2D *texture;
-      ID3D11ShaderResourceView *srv;
-      D3D11_TEXTURE2D_DESC desc;
-  } gex_texture;
-  
-  typedef struct {
-      gex_texture *textures;
-      uint32_t count;
-  } gex_texture_table;
+  gex_vfx_status gex_vfx_open(gex_vfx_file *file, const char *path);
+  gex_vfx_status gex_vfx_parse(gex_vfx_file *file, const uint8_t *data,
+                                size_t size);
+  void          gex_vfx_close(gex_vfx_file *file);
+  int           gex_vfx_find_index(const gex_vfx_file *file, uint32_t index14);
   ```
-- **Interfaz:**
-  ```c
-  gex_texture_status gex_vfx_parse(const char *path, gex_texture_table *out);
-  gex_texture_status gex_texture_table_build(
-      ID3D11Device *device,
-      const char *vfx_path,
-      gex_texture_table *out);
-  ```
+- **Correspondencia con la geometría:** el índice de textura de 14 bits del
+  `.DFX` indexa **directamente** esta tabla (en AZTEC16: 9 609 polígonos usan
+  los índices 0..3 sobre 260 entradas).
+- **Lo que NO se implementa (y por qué):** el **decodificador de píxel**. El
+  juego entrega los bytes del bloque **tal cual** a Glide
+  (`grTexDownloadMipMap`), así que no hay ningún descompresor ni conversor que
+  estudiar: el formato de píxel, las dimensiones y la paleta completa **no
+  están demostrados** y no se inventa nada. Detalle, evidencia y lo que falta:
+  [`docs/VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md).
+
+**4B. Recursos D3D11 e integración — PENDIENTE**
+
+- Crear `ID3D11Texture2D`/`ID3D11ShaderResourceView` a partir de las
+  entradas decodificadas y atender el índice de 14 bits desde el shader.
+- Depende de cerrar el decodificador: sin él solo se podría subir un color
+  sólido, que sería inventar datos.
 
 #### Módulo 5: Integración con el renderer D3D11 — PARCIAL (5A implementado, 2026-11-11)
 
@@ -640,9 +654,10 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: el Módulo 4 (carga y conversión de texturas `.VFX`/NCC) y,
-con él, el material definitivo: shader de producción, *depth buffer* y el
-`ID3D11InputLayout` con los atributos que consuma la textura.**
+**Siguiente paso: el Módulo 4B — cerrar el decodificador de píxel del `.VFX` y
+subir las texturas a D3D11 (el Módulo 4A ya tiene el contenedor y la tabla
+demostrados), y con él el material definitivo: shader de producción, *depth
+buffer* y el `ID3D11InputLayout` con los atributos que consuma la textura.**
 
 - **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión
   de polígonos (Módulo 2, §11), el Módulo 3 completo (conversión portable §12 y
@@ -1689,10 +1704,39 @@ evidencia local y **no se publica** en el repositorio.
 ### 16.9 Lo que sigue pendiente
 
 - **Texturas**: la imagen usa solo el color por vértice; el nivel real se ve
-  como una maqueta monocroma. El Módulo 4 (`.VFX`/NCC) es el siguiente paso.
+  como una maqueta monocroma. El contenedor `.VFX` ya está implementado
+  (Módulo 4A, §17) pero **falta el decodificador de píxel** y, con él, el
+  Módulo 4B (recursos D3D11 e integración).
 - **Cámara real**: la vista es diagnóstica; falta el estado de cámara del
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
 - **Sin *blending***: el canal alfa (0 en la pasada de niebla) no se mezcla.
 - La geometría se carga una vez al arrancar; no hay animación ni cámara
   interactiva.
+
+---
+
+## 17. Módulo 4A: el contenedor de texturas `.VFX` (2026-11-11)
+
+El documento técnico completo está en
+[`VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md). Resumen:
+
+- **Contenedor demostrado** contra el ejecutable original y los ficheros
+  originales: `count` en `+0x00`; tabla de registros con cabecera de `0x8C` B,
+  tamaño del bloque de datos en `+0x84` y datos en `+0x8C`; el siguiente
+  registro está en `registro + 0x8C + dword[+0x84]`. El recorrido termina
+  exactamente en el EOF de los 44 `.VFX` del inventario.
+- **El puntero de `+0x10` es un valor de relleno en el fichero** (el juego lo
+  sobrescribe con `registro + 0x8C`): hay que ignorarlo.
+- **El formato de la textura está en `+0x0C`** (1, 11, 12 en los originales);
+  solo el 1 lleva paleta (`+0x14`) y solo el 12 activa el blending alfa.
+- **El índice de 14 bits del `.DFX` indexa esta tabla directamente**; en
+  AZTEC16 los 9 609 polígonos usan los índices 0..3 sobre 260 entradas.
+- **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` (portable) con
+  `port/tests/test_vfx.c`: 1 122 comprobaciones, 0 fallos (`-O0`, `-O2` y
+  ASan/UBSan).
+- **No hay decodificador de píxel**: los bytes se entregan tal cual a Glide
+  (`grTexDownloadMipMap`), así que el formato de píxel, las dimensiones y la
+  paleta completa **no están demostrados**. Por instrucción del enunciado no
+  se inventa ningún formato: el Módulo 4B (recursos D3D11 e integración)
+  queda pendiente de cerrar ese punto.

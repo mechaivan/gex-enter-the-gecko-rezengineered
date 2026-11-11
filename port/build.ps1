@@ -64,6 +64,7 @@ $coreSrc = @(
 $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
 $bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
+$vfxSrc = @((Join-Path $PSScriptRoot 'src/asset/vfx.c'))
 $emitSrc = @((Join-Path $PSScriptRoot 'src/emit/emit.c'))
 $geometrySrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry.c'))
 $shapesSrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry_shapes.c'))
@@ -111,6 +112,7 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry.c') 'test_geometry.exe' ($geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_GEOM_TEST_FAULT_INJECT', '-lm')) 'geometry conversion (Module 3) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry_shapes.c') 'test_geometry_shapes.exe' ($shapesSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'test shapes (Module 5A) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_scene_level.c') 'test_scene_level.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'level loader (Module 5B) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_vfx.c') 'test_vfx.exe' ($vfxSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'VFX texture container (Module 4A) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'

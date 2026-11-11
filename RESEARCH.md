@@ -769,6 +769,39 @@ que habrá que verificar contra el juego real (Fase 1–2):
   ejecutado ni descargado ningún binario.
 - Fecha de revisión: 2026-10-25.
 
+## S-28 - Módulo 4A: el contenedor de texturas `.VFX` (original PC, REA + ficheros)
+
+- **Método:** REA estática del ejecutable original (`llvm-objdump`, sin
+  Ghidra: no está instalado y su instalación requiere autorización) + lectura
+  de los `.VFX` originales en modo solo lectura + el lector PE32 del repo
+  (`tools/gexmap/pe.mjs`) para resolver los nombres de los imports.
+- **Resultado:** el **contenedor** del `.VFX` queda demostrado y verificado
+  contra los ficheros: `count` en `+0x00` y una tabla de registros con
+  cabecera de `0x8C` B, tamaño del bloque de datos en `+0x84` y datos en
+  `+0x8C`; el recorrido termina exactamente en el EOF. El formato de la
+  textura está en `+0x0C` (1, 11, 12 en los originales). Documento técnico
+  completo: [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md).
+- **Lo que NO se demuestra:** el formato de píxel, las dimensiones y la
+  paleta completa. El juego entrega los bytes **tal cual** a Glide
+  (`grTexDownloadMipMap`), así que no hay descompresor ni conversor que
+  estudiar: el significado de los bytes es el del formato de textura de Glide
+  para ese identificador, y la equivalencia con la enumeración de Glide no
+  está respaldada por el ejecutable. Por eso el port **no implementa
+  decodificadores** (Módulo 4A) y entrega contenedor, tabla y validación.
+- **Cruce con el nivel:** el índice de textura de 14 bits de la geometría
+  (`.DFX`) indexa directamente la tabla del `.VFX`; en AZTEC16 los 9 609
+  polígonos usan los índices 0..3 y el `.VFX` tiene 260 entradas: todos los
+  índices tienen entrada.
+- **Comparación con las herramientas externas (referencia, sin copiar):**
+  `gex2-tools` (H-01) coincide en el contenedor y en los **valores** de
+  formato, pero sus nombres (`RGB8A1`, `R7G6B5A1`, `ARGB4`) y su obtención
+  de dimensiones ("tamaño + aspecto") no están respaldados por el binario.
+  `Gex3DViewer` (H-02) confirma que la unidad correcta es el par
+  `.DFX`+`.VFX` por nivel.
+- **Confianza:** alta en el contenedor (verificado byte a byte en 44 ficheros
+  y contra el desensamblado), media en los identificadores de formato, **nula
+  (no afirmada)** en el formato de píxel.
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

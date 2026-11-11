@@ -108,6 +108,22 @@ concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
 > dispositivo (2 llamantes). No hay traza: la imagen de referencia ya no está en
 > la máquina de análisis y la build presente es un mod distinto. Datos:
 > `tools/gexmap/audio.mjs`.
+> **Contenedor de texturas `.VFX` (2026-11-11, estático, Módulo 4A):**
+> `docs/VFX_TEXTURE_FORMAT.md` documenta el formato del `.VFX` de nivel a
+> partir del ejecutable original: `0x00461C32` construye la tabla global de
+> texturas `0x006488F4` desde el fichero (`count` en `+0x00`, tabla de
+> registros con cabecera de `0x8C` B y bloque de datos cuyo tamaño está en
+> `+0x84`; el puntero de `+0x10` lo escribe el juego y **en el fichero es un
+> valor de relleno que hay que ignorar**). El recorrido así descrito termina
+> exactamente en el EOF de los 44 `.VFX` del inventario. El formato de la
+> textura está en `+0x0C` (valores 1, 11 y 12 en los originales); solo el
+> formato 1 sube una tabla de paleta desde `+0x14` (`grTexDownloadTable` en
+> `0x0046612C`) y el formato 12 activa el blending alfa
+> (`0x0046568C`). El índice de textura de 14 bits de la geometría indexa
+> esa tabla directamente (`0x00465648`). **El formato de píxel, las
+> dimensiones y la paleta completa NO están demostrados** y por eso no se
+> implementan decodificadores. Herramientas: `llvm-objdump` y
+> `tools/gexmap/pe.mjs` (IAT); sin Ghidra niREA.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/
