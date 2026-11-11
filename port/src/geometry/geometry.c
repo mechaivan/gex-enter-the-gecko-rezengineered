@@ -78,9 +78,18 @@ static void vertex_from_triangle(gex_vertex *v, const gex_emit_triangle *tri,
     v->y = (float)tri->y[corner];
     v->z = (float)tri->z[corner];
     v->color = tri->color[corner];
-    /* Normalización exacta y reversible: round(u * 255) == byte original. */
-    v->u = (float)tri->u[corner] / 255.0f;
-    v->v = (float)tri->v[corner] / 255.0f;
+    /* Normalización exacta y reversible: round(u * 256) == byte original.
+     *
+     * El divisor es 256 y no 255 por el motivo del módulo 4C: el espacio de
+     * coordenadas de textura del juego tiene 256 unidades por textura (el
+     * byte 0 es el borde izquierdo y el byte 255 el último texel, no el
+     * borde derecho). Con /255 el último vértice caería exactamente en 1.0 y
+     * el sampler con direccionamiento WRAP lo devolvería al primer texel
+     * (una costura visible en el borde de cada polígono). Con /256 el
+     * último vértice cae en 255/256 y muestra el último texel, como el
+     * original. */
+    v->u = (float)tri->u[corner] / 256.0f;
+    v->v = (float)tri->v[corner] / 256.0f;
     v->texture = tri->texture;
     v->layer = tri->layer;
     v->flags = tri->flags;

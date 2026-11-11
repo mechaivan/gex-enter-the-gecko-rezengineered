@@ -100,14 +100,14 @@ static void test_single_triangle(void)
         CHECK(v->y == (float)tri.y[i]);
         CHECK(v->z == (float)tri.z[i]);
         CHECK(v->color == tri.color[i]);
-        CHECK(v->u == (float)tri.u[i] / 255.0f);
-        CHECK(v->v == (float)tri.v[i] / 255.0f);
+        CHECK(v->u == (float)tri.u[i] / 256.0f);
+        CHECK(v->v == (float)tri.v[i] / 256.0f);
         CHECK(v->texture == tri.texture);
         CHECK(v->layer == tri.layer);
         CHECK(v->flags == tri.flags);
         /* Reversibilidad exacta de la UV normalizada. */
-        CHECK((int)(v->u * 255.0f + 0.5f) == tri.u[i]);
-        CHECK((int)(v->v * 255.0f + 0.5f) == tri.v[i]);
+        CHECK((int)(v->u * 256.0f + 0.5f) == tri.u[i]);
+        CHECK((int)(v->v * 256.0f + 0.5f) == tri.v[i]);
     }
 
     /* La deduplicación no comparte nada entre esquinas distintas. */

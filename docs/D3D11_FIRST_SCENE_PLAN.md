@@ -366,7 +366,25 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
   recto, más `gex_vfx_texture_info_get` para las dimensiones. 2 968
   comprobaciones, 0 fallos.
 
-**4C. Integración de texturas en D3D11 — PENDIENTE**
+**4C. Integración de texturas en D3D11 — CERRADO (2026-11-11)**
+
+- **Banco de texturas portable** (`gex/vfx_texture.h`, `src/asset/vfx_texture.c`):
+  carga el `.VFX` del nivel y decodifica a RGBA8 las entradas que la geometría
+  usa de verdad, indexadas por el índice de 14 bits.
+- **Atlas D3D11** (`gex/render/d3d11_texture.h`, `src/render/d3d11_texture.c`):
+  una textura 2D con todas las del nivel dentro (cada una con un texel de
+  borde replicado), su `ID3D11ShaderResourceView`, un sampler **lineal + WRAP**
+  (los valores por defecto de Glide 2.x, que el juego nunca cambia) y la tabla
+  constante que traduce el índice del `.VFX` en posición y tamaño.
+- **Shader**: el vertex shader pasa la UV y el índice de textura
+  (`nointerpolation uint`) y el pixel shader muestrea el atlas y modula el
+  color por vértice con el texel (`textura * color`, alfa incluido).
+- **Aplicación**: con `--level` se deduce el `.VFX` del `.DFX`, se carga, se
+  crea el atlas y se enlaza al pipeline. Sin `--level` (el cubo de prueba) no
+  se toca nada.
+- **Verificado en ejecución real** con GPU hardware y ventana Win32: el nivel
+  de AZTEC16 sale **texturizado** (3 101 colores distintos en la captura de la
+  ventana, antes era una maqueta de color plano). Detalle en §18.
 
 - Crear `ID3D11Texture2D`/`ID3D11ShaderResourceView` a partir de las
   entradas decodificadas y atender el índice de 14 bits desde el shader.
@@ -668,19 +686,19 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: el Módulo 4C — subir las texturas del `.VFX` a D3D11 (el
-Módulo 4A tiene el contenedor y la tabla demostrados y el Módulo 4B el
-formato de píxel, las dimensiones y los decodificadores CPU verificados),
-y con él el material definitivo: shader de producción, *depth buffer* y el
-`ID3D11InputLayout` con los atributos que consuma la textura.**
+**Siguiente paso: la cámara real del juego (S-2) y el *depth buffer*.** El
+Módulo 4C ya sube las texturas del `.VFX` a D3D11 (§18): el nivel de AZTEC16
+sale texturizado en ejecución real. Lo que falta para acercarse al original es
+validar la cámara del juego contra el ejecutable (S-2, sigue abierto) y
+añadir el *depth buffer* y el blending por polígono del original.
 
 - **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión
   de polígonos (Módulo 2, §11), el Módulo 3 completo (conversión portable §12 y
   vertex/index buffers D3D11 §13) y el **Módulo 5A**: shaders, input layout,
   estados y `DrawIndexed` (§14), con geometría de prueba visible en la
   ventana de la aplicación.
-- **Lo que falta antes de ver una escena real:** las texturas del Módulo 4, el
-  blending del original, el *depth buffer*, y la carga del nivel (`.DFX`) con
+- **Lo que falta antes de ver una escena real:** el blending del original por
+  polígono, el *depth buffer*, y la carga del nivel con el `.DFX` y
   la emisión real dentro del bucle de frames (hoy la geometría de la
   aplicación es el cubo de prueba, no un nivel).
 - **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la
@@ -1733,7 +1751,7 @@ evidencia local y **no se publica** en el repositorio.
 
 ---
 
-## 17. Módulo 4A: el contenedor de texturas `.VFX` (2026-11-11)
+## 17. Módulos 4A y 4B: el contenedor de texturas `.VFX` y el formato de píxel (2026-11-11)
 
 El documento técnico completo está en
 [`VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md). Resumen:
@@ -1742,19 +1760,169 @@ El documento técnico completo está en
   originales: `count` en `+0x00`; tabla de registros con cabecera de `0x8C` B,
   tamaño del bloque de datos en `+0x84` y datos en `+0x8C`; el siguiente
   registro está en `registro + 0x8C + dword[+0x84]`. El recorrido termina
-  exactamente en el EOF de los 44 `.VFX` del inventario.
+  exactamente en el EOF de los 37 `.VFX` de `E2_A_ORIGINAL`.
 - **El puntero de `+0x10` es un valor de relleno en el fichero** (el juego lo
   sobrescribe con `registro + 0x8C`): hay que ignorarlo.
-- **El formato de la textura está en `+0x0C`** (1, 11, 12 en los originales);
-  solo el 1 lleva paleta (`+0x14`) y solo el 12 activa el blending alfa.
+- **El registro es un `GrTexInfo` de Glide 2.x**: `smallLod` en `+0x00`,
+  `largeLod` en `+0x04`, `aspectRatio` en `+0x08`, `format` en `+0x0C` y el
+  puntero a los datos en `+0x10`.
+- **El formato de la textura está en `+0x0C`** y sus valores son los de la
+  enumeración `GrTextureFormat_t` de Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`**,
+  **11 = `GR_TEXFMT_ARGB_1555`** y **12 = `GR_TEXFMT_ARGB_4444`**. Solo el 1
+  lleva **tabla NCC** (`GuNccTable`, 112 B) en `+0x14` y solo el 12 activa el
+  blending alfa.
+- **Las dimensiones se derivan del LOD y del aspecto** (LOD → lado mayor,
+  aspecto → división): el tamaño del bloque de datos coincide con el previsto
+  en **15 251 de 15 251 registros** de los 37 `.VFX`.
 - **El índice de 14 bits del `.DFX` indexa esta tabla directamente**; en
   AZTEC16 los 9 609 polígonos usan los índices 0..3 sobre 260 entradas.
-- **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` (portable) con
-  `port/tests/test_vfx.c`: 1 668 comprobaciones, 0 fallos (`-O0`, `-O2` y
-  ASan/UBSan).
-- **El decodificador de píxel ya existe** (Módulo 4B): el formato de píxel
+- **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` + `src/asset/vfx_decode.c`
+  (portable) con `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos**
+  (`-O0`, `-O2` y ASan/UBSan).
+- **El decodificador de píxel existe** (Módulo 4B): el formato de píxel
   (`YIQ_422`, `ARGB_1555`, `ARGB_4444`), las dimensiones (LOD y aspecto de
   Glide 2.x) y la tabla NCC (`GuNccTable`) están **demostrados** y verificados
-  contra los 37 `.VFX` originales. Lo que queda pendiente es la **integración
-  gráfica** (Módulo 4C): `ID3D11Texture2D`, `ID3D11ShaderResourceView` y el
-  índice de 14 bits en el shader.
+  contra los 37 `.VFX` originales.
+
+## 18. Módulo 4C: las texturas del `.VFX` en D3D11 (2026-11-11)
+
+### 18.1 Qué se ha implementado
+
+| Pieza | Dónde | Naturaleza |
+|---|---|---|
+| Banco de texturas decodificadas (`.VFX` → RGBA8 por índice de 14 bits) | `gex/vfx_texture.h`, `src/asset/vfx_texture.c` | **portable** |
+| Atlas D3D11 + `ID3D11ShaderResourceView` + sampler + tabla de búsqueda | `gex/render/d3d11_texture.h`, `src/render/d3d11_texture.c` | **Windows-only** |
+| Muestreo de textura en el pixel shader (UV + índice por polígono + color por vértice) | `src/render/d3d11_pipeline.c` | Windows-only |
+| Carga del `.VFX` del nivel en la aplicación | `src/app/i4_main_win32.c` | Windows-only |
+
+La ruta del cubo de prueba **no cambia**: sin `--level` no se carga ninguna
+textura y el shader no tiene nada que muestrear.
+
+### 18.2 La coordenada de textura: de dónde sale
+
+- El byte de UV del `.DFX` (8 bits por vértice) llega al vértice como
+  `float u, v` normalizados **dividiendo entre 256** (antes era 255: con 255
+  el último vértice caía exactamente en 1.0 y el sampler con direccionamiento
+  WRAP lo devolvía al primer texel, con una costura en el borde de cada
+  polígono).
+- El **original calcula la coordenada como `byte / 16`** (demons trado en el
+  desensamblado, `0x0046619D`), con un divisor **constante**: el espacio de
+  coordenadas no depende del tamaño de la textura.
+- La lectura elegida por defecto es la de **texel**: el byte es la coordenada en
+  texels y la textura **se repite** cada `w × h` texels. El argumento es que
+  así la **densidad de texels es la misma para texturas de distinta
+  resolución** (una textura de 64×64 y otra de 256×256 se reparten el mismo
+  número de texels por unidad de mundo), que es lo que necesita un nivel; la
+  lectura "normalizada" (el byte = fracción de la textura) haría que la
+  densidad dependiera de la resolución de cada textura.
+- El modo es un parámetro (`GEX_NCC_UV_MODE_TEXEL` / `..._NORMALIZED`) que se
+  aplica en el shader, así que se puede cambiar sin tocar la geometría. Las
+  dos lecturas producen imágenes distintas (el 69 % de los píxeles con
+  geometría cambia), y se han capturado las dos en ejecución real (§18.5).
+- **Límite conocido:** el factor de zoom exacto (cuántos texels por byte de UV)
+  **no se ha podido cerrar** con la evidencia estática: depende de la escala
+  de la cámara real del juego, que sigue sin validar dinámicamente (S-2). El
+  período de repetición (cada `w × h` texels) sí es el mismo en las dos
+  lecturas.
+
+### 18.3 Estrategia de recursos: por qué un atlas y no una texture array
+
+El índice de textura es **por polígono** y el nivel usa varias texturas de
+**dimensiones distintas**, así que hace falta un recurso único del que el
+shader elija (varias llamadas de dibujo romperían el orden del painter, que es
+como dibuja el port y como el original).
+
+- **Descartado: varias llamadas de dibujo.** El port dibuja en el orden de
+  emisión (algoritmo del painter, sin depth buffer); reordenar las primitivas
+  por textura cambiaría el resultado visual.
+- **Descartado en la práctica: texture array.** Es la opción más directa (una
+  rebanada por textura), pero en el equipo de desarrollo **la creación de un
+  array 2D con datos iniciales falla con `E_INVALIDARG`** tanto en hardware
+  como en WARP, y llega a colgar el driver. Es un límite del entorno, no del
+  diseño, pero hace la opción insegura aquí.
+- **Elegido: un atlas.** Una sola textura 2D con todas las texturas del nivel
+  dentro, cada una con **un texel de borde replicado** para que el filtrado
+  bilineal no mezcle una textura con la vecina. El shader calcula la posición
+  del texel dentro de la textura y la traduce a la del atlas.
+
+Consecuencias: las imágenes originales se conservan **intactas y con sus
+dimensiones** (están en `gex_vfx_texture`); el recurso del atlas es una
+empaquetación; y el índice de 14 bits del `.VFX` no es el número de textura
+del atlas, sino una entrada de una **tabla constante** (índice → tamaño y
+posición) que el shader recorre.
+
+### 18.4 Modos de filtrado y direccionamiento (los del original)
+
+El ejecutable **no importa** `grTexFilterMode`, `grTexClampMode` ni
+`grTexMipMapMode`: usa los **valores por defecto de Glide 2.x**, que son
+
+- filtrado **lineal** (bilineal) en minificación y magnificación,
+- direccionamiento **WRAP** (la textura se repite),
+- **mipmapping desactivado** (solo el nivel `largeLod`), lo que encaja con que
+  los 15 251 registros medidos tengan `smallLod == largeLod`.
+
+El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
+
+### 18.5 Composición en el shader
+
+- El **color por vértice** se conserva (sigue siendo `AARRG8B8` leído como
+  `R8G8B8A8` y reordenado en el vertex shader) y se **modula** con el texel:
+  `color = textura * color` en RGB y `alfa = alfa_textura * alfa_vértice`.
+- La **niebla** sigue viajando dentro del color por vértice (así lo emite el
+  módulo 2). **Diferencia con el original:** el original aplica la niebla
+  **después** de multiplicar por la textura (la niebla de Glide actúa en el
+  combinador de color), mientras que aquí se aplica antes. En las zonas con
+  poca niebla la diferencia es despreciable; con niebla fuerte, el color de la
+  niebla queda multiplicado por el texel. Queda como corrección pendiente
+  (habría que transportar el factor de niebla por vértice).
+- El **índice de textura** viaja como atributo `nointerpolation uint`: los
+  tres vértices de un triángulo llevan el mismo valor (viene del polígono) y el
+  rasterizador no lo interpola ✓.
+- El **blending alfa** se activa (`SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`), como
+  en el original; con alfa 255 (el cubo de prueba y las texturas `YIQ_422`) el
+  resultado es idéntico al de no mezclar.
+
+### 18.6 Pruebas
+
+- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+  ASan/UBSan). Incluye el banco de texturas (carga, decodificación, índices
+  válidos e inválidos, entradas que no se pueden decodificar) y el contraste
+  con los originales.
+- `port/tests/test_d3d11_pipeline.c`: **324 comprobaciones, 0 fallos**
+  (WARP). Incluye la creación y destrucción del atlas, los argumentos
+  inválidos, el estado "ya inicializado" y una **prueba de muestreo**: un
+  `.VFX` sintético de 64×64 en `ARGB_4444` con un degradado conocido, un
+  triángulo con la UV en el byte 32 y la comprobación de que el píxel
+  resultante es exactamente el del texel 8 (R = 136, G = 136, B = 255).
+- Suite completa: **16/16 sin regresiones**.
+
+### 18.7 Ejecución real (GPU hardware, ventana Win32)
+
+`gexloop.exe --level C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\AZTEC16.DFX` sobre el
+dispositivo **hardware** (960×540, 120 presents, 0 errores de frame):
+
+```
+textures: 2 decodificadas de '...\AZTEC16.vfx' (atlas 132 x 34), 0 fallidas
+geometry: level '...\AZTEC16.DFX'
+  emitted: triangles=2854 (fog passes=1427) discarded by depth=0
+  geometry: vertices=4914 indices=8562
+final: t=1.49s presents=120 fps=80.5 ... exit: clean, frame errors=0
+```
+
+La **captura de la ventana** (`PrintWindow`) confirma que la geometría sale
+**texturizada**: 3 101 colores distintos en la imagen (antes de este módulo el
+nivel se veía como una maqueta de color plano) y el contenido de la textura se
+reconoce en el panel con marco de la pared.
+
+### 18.8 Lo que queda pendiente
+
+1. **La cámara real del juego (S-2)**: hasta que la cámara original no esté
+   validada, el encuadre es el **diagnóstico** del port y no se puede
+   comparar con el original.
+2. **El factor de zoom de la UV** (texels por byte) depende de esa cámara.
+3. **La niebla** debería aplicarse después de la textura (§18.5).
+4. El blending alfa se aplica a **todo** el dibujo; el original lo activa
+   **por polígono** según el formato de la textura.
+5. El atlas tiene un límite de 64 texturas y 4 096 px de ancho por fila
+   (`GEX_D3D11_TEXTURE_MAX_ENTRIES`, `..._ATLAS_MAX_WIDTH`): con más
+   texturas habría que revisar el empaquetado.

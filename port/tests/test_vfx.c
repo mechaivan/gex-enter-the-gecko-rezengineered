@@ -10,6 +10,7 @@
  */
 
 #include "gex/vfx.h"
+#include "gex/vfx_texture.h"
 
 #include "gex/asset/dfx.h"
 #include "gex/bsp.h"
@@ -1007,6 +1008,97 @@ static void test_ncc_table_twins(void)
     gex_vfx_close(&file);
 }
 
+/* ------------------------------------------------------------------ */
+/* Banco de texturas decodificadas (Módulo 4C)                          */
+/* ------------------------------------------------------------------ */
+
+static void test_texture_bank(void)
+{
+    gex_vfx_texture_bank bank;
+    uint32_t wanted[4];
+    const gex_vfx_texture *tex;
+    int i;
+    int distinct_colors = 0;
+
+    /* Argumentos inválidos. */
+    memset(&bank, 0, sizeof(bank));
+    CHECK(gex_vfx_texture_bank_load(NULL, GEX_VFX, wanted, 4) == GEX_VFX_ERR_ARG);
+    CHECK(gex_vfx_texture_bank_load(&bank, NULL, wanted, 4) == GEX_VFX_ERR_ARG);
+    CHECK(gex_vfx_texture_bank_load(&bank, GEX_VFX, NULL, 4) == GEX_VFX_ERR_ARG);
+    CHECK(gex_vfx_texture_bank_load(&bank, "no_existe_exactamente.vfx", wanted,
+                                    4) != GEX_VFX_OK);
+    gex_vfx_texture_bank_free(&bank);
+    gex_vfx_texture_bank_free(NULL);
+
+    if (!file_exists(AZTEC_VFX)) {
+        printf("skip texture bank (no file)\n");
+        return;
+    }
+
+    /* Las cuatro texturas que usa la geometría del nivel (índices 0..3). */
+    wanted[0] = 0;
+    wanted[1] = 1;
+    wanted[2] = 2;
+    wanted[3] = 3;
+    memset(&bank, 0, sizeof(bank));
+    CHECK(gex_vfx_texture_bank_load(&bank, AZTEC_VFX, wanted, 4) == GEX_VFX_OK);
+    CHECK(bank.texture_count == 4u);
+    CHECK(bank.decoded_count == 4u);
+    CHECK(bank.failed_count == 0u);
+    CHECK(bank.max_width == 64u);
+    CHECK(bank.max_height == 64u);
+
+    /* Cada índice de 14 bits apunta a su textura, con sus dimensiones
+     * originales (el `GrTexInfo` del `.VFX`). */
+    for (i = 0; i < 4; i++) {
+        tex = gex_vfx_texture_bank_find(&bank, (uint32_t)i);
+        CHECK(tex != NULL);
+        if (tex == NULL) {
+            continue;
+        }
+        CHECK(tex->index == (uint32_t)i);
+        CHECK(tex->rgba != NULL);
+        CHECK(tex->width == 64u);
+        CHECK(tex->height == 32u || tex->height == 64u);
+        CHECK(gex_vfx_texture_bank_slot(&bank, (uint32_t)i) >= 0);
+    }
+
+    /* Los índices no pedidos no tienen textura (no se inventa nada). */
+    CHECK(gex_vfx_texture_bank_find(&bank, 4u) == NULL);
+    CHECK(gex_vfx_texture_bank_find(&bank, 259u) == NULL);
+    CHECK(gex_vfx_texture_bank_find(&bank, 16383u) == NULL);
+    CHECK(gex_vfx_texture_bank_slot(&bank, 4u) == -1);
+    CHECK(gex_vfx_texture_bank_slot(&bank, 16383u) == -1);
+    CHECK(gex_vfx_texture_bank_find(NULL, 0u) == NULL);
+
+    /* El contenido decodificado es una imagen de verdad: la textura 0 del
+     * nivel (ARGB_4444) no es un color liso y su alfa es el del formato. */
+    tex = gex_vfx_texture_bank_find(&bank, 0u);
+    if (tex != NULL && tex->rgba != NULL) {
+        uint32_t first = ((uint32_t)tex->rgba[0] << 24) |
+                         ((uint32_t)tex->rgba[1] << 16) |
+                         ((uint32_t)tex->rgba[2] << 8) |
+                         (uint32_t)tex->rgba[3];
+        uint32_t k;
+        for (k = 0; k < tex->width * tex->height; k++) {
+            uint32_t c = ((uint32_t)tex->rgba[k * 4 + 0] << 24) |
+                         ((uint32_t)tex->rgba[k * 4 + 1] << 16) |
+                         ((uint32_t)tex->rgba[k * 4 + 2] << 8) |
+                         (uint32_t)tex->rgba[k * 4 + 3];
+            if (c != first) {
+                distinct_colors++;
+                break;
+            }
+        }
+        CHECK(distinct_colors > 0);
+    }
+
+    gex_vfx_texture_bank_free(&bank);
+    /* Liberar dos veces no debe romper nada. */
+    gex_vfx_texture_bank_free(&bank);
+    CHECK(bank.texture_count == 0u);
+}
+
 int main(void)
 {
     test_names_and_args();
@@ -1021,6 +1113,7 @@ int main(void)
     test_decode_yiq422();
     test_decode_record();
     test_decode_originals();
+    test_texture_bank();
     test_ncc_table_twins();
     test_real_aztec();
     test_real_gex_vfx();

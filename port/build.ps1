@@ -64,7 +64,7 @@ $coreSrc = @(
 $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
 $bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
-$vfxSrc = @((Join-Path $PSScriptRoot 'src/asset/vfx.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_decode.c'))
+$vfxSrc = @((Join-Path $PSScriptRoot 'src/asset/vfx.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_decode.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_texture.c'))
 $emitSrc = @((Join-Path $PSScriptRoot 'src/emit/emit.c'))
 $geometrySrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry.c'))
 $shapesSrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry_shapes.c'))
@@ -76,6 +76,7 @@ $d3d11SwapSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_swapchain.c'))
 $d3d11RenderSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_renderer.c'))
 $d3d11MeshSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_mesh.c'))
 $d3d11PipelineSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_pipeline.c'))
+$d3d11TextureSrc = @((Join-Path $PSScriptRoot 'src/render/d3d11_texture.c'))
 $appSrc = @((Join-Path $PSScriptRoot 'src/app/i4_app.c'))
 $clockSrc = @((Join-Path $PSScriptRoot 'src/platform/clock.c'))
 $win32TimeSrc = @((Join-Path $PSScriptRoot 'src/platform/win32_time.c'))
@@ -122,13 +123,13 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_device.c') 'test_device.exe' ($audioSrc + $deviceSrc) @('-ldsound')) 'device backend checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_device.c') 'test_d3d11_device.exe' $d3d11Src @('-ld3d11')) 'D3D11 device checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_mesh.c') 'test_d3d11_mesh.exe' ($d3d11Src + $d3d11MeshSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-ld3d11', '-lm')) 'D3D11 mesh buffer (Module 3) checks'
-    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_pipeline.c') 'test_d3d11_pipeline.exe' ($d3d11Src + $d3d11MeshSrc + $d3d11PipelineSrc + $d3d11RenderSrc + $geometrySrc + $shapesSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_PIPELINE_TEST_FAULT_INJECT', '-ld3d11', '-lm')) 'D3D11 draw pipeline (Module 5A) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_pipeline.c') 'test_d3d11_pipeline.exe' ($d3d11Src + $d3d11MeshSrc + $d3d11PipelineSrc + $d3d11TextureSrc + $vfxSrc + $d3d11RenderSrc + $geometrySrc + $shapesSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_PIPELINE_TEST_FAULT_INJECT', '-ld3d11', '-lm')) 'D3D11 draw pipeline (Module 5A) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_swapchain.c') 'test_d3d11_swapchain.exe' ($d3d11Src + $d3d11SwapSrc + $inputSrc + $win32WindowSrc) @('-ld3d11', '-luuid')) 'D3D11 swapchain checks'
-    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_renderer.c') 'test_d3d11_renderer.exe' ($d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')) 'D3D11 renderer checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_d3d11_renderer.c') 'test_d3d11_renderer.exe' ($d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $d3d11TextureSrc + $vfxSrc + $appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')) 'D3D11 renderer checks'
 }
 
 if ($Target -in @('loop', 'all')) {
-    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $d3d11MeshSrc + $geometrySrc + $shapesSrc + $sceneSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $d3d11TextureSrc + $d3d11MeshSrc + $vfxSrc + $geometrySrc + $shapesSrc + $sceneSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')
     Write-Host "built $exe (run it from a console; Escape or close the window)"
 }
 

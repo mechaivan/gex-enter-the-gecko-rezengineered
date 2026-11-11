@@ -44,16 +44,27 @@
  * vertex buffer). El uint32 del vértice es AARRGGBB en little-endian, así que
  * en memoria los bytes son BB, GG, RR, AA: el shader recibe (B,G,R,A) en los
  * canales R,G,B,A y hay que reordenarlos.
+ *
+ * Se pasan además la coordenada de textura (TEXCOORD) y el índice de textura
+ * (TEXINDEX). El índice es un dato POR POLÍGONO: viaja en los tres vértices
+ * con el mismo valor y se declara `nointerpolation` para que el rasterizador
+ * no lo interpole.
  */
 static const char GEX_HLSL_VERTEX[] =
     "struct VSIn {\n"
     "    float3 pos   : POSITION;\n"
     "    float4 color : COLOR;\n"
+    "    float2 uv    : TEXCOORD;\n"
+    "    uint   texIndex : TEXINDEX;\n"
+    "    int    layer  : LAYER;\n"
+    "    uint   flags  : FLAGS;\n"
     "};\n"
     "\n"
     "struct VSOut {\n"
     "    float4 pos   : SV_POSITION;\n"
     "    float4 color : COLOR;\n"
+    "    float2 uv    : TEXCOORD0;\n"
+    "    nointerpolation uint texIndex : TEXCOORD1;\n"
     "};\n"
     "\n"
     "cbuffer GexView : register(b0) {\n"
@@ -75,26 +86,82 @@ static const char GEX_HLSL_VERTEX[] =
     "    /* AARRGGBB leido como R8G8B8A8_UNORM llega como (B,G,R,A). */\n"
     "    output.color = float4(input.color.b, input.color.g,\n"
     "                           input.color.r, input.color.a);\n"
+    "    output.uv = input.uv;\n"
+    "    output.texIndex = input.texIndex;\n"
     "    return output;\n"
     "}\n";
 
 /*
- * Pixel shader: devuelve el color por vértice, sin texturas.
+ * Pixel shader: muestrea la textura y la modula con el color por vértice.
  *
- * OJO: el pixel shader recibe la **misma estructura** que declara el vertex
- * shader como salida. Con un parámetro suelto (`float4 color : COLOR`) el
- * enlazador de Direct3D 11 no encuentra la firma y conecta la entrada del
- * pixel shader con el registro 0 de la salida (SV_POSITION), de modo que el
- * color llega como la posición recortada. Comprobado empíricamente con WARP.
+ * Las texturas del nivel están en un **atlas** (una textura 2D con todas
+ * dentro). El índice de textura del `.VFX` (14 bits) se busca en la tabla
+ * constante `GexTex`, que da el tamaño y la posición de la textura dentro
+ * del atlas.
+ *
+ * La coordenada del vértice es una fracción de la textura (256 bytes = la
+ * textura entera): la posición del texel es `uv * tamaño`. En el modo "texel"
+ * la posición se toma módulo el tamaño (la textura se repite).
+ *
+ * Si no hay texturas (el camino del cubo de prueba) la tabla está vacía y el
+ * shader devuelve el color por vértice tal cual, sin tocar nada.
+ *
+ * La modulación es la del original: el color final es
+ * `textura * color por vertice` (modulate), y el alfa es el producto de los
+ * dos alfas.
  */
 static const char GEX_HLSL_PIXEL[] =
     "struct VSOut {\n"
     "    float4 pos   : SV_POSITION;\n"
     "    float4 color : COLOR;\n"
+    "    float2 uv    : TEXCOORD0;\n"
+    "    nointerpolation uint texIndex : TEXCOORD1;\n"
     "};\n"
+    "\n"
+    "cbuffer GexTex : register(b1) {\n"
+    "    float4 gex_tex_header;\n"
+    "    float4 gex_tex_entries[128];\n"
+    "};\n"
+    "\n"
+    "Texture2D gex_tex_atlas : register(t0);\n"
+    "SamplerState gex_tex_sampler : register(s0);\n"
+    "\n"
     "float4 GexPS(VSOut input) : SV_TARGET\n"
     "{\n"
-    "    return input.color;\n"
+    "    float4 color = input.color;\n"
+    "    int count = (int)gex_tex_header.x;\n"
+    "    float atlas_w = gex_tex_header.y;\n"
+    "    float atlas_h = gex_tex_header.z;\n"
+    "    int mode = (int)gex_tex_header.w;\n"
+    "    for (int i = 0; i < count; i++) {\n"
+    "        float4 a = gex_tex_entries[i * 2];\n"
+    "        float4 b = gex_tex_entries[i * 2 + 1];\n"
+    "        if ((uint)a.x == input.texIndex) {\n"
+    "            float2 size = float2(a.y, a.z);\n"
+    "            float2 origin = float2(a.w, b.x);\n"
+    "            float2 texels;\n"
+    "            if (mode == 1) {\n"
+    "                /* Modo texel: la coordenada va en texels y la textura\n"
+    "                   se repite cada w x h texels. */\n"
+    "                texels = input.uv * 256.0;\n"
+    "                texels = texels - floor(texels / size) * size;\n"
+    "            } else {\n"
+    "                /* Modo normalizado: el byte de UV es una fraccion de\n"
+    "                   la textura (256 = la textura entera). */\n"
+    "                texels = input.uv * size;\n"
+    "            }\n"
+    "            /* D3D11 muestrea en el centro del texel: se suma media\n"
+    "             * texel para que caiga en el mismo texel que el\n"
+    "             * original. */\n"
+    "            float2 atlas_uv = (origin + texels + 0.5) /\n"
+    "                             float2(atlas_w, atlas_h);\n"
+    "            float4 t = gex_tex_atlas.SampleLevel(gex_tex_sampler,\n"
+    "                                                atlas_uv, 0);\n"
+    "            color = float4(color.rgb * t.rgb, color.a * t.a);\n"
+    "            break;\n"
+    "        }\n"
+    "    }\n"
+    "    return color;\n"
     "}\n";
 
 /* ========================================================================
@@ -213,6 +280,9 @@ static void release_blob(ID3DBlob **blob)
 
 static void release_all(gex_d3d11_pipeline *pipeline)
 {
+    if (pipeline->tex_constants != NULL) {
+        ID3D11Buffer_Release(pipeline->tex_constants);
+    }
     if (pipeline->constant_buffer != NULL) {
         ID3D11Buffer_Release(pipeline->constant_buffer);
     }
@@ -465,13 +535,18 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
                          message);
     }
 
-    /* Blending desactivado: el color del vértice se escribe tal cual. */
+    /* Blending: el original usa grAlphaBlendFunction(SRC_ALPHA,
+     * ONE_MINUS_SRC_ALPHA, ZERO, ZERO) en las rutas con alfa (el formato 12
+     * activa el blending alfa; los demás formatos no tienen alfa útil). Aquí
+     * se usa un único estado para todo el dibujo: con alfa 255 (el cubo de
+     * prueba y las texturas YIQ) el resultado es idéntico al de no
+     * mezclar. */
     memset(&blend_desc, 0, sizeof(blend_desc));
     blend_desc.AlphaToCoverageEnable = FALSE;
     blend_desc.IndependentBlendEnable = FALSE;
-    blend_desc.RenderTarget[0].BlendEnable = FALSE;
-    blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
-    blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_ZERO;
+    blend_desc.RenderTarget[0].BlendEnable = TRUE;
+    blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
     blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
     blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
     blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
@@ -538,6 +613,35 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
     }
     if (FAILED(hr) || pipeline->constant_buffer == NULL) {
         snprintf(message, sizeof(message), "no se pudo crear el constant buffer");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
+    }
+
+    /* Constant buffer de la tabla de texturas (b1). Se crea siempre, aunque
+     * no haya texturas: el pixel shader lee su cabecera y, con el número de
+     * entradas a cero, devuelve el color por vértice sin muestrear nada. */
+    memset(&cb_desc, 0, sizeof(cb_desc));
+    cb_desc.ByteWidth = 16u; /* solo la cabecera float4 */
+    cb_desc.Usage = D3D11_USAGE_IMMUTABLE;
+    cb_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    cb_desc.CPUAccessFlags = 0;
+    cb_desc.MiscFlags = 0;
+    cb_desc.StructureByteStride = 0;
+
+    {
+        D3D11_SUBRESOURCE_DATA init;
+        float header[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+        memset(&init, 0, sizeof(init));
+        init.pSysMem = header;
+        init.SysMemPitch = 0;
+        init.SysMemSlicePitch = 0;
+        hr = ID3D11Device_CreateBuffer(pipeline->device, &cb_desc, &init,
+                                       &pipeline->tex_constants);
+    }
+    if (FAILED(hr) || pipeline->tex_constants == NULL) {
+        pipeline->tex_constants = NULL;
+        snprintf(message, sizeof(message),
+                 "no se pudo crear el constant buffer de texturas");
         return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
                          message);
     }
@@ -616,6 +720,27 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
 }
 
 /* ========================================================================
+ * Texturas (Módulo 4C)
+ * ======================================================================== */
+
+gex_d3d11_pipeline_status gex_d3d11_pipeline_set_textures(
+    gex_d3d11_pipeline *pipeline, const gex_d3d11_texture_set *set)
+{
+    if (pipeline == NULL) {
+        return GEX_D3D11_PIPELINE_BAD_ARGUMENT;
+    }
+    if (!pipeline->initialized) {
+        return GEX_D3D11_PIPELINE_BAD_STATE;
+    }
+    if (set != NULL && !set->initialized) {
+        return GEX_D3D11_PIPELINE_BAD_ARGUMENT;
+    }
+    pipeline->textures = set;
+    pipeline->last_hresult = S_OK;
+    return GEX_D3D11_PIPELINE_OK;
+}
+
+/* ========================================================================
  * Dibujo
  * ======================================================================== */
 
@@ -661,6 +786,31 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_draw(gex_d3d11_pipeline *pipeline,
                                         NULL, 0xFFFFFFFFu);
     ID3D11DeviceContext_OMSetDepthStencilState(pipeline->context,
                                                pipeline->depth_stencil, 0);
+
+    /* Texturas (Módulo 4C): el shader resource view, el sampler y la tabla
+     * de búsqueda (constant buffer b1). Sin conjunto de texturas se enlaza la
+     * tabla vacía del pipeline y nada más: el shader no muestrea nada. */
+    if (pipeline->textures != NULL && pipeline->textures->initialized) {
+        ID3D11DeviceContext_PSSetShaderResources(
+            pipeline->context, 0, 1, &pipeline->textures->srv);
+        ID3D11DeviceContext_PSSetSamplers(pipeline->context, 0, 1,
+                                          &pipeline->textures->sampler);
+        ID3D11DeviceContext_PSSetConstantBuffers(
+            pipeline->context, 1, 1, &pipeline->textures->lookup_buffer);
+    } else {
+        /* Sin texturas: se desenlaza lo que hubiera (un NULL en el slot).
+         * Ojo: la API pide un ARRAY de punteros, no un NULL suelto. */
+        ID3D11ShaderResourceView *null_srv[1];
+        ID3D11SamplerState *null_sampler[1];
+        null_srv[0] = NULL;
+        null_sampler[0] = NULL;
+        ID3D11DeviceContext_PSSetShaderResources(pipeline->context, 0, 1,
+                                                 null_srv);
+        ID3D11DeviceContext_PSSetSamplers(pipeline->context, 0, 1,
+                                          null_sampler);
+        ID3D11DeviceContext_PSSetConstantBuffers(pipeline->context, 1, 1,
+                                                 &pipeline->tex_constants);
+    }
 
     ID3D11DeviceContext_DrawIndexed(pipeline->context, mesh->index_count, 0, 0);
 

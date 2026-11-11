@@ -19,8 +19,11 @@
  *  - `z` se guarda como `float`. Los triángulos aceptados por la emisión tienen
  *    `z` en [near_z, 0xFFFF] (0x46A1D0 descarta el resto), muy por debajo de
  *    2^24, así que la conversión es exacta.
- *  - `u`/`v` se normalizan a 0..1 dividiendo entre 255: la conversión es
- *    exacta y reversible (`round(u * 255)` recupera el byte original).
+ *  - `u`/`v` se normalizan a 0..1 dividiendo entre 256: la conversión es
+ *    exacta y reversible (`round(u * 256)` recupera el byte original). El
+ *    divisor es 256 (y no 255) porque el espacio de coordenadas de textura
+ *    del juego tiene 256 unidades por textura: el byte 255 es el último
+ *    texel, no el borde derecho (ver `docs/VFX_TEXTURE_FORMAT.md` §4.7).
  *  - Los triángulos con `GEX_EMIT_F_DEPTH_CLIPPED` se descartan aquí: el
  *    contrato de `gex_emit_project` obliga al llamador a saltarlos y sus x/y
  *    valen 0, así que dibujarlos sería geometría falsa. Se cuentan en
@@ -48,7 +51,7 @@ extern "C" {
 typedef struct {
     float    x, y, z;   /* píxeles proyectados + profundidad de emisión */
     uint32_t color;     /* AARRGGBB por vértice (niebla ya aplicada si procede) */
-    float    u, v;      /* UV normalizadas 0..1 desde los bytes 0..255 */
+    float    u, v;      /* UV normalizadas 0..1 desde los bytes 0..255 (/256) */
     uint16_t texture;   /* índice de textura del registro UV (14 bits útiles) */
     int8_t   layer;     /* byte[uv+0x0B] con signo */
     uint8_t  flags;     /* GEX_EMIT_F_* del triángulo de origen */

@@ -863,6 +863,41 @@ que habrá que verificar contra el juego real (Fase 1–2):
   originales). Sigue **DESCONOCIDO** el `FONT.3DF` (ruta `gu3dfLoad`) y el
   formato 0 (`RGB_332`), que no aparece en ningún `.VFX`.
 
+## S-31 - Módulo 4C: las texturas del `.VFX` en D3D11
+
+- **Método:** rea del manejador 3D del original (`0x00465E5A`, opcode `0x34`:
+  `s = byte / 16.0f` en `0x0046619D`), imports del ejecutable (no usa
+  `grTexFilterMode`, `grTexClampMode` ni `grTexMipMapMode` → valores por
+  defecto de Glide 2.x: lineal, WRAP y sin mipmaps), y ejecución real con GPU
+  hardware y ventana Win32.
+- **Resultado:** el byte de UV del `.DFX` vive en un espacio **independiente
+  de la resolución** de la textura (divisor constante), y el port lo
+  interpreta por defecto como **coordenada en texels** (la textura se repite
+  cada `w x h` texels), que es lo que mantiene la densidad de texels
+  constante entre texturas de distinta resolución. El byte 255 es el último
+  texel, no el borde derecho: por eso el vértice normaliza la UV **dividiendo
+  entre 256** y no entre 255 (con 255 el sampler WRAP devolvía el primer texel
+  y hacia una costura en el borde de cada polígono).
+- **Estrategia de recursos:** se descartó la texture array porque en este
+  equipo la creación de un array 2D con datos iniciales falla con
+  `E_INVALIDARG` (hardware y WARP) y llega a colgar el driver; se usa un
+  **atlas** 2D con las texturas del nivel dentro, cada una con un texel de
+  borde replicado para que el filtrado bilineal no mezcle una textura con la
+  vecina. Se descartaron varias llamadas de dibujo porque romperían el orden
+  del painter.
+- **Implementación:** `gex/vfx_texture.h` + `src/asset/vfx_texture.c`
+  (banco portable), `gex/render/d3d11_texture.h` +
+  `src/render/d3d11_texture.c` (atlas, SRV, sampler y tabla de búsqueda),
+  el pixel shader del pipeline (UV + índice `nointerpolation` + modulación con
+  el color por vértice) y la carga del `.VFX` en la aplicación.
+- **Verificación:** `test_vfx` 2 968 comprobaciones y `test_d3d11_pipeline` 324,
+  0 fallos; suite completa 16/16. En ejecución real el nivel de AZTEC16 sale
+  texturizado (3 101 colores distintos en la captura de la ventana).
+- **Límites:** el factor de zoom de la UV depende de la cámara real del juego
+  (S-2, abierta); la niebla se aplica antes de la textura (en el original,
+  después); el blending alfa se aplica a todo el dibujo (en el original, por
+  polígono).
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

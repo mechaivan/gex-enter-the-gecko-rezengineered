@@ -771,6 +771,209 @@ static void test_init_faults(gex_d3d11_device *device)
 
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Conjunto de texturas (Módulo 4C)                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Escribe un `.VFX` sintético con UNA textura de 64x64 en ARGB_4444 (el
+ * formato 12 de Glide 2.x). El texel (x, y) vale R = 4x, G = 4y, B = 255 y
+ * A = 255, de modo que el color muestreado dice exactamente en qué texel se
+ * ha aterrizado el fragmento.
+ */
+static int write_synthetic_vfx(const char *path)
+{
+    FILE *fh;
+    uint8_t header[0x8C];
+    uint16_t *data;
+    uint32_t x, y;
+    uint32_t count = 1;
+    const uint32_t size = 64u * 64u * 2u;
+
+    memset(header, 0, sizeof(header));
+    header[0] = 2;   /* smallLod = 2 -> 64 px */
+    header[4] = 2;   /* largeLod = 2 */
+    header[8] = 3;   /* aspect = 1x1 */
+    header[12] = 12; /* format = GR_TEXFMT_ARGB_4444 */
+    header[0x84] = (uint8_t)(size & 0xFFu);
+    header[0x85] = (uint8_t)((size >> 8) & 0xFFu);
+    header[0x86] = (uint8_t)((size >> 16) & 0xFFu);
+    header[0x87] = (uint8_t)((size >> 24) & 0xFFu);
+
+    data = (uint16_t *)calloc(64u * 64u, sizeof(*data));
+    if (data == NULL) {
+        return -1;
+    }
+    for (y = 0; y < 64u; y++) {
+        for (x = 0; x < 64u; x++) {
+            uint32_t r = x & 0x0Fu;
+            uint32_t g = y & 0x0Fu;
+            data[y * 64u + x] = (uint16_t)((0xFu << 12) | (r << 8) | (g << 4) |
+                                           0x0Fu);
+        }
+    }
+
+    fh = fopen(path, "wb");
+    if (fh == NULL) {
+        free(data);
+        return -1;
+    }
+    fwrite(&count, 1, sizeof(count), fh);
+    fwrite(&header[0], 1, sizeof(header), fh);
+    fwrite(data, 1, size, fh);
+    fclose(fh);
+    free(data);
+    return 0;
+}
+
+static void test_texture_set(gex_d3d11_device *device)
+{
+    const char *vfx_path = "gex_test_texture.vfx";
+    gex_vfx_texture_bank bank;
+    gex_d3d11_texture_set set = GEX_D3D11_TEXTURE_SET_INITIALIZER;
+    gex_d3d11_pipeline pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
+    gex_d3d11_mesh mesh = GEX_D3D11_MESH_INITIALIZER;
+    gex_emit_output emit;
+    gex_geometry geom;
+    offscreen target;
+    uint8_t *pixels = NULL;
+    uint32_t wanted[1];
+    int status;
+
+    /* Nombres de estado. */
+    CHECK(strcmp(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_OK), "ok") ==
+          0);
+    CHECK(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_BAD_ARGUMENT) !=
+          NULL);
+    CHECK(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_BAD_STATE) != NULL);
+    CHECK(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_TOO_MANY) != NULL);
+    CHECK(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_CREATE_FAILED) !=
+          NULL);
+    CHECK(gex_d3d11_texture_status_name(GEX_D3D11_TEXTURE_OUT_OF_MEMORY) !=
+          NULL);
+
+    /* Argumentos inválidos. */
+    CHECK(gex_d3d11_texture_set_create(NULL, device, NULL,
+                                       GEX_NCC_UV_MODE_NORMALIZED) ==
+          GEX_D3D11_TEXTURE_BAD_ARGUMENT);
+    CHECK(gex_d3d11_texture_set_create(&set, NULL, NULL,
+                                       GEX_NCC_UV_MODE_NORMALIZED) ==
+          GEX_D3D11_TEXTURE_BAD_ARGUMENT);
+    CHECK(gex_d3d11_texture_set_create(&set, device, NULL,
+                                       GEX_NCC_UV_MODE_NORMALIZED) ==
+          GEX_D3D11_TEXTURE_BAD_ARGUMENT);
+    gex_d3d11_texture_set_destroy(&set);
+    gex_d3d11_texture_set_destroy(NULL);
+
+    if (write_synthetic_vfx(vfx_path) != 0) {
+        printf("skip texture set (no se pudo escribir el VFX)\n");
+        return;
+    }
+
+    memset(&bank, 0, sizeof(bank));
+    wanted[0] = 0;
+    CHECK(gex_vfx_texture_bank_load(&bank, vfx_path, wanted, 1) == GEX_VFX_OK);
+    CHECK(bank.texture_count == 1u);
+    CHECK(bank.decoded_count == 1u);
+    CHECK(bank.max_width == 64u && bank.max_height == 64u);
+
+    /* Creación del conjunto: una rebanada de 64x64. */
+    status = gex_d3d11_texture_set_create(&set, device, &bank,
+                                          GEX_NCC_UV_MODE_NORMALIZED);
+    CHECK(status == GEX_D3D11_TEXTURE_OK);
+    if (status == GEX_D3D11_TEXTURE_OK) {
+        D3D11_TEXTURE2D_DESC desc;
+        memset(&desc, 0, sizeof(desc));
+        ID3D11Texture2D_GetDesc(set.atlas, &desc);
+        /* Una textura de 64x64 con el borde replicado: el atlas es de
+         * (64+2) x (64+2). */
+        CHECK(desc.Width == 66u);
+        CHECK(desc.Height == 66u);
+        CHECK(desc.ArraySize == 1u);
+        CHECK(desc.MipLevels == 1u);
+        CHECK(desc.Format == DXGI_FORMAT_R8G8B8A8_UNORM);
+        CHECK(set.texture_count == 1u);
+        CHECK(set.atlas_width == 66u);
+        CHECK(set.atlas_height == 66u);
+        CHECK(set.srv != NULL);
+        CHECK(set.sampler != NULL);
+        CHECK(set.lookup_buffer != NULL);
+
+        /* Un conjunto vivo no se puede volver a crear. */
+        CHECK(gex_d3d11_texture_set_create(&set, device, &bank,
+                                           GEX_NCC_UV_MODE_NORMALIZED) ==
+              GEX_D3D11_TEXTURE_BAD_STATE);
+    }
+
+    /* Muestreo: un triángulo con UV en el byte 32 (el texel 8 de una
+     * textura de 64, con el divisor 256) debe pintar R = 136, G = 136,
+     * B = 255 (el color por vértice es blanco). */
+    memset(&emit, 0, sizeof(emit));
+    if (status == GEX_D3D11_TEXTURE_OK &&
+        gex_d3d11_pipeline_init(&pipeline, device) == GEX_D3D11_PIPELINE_OK &&
+        offscreen_create(device->device, 256, 192, &target) == 0) {
+        gex_emit_triangle *tris =
+            (gex_emit_triangle *)calloc(1, sizeof(*tris));
+        float clear_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+        CHECK(tris != NULL);
+        if (tris != NULL) {
+            int c;
+            tris->x[0] = 0; tris->y[0] = 0; tris->z[0] = 0x1000;
+            tris->x[1] = 256; tris->y[1] = 0; tris->z[1] = 0x1000;
+            tris->x[2] = 0; tris->y[2] = 192; tris->z[2] = 0x1000;
+            for (c = 0; c < 3; c++) {
+                tris->color[c] = 0xFFFFFFFFu;
+                tris->u[c] = 32;
+                tris->v[c] = 32;
+            }
+            tris->texture = 0;
+            tris->flags = GEX_EMIT_F_NEAR_EMITTER;
+            emit.tris = tris;
+            emit.count = 1;
+            emit.capacity = 1;
+
+            CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
+            CHECK(gex_d3d11_mesh_create(device->device, &geom, &mesh) ==
+                  GEX_D3D11_MESH_OK);
+            CHECK(gex_d3d11_pipeline_set_textures(&pipeline, &set) ==
+                  GEX_D3D11_PIPELINE_OK);
+            CHECK(gex_d3d11_pipeline_set_target(&pipeline, target.rtv, 256, 192,
+                                                GEX_D3D11_REFERENCE_WIDTH,
+                                                GEX_D3D11_REFERENCE_HEIGHT) ==
+                  GEX_D3D11_PIPELINE_OK);
+            clear_target(device->context, target.rtv, clear_color);
+            CHECK(gex_d3d11_pipeline_draw(&pipeline, &mesh) ==
+                  GEX_D3D11_PIPELINE_OK);
+
+            pixels = (uint8_t *)malloc(256u * 192u * 4u);
+            if (pixels != NULL) {
+                CHECK(offscreen_read(device->context, &target, pixels) == 0);
+                /* El triángulo ocupa el cuarto superior izquierdo del
+                 * viewport (escala 0,5 sobre la referencia 512x384): se
+                 * mira un punto interior. */
+                {
+                    size_t at = (16u * 192u + 24u) * 4u;
+                    CHECK(pixels[at + 0] == 136u);
+                    CHECK(pixels[at + 1] == 136u);
+                    CHECK(pixels[at + 2] == 255u);
+                }
+                free(pixels);
+            }
+            gex_emit_output_free(&emit);
+        }
+        gex_d3d11_mesh_destroy(&mesh);
+        gex_d3d11_pipeline_shutdown(&pipeline);
+        offscreen_destroy(&target);
+    }
+
+    gex_d3d11_texture_set_destroy(&set);
+    CHECK(set.initialized == 0);
+    gex_d3d11_texture_set_destroy(&set);
+    gex_vfx_texture_bank_free(&bank);
+    remove(vfx_path);
+}
+
 int main(void)
 {
     gex_d3d11_device device = GEX_D3D11_DEVICE_INITIALIZER;
@@ -801,6 +1004,7 @@ int main(void)
     test_invalid_states(&device);
     test_no_partial_resources(&device);
     test_draw_cube(&device);
+    test_texture_set(&device);
 
     gex_d3d11_device_shutdown(&device);
 

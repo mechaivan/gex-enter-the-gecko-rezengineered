@@ -124,21 +124,32 @@ concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
 > dimensiones y la paleta completa NO están demostrados** y por eso no se
 > implementan decodificadores. Herramientas: `llvm-objdump` y
 > `tools/gexmap/pe.mjs` (IAT); sin Ghidra niREA.
-> **Módulo 4B (2026-11-11) y auditoría correctiva del mismo día:** el registro
-> VFX es un **`GrTexInfo` de Glide 2.x** (`smallLod`, `largeLod`,
-> `aspectRatio`, `format`, `data`): el `GrTexInfo` que el juego construye para
-> la fuente en `0x0065BFA0` (`0x00432AB7..0x00432AE2`) tiene exactamente esa
-> disposición y el cargador de `.VFX` (`0x00461C32`) rellena `+0x10` con
-> `registro+0x8C`. Los identificadores de `+0x0C` son los de la enumeración
-> `GrTextureFormat_t` de Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`,
-> 11 = `GR_TEXFMT_ARGB_1555`, 12 = `GR_TEXFMT_ARGB_4444`**. El bloque de 112 B
-> de `+0x14` es una **`GuNccTable`** (no una paleta: la paleta son 1 024 B y el
-> `type = 0` de `grTexDownloadTable` en `0x0046614A` es
+> **Módulo 4B (2026-11-11, búsqueda del formato de píxel) y auditoría
+> correctiva:** el registro VFX es un **`GrTexInfo` de Glide 2.x**
+> (`smallLod`, `largeLod`, `aspectRatio`, `format`, `data`): el `GrTexInfo` de
+> la fuente que el juego construye en `0x0065BFA0` (`0x00432AB7..0x00432AE2`)
+> tiene la misma disposición y el cargador de `.VFX` (`0x00461C32`) rellena
+> `+0x10` con `registro+0x8C`. Los identificadores de `+0x0C` son los de la
+> enumeración `GrTextureFormat_t` de Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`,
+> 11 = `GR_TEXFMT_ARGB_1555`, 12 = `GR_TEXFMT_ARGB_4444`**. El bloque de
+> 112 B de `+0x14` es una **`GuNccTable`** (no una paleta: la paleta son
+> 1 024 B y el `type = 0` de `grTexDownloadTable` en `0x0046614A` es
 > `GR_TEXTABLE_NCC0`), y el juego la **comparte** entre texturas con un
-> `memcpy` de 0x70 B (`0x004732FB`). Las **dimensiones** se derivan del LOD
-> (`256 >> lod`) y del aspecto (`8x1`…`1x8`): el tamaño del bloque coincide en
-> **15 251 de 15 251 registros** de los 37 `.VFX` originales. Detalle:
-> `docs/VFX_TEXTURE_FORMAT.md` §4 y §6.
+> `memcpy` de 0x70 B (`0x004732FB`). Las **dimensiones** salen del LOD
+> (`256 >> lod`) y del aspecto (`8x1`…`1x8`): el tamaño del bloque coincide
+> con el previsto en **15 251 de 15 251 registros** de los 37 `.VFX`.
+>
+> **Módulo 4C (2026-11-11):** el manejador 3D del original (`0x00465E5A`,
+> opcode `0x34`) calcula la coordenada de textura como **`byte / 16.0f`**
+> (`0x0046619D`), con un divisor constante: el byte de UV del `.DFX` está en
+> un espacio independiente de la resolución de la textura. El ejecutable
+> **no importa** `grTexFilterMode`, `grTexClampMode` ni `grTexMipMapMode`, así
+> que usa los valores por defecto de Glide 2.x (lineal, WRAP y sin mipmaps,
+> lo que encaja con `smallLod == largeLod` en los 15 251 registros). El port
+> interpreta el byte como coordenada en **texels** (la textura se repite cada
+> `w x h` texels) y normaliza la UV **dividiendo entre 256**, porque el byte
+> 255 es el último texel y no el borde derecho. Detalle:
+> `docs/VFX_TEXTURE_FORMAT.md` §9 y `docs/D3D11_FIRST_SCENE_PLAN.md` §18.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

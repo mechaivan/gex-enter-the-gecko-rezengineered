@@ -55,11 +55,14 @@ port/
   include/gex/render/null_renderer.h renderer nulo (present sin dibujar)
   include/gex/render/d3d11_device.h  dispositivo D3D11 real (sólo Windows, R-1)
   include/gex/render/d3d11_swapchain.h swapchain DXGI sobre el HWND (sólo Windows, R-2)
+  include/gex/render/d3d11_texture.h atlas de texturas del .VFX (sólo Windows, Módulo 4C)
+  include/gex/vfx_texture.h           banco de texturas decodificadas (C11, Módulo 4C)
   include/gex/app/i4_app.h           núcleo de aplicación (frame + input + present)
   include/gex/platform/clock.h       conversión portable ticks → µs
   include/gex/platform/win32_time.h  reloj QPC (sólo Windows)
   include/gex/platform/win32_window.h ventana, WndProc y mensajes (sólo Windows)
   src/asset/sag.c                    transcripción del parser y del cargador
+  src/asset/vfx_texture.c            banco de texturas RGBA8 del .VFX (C11, Módulo 4C)
   src/audio/adpcm.c                  0x00538285
   src/audio/stream.c                 0x005380B3 + 0x00538731 + buffer secundario
   src/audio/sched.c                  el contrato de los llamantes de 0x005380B3
@@ -70,6 +73,7 @@ port/
   src/render/null_renderer.c         present que contabiliza y no dibuja
   src/render/d3d11_device.c          D3D11CreateDevice + ciclo COM (sólo Windows)
   src/render/d3d11_swapchain.c       DXGI factory/swapchain/backbuffer/resize (sólo Windows)
+  src/render/d3d11_texture.c         atlas 2D + SRV + sampler + tabla (sólo Windows, 4C)
   src/app/i4_app.c                   orquestación portable (Escape, limpieza)
   src/app/i4_main_win32.c            ejecutable I-4 (bucle, espera, estadísticas)
   src/platform/clock.c               aritmética de ticks a microsegundos

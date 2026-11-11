@@ -710,6 +710,112 @@ rechaza cualquier otro, sin dejar recursos vivos.
 
 ---
 
+## 9. El Módulo 4C: de la coordenada de Glide al muestreo de D3D11
+
+### 9.1 Qué calcula el original
+
+El manejador de la ruta 3D (`0x00465E5A`, opcode `0x34`) escribe la
+coordenada de textura del vértice así:
+
+```
+0x46619D: movb 0x10(%ecx),%dl        ; el byte de UV del comando
+0x4661A6: fildl -0x208(%ebp)         ; (float)byte
+0x4661AC: fmuls 0x54c188             ; * 1.0f
+0x4661B2: fdivs 0x54c18c             ; / 16.0f
+0x4661B8: fstps 0x6475a4             ; vertex->tmuvtx[0].sow
+```
+
+El divisor es una **constante** (16.0f): el espacio de coordenadas **no
+depende del tamaño de la textura**, y por tanto el byte de UV del `.DFX` está
+en un espacio independiente de la resolución de la textura.
+
+La otra ruta del juego que usa coordenadas (la de las fuentes 2D, `0x432BE2`)
+usa `* 256.0f / 16.0f`, y la fuente `FONT.3DF` (cabecera `3df v1.1 rgb332 lod
+range: 128 128. aspect ratio: 4 1`, 4 096 bytes de datos) se recorre como una
+rejilla de **16 columnas x 4 filas** de celdas de **8x8 texels**: 16 unidades
+por celda sobre 128 texels ⇒ **1 unidad = 1/2 texel**.
+
+### 9.2 Qué se ha implementado en el port
+
+- El vértice transporta la UV normalizada **dividiendo entre 256** (no 255): el
+  byte 255 es el último texel, no el borde derecho, y con `/255` el último
+  vértice caía en 1.0 y el sampler con WRAP lo devolvía al primer texel
+  (costura en el borde de cada polígono). El cambio es reversible
+  (`round(u * 256)` devuelve el byte original).
+- El **modo de interpretación** se elige al crear el conjunto de texturas:
+  - `GEX_NCC_UV_MODE_TEXEL` (por defecto): el byte es la coordenada en
+    **texels** y la textura se repite cada `w x h` texels.
+  - `GEX_NCC_UV_MODE_NORMALIZED`: el byte es una fracción de la textura
+    (256 bytes = la textura entera).
+- **Por defecto el modo texel**: es el único que mantiene la **densidad de
+  texels constante** entre texturas de distinta resolución (una de 64x64 y
+  otra de 256x256 reparten el mismo número de texels por unidad de mundo), que
+  es lo que necesita un nivel. La lectura normalizada haría que la densidad
+  dependiera de la resolución de cada textura. Las dos lecturas producen
+  imágenes distintas (el 69 % de los píxeles con geometría cambia entre ellas)
+  y se han capturado las dos en ejecución real.
+- **Límite conocido:** el factor exacto de zoom (cuántos texels por byte de
+  UV) **no se ha podido cerrar** con evidencia estática: depende de la escala
+  de la cámara real del juego, que sigue sin validarse dinámicamente (S-2). El
+  período de repetición (cada `w x h` texels) sí es el mismo en las dos
+  lecturas.
+
+### 9.3 Los modos de filtrado y direccionamiento del original
+
+El ejecutable **no importa** `grTexFilterMode`, `grTexClampMode` ni
+`grTexMipMapMode`: usa los valores por defecto de Glide 2.x, que son
+
+- filtrado **lineal** (bilineal),
+- direccionamiento **WRAP** (la textura se repite),
+- **mipmapping desactivado** (solo el nivel `largeLod`), lo que encaja con que
+  los 15 251 registros medidos tengan `smallLod == largeLod`.
+
+El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
+
+### 9.4 La estrategia de recursos
+
+El índice de textura es **por polígono** y el nivel usa varias texturas de
+**dimensiones distintas**, así que hace falta un recurso único del que el
+shader elija:
+
+- **Descartado: varias llamadas de dibujo** (una por textura): el port dibuja
+  en el orden de emisión (algoritmo del painter, sin *depth buffer*) y
+  reordenar las primitivas cambiaría el resultado visual.
+- **Descartado en la práctica: texture array**: es la opción más directa, pero
+  en el equipo de desarrollo la creación de un array 2D con datos iniciales
+  falla con `E_INVALIDARG` (hardware y WARP) y llega a colgar el driver.
+- **Elegido: un atlas**: una sola textura 2D con todas las texturas del nivel,
+  cada una con **un texel de borde replicado** para que el filtrado bilineal no
+  mezcle una textura con la vecina. El shader calcula la posición del texel
+  dentro de la textura y la traduce a la del atlas.
+
+Las imágenes originales se conservan **intactas y con sus dimensiones** (en
+`gex_vfx_texture`); el atlas es solo la empaquetación para la GPU. El índice de
+14 bits del `.VFX` no es el número de textura del atlas: el shader lo busca en
+una **tabla constante** (índice → tamaño y posición).
+
+### 9.5 Composición y niebla
+
+El color por vértice se conserva y se **modula** con el texel (`textura *
+color`, alfa incluido), como el combinador de color de Glide. La **niebla**
+sigue viajando dentro del color por vértice (así lo emite el módulo 2), pero el
+original la aplica **después** de la textura: aquí se aplica antes. Es una
+diferencia conocida y pendiente de corregir (habría que transportar el factor
+de niebla por vértice).
+
+### 9.6 Verificación
+
+- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+  ASan/UBSan), incluido el banco de texturas portable.
+- `port/tests/test_d3d11_pipeline.c`: **324 comprobaciones, 0 fallos** (WARP),
+  incluida una prueba de muestreo con un `.VFX` sintético de 64x64 en
+  `ARGB_4444`: la UV en el byte 32 debe pintar el texel 8 (R = 136, G = 136,
+  B = 255).
+- **Ejecución real** (GPU hardware, ventana Win32, 960x540): el nivel de
+  AZTEC16 sale **texturizado**; la captura de la ventana tiene 3 101 colores
+  distintos y el contenido de la textura se reconoce en el panel con marco de
+  la pared.
+
 ## 8. Limitaciones y siguiente paso
 
 1. **El Módulo 4C ya no está bloqueado por los datos**: hay decodificadores CPU

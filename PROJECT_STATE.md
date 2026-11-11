@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-11 (Módulo 4B: formato de píxel y decodificadores
+**Last updated:** 2026-11-11 (Módulo 4C: texturas del `.VFX` en D3D11)
 CPU de las texturas .VFX)
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
@@ -161,6 +161,33 @@ CPU de las texturas .VFX)
   en `port/src/asset/vfx_decode.c`. `test_vfx`: **2 968 comprobaciones, 0
   fallos** (`-O0`, `-O2` y ASan/UBSan). Detalle en
   [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §4 y §6.
+- **Módulo 4C (2026-11-11): las texturas del `.VFX` en D3D11.** El nivel
+  deja de verse como una maqueta de color plano: el `.VFX` del nivel se carga,
+  sus texturas se decodifican a RGBA8 (portable, `gex/vfx_texture.h`) y se
+  suben a la GPU en un **atlas** 2D con un texel de borde replicado por
+  textura (`gex/render/d3d11_texture.h`, Windows-only), con un sampler
+  **lineal + WRAP** (los valores por defecto de Glide 2.x, que el juego nunca
+  cambia) y **sin mipmaps** (los 15 251 registros medidos tienen un solo
+  nivel). El vertex shader transporta la UV y el índice de textura
+  (`nointerpolation uint`, por polígono) y el pixel shader muestrea el atlas y
+  modula el color por vértice con el texel. La **UV se normaliza dividiendo
+  entre 256** (no 255): el byte 255 del `.DFX` es el último texel, y con 255
+  el sampler WRAP devolvía el primer texel (costura en el borde de cada
+  polígono). La coordenada del original es `byte / 16.0f` (`0x0046619D`), con
+  un divisor constante: el byte está en un espacio independiente de la
+  resolución, y el port lo interpreta como coordenada en **texels** (la textura
+  se repite cada `w x h` texels), que es lo que mantiene la densidad de texels
+  constante entre texturas de distinta resolución. **Verificado en ejecución
+  real** (GPU hardware, ventana Win32, 960×540): el nivel de AZTEC16 sale
+  texturizado (3 101 colores distintos en la captura de la ventana, frente a
+  la maqueta plana anterior). `test_vfx`: **2 968 comprobaciones, 0 fallos**
+  (`-O0`, `-O2` y ASan/UBSan); `test_d3d11_pipeline`: **324** (WARP); suite
+  completa **16/16**. **Límites:** el factor de zoom de la UV depende de la
+  cámara real del juego (S-2 sigue abierta), la niebla se aplica antes de la
+  textura (el original la aplica después) y el blending alfa se aplica a todo
+  el dibujo (el original, por polígono). Detalle en
+  [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §9 y
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §18.
 - **Pendiente de integración:** la creación de recursos D3D11 de textura
   (Módulo 4C, con el decodificador de píxel ya disponible), materiales,
   *depth buffer*, blending

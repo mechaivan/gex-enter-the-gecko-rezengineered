@@ -46,6 +46,7 @@
 
 #include "gex/render/d3d11_device.h"
 #include "gex/render/d3d11_mesh.h"
+#include "gex/render/d3d11_texture.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,6 +77,8 @@ typedef struct gex_d3d11_pipeline {
     ID3D11BlendState *blend;
     ID3D11DepthStencilState *depth_stencil;
     ID3D11Buffer *constant_buffer;     /* viewport + resolución de referencia */
+    ID3D11Buffer *tex_constants;       /* tabla de texturas (b1), vacía si no hay */
+    const gex_d3d11_texture_set *textures; /* prestado (Módulo 4C) */
     HMODULE       compiler_module;     /* d3dcompiler_47.dll, si se cargó */
     HRESULT       last_hresult;        /* S_OK o el último fallo */
     char          last_error[192];     /* texto del error de compilación */
@@ -89,7 +92,8 @@ typedef struct gex_d3d11_pipeline {
         .device = NULL, .context = NULL, .vertex_shader = NULL,            \
         .pixel_shader = NULL, .input_layout = NULL, .rasterizer = NULL,    \
         .blend = NULL, .depth_stencil = NULL, .constant_buffer = NULL,     \
-        .compiler_module = NULL, .last_hresult = S_OK, .last_error = {0},   \
+        .tex_constants = NULL, .textures = NULL, .compiler_module = NULL,   \
+        .last_hresult = S_OK, .last_error = {0},                           \
         .initialized = 0, .draw_calls = 0, .triangles_drawn = 0             \
     }
 
@@ -138,6 +142,17 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
     ID3D11RenderTargetView *rtv,
     UINT width, UINT height,
     UINT ref_width, UINT ref_height);
+
+/*
+ * Fija el conjunto de texturas del Módulo 4C (prestado: el pipeline no lo
+ * libera). Con `set == NULL` el pixel shader no encuentra ninguna entrada en
+ * la tabla y dibuja el color por vértice, que es el camino del cubo de
+ * prueba.
+ *
+ *   pipeline no inicializado -> BAD_STATE
+ */
+gex_d3d11_pipeline_status gex_d3d11_pipeline_set_textures(
+    gex_d3d11_pipeline *pipeline, const gex_d3d11_texture_set *set);
 
 /*
  * Dibuja una malla con DrawIndexed, en el orden de su index buffer (que es

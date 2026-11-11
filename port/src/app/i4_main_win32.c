@@ -27,8 +27,10 @@
 #include "gex/render/d3d11_renderer.h"
 #include "gex/render/d3d11_pipeline.h"
 #include "gex/render/d3d11_mesh.h"
+#include "gex/render/d3d11_texture.h"
 #include "gex/geometry_shapes.h"
 #include "gex/scene_level.h"
+#include "gex/vfx_texture.h"
 #endif
 
 #include <mmsystem.h> /* timeBeginPeriod/timeEndPeriod (winmm) */
@@ -57,6 +59,42 @@ static void usage(const char *exe)
            "original camera)\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
+
+#if defined(_WIN32)
+/*
+ * Deduce el `.VFX` de un `.DFX`: mismo directorio y mismo nombre base con
+ * la extensión `.vfx` (es la convención del juego: `map7.dfx` y
+ * `map7.vfx`). Devuelve 0 si no cabe en `dst`.
+ */
+static int vfx_path_for(const char *dfx_path, char *dst, size_t dst_size)
+{
+    size_t len;
+    size_t i;
+
+    if (dfx_path == NULL || dst == NULL || dst_size == 0u) {
+        return -1;
+    }
+    len = strlen(dfx_path);
+    if (len + 1u > dst_size) {
+        return -1;
+    }
+    memcpy(dst, dfx_path, len + 1u);
+    i = len;
+    while (i > 0u && dst[i - 1u] != '.' && dst[i - 1u] != '\\' &&
+           dst[i - 1u] != '/') {
+        i--;
+    }
+    if (i == 0u || dst[i - 1u] != '.') {
+        return -1;
+    }
+    if (len - i + 4u + 1u > dst_size) {
+        return -1;
+    }
+    memcpy(dst + i, "vfx", 3);
+    dst[i + 3] = '\0';
+    return 0;
+}
+#endif
 
 static int parse_u64(const char *text, uint64_t *out)
 {
@@ -238,6 +276,9 @@ int main(int argc, char **argv)
     gex_emit_output cube_emit;
     /* Módulo 5B: nivel real (opcional). */
     gex_scene_level scene;
+    /* Módulo 4C: texturas del `.VFX` del nivel. */
+    gex_vfx_texture_bank texture_bank;
+    gex_d3d11_texture_set d3d11_textures = GEX_D3D11_TEXTURE_SET_INITIALIZER;
 #endif
 
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -245,6 +286,7 @@ int main(int argc, char **argv)
 #if defined(_WIN32)
     memset(&cube_emit, 0, sizeof(cube_emit));
     memset(&scene, 0, sizeof(scene));
+    memset(&texture_bank, 0, sizeof(texture_bank));
 #endif
 
     parsed = parse_options(argc, argv, &options);
@@ -370,6 +412,7 @@ int main(int argc, char **argv)
         gex_d3d11_mesh_status mesh_status = GEX_D3D11_MESH_BAD_ARGUMENT;
         gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
         gex_scene_status scene_status = GEX_SCENE_OK;
+        gex_d3d11_texture_status texture_status = GEX_D3D11_TEXTURE_BAD_ARGUMENT;
         int shape_status = -1; /* -1 = no se intentó */
 
         if (pipeline_status == GEX_D3D11_PIPELINE_OK) {
@@ -403,6 +446,69 @@ int main(int argc, char **argv)
                             GEX_D3D11_REFERENCE_HEIGHT);
                     }
                 }
+            }
+        }
+
+        /* Módulo 4C: texturas del `.VFX` del nivel. Solo cuando hay un nivel
+         * real: el cubo de prueba no lleva texturas (y su camino sigue
+         * intacto). */
+        if (options.level_path != NULL && scene_status == GEX_SCENE_OK) {
+            char vfx_path[512];
+            uint32_t *used = NULL;
+            uint32_t used_count = 0;
+            size_t vi;
+
+            if (vfx_path_for(options.level_path, vfx_path,
+                             sizeof(vfx_path)) == 0) {
+                /* Índices de textura que usa de verdad la geometría. */
+                used_count = 0;
+                used = (uint32_t *)calloc(scene.geometry.vertex_count + 1u,
+                                         sizeof(uint32_t));
+                if (used != NULL) {
+                    for (vi = 0; vi < scene.geometry.vertex_count; vi++) {
+                        uint32_t idx = scene.geometry.vertices[vi].texture &
+                                       0x3FFFu;
+                        uint32_t k;
+                        int seen = 0;
+                        for (k = 0; k < used_count; k++) {
+                            if (used[k] == idx) {
+                                seen = 1;
+                                break;
+                            }
+                        }
+                        if (!seen && used_count <
+                            scene.geometry.vertex_count) {
+                            used[used_count++] = idx;
+                        }
+                    }
+                }
+                if (gex_vfx_texture_bank_load(&texture_bank, vfx_path, used,
+                                              used_count) == GEX_VFX_OK) {
+                    texture_status = gex_d3d11_texture_set_create(
+                        &d3d11_textures, &d3d11_dev, &texture_bank,
+                        GEX_NCC_UV_MODE_TEXEL);
+                    if (texture_status == GEX_D3D11_TEXTURE_OK) {
+                        gex_d3d11_pipeline_set_textures(&d3d11_pipeline,
+                                                        &d3d11_textures);
+                        printf("textures: %u decodificadas de '%s' "
+                               "(atlas %u x %u), %u fallidas\n",
+                               texture_bank.decoded_count, vfx_path,
+                               d3d11_textures.atlas_width,
+                               d3d11_textures.atlas_height,
+                               texture_bank.failed_count);
+                    } else {
+                        fprintf(stderr, "error: textures '%s': %s\n",
+                                vfx_path,
+                                gex_d3d11_texture_status_name(texture_status));
+                    }
+                } else {
+                    fprintf(stderr, "error: no se pudo cargar el VFX '%s'\n",
+                            vfx_path);
+                }
+                free(used);
+            } else {
+                fprintf(stderr, "error: no se pudo deducir el VFX de '%s'\n",
+                        options.level_path);
             }
         }
 
@@ -558,6 +664,9 @@ int main(int argc, char **argv)
     /* 2. La malla y el pipeline: ya nadie los usa. */
     gex_d3d11_mesh_destroy(&d3d11_mesh);
     gex_d3d11_pipeline_shutdown(&d3d11_pipeline);
+    /* 2b. Las texturas del nivel (Módulo 4C): el pipeline ya está apagado. */
+    gex_d3d11_texture_set_destroy(&d3d11_textures);
+    gex_vfx_texture_bank_free(&texture_bank);
     /* 3. La geometría en memoria del host: el cubo y el nivel cargado. */
     gex_emit_output_free(&cube_emit);
     gex_scene_level_free(&scene);

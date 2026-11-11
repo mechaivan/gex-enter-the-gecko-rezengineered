@@ -2,6 +2,95 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 4C: las texturas del `.VFX` en Direct3D 11
+
+El nivel real de AZTEC16 deja de mostrarse como una maqueta de color plano:
+sus texturas originales (`.VFX`) se decodifican y se muestrean en D3D11.
+Documentación: `docs/D3D11_FIRST_SCENE_PLAN.md` §18 y
+`docs/VFX_TEXTURE_FORMAT.md` §9.
+
+**Lo implementado**
+
+- **Banco de texturas portable** (`port/include/gex/vfx_texture.h`,
+  `port/src/asset/vfx_texture.c`): carga el `.VFX` del nivel y decodifica a
+  RGBA8 (alfa recto) las entradas que la geometría usa de verdad, indexadas
+  por el índice de textura de 14 bits. Una entrada con un formato sin
+  decodificador **no** se sustituye por nada inventado: sencillamente no hay
+  textura para ese índice y el shader dibuja ese polígono con el color por
+  vértice.
+- **Atlas D3D11** (`port/include/gex/render/d3d11_texture.h`,
+  `port/src/render/d3d11_texture.c`): una textura 2D con todas las texturas
+  del nivel dentro, cada una con **un texel de borde replicado** para que el
+  filtrado bilineal no mezcle una textura con la vecina; su
+  `ID3D11ShaderResourceView`, un sampler **lineal + WRAP** y el constant
+  buffer con la tabla de búsqueda (índice del `.VFX` → tamaño y posición).
+- **Shader**: el vertex shader pasa la UV y el índice de textura
+  (`nointerpolation uint`, atributo por polígono) y el pixel shader muestrea
+  el atlas y modula el color por vértice con el texel (`textura * color`, alfa
+  incluido). El blending alfa se activa como en el original.
+- **Aplicación** (`port/src/app/i4_main_win32.c`): con `--level` se deduce el
+  `.VFX` del `.DFX`, se carga el banco, se crea el atlas y se enlaza al
+  pipeline. **La ruta del cubo de prueba no cambia.**
+- **Geometría**: la UV del vértice se normaliza **dividiendo entre 256** (no
+  255): el byte 255 es el último texel, no el borde derecho, y con `/255` el
+  sampler con WRAP devolvía el primer texel (costura en el borde de cada
+  polígono). Sigue siendo reversible (`round(u * 256)` = byte original).
+
+**Decisiones y su porqué**
+
+- **La coordenada del original es `byte / 16.0f`** (`0x0046619D`, en el
+  manejador 3D `0x00465E5A`), con un divisor **constante**: el byte de UV vive
+  en un espacio independiente de la resolución de la textura. El port lo
+  interpreta por defecto como coordenada en **texels** (la textura se repite
+  cada `w x h` texels), porque es la única lectura que mantiene la **densidad
+  de texels constante** entre texturas de distinta resolución. La lectura
+  "normalizada" (el byte = fracción de la textura) también está implementada
+  (`GEX_NCC_UV_MODE_NORMALIZED`) y se puede cambiar sin tocar la geometría;
+  las dos producen imágenes distintas (el 69 % de los píxeles con geometría
+  cambia) y se han capturado las dos en ejecución real.
+- **Texture array descartada**: es la opción más directa (una rebanada por
+  textura), pero en este equipo la creación de un array 2D con datos
+  iniciales falla con `E_INVALIDARG` (hardware y WARP) y llega a colgar el
+  driver. Es un límite del entorno, no del diseño.
+- **Varias llamadas de dibujo descartadas**: romperían el orden del painter
+  (el port dibuja en el orden de emisión, sin *depth buffer*).
+- **Modos de filtrado del original**: el ejecutable no importa
+  `grTexFilterMode`, `grTexClampMode` ni `grTexMipMapMode`, así que usa los
+  valores por defecto de Glide 2.x (lineal, WRAP y sin mipmaps, lo que encaja
+  con que los 15 251 registros medidos tengan `smallLod == largeLod`).
+
+**Pruebas**
+
+- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+  ASan/UBSan), incluido el banco de texturas (índices válidos e inválidos,
+  entradas no decodificables, contraste con los originales).
+- `port/tests/test_d3d11_pipeline.c`: **324 comprobaciones, 0 fallos** (WARP):
+  creación y destrucción del atlas, argumentos inválidos, estado "ya
+  inicializado" y una **prueba de muestreo** con un `.VFX` sintético de 64x64
+  en `ARGB_4444` (la UV en el byte 32 debe pintar el texel 8: R = 136,
+  G = 136, B = 255).
+- Suite completa: **16/16 sin regresiones**.
+
+**Ejecución real (GPU hardware, ventana Win32)**
+
+`gexloop.exe --level ...\AZTEC16.DFX` (960x540, 120 presents, 0 errores de
+frame, salida limpia): `textures: 2 decodificadas de '...AZTEC16.vfx' (atlas
+132 x 34), 0 fallidas`. La captura de la ventana (`PrintWindow`) confirma que
+la geometría sale **texturizada**: 3 101 colores distintos en la imagen (antes
+era una maqueta de color plano) y el contenido de la textura se reconoce en el
+panel con marco de la pared.
+
+**Pendiente / límites**
+
+1. La **cámara real del juego (S-2)** sigue sin validarse: el encuadre es el
+   diagnóstico del port y el factor de zoom de la UV depende de esa cámara.
+2. La **niebla** se aplica antes de la textura (el original la aplica después,
+   en el combinador de color de Glide).
+3. El **blending alfa** se aplica a todo el dibujo; el original lo activa por
+   polígono según el formato de la textura.
+4. El atlas tiene límites (64 texturas, 4 096 px por fila).
+
+
 ## 2026-11-11 - 0.0.0 - Auditoría correctiva del Módulo 4B: `GuNccTable`, `GR_TEXFMT` y decodificadores de píxel
 
 Corrección de las conclusiones del Módulo 4B (`b71122a`) tras contrastarlas
