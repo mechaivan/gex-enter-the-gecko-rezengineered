@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-11 (auditoría del Módulo 5A y primera ejecución real)
+**Last updated:** 2026-11-11 (Módulo 5B: geometría real de AZTEC16.DFX)
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 
@@ -96,11 +96,32 @@
     limpieza, con la caja del cubo centrada y los tres colores de sus caras
     visibles ((206,59,206), (91,26,26), (147,147,42)). La captura es una
     evidencia local y **no se publica en el repositorio**.
-- **Pendiente de integración:** cargador de texturas VFX (Módulo 4), materiales,
-  *depth buffer*, blending del original, carga del nivel real en el bucle de
-  frames y gestión de `WM_SIZE`. El primer escenario original todavía no está
-  renderizado. Sigue pendiente la validación dinámica de S-2 contra el
-  ejecutable original. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+- **Módulo 5B (2026-11-11): primera geometría real de AZTEC16.DFX en la
+  ventana.** Nuevo módulo portable
+  [`port/include/gex/scene_level.h`](port/include/gex/scene_level.h) +
+  [`port/src/scene/scene_level.c`](port/src/scene/scene_level.c) que encadena
+  los módulos que ya existían (`gex_dfx_load` → `gex_dfx_load_level` →
+  `gex_bsp_walk` → `gex_level_emit` → `gex_geometry_build`) sin duplicar
+  ninguno. La aplicación acepta `--level <ruta>`: con ella dibuja la geometría
+  real del nivel; sin ella, el cubo de prueba sigue disponible. Si la carga
+  falla, se informa del error y **no se dibuja geometría inventada**: la
+  aplicación sigue limpiando y presentando y cierra con normalidad.
+  Estadísticas de AZTEC16: 16 082 entradas, 3 882 vértices y 9 609 polígonos en
+  el descriptor, 815 hojas del BSP, **2 854 triángulos emitidos** (1 427
+  pasadas de niebla), 0 descartados por profundidad, **4 914 vértices y 8 562
+  índices** de geometría. La vista es **diagnóstica** (matriz de emisión
+  sintética, niebla generada con 0x461895 y encuadre automático), **no la
+  cámara original**: la validación dinámica de la cámara y del recorrido BSP
+  contra el ejecutable sigue pendiente. Pruebas: `test_scene_level`
+  **8 627 comprobaciones, 0 fallos** (portable, `-O0`/`-O2`/ASan+UBSan) y
+  `test_level_emit` sube a **38 855**. Detalle en
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §16.
+- **Pendiente de integración:** texturas VFX (Módulo 4), materiales, *depth
+  buffer*, blending del original, la cámara real del juego, el *resize* de la
+  ventana y la animación. El primer escenario original todavía no está
+  renderizado con texturas ni con la cámara real. Sigue pendiente la validación
+  dinámica de S-2 contra el ejecutable original. `PROJECT_STATUS.svg` no
+  cambia (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
 

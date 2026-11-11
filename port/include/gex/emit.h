@@ -73,6 +73,21 @@ typedef struct {
  * Sin LUT: clamp(b_q12 + a_q12 / z, 0, 0x1000), con división truncada. */
 int gex_emit_fog_factor(const gex_emit_fog *fog, int32_t z);
 
+/*
+ * Generador de la LUT de niebla (0x461895): rellena los 3464 índices de
+ * [0x64FEA8] a partir de las dos profundidades de niebla y deja la
+ * estructura lista para `gex_level_emit` (umbral, split y color).
+ *
+ *   B = (total_z << 12) idiv (total_z - none_z)
+ *   A = -((total_z * none_z) idiv (total_z - none_z))
+ *   lut[i >> 2] = clamp(B + ((A << 12) idiv i), 0, 0x1000), i en pasos de 4
+ *
+ * Es el mismo generador que usaba la prueba de emisión, ahora público para
+ * que la aplicación y las pruebas compartan una sola implementación.
+ */
+void gex_emit_fog_generate(gex_emit_fog *fog, int16_t total_z,
+                           int16_t none_z, const uint8_t fog_rgb[3]);
+
 /* ========================================================================
  * Triángulo normalizado de salida.
  * ======================================================================== */

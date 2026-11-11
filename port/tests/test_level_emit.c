@@ -42,33 +42,12 @@ static gex_emit_matrix mat_identity(void) {
 }
 
 static gex_emit_fog fog_with_lut(int16_t total_z, int16_t none_z) {
-    /* Reproduce el generador 0x461895: B=(x<<12)idiv(x-y),
-     * A=-((x*y)idiv(x-y)), clamp, tabla[i>>2]=clamp(B+(A<<12)idiv i). */
+    /* Generador 0x461895, ahora público en el propio módulo de emisión
+     * (gex_emit_fog_generate): una sola implementación para la prueba, la
+     * aplicación y cualquier otro consumidor. */
     gex_emit_fog f;
-    memset(&f, 0, sizeof(f));
-    int32_t x = total_z, y = none_z;
-    int32_t den = x - y;
-    int32_t B = (x << 12) / den;
-    int32_t A = -((x * y) / den);
-    int32_t lim = 32767; /* [0x551644]->+8->+0x40 * 0x7FFF sar 8: valor seguro */
-    if (A > lim) A = lim;
-    if (A < -lim) A = -lim;
-    f.lut[0] = 0;
-    for (uint32_t i = 1; i < 0x3620u; i += 4) {
-        /* reproducir shl de x86 sobre A con signo sin UB de C */
-        int32_t ash = (int32_t)((uint32_t)A << 12);
-        int32_t v = B + (ash / (int32_t)i);
-        if (v > 0x1000) v = 0x1000;
-        if (v < 0) v = 0;
-        f.lut[i >> 2] = (int16_t)v;
-    }
-    f.have_lut = 1;
-    f.fog_total_z = total_z;
-    f.fog_none_z = none_z;
-    int32_t ash = (int32_t)((uint32_t)A << 12);
-    f.threshold = (-ash) / B;       /* 0x65BF80 */
-    f.split_z = f.threshold;        /* 0x65BF04, +0x50 != -1 */
-    f.fog_rgb[0] = 40; f.fog_rgb[1] = 60; f.fog_rgb[2] = 90;
+    static const uint8_t rgb[3] = {40, 60, 90};
+    gex_emit_fog_generate(&f, total_z, none_z, rgb);
     return f;
 }
 
@@ -403,6 +382,43 @@ static void test_fog_analytic(void) {
     CHECK(gex_emit_fog_factor(&f, 300) == 3);
     f.a_q12 = -1000;
     CHECK(gex_emit_fog_factor(&f, 300) == 0);
+}
+
+/* El generador público 0x461895 y la coherencia entre la ruta LUT y la
+ * ruta analítica (0x46A150). */
+static void test_fog_generator(void) {
+    gex_emit_fog f, g;
+    static const uint8_t rgb[3] = {40, 60, 90};
+
+    gex_emit_fog_generate(&f, 5000, 3000, rgb);
+    CHECK(f.have_lut == 1);
+    CHECK(f.fog_total_z == 5000);
+    CHECK(f.fog_none_z == 3000);
+    CHECK(f.threshold == 3000);
+    CHECK(f.split_z == f.threshold);
+    CHECK(f.b_q12 > 0);
+    CHECK(f.a_q12 < 0);
+    CHECK(f.fog_rgb[0] == 40 && f.fog_rgb[1] == 60 && f.fog_rgb[2] == 90);
+    CHECK(f.lut[0] == 0);
+
+    /* Sin niebla por debajo de none_z y niebla total desde total_z. */
+    CHECK(gex_emit_fog_factor(&f, 2000) == 0);
+    CHECK(gex_emit_fog_factor(&f, 5000) == 0x1000);
+
+    /* La ruta analítica con los mismos A y B da el mismo factor que la LUT
+     * (la tabla usa el indice z>>2 con i = 4k+1, asi que hay una diferencia
+     * minima de redondeo). */
+    memset(&g, 0, sizeof(g));
+    g.have_lut = 0;
+    g.a_q12 = f.a_q12;
+    g.b_q12 = f.b_q12;
+    for (int z = 500; z <= 9000; z += 250) {
+        int32_t lut = gex_emit_fog_factor(&f, z);
+        int32_t ana = gex_emit_fog_factor(&g, z);
+        int32_t diff = lut - ana;
+        if (diff < 0) diff = -diff;
+        CHECK(diff <= 8);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1028,6 +1044,7 @@ int main(void) {
     test_gate();
     test_fog_lut();
     test_fog_analytic();
+    test_fog_generator();
     test_mix_color();
     test_emitter_selection();
     test_subdivide();

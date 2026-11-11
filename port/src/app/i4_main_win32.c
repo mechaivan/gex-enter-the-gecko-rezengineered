@@ -28,6 +28,7 @@
 #include "gex/render/d3d11_pipeline.h"
 #include "gex/render/d3d11_mesh.h"
 #include "gex/geometry_shapes.h"
+#include "gex/scene_level.h"
 #endif
 
 #include <mmsystem.h> /* timeBeginPeriod/timeEndPeriod (winmm) */
@@ -44,13 +45,16 @@
 typedef struct i4_options {
     uint64_t frame_limit; /* 0 = unlimited */
     uint64_t second_limit; /* 0 = unlimited */
+    const char *level_path; /* .DFX to load, or NULL for the test cube */
 } i4_options;
 
 static void usage(const char *exe)
 {
-    printf("usage: %s [--frames N] [--seconds N]\n", exe);
+    printf("usage: %s [--frames N] [--seconds N] [--level PATH]\n", exe);
     printf("  --frames N   exit after N presented frames\n");
     printf("  --seconds N  exit after N seconds\n");
+    printf("  --level PATH load a .DFX level (diagnostic view, not the "
+           "original camera)\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -76,6 +80,7 @@ static int parse_options(int argc, char **argv, i4_options *options)
 
     options->frame_limit = 0;
     options->second_limit = 0;
+    options->level_path = NULL;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -88,6 +93,12 @@ static int parse_options(int argc, char **argv, i4_options *options)
         } else if (strcmp(argv[i], "--seconds") == 0 && i + 1 < argc) {
             if (!parse_u64(argv[++i], &options->second_limit)) {
                 fprintf(stderr, "invalid --seconds value\n");
+                return 0;
+            }
+        } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
+            options->level_path = argv[++i];
+            if (options->level_path[0] == '\0') {
+                fprintf(stderr, "invalid --level path\n");
                 return 0;
             }
         } else {
@@ -225,12 +236,15 @@ int main(int argc, char **argv)
     gex_d3d11_pipeline d3d11_pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
     gex_d3d11_mesh d3d11_mesh = GEX_D3D11_MESH_INITIALIZER;
     gex_emit_output cube_emit;
+    /* Módulo 5B: nivel real (opcional). */
+    gex_scene_level scene;
 #endif
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
 #if defined(_WIN32)
     memset(&cube_emit, 0, sizeof(cube_emit));
+    memset(&scene, 0, sizeof(scene));
 #endif
 
     parsed = parse_options(argc, argv, &options);
@@ -344,42 +358,84 @@ int main(int argc, char **argv)
            (unsigned)d3d11_sw.desc.BufferCount);
     printf("clear color: RGB(%.1f, %.1f, %.1f)\n", clear_color[0], clear_color[1], clear_color[2]);
 
-    /* Módulo 5A: pipeline de dibujo y primera geometría 3D visible.
-     * Si algo falla (por ejemplo, que no haya d3dcompiler_47.dll), la
-     * aplicación sigue funcionando: el renderer solo limpia y presenta. Cada
-     * etapa se registra por separado para poder diagnosticar cuál falló. */
+    /* Módulo 5A: pipeline de dibujo y geometría visible. Módulo 5B: con
+     * `--level` se dibuja la geometría real de un nivel .DFX; sin él, el
+     * cubo de prueba. Si algo falla (por ejemplo, que no haya
+     * d3dcompiler_47.dll), la aplicación sigue funcionando: el renderer solo
+     * limpia y presenta. Cada etapa se registra por separado para poder
+     * diagnosticar cuál falló. */
     {
         gex_d3d11_pipeline_status pipeline_status =
             gex_d3d11_pipeline_init(&d3d11_pipeline, &d3d11_dev);
         gex_d3d11_mesh_status mesh_status = GEX_D3D11_MESH_BAD_ARGUMENT;
         gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
+        gex_scene_status scene_status = GEX_SCENE_OK;
         int shape_status = -1; /* -1 = no se intentó */
 
         if (pipeline_status == GEX_D3D11_PIPELINE_OK) {
-            shape_status = gex_shape_cube(&cube_emit, 0.6f);
-            if (shape_status == 0) {
-                mesh_status = gex_d3d11_mesh_create_from_emit(
-                    d3d11_dev.device, &cube_emit, &d3d11_mesh);
-                if (mesh_status == GEX_D3D11_MESH_OK) {
-                    geometry_status = gex_d3d11_renderer_set_geometry(
-                        &app.renderer.d3d11_renderer, &d3d11_pipeline,
-                        &d3d11_mesh, GEX_D3D11_REFERENCE_WIDTH,
-                        GEX_D3D11_REFERENCE_HEIGHT);
+            if (options.level_path != NULL) {
+                /* Nivel real: .DFX -> descriptor -> BSP -> emisión ->
+                 * geometría -> buffers D3D11. */
+                scene_status = gex_scene_level_load(&scene, options.level_path);
+                if (scene_status == GEX_SCENE_OK) {
+                    mesh_status = gex_d3d11_mesh_create(
+                        d3d11_dev.device, &scene.geometry, &d3d11_mesh);
+                    if (mesh_status == GEX_D3D11_MESH_OK) {
+                        geometry_status = gex_d3d11_renderer_set_geometry(
+                            &app.renderer.d3d11_renderer, &d3d11_pipeline,
+                            &d3d11_mesh, GEX_D3D11_REFERENCE_WIDTH,
+                            GEX_D3D11_REFERENCE_HEIGHT);
+                    }
+                } else {
+                    fprintf(stderr, "error: level '%s': %s\n",
+                            options.level_path,
+                            gex_scene_status_name(scene_status));
+                }
+            } else {
+                shape_status = gex_shape_cube(&cube_emit, 0.6f);
+                if (shape_status == 0) {
+                    mesh_status = gex_d3d11_mesh_create_from_emit(
+                        d3d11_dev.device, &cube_emit, &d3d11_mesh);
+                    if (mesh_status == GEX_D3D11_MESH_OK) {
+                        geometry_status = gex_d3d11_renderer_set_geometry(
+                            &app.renderer.d3d11_renderer, &d3d11_pipeline,
+                            &d3d11_mesh, GEX_D3D11_REFERENCE_WIDTH,
+                            GEX_D3D11_REFERENCE_HEIGHT);
+                    }
                 }
             }
         }
+
         if (geometry_status == GEX_D3D11_RENDERER_OK) {
-            printf("geometry: cube, %u triangles, vertex colors, no textures "
-                   "(%ux%u logical)\n",
-                   (unsigned)GEX_SHAPE_CUBE_TRIANGLES,
-                   (unsigned)GEX_D3D11_REFERENCE_WIDTH,
-                   (unsigned)GEX_D3D11_REFERENCE_HEIGHT);
+            if (options.level_path != NULL) {
+                const gex_scene_stats *s = &scene.stats;
+                printf("geometry: level '%s'\n", options.level_path);
+                printf("  level: entries=%u vertices=%u polygons=%u leaves=%u\n",
+                       s->container_entries, s->descriptor_vertices,
+                       s->descriptor_polygons, s->leaf_count);
+                printf("  emitted: triangles=%zu (fog passes=%zu) "
+                       "discarded by depth=%zu\n",
+                       s->triangles, s->fog_triangles, s->skipped_clipped);
+                printf("  geometry: vertices=%zu indices=%zu\n",
+                       s->vertices, s->indices);
+                printf("  view: DIAGNOSTIC (not the original game camera): "
+                       "scale=0x%X cx=%d cy=%d\n",
+                       (unsigned)s->view_scale, s->view_cx, s->view_cy);
+            } else {
+                printf("geometry: cube, %u triangles, vertex colors, no "
+                       "textures (%ux%u logical)\n",
+                       (unsigned)GEX_SHAPE_CUBE_TRIANGLES,
+                       (unsigned)GEX_D3D11_REFERENCE_WIDTH,
+                       (unsigned)GEX_D3D11_REFERENCE_HEIGHT);
+            }
         } else {
-            printf("geometry: none (pipeline: %s, shape: %s, mesh: %s)\n",
+            printf("geometry: none (pipeline: %s, shape: %s, level: %s, "
+                   "mesh: %s)\n",
                    gex_d3d11_pipeline_status_name(pipeline_status),
                    (shape_status < 0)
                        ? "not attempted"
                        : ((shape_status == 0) ? "ok" : "out of memory"),
+                   gex_scene_status_name(scene_status),
                    gex_d3d11_mesh_status_name(mesh_status));
             if (pipeline_status != GEX_D3D11_PIPELINE_OK &&
                 d3d11_pipeline.last_error[0] != '\0') {
@@ -502,8 +558,9 @@ int main(int argc, char **argv)
     /* 2. La malla y el pipeline: ya nadie los usa. */
     gex_d3d11_mesh_destroy(&d3d11_mesh);
     gex_d3d11_pipeline_shutdown(&d3d11_pipeline);
-    /* 3. La geometría en memoria del host. */
+    /* 3. La geometría en memoria del host: el cubo y el nivel cargado. */
     gex_emit_output_free(&cube_emit);
+    gex_scene_level_free(&scene);
     /* 4. El renderer, la swapchain y el dispositivo. */
     if (gex_i4_app_is_d3d11_enabled(&app)) {
         gex_i4_app_disable_d3d11(&app);

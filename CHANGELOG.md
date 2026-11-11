@@ -2,6 +2,94 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 5B: primera geometría real de AZTEC16.DFX
+
+La aplicación `gexloop.exe` dibuja geometría real del nivel `AZTEC16.DFX` en su
+ventana, con el pipeline D3D11 del Módulo 5A. Reutiliza los módulos que ya
+existían; no hay una arquitectura paralela. Sin texturas, sin materiales y sin
+cambios en el ejecutable original ni en `C:\GEX_REZ` (solo lectura).
+
+Archivos nuevos:
+
+- `port/include/gex/scene_level.h` + `port/src/scene/scene_level.c`: módulo
+  portable que encadena `gex_dfx_load` → `gex_dfx_load_level` → `gex_bsp_walk` →
+  `gex_level_emit` → `gex_geometry_build`, expone estadísticas y una vista
+  diagnóstica, y libera cada bloque según su propio estado aunque la carga
+  falle a mitad.
+- `port/tests/test_scene_level.c`: 8 627 comprobaciones, 0 fallos.
+
+Archivos modificados:
+
+- `port/include/gex/emit.h` + `port/src/emit/emit.c`: el generador de niebla
+  0x461895 pasa a ser público (`gex_emit_fog_generate`), de modo que la
+  aplicación, la escena y la prueba de emisión comparten una sola
+  implementación (antes estaba duplicada en la prueba). El generador además
+  rellena `a_q12` y `b_q12` con la convención documentada, para que la ruta
+  analítica (0x46A150) dé el mismo factor que la LUT.
+- `port/src/app/i4_main_win32.c`: argumento `--level <ruta>`; con él se dibuja
+  el nivel, sin él sigue el cubo de prueba; si la carga falla se informa del
+  error y **no se dibuja geometría inventada**.
+- `port/tests/test_level_emit.c`: usa el generador público y añade la
+  coherencia entre la ruta LUT y la analítica (38 809 → 38 855 comprobaciones).
+- `port/Makefile` y `port/build.ps1`: nuevo test y nuevas fuentes.
+- Documentación: `docs/D3D11_FIRST_SCENE_PLAN.md` §16, `PROJECT_STATE.md`,
+  `ROADMAP.md` (S-5b), este changelog.
+
+La vista diagnóstica (NO es la cámara original): matriz de emisión sintética
+(escala 0,25 en Q12, traslación de profundidad +0x1000, focal 320 del
+original) con niebla generada por 0x461895 (`none_z = 3000`, `total_z = 5000`,
+ruta del emisor lejano) y encuadre automático que recentra la geometría en el
+espacio lógico 512x384. La visibilidad del BSP es «todas las hojas»: la
+prueba de esfera de la cámara original necesita el estado de cámara del juego,
+que el port todavía no tiene. **La validación dinámica de la cámara y del
+recorrido BSP contra el ejecutable sigue pendiente.**
+
+Hallazgos durante la implementación:
+
+1. **La niebla saturaba y la imagen salía de un solo color.** Con los
+   parámetros de niebla de la prueba (100/400) y el rango real de profundidad de
+   la vista (z 3053..4896) el factor era 100 % en todo el nivel; la captura de
+   la ventana mostraba un único color. Corregido con 3000/5000, que dan un
+   degrade en el rango de la vista.
+2. **El divisor de la LUT es `z`, no `z/4`**: el factor es 0 en
+   `z <= none_z` y total en `z >= total_z`, como dicen los nombres de los
+   campos. La primera lectura (divisor `z/4`) daba un rango imposible.
+3. **El gate depende de la vista**: recentrar hace entrar polígonos que antes
+   quedaban fuera de pantalla, así que el encuadre itera sobre la unión de las
+   cajas envolventes (y el número de triángulos cambia de 2242 a 2854).
+4. **Un error de signo en el primer encuadre** desplazaba la geometría en
+   sentido contrario y el gate descartaba casi todo (2242 → 472 triángulos);
+   detectado al medir la caja envolvente.
+5. El generador de niebla estaba duplicado entre la prueba y el consumidor.
+
+Estadísticas reales de AZTEC16.DFX con la vista diagnóstica: 16 082 entradas,
+3 882 vértices y 9 609 polígonos en el descriptor, 815 hojas del BSP, 2 854
+triángulos emitidos (1 427 pasadas de niebla), 0 descartados por profundidad,
+4 914 vértices y 8 562 índices de geometría.
+
+Primera visualización real: `gexloop.exe --level
+C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\AZTEC16.DFX` con ventana Win32 y **GPU real**
+(dispositivo hardware): 15 frames presentados, 0 errores de frame, salida
+limpia. La ventana se capturó con `PrintWindow` y se analizaron los píxeles:
+88 630 de 470 000 (18,9 %) distintos del color de limpieza, caja de la
+geometría x=220..574 y=152..539 y 23 574 colores distintos. La imagen muestra
+las estructuras arquitectónicas del nivel con el degrade de niebla y los
+artefactos del algoritmo del pintor (sin depth buffer). **La captura no se
+publica en el repositorio**: es una evidencia local.
+
+Pruebas: `test_scene_level` 8 627 (también `-O0` y ASan/UBSan),
+`test_level_emit` 38 855, `test_geometry` 6 963, `test_geometry_shapes` 355,
+`test_d3d11_pipeline` 287, `test_d3d11_mesh` 108, `test_d3d11_device` 332,
+`test_i4_app` 117, `test_sag` 69 305, `test_camera` 889, `test_bsp` 37,
+`test_adpcm` 60 052, `test_audio` 215, `test_frame` 410, `test_input` 826:
+todas con 0 fallos.
+
+Lo que **no** se declara: la imagen usa solo el color por vértice (falta el
+Módulo 4 de texturas), la vista es diagnóstica y no la cámara del juego, no
+hay depth buffer ni blending, y la geometría se carga una vez al arrancar.
+S-2 sigue sin validación dinámica contra el ejecutable y no se declara
+completo. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Auditoría del Módulo 5A y primera ejecución real
 
 Auditoría del recorrido completo desde la inicialización hasta el cierre del

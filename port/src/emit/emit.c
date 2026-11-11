@@ -109,6 +109,70 @@ static int32_t dot_row(const int16_t m[3], const int16_t v[3]) {
 /* Niebla                                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Generador de la LUT de niebla (0x461895).
+ *
+ * Reproduce el relleno de los 3464 indices de [0x64FEA8]:
+ *   B = (total_z << 12) idiv (total_z - none_z)
+ *   A = -((total_z * none_z) idiv (total_z - none_z))
+ *   lut[i >> 2] = clamp(B + ((A << 12) idiv i), 0, 0x1000)
+ *
+ * El bucle recorre i en pasos de 4 hasta 0x3620 (los 3464 indices) y el
+ * desplazamiento de A usa el `shl` de 32 bits con signo de x86, con la
+ * division truncada. Se publica para que la aplicacion y las pruebas usen la
+ * misma niebla sin duplicar el generador.
+ */
+void gex_emit_fog_generate(gex_emit_fog *fog, int16_t total_z,
+                           int16_t none_z, const uint8_t fog_rgb[3]) {
+    int32_t x, y, den, B, A, lim;
+
+    if (fog == NULL) return;
+    memset(fog, 0, sizeof(*fog));
+
+    x = total_z;
+    y = none_z;
+    den = x - y;
+    if (fog_rgb != NULL) {
+        fog->fog_rgb[0] = fog_rgb[0];
+        fog->fog_rgb[1] = fog_rgb[1];
+        fog->fog_rgb[2] = fog_rgb[2];
+    }
+    fog->fog_total_z = total_z;
+    fog->fog_none_z = none_z;
+    if (den == 0) {
+        fog->have_lut = 0;
+        return;
+    }
+
+    B = (x << 12) / den;
+    A = -((x * y) / den);
+    lim = 32767;
+    if (A > lim) A = lim;
+    if (A < -lim) A = -lim;
+
+    fog->lut[0] = 0;
+    for (uint32_t i = 1; i < 0x3620u; i += 4) {
+        /* shl de x86 sobre A con signo, sin UB de C */
+        int32_t ash = (int32_t)((uint32_t)A << 12);
+        int32_t val = B + (ash / (int32_t)i);
+        if (val > 0x1000) val = 0x1000;
+        if (val < 0) val = 0;
+        fog->lut[i >> 2] = (int16_t)val;
+    }
+
+    fog->have_lut = 1;
+    {
+        int32_t ash = (int32_t)((uint32_t)A << 12);
+        fog->threshold = B != 0 ? (-ash) / B : 0;
+        /* A y B en la forma que espera la ruta analítica (0x46A150):
+         * b_q12 = B y a_q12 = A escalado por 4096, de modo que
+         * clamp(b_q12 + a_q12 / z) reproduce el mismo factor que la LUT. */
+        fog->b_q12 = B;
+        fog->a_q12 = ash;
+    }
+    fog->split_z = fog->threshold;
+}
+
 int gex_emit_fog_factor(const gex_emit_fog *fog, int32_t z) {
     if (fog == NULL) return 0;
 

@@ -1524,3 +1524,175 @@ todavía en la aplicación.
 - Sin texturas, materiales NCC, *depth buffer* ni blending.
 - La ventana no se redimensiona (no hay gestión de `WM_SIZE`).
 - S-2 sigue sin validación dinámica contra el ejecutable original.
+- La ventana no se redimensiona (no hay gestión de `WM_SIZE`).
+- S-2 sigue sin validación dinámica contra el ejecutable original.
+
+---
+
+## 16. Módulo 5B: primera geometría real de AZTEC16.DFX (2026-11-11)
+
+Sustituye el cubo de prueba por geometría real de un nivel `.DFX` en la
+ventana de `gexloop.exe`. Reutiliza los módulos que ya existían; no hay una
+arquitectura paralela.
+
+### 16.1 Módulo nuevo: `gex/scene_level.h`, `src/scene/scene_level.c`
+
+Portable C11 (sin Windows ni D3D11). Encadena los módulos existentes:
+
+```
+gex_dfx_load            -> contenedor .DFX en memoria
+gex_dfx_load_level      -> descriptor del nivel
+gex_bsp_walk            -> hojas visibles del BSP
+gex_level_emit          -> triángulos emitidos
+gex_geometry_build      -> vértices e índices
+```
+
+y expone las estadísticas (`gex_scene_stats`) y la vista diagnóstica
+(`gex_scene_diagnostic_view`). La conversión a buffers D3D11 no vive aquí: la
+aplicación llama a `gex_d3d11_mesh_create` con la geometría ya convertida y
+registra la malla en el renderer con `gex_d3d11_renderer_set_geometry`, igual
+que el cubo.
+
+Cada bloque de la escena tiene su propia bandera (`container_loaded`,
+`level_loaded`, `leaves_loaded`, `emit_loaded`, `geometry_loaded`), así que
+`gex_scene_level_free` libera exactamente lo que se llegó a crear, aunque la
+carga falle a mitad (mismo criterio que la auditoría del Módulo 5A).
+
+### 16.2 La vista diagnóstica (NO es la cámara original)
+
+`gex_scene_diagnostic_view` deja una matriz de emisión **sintética y
+determinista**, con estos parámetros:
+
+| Parámetro | Valor | Significado |
+|---|---|---|
+| `m[0] = m[4] = m[8]` | `0x0400` (0,25 en Q12) | escala de los tres ejes |
+| `t[2]` | `0x1000` | traslación de profundidad |
+| `focal` | `0x140` (320) | el del original |
+| `cx`, `cy` | 256, 192 al inicio; ajustados por el encuadre | centro de pantalla de la proyección |
+| `near_z` | `0xA0` (160) | el del original |
+| niebla | `none_z = 3000`, `total_z = 5000`, `split_z = 0` | generador 0x461895, ruta del emisor lejano |
+
+`cx` y `cy` son un **desplazamiento en pantalla puro** dentro de la
+proyección (`xs = cam0*focal/cam2 + cx`), así que recentrar el nivel no altera
+la perspectiva.
+
+Esto **no** es la cámara del juego: el original usa la matriz `cam+0xE0` con
+la orientación real de la cámara, y el port todavía no tiene ese estado. La
+visibilidad del BSP es además «todas las hojas», porque la prueba de esfera de
+`gex_camera` necesita el estado de cámara del juego. **La validación dinámica
+de la cámara y del recorrido BSP contra el ejecutable sigue pendiente** y esta
+vista no la sustituye.
+
+### 16.3 Encuadre automático
+
+Con `cx = 256` y `cy = 192` la geometría de AZTEC16 cae en x 18..259 e
+y 124..408 del espacio lógico 512x384: queda a un lado y se sale por abajo. Se
+recentra y se reduce la escala hasta que cabe, en cuatro pasadas de emisión:
+
+1. se emite con la vista base;
+2. se acumula la caja envolvente de todas las emisiones (unión, no la última:
+   recentrar hace entrar polígonos nuevos por el gate);
+3. se calcula el desplazamiento de `cx`/`cy` y, si la caja no cabe en
+   512x384, se reduce `m[0]` y `m[4]` por igual (la perspectiva no se deforma);
+4. se vuelve a emitir con esa vista.
+
+Es determinista (depende solo de las emisiones anteriores) y vale para
+cualquier nivel, no solo para AZTEC16.
+
+### 16.4 Hallazgos durante la implementación
+
+1. **La niebla saturaba y la imagen salía de un solo color.** Con los
+   parámetros de niebla de la prueba (`none_z = 100`, `total_z = 400`) y el
+   rango de profundidad real de la vista (z entre 3053 y 4896) el factor de
+   niebla era 4096 (100 %) en **todo** el nivel: la captura de la ventana
+   mostraba un único color, el de la niebla. Corrección: `none_z = 3000`,
+   `total_z = 5000`, que dan un degrade de 0 % a 100 % justo en el rango de
+   la vista.
+2. **El divisor de la LUT es `z`, no `z/4`.** La LUT se indexa con `z >> 2`,
+   pero el valor se calculó con `i ≈ z` (el bucle escribe `lut[i>>2]` con
+   `i = 4k+1`). Por eso el factor es 0 en `z <= none_z` y total en
+   `z >= total_z`, que es justo lo que dicen los nombres de los campos. La
+   primera lectura (divisor `z/4`) daba un rango de niebla imposible.
+3. **`a_q12` y `b_q12` quedaban a cero.** El generador público
+   `gex_emit_fog_generate` los rellena ahora con la convención documentada
+   (`b_q12 = B`, `a_q12 = A << 12`), de modo que la ruta analítica
+   (0x46A150) da el mismo factor que la LUT. Comprobado con una prueba nueva
+   que compara ambas rutas.
+4. **El gate depende de la vista.** Al recentrar la geometría entran
+   polígonos que antes quedaban fuera de pantalla, así que el número de
+   triángulos cambia (2242 → 2854 en AZTEC16). Por eso el encuadre itera.
+5. **Un error de signo en el primer encuadre** desplazaba la geometría en
+   sentido contrario y el gate descartaba casi todo (2242 → 472 triángulos).
+   Detectado al medir la caja envolvente; corregido.
+6. **El generador de niebla estaba duplicado** entre la prueba de emisión y
+   el consumidor. Ahora es público (`gex_emit_fog_generate`) y la prueba lo
+   usa, así que hay una sola implementación.
+
+### 16.5 Estadísticas reales (AZTEC16.DFX)
+
+```
+level: entries=16082 vertices=3882 polygons=9609 leaves=815
+emitted: triangles=2854 (fog passes=1427) discarded by depth=0
+geometry: vertices=4914 indices=8562
+view: DIAGNOSTIC: scale=0x3C0 cx=315 cy=154
+```
+
+Las 815 hojas y los conteos del descriptor son los del nivel; los triángulos
+son los de la **vista diagnóstica** (no los del juego con su cámara real).
+
+### 16.6 Integración en la aplicación
+
+`gexloop.exe` acepta `--level <ruta>`:
+
+- con `--level`: carga el nivel, crea la malla y dibuja la geometría real;
+- sin `--level`: el cubo de prueba sigue disponible;
+- si la carga falla, se informa del error por consola y la aplicación **no
+  dibuja geometría** (no se sustituye por resultados inventados): sigue
+  limpiando y presentando y cierra con normalidad.
+
+### 16.7 Pruebas
+
+`port/tests/test_scene_level.c` — **8 627 comprobaciones, 0 fallos** (Clang
+`-O0`, `-O2` y ASan/UBSan): nombres de estado, argumentos nulos, ruta
+inexistente, archivo que no es un contenedor DFX, la vista diagnóstica
+(determinista, con su niebla y su degrade) y el nivel real (estadísticas,
+coherencia de índices, determinismo entre dos cargas y liberación
+idempotente).
+
+`port/tests/test_level_emit.c` sube a **38 855 comprobaciones** (antes
+38 809) con el generador de niebla público y la coherencia LUT/analítica.
+
+Suite completa sin regresiones: `test_sag` 69 305, `test_camera` 889,
+`test_bsp` 37, `test_level_emit` 38 855, `test_geometry` 6 963,
+`test_geometry_shapes` 355, `test_scene_level` 8 627, `test_adpcm` 60 052,
+`test_audio` 215, `test_frame` 410, `test_input` 826, `test_i4_app` 117,
+`test_d3d11_device` 332, `test_d3d11_mesh` 108, `test_d3d11_pipeline` 287.
+
+### 16.8 Primera visualización real
+
+Sí: `gexloop.exe --level C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\AZTEC16.DFX` con
+ventana Win32 y **GPU real** (dispositivo *hardware*). 15 frames presentados,
+0 errores de frame, salida limpia. La ventana se capturó con `PrintWindow` y
+se analizaron los píxeles:
+
+| Comprobación | Resultado |
+|---|---|
+| Píxeles distintos del color de limpieza | 88 630 de 470 000 (18,9 %) |
+| Caja de la geometría | x=220..574, y=152..539 |
+| Colores distintos | 23 574 |
+
+La imagen muestra estructuras arquitectónicas del nivel (paredes, columnas,
+repisas y rampas) con el degrade de niebla por profundidad y los artefactos
+propios del algoritmo del pintor (sin *depth buffer*). La captura es una
+evidencia local y **no se publica** en el repositorio.
+
+### 16.9 Lo que sigue pendiente
+
+- **Texturas**: la imagen usa solo el color por vértice; el nivel real se ve
+  como una maqueta monocroma. El Módulo 4 (`.VFX`/NCC) es el siguiente paso.
+- **Cámara real**: la vista es diagnóstica; falta el estado de cámara del
+  juego para usar `cam+0xE0` y la visibilidad por esfera.
+- **Sin *depth buffer***: el orden del pintor produce solapes visibles.
+- **Sin *blending***: el canal alfa (0 en la pasada de niebla) no se mezcla.
+- La geometría se carga una vez al arrancar; no hay animación ni cámara
+  interactiva.
