@@ -105,8 +105,10 @@ normales se reinterpretan igual (`bits_i16`), sin conversiones de
 implementación definida.
 
 `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
-`0x00426588` no se implementan en S-2 (fuera de alcance: buffers D3D11). Su ruta
-está reconstruida con evidencia en §5.
+`0x00426588` están implementados como módulo puro en `port/src/emit/`
+(2026-11-10, 17.ª–18.ª pasadas): sin D3D11, sin Win32 y sin Glide. Su ruta está
+reconstruida con evidencia en §5 y validada con pruebas estáticas; la
+**validación dinámica contra el ejecutable sigue pendiente**.
 
 ## 5. Ruta de emisión de polígonos — reconstruida e implementada (2026-11-10)
 
@@ -321,8 +323,17 @@ Si `maxz < 0x6A4` (42483-42489) y el flag de subdivisión vale 1 (42594-42595):
      de textura de `+0x06`** del registro UV (42710-42800).
    El word de textura debe ser idéntico en los tres vértices; el original no lo
    comprueba. **[A]**
-3. Proyecta y emite **cuatro** subtriángulos con `0x426256` (nunca con
-   `0x426588`), abortando el polígono si alguno devuelve 0. **[A]**
+3. Proyecta y emite **cuatro** subtriángulos principales con `0x426256` (nunca
+   con `0x426588`) y **sin niebla**, en el orden exacto
+   `(v0,m01,m20)`, `(m20,m12,v2)`, `(m01,m12,m20)`, `(m01,v1,m12)`. Si alguno
+   devuelve 0 (gate del emisor) se **aborta la subdivisión** conservando los ya
+   emitidos. **[A]**
+4. Si `(color0 >> 24) & 2 == 0`, intenta además tres *slivers* degenerados en el
+   orden `(v0,v1,m01)`, `(m12,v1,v2)`, `(v0,m20,v2)`; sus retornos se ignoran y
+   no abortan la subdivisión. En aritmética exacta son colineales (det = 0), pero
+   el clamp de x/y a `[-0x400,0x3FF]` y el truncamiento entero pueden romper la
+   colinealidad y hacer que alguno pase el gate. **[A]** para el orden y la
+   condición; **[B]** para la frecuencia con que pasan.
 
 La subdivisión es la solución del original al *warping* afín de texturas en
 triángulos muy cercanos; para D3D11 equivale a un interpolado correcto por
@@ -386,9 +397,11 @@ Ambos: **[A]**
 1. Salen si `[0x551644]+0xA0 & 1` (modo wireframe) y usan `debug_color` y
    `0x55555555` para el registro de depuración.
 2. Llaman `0x46B6B5`, que calcula el determinante en pantalla
-   `(x2-x0)(y1-y0) - (x1-x0)(y2-y0)` y lo guarda en `0x6468E0`
-   (121628-121656). **Si el determinante es `>= 0`, descartan el triángulo**:
-   el *back-face culling* es 2D, posterior a la proyección.
+   `D = (x1-x0)(y2-y0) - (x2-x0)(y1-y0)` sobre las coordenadas empaquetadas
+   `(y<<16)|x` y lo guarda en `0x6468E0` (121628-121656). **Si `D >= 0`,
+   descartan el triángulo**: el *back-face culling* es 2D, posterior a la
+   proyección. (La 18.ª pasada corrige el orden de factores que figuraba aquí:
+   el desensamblado resta `(x2-x0)(y1-y0)` a `(x1-x0)(y2-y0)`.)
 3. Calculan `idx = (maxz >> 2) + 4*byte[uv0+0x0B]` y salen si `idx` cae fuera de
    `[0, 0xC00)`. El byte `+0x0B` del registro UV es, por tanto, un **desplazamiento
    de bucket** (capa de orden de dibujo), no parte de la textura. **[A]**
@@ -636,7 +649,30 @@ se consulta la tabla. `0x65BF04` separa el emisor con pasada de niebla
 **Implementación en `port/`:** el módulo `port/src/emit/emit.c` (cabecera
 `port/include/gex/emit.h`) implementa `gex_level_emit` y sus fases separadas
 (`gex_emit_collect`, `gex_emit_project`, `gex_emit_classify`,
-`gex_emit_subdivide`, `gex_emit_sort`) reproduciendo esta ruta estáticamente.
+`gex_emit_subdivide`, `gex_emit_sort`) reproduciendo esta ruta estáticamente
+(18.ª pasada, 2026-11-11). Puntos verificados en el desensamblado:
+- La **subdivisión tiene prioridad absoluta**: `0x426D09` compara `maxz` con
+  `0x6A4` y salta a `0x426E71` **antes** de `det2d`, niebla, emisor y gate de
+  pantalla. Por eso `gex_emit_classify` marca `subdivide` sin consultar el gate.
+- El gate de `0x426256`/`0x426588` completo: `[0x647578] & 0x60000`, vértice
+  clipeado por profundidad (`0x40000`), `det2d >= 0`, bucket fuera de
+  `[0, 0xC00)`, `poly+0x06 & 0x8000` y descarte si **todos** los x/y caen al
+  mismo lado de `0`, `0x200` o `0x180`.
+- La subdivisión emite cuatro principales en el orden del original más hasta
+  tres *slivers* si `(color0 >> 24) & 2 == 0`; **no aplica niebla** y usa
+  siempre el emisor cercano. Un principal rechazado aborta la subdivisión.
+- `0x426588` emite el registro principal de 0x34 B con los colores del llamador
+  y después el registro de niebla de 0x24 B (base `0x00FFFFFF`, opcode `0x32`,
+  sin UV); la inserción LIFO deja la niebla dibujada primero.
+- `layer` es el byte `uv+0x0B` con signo (`movsx`), y la clave es
+  `(maxz sar 2) + 4*layer`, descendente, con desempate **solo** por secuencia
+  de inserción (LIFO). El `avgz` de `0x646C00`/`0x6474A4` no lo usan los
+  emisores de nivel.
+- Toda la aritmética de 32 bits reproduce el wrap de x86 sin desbordamiento con
+  signo ni desplazamientos de implementación definida: helpers `add_wrap`,
+  `sub_wrap`, `mul_wrap`, `neg_wrap`, `sar32` e `idiv32` (protege `b == 0` y
+  `b == -1`), y copias de bits para `int32 <-> uint32`.
+
 Diferencias de seguridad/port respecto al original:
 - El índice de la LUT de niebla `z >> 2` se acota a `[0, 3463]` (el original no
   lo acota y puede leer fuera de tabla para `z >= 0x3620`) **[C]**.
@@ -644,10 +680,14 @@ Diferencias de seguridad/port respecto al original:
   emitido; el desbordamiento silencioso del original se sustituye por
   `GEX_EMIT_ERR_OVERFLOW` **[C]**.
 - Los vértices se conservan como `int32` de profundidad y `int16` de píxeles
-  sin el recorte a 10 bits del original (decisión del renderizador) **[C]**.
-- La ordenación usa una clave `(promedio(z) >> 2) + 4 * capa` descendente con
-  desempate LIFO por secuencia de inserción **[A]** para el orden, **[C]** para
-  la estabilidad del desempate.
+  recortados a `[-0x400,0x3FF]` como el original (sin el empaquetado de 10 bits
+  del consumidor) **[C]**.
+- Si `z' == 0` el original conserva los globales del polígono anterior; el port
+  fija x/y a 0 y marca `GEX_EMIT_F_DEPTH_CLIPPED` (con `near_z > 0` el caso ya
+  está clipeado) **[C]**.
+- Todas las lecturas de la imagen DFX se comprueban contra `image_size` con
+  sumas en `size_t` (un offset `0xFFFFFFFF` nunca envuelve a un valor pequeño)
+  **[C]**.
 - No se implementa la ruta de modelos (`0x4013A0`, traslación `sar 4`); queda
   fuera de este módulo.
 
@@ -717,26 +757,51 @@ Diferencias de seguridad/port respecto al original:
   `0x40172B`/`0x4013A0` como *flush* de geometría de modelos. Solo
   documentación; **sin cambios de código** y sin alterar las cifras de prueba.
 
+- 17.ª (2026-11-10): implementación de la emisión en `port/` (`emit.h`,
+  `emit.c`, `test_level_emit.c`, `Makefile`/`build.ps1`). Primer contrato de la
+  API y pruebas iniciales; el `test_level_emit` de esta pasada tenía una
+  expectativa de subdivisión incorrecta (asumía niebla y no cubría el orden
+  real). Cifra inicial: 627 comprobaciones.
+
+- 18.ª (2026-11-11): **auditoría y corrección de `emit.c`**. Se corrigen seis
+  defectos: (1) `xs`/`ys` sin inicializar al descartar por profundidad; (2)
+  aritmética de 32 bits con posible desbordamiento con signo y desplazamientos
+  de implementación definida; (3) offsets y sumas que podían envolver en
+  `gex_emit_collect`; (4) `test_mix_color` no probaba la mezcla real; (5)
+  subdivisión, interpolación, emisores, niebla y orden LIFO asumidos sin
+  verificar; (6) AZTEC16 se usaba como validación visual con matriz identidad.
+  Se reconstruyen la prioridad de la subdivisión, los cuatro principales y los
+  tres *slivers*, el gate completo, los dos registros de `0x426588`, la capa
+  `int8` y la clave `(maxz >> 2) + 4*layer`. `test_level_emit` pasa a **38 809
+  comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y
+  ASan/UBSan; AZTEC16 se valida estructuralmente (815 hojas, 9609 polígonos,
+  1121 triángulos cercanos y 2242 lejanos —1121 con pasada de niebla— con una
+  cámara sintética, y determinismo bit a bit). **S-2 no se declara completo**:
+  falta la validación dinámica contra el ejecutable.
+
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es **37
-comprobaciones de BSP + 889 de cámara**, 0 fallos.
+comprobaciones de BSP + 889 de cámara + 38 809 de emisión**, 0 fallos.
 
 ## 7. Limitaciones
 
-- Visibilidad y emisión reconstruidas, pero **sin validación dinámica** contra el
-  ejecutable original: no hay traza de cámaras concretas ni comparación de hojas
-  visibles o de registros emitidos. Las tablas trigonométricas son una
-  aproximación matemática (equivalencia bit a bit no demostrada).
-- Emisión de polígonos **documentada (§5), no implementada**: no hay lista de
-  polígonos visibles ni registros de comando en `port/`.
-- La matriz de emisión `cam+0xE0` está reconstruida pero **no existe en el
-  puerto**: `port/include/gex/camera.h` solo modela `+0xE4`/`+0xE8`. No debe
-  usarse `gex_camera.m` como sustituto (son matrices distintas, §5.14).
+- Visibilidad y emisión reconstruidas e implementadas, pero **sin validación
+  dinámica** contra el ejecutable original: no hay traza de cámaras concretas ni
+  comparación de hojas visibles o de registros emitidos. Las tablas
+  trigonométricas son una aproximación matemática (equivalencia bit a bit no
+  demostrada).
+- La emisión está implementada como módulo puro (§5) con pruebas estáticas; no
+  se ha comparado contra una captura de registros de comando del ejecutable.
+  AZTEC16 se valida de forma **estructural y de determinismo**, no visual.
+- La matriz de emisión `cam+0xE0` está modelada en `gex_emit_matrix`
+  (`port/include/gex/emit.h`), **separada** de `gex_camera.m` (`cam+0xE8`,
+  visibilidad). No debe usarse `gex_camera.m` como sustituto (son matrices
+  distintas, §5.14).
 - Sin D3D11, shaders, texturas.
 - `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
 
 ---
 
-**No se declara S-2 completo**: la visibilidad original está implementada y
-documentada y la emisión está reconstruida, pero falta la emisión en código y la
-validación dinámica.
+**No se declara S-2 completo**: la visibilidad original y la emisión están
+implementadas y documentadas, pero falta la validación dinámica contra el
+ejecutable y la integración con el renderizador (Módulo 3).

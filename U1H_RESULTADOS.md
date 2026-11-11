@@ -1482,7 +1482,7 @@ maxz = max(z0,z1,z2)
 if (maxz < 0x6A4)            -> subdividir en 4 triángulos con 0x426256
 else if (maxz >= [0x65BF80]) -> color por vértice + niebla (0x46B727)
 else                         -> color crudo = dword[vtx+8]
-emisor = (maxz < [0x65BF04] || (poly+6 & 4)) ? 0x426256 : 0x426588
+emisor = (maxz >= [0x65BF04] && !(poly+6 & 4)) ? 0x426588 : 0x426256
 ```
 
 Subdivisión: puntos medios `(a+b)/2` truncado; color y UV medios (u y v por
@@ -1491,7 +1491,7 @@ separado, word de textura copiado de `+0x06`); cuatro subtriángulos, nunca con
 `desde = 0x6474C4..C6`, `hacia = 0x6468A0/0x647574/0x647560`, `factor =
 (int16)tabla[0x64FEA8][z>>2]`; `0x426588` parte de blanco (`0x00FFFFFF`).
 Contenido y longitud de `0x64FEA8` y fórmula de `0x65BF80`/`0x65BF04`
-(`0x4611ED`) quedan **[B]/[C]**.
+(`0x461895`, no `0x4611ED`) quedan **[B]/[C]**.
 
 **Capacidad:** solo se reserva `0x34` B por polígono, no por comando, y los
 emisores no vuelven a comprobar `desc+8`; un polígono subdividido puede emitir
@@ -1502,7 +1502,7 @@ frase de §6.2 «comprueba capacidad antes de escribir».
 ### 20.5 Orden de dibujo
 
 Ambos emisores llaman `0x46B6B5` (determinante 2D
-`(x2-x0)(y1-y0)-(x1-x0)(y2-y0)` en `0x6468E0`) y **descartan si `>= 0`**: el
+`(x1-x0)(y2-y0)-(x2-x0)(y1-y0)` en `0x6468E0`) y **descartan si `>= 0`**: el
 *culling* es 2D, posterior a la proyección. Luego calculan
 `idx = (maxz>>2) + 4*byte[uv0+0x0B]`, salen si `idx` cae fuera de `[0, 0xC00)`
 e insertan al frente del bucket (`cmd[+4] = bucket[8*idx+4]; bucket[8*idx+4] =
@@ -1528,8 +1528,10 @@ prefijo `0xE1` (`0xE1000068`). No interviene en la ruta BSP.
 ### 20.7 Límites
 
 Toda la reconstrucción es **estática**: no hay traza de una frame real ni
-comparación de registros emitidos. **No se implementa nada**: S-2 sigue sin
-emisión en código ni buffers D3D11. Los límites de §20.7 quedan resueltos o
+comparación de registros emitidos. La emisión **sí está implementada en código**
+desde la 17.ª pasada (`port/src/emit/`, módulo puro, sin D3D11); la 18.ª la
+audita y la valida con pruebas estáticas. S-2 sigue **sin validación dinámica**
+contra el ejecutable y sin buffers D3D11. Los límites de §20.7 quedan resueltos o
 reclasificados en §21.
 
 ---

@@ -546,12 +546,16 @@ Este hito conecta la geometría BSP con D3D11 y es el fundamento para los Módul
 
 ---
 
-## 11. Contrato de `gex_level_emit` (2026-11-10)
+## 11. Contrato de `gex_level_emit` (2026-11-10, revisado 2026-11-11)
 
 Implementado en `port/src/emit/emit.c` (cabecera `port/include/gex/emit.h`).
 Deriva de la reconstrucción estática de
 [`S2_BSP_TRAVERSAL.md` §5](../S2_BSP_TRAVERSAL.md) y de
-[`S2_CAMERA_VISIBILITY.md` §13](../S2_CAMERA_VISIBILITY.md).
+[`S2_CAMERA_VISIBILITY.md` §13](../S2_CAMERA_VISIBILITY.md). La revisión del
+2026-11-11 (18.ª pasada) corrige el contrato de `gex_emit_classify`,
+`gex_emit_subdivide` y `gex_level_emit` (`state_flags`), el tipo con signo de
+`layer`, el nombre de `GEX_EMIT_F_DEPTH_CLIPPED` y la clave de orden (`maxz`,
+no `promedio(z)`).
 
 ### 11.1 Principios
 
@@ -562,8 +566,9 @@ Deriva de la reconstrucción estática de
    clasificación, subdivisión y ordenación son funciones distintas con
    estructuras propias; ninguna fase llama a otra implícitamente.
 3. **Capacidad segura.** El original reserva 0x34 B por polígono y puede
-   desbordar al subdividir en cuatro. El módulo reserva por triángulo emitido y
-   devuelve `GEX_EMIT_ERR_OVERFLOW` si no puede crecer.
+   desbordar al subdividir (hasta cuatro principales y tres *slivers*). El
+   módulo reserva por triángulo emitido y devuelve `GEX_EMIT_ERR_OVERFLOW` si no
+   puede crecer.
 4. **Sin dependencias de plataforma.** Nada de D3D11, Win32 ni Glide; solo
    `stdint.h`/`stddef.h`.
 5. **Incógnitas aisladas.** Lo no demostrado (override `+0x50`, capa
@@ -610,25 +615,30 @@ devuelve el factor sin mezclar colores.
 ```c
 typedef struct {
     uint32_t color[3];     /* AARRGGBB por vértice, ya con niebla si procede */
-    int16_t  x[3], y[3];   /* píxeles enteros (sin recortar a 10 bits) */
-    int32_t  z[3];         /* profundidad de emisión */
+    int16_t  x[3], y[3];   /* píxeles, recortados a [-0x400,0x3FF] como 0x46A1D0 */
+    int32_t  z[3];         /* profundidad de emisión (sin recorte) */
     uint8_t  u[3], v[3];   /* UV 8 bits */
     uint16_t texture;      /* índice de textura, 14 bits */
-    uint8_t  layer;        /* byte[uv+0x0B]: desplazamiento de bucket */
+    int8_t   layer;        /* byte[uv+0x0B] con signo (movsx) [A] */
     uint8_t  flags;        /* GEX_EMIT_F_* */
     uint32_t source_poly;  /* índice de polígono de origen (trazabilidad) */
     uint32_t seq;          /* secuencia de inserción (desempate LIFO en sort) */
 } gex_emit_triangle;
 ```
 
-Banderas: `GEX_EMIT_F_CLIPPED_XY`, `GEX_EMIT_F_SUBDIVIDED`,
-`GEX_EMIT_F_FAR_EMITTER`, `GEX_EMIT_F_NEAR_EMITTER`, `GEX_EMIT_F_FOG_PASS`.
+Banderas: `GEX_EMIT_F_DEPTH_CLIPPED` (0x01, algún vértice con
+`z < near_z` o `z > 0xFFFF`: `[0x647578] |= 0x40000`),
+`GEX_EMIT_F_SUBDIVIDED` (0x02), `GEX_EMIT_F_FAR_EMITTER` (0x04),
+`GEX_EMIT_F_NEAR_EMITTER` (0x08) y `GEX_EMIT_F_FOG_PASS` (0x10).
 
-- `z` se conserva como `int32` sin recortar: el recorte a `0xFFFF` y el
-  `[-0x400,0x3FF]` son decisiones del renderizador, no del extractor.
+- `z` se conserva como `int32` sin recortar; `x`/`y` sí reproducen el clamp
+  `[-0x400,0x3FF]` de `0x46A1D0` (el empaquetado de 10 bits es del consumidor).
+- Si algún vértice se clipea por profundidad, el original abandona el polígono
+  entero; el port publica `x/y = 0` para los tres y marca
+  `GEX_EMIT_F_DEPTH_CLIPPED` para que el llamador lo descarte.
 - `color` ya incluye la niebla cuando corresponde; la pasada de niebla de
   `0x426588` se emite como triángulo separado con `GEX_EMIT_F_FOG_PASS` y
-  colores de niebla puros, igual que el original.
+  colores de niebla puros (base `0x00FFFFFF`), igual que el original.
 - `source_poly` permite contrastar contra el ejecutable en la futura validación
   dinámica.
 
@@ -649,45 +659,65 @@ typedef struct {
     size_t             count;
     size_t             capacity;
     size_t             fog_pass_count;  /* subconjunto con GEX_EMIT_F_FOG_PASS */
-    gex_emit_status    status;
+    int                overflow;        /* !=0 si se forzó parada por capacidad */
 } gex_emit_output;
+
+typedef enum {
+    GEX_EMIT_NEAR = 0, /* 0x426256: cercano o forzado */
+    GEX_EMIT_FAR   = 1 /* 0x426588: lejano, con pasada de niebla */
+} gex_emit_emitter;
+
+typedef struct {
+    int32_t          maxz;        /* max(z0,z1,z2); -1 = descartado por el gate */
+    int32_t          bucket;      /* (maxz sar 2) + 4*layer; -1 si no se calculó */
+    int              subdivide;   /* maxz < 0x6A4 (prioridad sobre el gate) */
+    int              fog_applies; /* maxz >= threshold (solo si no subdivide) */
+    gex_emit_emitter emitter;
+    uint32_t         fog_color[3];/* color con niebla aplicada por vértice */
+} gex_emit_class;
 
 /* Fase 1: hojas visibles -> polígonos (sin transformar).
  * `image`/`image_size` son la imagen DFX cargada; los offsets de hoja y de
- * polígono son offsets dentro de ella, nunca punteros absolutos. */
+ * polígono son offsets dentro de ella, nunca punteros absolutos. Toda suma se
+ * comprueba en size_t antes de leer. */
 gex_emit_status gex_emit_collect(const uint8_t *image, size_t image_size,
                                  const gex_dfx_descriptor *desc,
                                  const gex_bsp_walk_result *leaves,
                                  gex_emit_poly_list *out);
 
-/* Fase 2: transformar y proyectar un polígono (0x46A1D0). */
+/* Fase 2: transformar y proyectar un polígono (0x46A1D0).
+ * `color`, `u` y `v` admiten NULL. */
 gex_emit_status gex_emit_project(const gex_emit_matrix *mat,
                                  const int16_t vtx[9],   /* x0,y0,z0,x1,y1,z1,x2,y2,z2 */
                                  const uint32_t color[3],
                                  const uint8_t u[3], const uint8_t v[3],
-                                 uint16_t texture, uint8_t layer,
+                                 uint16_t texture, int8_t layer,
                                  uint32_t source_poly,
                                  gex_emit_triangle *tri);
 
-/* Fase 3: clasificar (determinante 2D + umbrales) y decidir emisor. */
+/* Fase 3: clasificar y decidir emisor. La subdivisión (maxz < 0x6A4) tiene
+ * prioridad sobre el determinante, el bucket y el gate de pantalla.
+ * `state_flags` = [0x647578]; si el gate descarta, cls->maxz = -1. */
 gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
                                   const gex_emit_triangle *p,
                                   uint16_t poly_flags,
+                                  uint32_t state_flags,
                                   gex_emit_class *cls);
 
-/* Fase 4: subdividir en cuatro (0x6A4), solo emisor cercano. */
+/* Fase 4: cuatro principales + hasta tres slivers; solo emisor cercano y sin
+ * niebla. Un principal rechazado aborta la subdivisión. */
 gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
-                                   const gex_emit_fog *fog,
-                                   int fog_applies,
                                    const int16_t vtx[9],
                                    const uint32_t color[3],
                                    const uint8_t u[3], const uint8_t v[3],
-                                   uint16_t texture, uint8_t layer,
+                                   uint16_t texture, int8_t layer,
+                                   uint16_t poly_flags,
+                                   uint32_t state_flags,
                                    uint32_t source_poly,
                                    gex_emit_output *out);
 
-/* Fase 5: ordenar por (promedio(z) >> 2) + 4 * layer, descendente;
- * desempate LIFO por secuencia de inserción. */
+/* Fase 5: ordenar por (maxz sar 2) + 4 * layer, descendente; desempate LIFO
+ * por secuencia de inserción. */
 gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count);
 
 /* Orquestador: collect -> project -> classify -> (subdivide) -> sort. */
@@ -696,6 +726,7 @@ gex_emit_status gex_level_emit(const uint8_t *image, size_t image_size,
                                const gex_bsp_walk_result *leaves,
                                const gex_emit_matrix *mat,
                                const gex_emit_fog *fog,
+                               uint32_t state_flags,
                                gex_emit_output *out);
 
 void gex_emit_output_free(gex_emit_output *out);
@@ -706,17 +737,32 @@ const char *gex_emit_status_name(gex_emit_status status);
 ### 11.6 Errores y garantías
 
 - `GEX_EMIT_ERR_RANGE` cubre los offsets de hoja tratados como **offsets dentro
-  de la imagen**, nunca como punteros absolutos.
+  de la imagen**, nunca como punteros absolutos; todas las sumas se hacen en
+  `size_t` y se comprueban antes de leer (un offset `0xFFFFFFFF` no envuelve).
 - `GEX_EMIT_ERR_INCONSIST` cubre el descriptor DFX frente al descriptor del
   buffer de comandos: son estructuras distintas y el módulo solo acepta el
   primero.
 - El *bucket array* no se modela: `gex_level_emit` produce una lista de
-  triángulos ordenada; el equivalente al buffer secuencial de comandos es
-  responsabilidad del renderizador.
+  triángulos ordenada por la misma clave que los buckets
+  (`(maxz sar 2) + 4*layer`, descendente, LIFO dentro de la clave); el
+  equivalente al buffer secuencial de comandos es responsabilidad del
+  renderizador.
+- El **gate** reproduce `0x426256`/`0x426588`: `[0x647578] & 0x60000`, vértice
+  clipeado por profundidad, `det2d >= 0`, bucket fuera de `[0, 0xC00)`,
+  `poly+0x06 & 0x8000` y descarte cuando todos los x/y caen al mismo lado de
+  `0`, `0x200` o `0x180`. La subdivisión se decide **antes** que el gate.
 - Toda reserva se comprueba; `GEX_EMIT_ERR_OVERFLOW` sustituye al desbordamiento
   silencioso del original.
+- La aritmética de 32 bits reproduce el wrap de x86 con helpers explícitos
+  (`add_wrap`, `sub_wrap`, `mul_wrap`, `neg_wrap`, `sar32`, `idiv32`): sin
+  desbordamiento con signo ni desplazamientos de implementación definida.
 - La geometría de modelo (`0x4013A0`, traslación `sar 4`) **no** entra en este
   módulo: tiene su propia ruta y su propio contrato.
+
+Validación actual (18.ª pasada): `port/tests/test_level_emit.c` con **38 809
+comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. AZTEC16
+se comprueba de forma estructural y de determinismo (815 hojas, 9609 polígonos,
+rangos, gate, ambas rutas y repetición bit a bit), **no** visual.
 
 ### 11.7 Lo que este contrato no decide
 

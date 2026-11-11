@@ -2,6 +2,63 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Decimonovena corrección (auditoría de la emisión BSP)
+
+Auditoría y corrección de `port/src/emit/emit.c` y `port/tests/test_level_emit.c`
+(18.ª pasada de S-2). Sin cambios en D3D11, Win32, Glide, ejecutables ni assets;
+no se inicia el Módulo 3 y S-2 **no** se declara completo.
+
+Defectos corregidos:
+
+1. `xs`/`ys` sin inicializar en `gex_emit_project` cuando el vértice se descarta
+   por profundidad (el original deja los globales del polígono anterior). El port
+   fija `x/y = 0` y marca `GEX_EMIT_F_DEPTH_CLIPPED`, renombrada desde
+   `GEX_EMIT_F_CLIPPED_XY` (0x01).
+2. Aritmética de 32 bits con desbordamiento con signo y desplazamientos de
+   implementación definida: helpers `add_wrap`/`sub_wrap`/`mul_wrap`/`neg_wrap`,
+   `sar32` explícito, `idiv32` con `b == 0`/`b == -1` protegidos y copias de bits
+   `i32_from_bits`/`bits_from_i32`. Reproduce el wrap de x86.
+3. `gex_emit_collect`: offsets y sumas podían envolver en `size_t`; ahora se
+   comprueban contra `image_size` y `GEX_EMIT_ERR_RANGE` cubre el caso, además de
+   validar `leaves->leaves` nulo con `count > 0` (`GEX_EMIT_ERR_ARG`).
+4. `test_mix_color` no probaba la mezcla real: se ejercita a través de
+   `gex_emit_classify` con una LUT controlada (extremos, signo, truncamiento y
+   saturación), sin ampliar la API.
+5. Subdivisión, interpolación, emisores, niebla y orden LIFO se asumían por
+   equivalencia. Verificado en el desensamblado y cubierto con pruebas:
+   - la subdivisión (`maxz < 0x6A4`) tiene **prioridad** sobre `det2d`, niebla,
+     emisor y gate de pantalla;
+   - cuatro principales en el orden `(v0,m01,m20)`, `(m20,m12,v2)`,
+     `(m01,m12,m20)`, `(m01,v1,m12)`, sin niebla y siempre con `0x426256`; un
+     principal rechazado aborta la subdivisión conservando lo emitido;
+   - hasta tres *slivers* si `(color0 >> 24) & 2 == 0`, con retornos ignorados;
+   - `det2d = (x1-x0)(y2-y0) - (x2-x0)(y1-y0)`, descarte si `>= 0`;
+   - gate completo (`[0x647578] & 0x60000`, vértice clipeado, bucket fuera de
+     `[0, 0xC00)`, `poly+0x06 & 0x8000`, todos x/y al mismo lado);
+   - `0x426588` emite el registro principal de 0x34 B con los colores del
+     llamador y después el de niebla de 0x24 B (base `0x00FFFFFF`, sin UV), que
+     el LIFO deja dibujado primero;
+   - `layer` es `int8_t` (byte `uv+0x0B` con signo) y la clave de orden es
+     `(maxz >> 2) + 4*layer`, descendente, con desempate solo por `seq`
+     descendente (se elimina el desempate por `source_poly`).
+6. AZTEC16 se usaba como validación con matriz identidad y niebla sintética, que
+   no valida nada. Ahora se comprueba de forma **estructural y de determinismo**
+   con una cámara sintética (escala 0.25, traslación `+0x1000`): 815 hojas,
+   9609 polígonos, 1121 triángulos cercanos y 2242 lejanos (1121 con pasada de
+   niebla), repetición bit a bit.
+
+Resultados: **38 809 comprobaciones, 0 fallos** en Clang `-O0`, `-O2` y
+`-O1 -fsanitize=address,undefined -fno-sanitize-recover=all`, sin warnings con
+`-Wall -Wextra -Wpedantic`. Suite completa recompilada: `test_sag` 69305,
+`test_camera` 889, `test_bsp` 37, `test_adpcm` 60052, `test_audio` 215,
+`test_frame` 410, `test_input` 826, 0 fallos. GCC no está instalado en el
+entorno (`gcc.exe` es un *shim* de Clang 22.1.8).
+
+Documentación: `S2_BSP_TRAVERSAL.md` (§5 implementación y gate, det2d, slivers,
+17.ª/18.ª pasadas, §7 limitaciones), `docs/D3D11_FIRST_SCENE_PLAN.md` (§11
+revisado: structs, firmas con `state_flags`, flags, gate, validación),
+`PROJECT_STATE.md` y `ROADMAP.md`. `PROJECT_STATUS.svg` sin cambios (MAIN 40 %).
+
 ## 2026-11-10 - 0.0.0 - Decimoctava corrección (implementación de gex_level_emit)
 
 - Implementación del módulo puro `gex_level_emit` (S-2) en `port/src/emit/emit.c`
