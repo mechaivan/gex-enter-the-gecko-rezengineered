@@ -6,6 +6,7 @@ extern void gex_bsp_reset_grow_visited_fail(void);
 #endif
 #include "gex/asset/dfx.h"
 #include "gex/camera.h"
+#include "ref_map7_frames.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -311,6 +312,81 @@ static void test_real_aztec(void) {
     gex_dfx_release_container(&c);
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Referencia dinamica del original (2026-11-11).
+ *
+ * El GEX3D.EXE en ejecucion carga el nivel `map7.dfx` (no AZTEC16) desde
+ * `C:\GEX_REZ\GEX2\level\map7.dfx`. Con el breakpoint de hardware en
+ * 0x00401C00 se capturaron, en 18 frames consecutivos, la camara (posicion y
+ * angulos Euler) y la lista COMPLETA de hojas visibles que el original deja
+ * en su buffer de salida. Los punteros de esa lista se convirtieron a offsets
+ * dentro de la imagen del nivel restando la base del buffer: es el mismo
+ * espacio que recorre el port.
+ *
+ * El port debe reproducir el conteo y el orden exacto de las hojas.
+ * --------------------------------------------------------------------- */
+#define MAP7_PATH "C:/GEX_REZ/GEX2/level/map7.dfx"
+
+static int visible_all_ref(const uint8_t *image, size_t image_size,
+                           uint32_t node_offset, void *ctx) {
+    (void)image; (void)image_size; (void)node_offset; (void)ctx;
+    return 1;
+}
+
+static void test_map7_reference(void) {
+    FILE *f = fopen(MAP7_PATH, "rb");
+    if (!f) { printf("skip map7 reference (no file)\n"); return; }
+    fclose(f);
+
+    gex_dfx_container c; memset(&c, 0, sizeof(c));
+    if (gex_dfx_load(MAP7_PATH, &c) != GEX_DFX_OK) { printf("skip map7 (load)\n"); return; }
+    gex_dfx_level level; memset(&level, 0, sizeof(level));
+    if (gex_dfx_load_level(&c, &level) != GEX_DFX_OK) {
+        printf("skip map7 (level)\n");
+        gex_dfx_release_container(&c);
+        return;
+    }
+
+    gex_cam_mat3 base;
+    memset(&base, 0, sizeof(base));
+    base.w[0] = base.w[4] = base.w[8] = 4096;   /* base del original (identidad) */
+
+    for (int i = 0; i < REF_FRAME_COUNT; i++) {
+        gex_camera cam;
+        gex_bsp_walk_result r;
+        memset(&cam, 0, sizeof(cam));
+        memcpy(cam.pos, REF_FRAMES[i].pos, sizeof(cam.pos));
+        memcpy(cam.euler, REF_FRAMES[i].euler, sizeof(cam.euler));
+        cam.focal = 0x140;
+        cam.field_0x44 = 0x200;
+        cam.width = 0x180;
+        cam.far = 0x2134;
+        cam.base = &base;
+        gex_cam_update(&cam);
+
+        memset(&r, 0, sizeof(r));
+        CHECK(gex_bsp_walk(c.image, c.image_size, level.descriptor.root_bsp,
+                           visible_all_ref, NULL, &cam, &r) == GEX_BSP_OK);
+        CHECK(r.count == REF_FRAMES[i].count);
+        for (int j = 0; j < 16 && j < (int)r.count; j++) {
+            CHECK(r.leaves[j] == REF_FRAMES[i].first[j]);
+        }
+        /* Frame 0: lista completa (307 hojas) */
+        if (i == 0) {
+            CHECK(r.count == REF_FULL_FRAME0_COUNT);
+            for (uint32_t j = 0; j < r.count && j < REF_FULL_FRAME0_COUNT; j++) {
+                CHECK(r.leaves[j] == REF_FULL_0[j]);
+            }
+        }
+        gex_bsp_walk_free(&r);
+    }
+    printf("map7 reference: %d frames reproducidos\n", REF_FRAME_COUNT);
+
+    gex_dfx_release_level(&level);
+    gex_dfx_release_container(&c);
+}
+
 int main(void) {
     printf("Running BSP tests...\n");
     test_two_leaves();
@@ -326,6 +402,7 @@ int main(void) {
     test_fault_inject_first();
     test_child_order_distance_bits();
     test_real_aztec();
+    test_map7_reference();
     printf("Tests completed: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;
 }

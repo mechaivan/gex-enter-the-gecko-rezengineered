@@ -113,8 +113,8 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
      visibles (`0x004269C2`): **implementado** en `port/src/emit/emit.c`
      (`gex_level_emit`, §11). Produce `gex_emit_output`, una lista de
      triángulos ya proyectados, clasificados, subdivididos, con niebla aplicada
-     y ordenados. La validación dinámica contra el ejecutable original sigue
-     pendiente.
+     y ordenados. El recorrido y la visibilidad están validados dinámicamente
+     (§ 4.3); la comparación cuantitativa de la emisión sigue pendiente.
 
 3. **Generación de Buffers**
    - Conversión de `gex_emit_output` a vértices e índices: **implementada** en
@@ -176,14 +176,18 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   ángulos Euler se niegan, `M2` se aplica por columnas y la tabla
   trigonométrica trunca). Detalle y valores en
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) § 14.
-- **Contrato de emisión (§ 11): sigue sin validar.** El original
-  encuentra **307** hojas visibles con esa cámara y el port **0**: la
-  divergencia está en el espacio de datos del nivel (el nodo raíz que el
-  original prueba no aparece en la imagen que decodifica `port/src/asset/dfx.c`).
-  Hasta que eso se resuelva, los conteos de polígonos y triángulos del
-  port **no** son comparables con los del original y este plan no puede
-  declarar la escena visualmente equivalente. Ver
-  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 8.
+- **Nivel de referencia (2026-11-11, 2.ª tanda):** el juego carga
+  `C:\GEX_REZ\GEX2\level\map7.dfx`, no `AZTEC16.DFX`. Con ese nivel, el
+  recorrido del port reproduce **18/18 frames** con el conteo y la lista
+  completa de hojas visibles idénticos al original (§ 9 de
+  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
+- **Contrato de emisión (§ 11): sigue sin validar.** El original dibuja
+  ~1517 polígonos por frame; el port emite sobre un contexto de emisión
+  reconstruido estáticamente, no sobre una captura del original. Hasta
+  comparar ese contexto, los conteos de polígonos y triángulos del port **no**
+  son comparables con los del original y este plan no puede declarar la
+  escena visualmente equivalente. Ver
+  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 9.5.
 
 ## 5. Arquitectura Mínima por Módulos
 
@@ -245,7 +249,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
     [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5. La cadena original
     `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
     `0x469836` → `0x46558A` está reproducida en código; lo que **no** existe
-    es la validación dinámica contra el ejecutable, así que S-2 sigue abierto.
+    es la comparación cuantitativa de la emisión contra el ejecutable, así que S-2 sigue abierto.
   - Requisitos que el generador cubre (resumen de §5.12, ya implementados
     por `gex_level_emit` y consumidos tal cual por el Módulo 3):
     transformación con `M = *[cam+0xE0]`, *culling* 2D por determinante,
@@ -494,7 +498,7 @@ están implementados y auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
 de cámara + 37 de BSP + 38 855 de emisión, 0 fallos. La **emisión de polígonos**
 también está implementada (`gex_level_emit`, §11) y auditada con 38 855
-comprobaciones, pero le falta la validación dinámica contra el ejecutable
+comprobaciones; la validación dinámica del recorrido y la visibilidad está hecha (§ 4.3), pero falta la comparación cuantitativa de la emisión contra el ejecutable
 original, así que no se declara cerrada.
 
 El **Módulo 3 está implementado en sus dos mitades**: la conversión portable
@@ -582,7 +586,7 @@ variante `0x00461ECA` en §H).
   cámara **y emisión de polígonos** implementados y auditados en `port/`
   ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); falta la
-  **validación dinámica contra el ejecutable original**, por lo que el hito no
+  **comparación cuantitativa de la emisión contra el ejecutable original**, por lo que el hito no
   se declara completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
   lista de polígonos visibles.
@@ -607,7 +611,7 @@ extremo en [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada,
 descriptores, proyección a píxeles de 10 bits, subdivisión, niebla, emisores,
 buckets, diferencias con modelos y con la primitiva 2D `0x4FF06F`) y se
 implementa en `gex_level_emit` (§11), con 38 855 comprobaciones. Sigue
-pendiente la validación dinámica contra el ejecutable: sin ella no se puede
+pendiente la comparación cuantitativa de la emisión contra el ejecutable: sin ella no se puede
 afirmar que el port reproduce el orden y los colores reales de una escena.
 
 
@@ -716,8 +720,8 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
    pero el port usa un estado único: queda pendiente el blending por polígono
    (§18.8).
 5. **Materiales de producción, *depth buffer*, niebla después de la textura y
-   cámara real del juego:** siguen pendientes (§18.8). **S-2 sigue abierta**:
-   la validación dinámica del recorrido BSP, la visibilidad y la emisión contra
+   cámara real del juego:** el recorrido y la visibilidad ya están validados (§ 4.3); la emisión sigue pendiente (§18.8). **S-2 sigue abierta**:
+   la comparación cuantitativa de la emisión contra
    el ejecutable original no se ha hecho.
 
 ### 9.3 Evidencias Clave
@@ -731,7 +735,7 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: la cámara real del juego (S-2) y el *depth buffer*.** El
+**Siguiente paso: el contexto de emisión real del juego (S-2) y el *depth buffer*.** El
 Módulo 4C ya sube las texturas del `.VFX` a D3D11 (§18): el nivel de AZTEC16
 sale texturizado en ejecución real. Lo que falta para acercarse al original es
 validar la cámara del juego contra el ejecutable (S-2, sigue abierto) y
@@ -750,7 +754,7 @@ añadir el *depth buffer* y el blending por polígono del original.
   tabla de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
   `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
   ventanas.
-- **Sigue pendiente y no se declara cerrado:** la validación dinámica de S-2
+- **Sigue pendiente y no se declara cerrado:** la comparación cuantitativa de la emisión de S-2
   contra el ejecutable original. Mientras no exista, la emisión es
   «reconstruida y coherente», no «demostrada idéntica».
 
@@ -1222,7 +1226,7 @@ swapchain y sin demos interactivas.
 
 - Que la escena se **vea**: no hay shaders, ni input layout, ni pipeline, ni
   `DrawIndexed`.
-- Que la emisión sea **idéntica** al ejecutable: falta la validación dinámica
+- Que la emisión sea **idéntica** al ejecutable: falta la comparación cuantitativa
   de S-2.
 - Que las texturas estén resueltas: el índice de 14 bits se transporta por
   vértice, pero el `.VFX`/NCC no se carga (Módulo 4).
@@ -1418,7 +1422,7 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
 
 ### 14.9 Limitaciones y siguiente paso
 
-- **No hay validación dinámica contra el ejecutable original**: S-2 sigue
+- **La validación dinámica del recorrido y la visibilidad está hecha** (§ 4.3); falta la comparación de la emisión: S-2 sigue
   abierto y el primer escenario original **no** está terminado.
 - ~~**No hay texturas ni materiales**~~: en esta sección (§14, el Módulo
   5A) era así; desde el Módulo 4C **sí hay texturas** (§18) y lo que sigue
@@ -1609,7 +1613,7 @@ proyecto.
 
 Lo que **no** se afirma: que esto sea una escena del juego original. En
 esta sección (§15, el Módulo 5A) la geometría visible es el cubo de prueba; la
-emisión real de S-2 sigue sin validación dinámica contra el ejecutable.
+emisión real de S-2 sigue sin comparación cuantitativa contra el ejecutable.
 **Actualización posterior:** el nivel real y sus texturas ya se cargan en la
 aplicación (§16 y §18), pero el encuadre sigue siendo el diagnóstico del port y
 S-2 continúa abierta.
@@ -1630,7 +1634,7 @@ Al cierre del Módulo 5A quedaban estas; **el estado actual es**:
   **sigue abierto** (§18.5 y §18.8).
 - La ventana no se redimensiona (no hay gestión de `WM_SIZE`) → **sigue
   abierto**.
-- S-2 sigue sin validación dinámica contra el ejecutable original → **sigue
+- S-2 tiene el recorrido y la visibilidad validados dinámicamente, pero la emisión sigue sin comparación contra el ejecutable original → **sigue
   abierta**.
 
 ---
@@ -1685,7 +1689,7 @@ la perspectiva.
 Esto **no** es la cámara del juego: el original usa la matriz `cam+0xE0` con
 la orientación real de la cámara, y el port todavía no tiene ese estado. La
 visibilidad del BSP es además «todas las hojas», porque la prueba de esfera de
-`gex_camera` necesita el estado de cámara del juego. **La validación dinámica
+`gex_camera` necesita el estado de cámara del juego, ya capturado y validado (§ 4.3). **La comparación
 de la cámara y del recorrido BSP contra el ejecutable sigue pendiente** y esta
 vista no la sustituye.
 
@@ -1744,7 +1748,7 @@ view: DIAGNOSTIC: scale=0x3C0 cx=315 cy=154
 ```
 
 Las 815 hojas y los conteos del descriptor son los del nivel; los triángulos
-son los de la **vista diagnóstica** (no los del juego con su cámara real).
+son los de la **vista diagnóstica** (no los del juego con su cámara real, ya validada).
 
 ### 16.6 Integración en la aplicación
 
@@ -1801,7 +1805,7 @@ evidencia local y **no se publica** en el repositorio.
   §18) ya están implementados: el nivel sale texturizado. Siguen pendientes
   los **materiales de producción**, el ***depth buffer***, el **blending por
   polígono** y la **niebla aplicada después de la textura** (§18.8).
-- **Cámara real**: la vista es diagnóstica; falta el estado de cámara del
+- **Cámara real**: el estado de cámara del juego ya está capturado y validado; la vista sigue siendo diagnóstica en cuanto a la
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
 - **Sin *blending***: el canal alfa (0 en la pasada de niebla) no se mezcla.
@@ -1880,7 +1884,7 @@ textura y el shader no tiene nada que muestrear.
   geometría cambia), y se han capturado las dos en ejecución real (§18.5).
 - **Límite conocido:** el factor de zoom exacto (cuántos texels por byte de UV)
   **no se ha podido cerrar** con la evidencia estática: depende de la escala
-  de la cámara real del juego, que sigue sin validar dinámicamente (S-2). El
+  de la cámara real del juego, ya validada dinámicamente (S-2). El
   período de repetición (cada `w × h` texels) sí es el mismo en las dos
   lecturas.
 
@@ -1975,7 +1979,7 @@ reconoce en el panel con marco de la pared.
 
 ### 18.8 Lo que queda pendiente
 
-1. **La cámara real del juego (S-2)**: hasta que la cámara original no esté
+1. **El contexto de emisión real del juego (S-2)**: hasta que la emisión original no esté
    validada, el encuadre es el **diagnóstico** del port y no se puede
    comparar con el original.
 2. **El factor de zoom de la UV** (texels por byte) depende de esa cámara.

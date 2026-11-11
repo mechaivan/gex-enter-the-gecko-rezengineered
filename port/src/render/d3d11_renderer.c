@@ -19,13 +19,6 @@
 #include <string.h>
 #include <d3d11.h>
 
-static void release_partial(ID3D11RenderTargetView *rtv)
-{
-    if (rtv != NULL) {
-        ID3D11RenderTargetView_Release(rtv);
-    }
-}
-
 gex_d3d11_renderer_status gex_d3d11_renderer_init(
     gex_d3d11_renderer *renderer,
     const gex_d3d11_device *device,

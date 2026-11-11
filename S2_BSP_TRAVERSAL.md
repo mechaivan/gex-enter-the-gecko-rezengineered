@@ -1,15 +1,22 @@
 # S-2 — Recorrido BSP de AZTEC16
 
-**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), con visibilidad original de cámara implementada y validada estáticamente, sin emisión de polígonos, sin buffers D3D11, shaders ni texturas.
+**Objeto:** recorrido estructural del BSP de niveles (S-2, primer escenario original), con visibilidad original de cámara y emisión de polígonos implementadas, y **validadas dinámicamente contra el ejecutable original** (2026-11-11), sin buffers D3D11, shaders ni texturas.
 
 **Referencias:** `S1_DFX_PARSER.md`, `U1_CONSOLIDACION.md`, `U1H_RESULTADOS.md`, `S2_CAMERA_VISIBILITY.md`, `docs/D3D11_FIRST_SCENE_PLAN.md`, `U1_DFX_RELOCATION_AUDIT.md`.
 
-**Estado actual:** recorrido estructural y visibilidad de cámara implementados y
-validados en `port/`. La visibilidad se documenta en
-[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md). La **ruta de emisión de
-polígonos** está reconstruida con evidencia estática en §5, pero **no
-implementada**. No se declara S-2 completo: falta la emisión en código y la
-validación dinámica contra el ejecutable original.
+**Estado actual:** recorrido estructural, visibilidad de cámara y **emisión de
+polígonos** implementados en `port/` y validados **dinámicamente contra el
+ejecutable original** el 2026-11-11: la cadena de cámara reproduce bit a bit M,
+A, B, `a_cam` y `b_cam` del juego (§14 de
+[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md)) y el recorrido reproduce el
+**conteo y la lista completa de hojas visibles** en 18 frames consecutivos del
+nivel `map7.dfx` (§9). La emisión se documenta en §5.
+
+Lo que **queda abierto** es la comparación cuantitativa de la geometría emitida
+(polígonos y triángulos por frame) con el ejecutable: el original dibuja ~1517
+polígonos por frame y el port produce un recuento distinto porque su contexto de
+emisión (`gex_emit_matrix`) es una reconstrucción estática del de original, no
+una captura. Por eso **S-2 no se declara completo**.
 
 ---
 
@@ -41,12 +48,13 @@ validación dinámica contra el ejecutable original.
   comprobaciones). Sigue **pendiente la validación dinámica contra el ejecutable
   original**: S-2 no se declara completo.
 - **Validación dinámica (2026-11-11, §9):** la cadena de cámara del port se
-  validó contra el proceso original y ahora reproduce **bit a bit** M, A, B,
-  a_cam y b_cam (§14 de `S2_CAMERA_VISIBILITY.md`). El **recuento de hojas
-  visibles**, sin embargo, **no** coincide: el original encuentra **307** hojas
-  visibles con la cámara capturada y el port **0**. La divergencia está en el
-  espacio de datos del nivel, no en la cámara ni en la fórmula de visibilidad.
-  **S-2 sigue abierta.**
+  validó contra el proceso original y reproduce **bit a bit** M, A, B, a_cam y
+  b_cam (§14 de `S2_CAMERA_VISIBILITY.md`). El recorrido BSP con visibilidad
+  reproduce **el conteo y la lista completa de hojas visibles** del original en
+  **18/18 frames** consecutivos. La discrepancia que se había medido (307
+  frente a 0) tenía su origen en que se comparaban **niveles distintos**: el
+  port recorría `AZTEC16.DFX` y el juego `map7.dfx` (§9.1). **S-2 sigue
+  abierta** solo por la comparación de la emisión (§9.5).
 
 ## 2. Nodo BSP (0x20 B)
 
@@ -122,8 +130,9 @@ implementación definida.
 `0x004269C2` (emisión de hojas visibles) y los emisores `0x00426256`/
 `0x00426588` están implementados como módulo puro en `port/src/emit/`
 (2026-11-10, 17.ª–18.ª pasadas): sin D3D11, sin Win32 y sin Glide. Su ruta está
-reconstruida con evidencia en §5 y validada con pruebas estáticas; la
-**validación dinámica contra el ejecutable sigue pendiente**.
+reconstruida con evidencia en §5 y validada con pruebas estáticas. La
+**validación dinámica contra el ejecutable** (recorrido y visibilidad) se
+describe en §9; la de la emisión (conteos de geometría) **sigue pendiente**.
 
 ## 5. Ruta de emisión de polígonos — reconstruida e implementada (2026-11-10)
 
@@ -932,12 +941,104 @@ abierta. La vía de cierre es determinar qué transformación aplica el original
 al contenedor `.DFX` al cargarlo (reubicación de punteros, origen del nivel u
 otro chunk) y reproducirla en `port/src/asset/dfx.c`.
 
+## 9. Validación dinámica contra el ejecutable original (2026-11-11) — el nivel real
+
+### 9.1 El nivel que carga el juego: `map7.dfx`
+
+La primera observación decisiva: **el juego no carga `AZTEC16.DFX`**. El
+original construye la ruta del nivel con un `sprintf` en `0x00463403` sobre la
+cadena de `0x00551900`, y la ruta resultante se capturó en vivo con el
+trazador (`dumpstr` sobre el argumento de ruta del cargador `0x00461E0B`):
+
+```text
+STR  base=0x001AFA9C   C:\GEX_REZ\GEX2\gex.dfx
+STR  base=0x0064D5A8   C:\GEX_REZ\GEX2\level\map7.dfx
+```
+
+Es decir: el juego usa **`C:\GEX_REZ\GEX2\level\map7.dfx`**, que pertenece a
+la instalación original y **no** al `InstallDir` del registro. Cualquier
+comparación，debe usar ese fichero. La primera medición «307 hojas frente a 0»
+era, por tanto, una comparación entre **niveles distintos** (`AZTEC16.DFX` en el
+port frente a `map7.dfx` en el juego), no un defecto del recorrido.
+
+### 9.2 El cargador y el buffer `B`
+
+`0x00461E0B` (argumento: la ruta) lee el fichero entero, calcula
+`aligned = ((count + 0x200) >> 9) << 9`, llama al relocalizador
+`0x004735C0` (que suma `B` a los DWORD enumerados en la tabla de offsets) y
+compacta la imagen desde `B + 4*aligned` hasta `B`. Devuelve `B` en `EAX`
+(observable en `0x00461EC9`).
+
+Medido en la sesión de referencia:
+
+| Dato | Valor observado |
+|---|---|
+| `B` (base del buffer del nivel) | `0x1940CF4C` |
+| descriptor del nivel (`desc`) | `B + 0xDDE8` |
+| `desc[0]` (raíz del BSP) | `B + 0x9CE94` |
+| `root_bsp` del port (`gex_dfx_load_level`) | `0x9CE94` ✔ **coincide** |
+
+El puntero de nodo que el original entrega al recorrido es, por tanto, el
+mismo offset de imagen que usa el port: el parser del contenedor y la
+extracción del descriptor del port son correctos.
+
+### 9.3 El nodo raíz, leído de una vez
+
+48 bytes contiguos leídos del nodo raíz real (`dumpindraw`), decodificados:
+
+```text
++0x00  centro   (-5818, -2134, 2124)   (int16 x3)
++0x06  radio    19460                   (uint16)
++0x0C  normal   (-2034, -3034, 536)    (int16 x3, Q12)
++0x12  tipo     1                       (int16)
++0x18  punteros a hijos, ya RELOCALIZADOS (punteros absolutos)
+```
+
+Los punteros a hijos son la diferencia de representación entre el original y
+el port: el original relocaliza los DWORD del `.DFX` en memoria (`v += B`), de
+modo que sus hojas son **punteros absolutos**; el port trabaja con **offsets**
+dentro de la imagen, que es el mismo espacio. La estructura del nodo
+(centro, radio, normal, tipo) coincide con la documentada en §2.
+
+### 9.4 La lista de hojas: coincidencia frame a frame
+
+El original deja en su buffer de salida el contador en `out[0]` y los punteros
+a las hojas visibles a partir de `out[4]`. Se capturaron **18 frames
+consecutivos** de la ruta 3D (cámara leída del objeto de cámara `0x0065CD80` en
+la entrada del recorrido, lista leída en la entrada del frame siguiente).
+
+Con esos datos como referencia, el port reproduce:
+
+* el **conteo** de hojas visibles (307, 306, 303, 301, 303, 302, 302, 307, 310,
+  305, 292, 291, 305, 308, 310, 309, 297, 295), y
+* la **lista completa de hojas, en el mismo orden**, elemento a elemento
+  (18/18 frames).
+
+La regresión vive en `port/tests/test_camera.c` (cámara) y
+`port/tests/test_bsp.c` + `port/tests/ref_map7_frames.h` (recorrido).
+
+### 9.5 Lo que sigue abierto
+
+* **La emisión de geometría no se ha comparado cuantitativamente.** El original
+  dibuja ~1517 polígonos por frame (breakpoint en `0x0046558A`: 219 998 draws
+  en 145 frames). El port emite sobre su propio contexto
+  (`gex_emit_matrix`), que es una reconstrucción **estática** del del original
+  (§5 y §11 del plan D3D11); para comparar conteos haría falta capturar el
+  contexto de emisión real del juego (`0x0065CD60` y la matriz escalada de
+  `0x46A1D0`) y construirlo desde ahí. Es el siguiente paso natural.
+* La rama de **ángulos alternativos** (`[0x551644+0xa0] & 8`) y la de
+  **base forzada a identidad** (`cam+0x43C != 0`) no se han observado en
+  ejecución: en el juego capturado el flag valía 0 y la base era la identidad.
+* La **tabla de rutas del VFX** y la mezcla de color por vértice siguen
+  pendiente de la comparación numérica con el original.
+
+
 ---
 
-**No se declara S-2 completo**: la visibilidad original y la emisión están
-implementadas y documentadas, y la **cadena de cámara ya está validada
-dinámicamente bit a bit** contra el ejecutable (§8), pero el **recuento de
-hojas visibles no coincide** (307 en el original frente a 0 en el port) por una
-divergencia en el espacio de datos del nivel (§8.3). La integración con el
-renderizador ya tiene su primera mitad (Módulo 3: geometría y buffers); la
-segunda (shaders, texturas y dibujo) sigue pendiente.
+**No se declara S-2 completo**: la visibilidad original, el recorrido y la
+emisión están implementados y documentados, y el recorrido y la visibilidad
+**están validados dinámicamente** contra el ejecutable (§9: 18/18 frames con
+la lista de hojas idéntica). Queda pendiente la **comparación cuantitativa de
+la emisión** (§9.5). La integración con el renderizador ya tiene su primera
+mitad (Módulo 3: geometría y buffers); la segunda (shaders, texturas y dibujo)
+sigue pendiente.

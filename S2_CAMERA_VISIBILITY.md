@@ -1097,25 +1097,27 @@ se rechaza si `d0 <= −r` o `d0 >= far + r`, con `r` leído como `uint16` en
 
 La suite completa del port (20 binarios) pasa con `-O0`, `-O2`, ASan y UBSan.
 
-### 14.6 Lo que sigue abierto (no cerrado)
+### 14.6 El nivel de referencia: `map7.dfx`
 
-Con la cámara ya **equivalente bit a bit**, el port sigue **sin** reproduciendo
-el recuento de hojas visibles del original: con la cámara capturada el
-original encuentra **307** hojas visibles (306 y 303 en los frames
-siguientes) y el port **0**. La divergencia **no** está en la cámara ni en la
-fórmula de visibilidad, sino en el **espacio de datos del nivel**: el nodo
-raíz que el original somete a prueba tiene centro
-`(−5818, −2134, 2124)`, radio `1100` y tipo `1` en `+0x12`, y esa secuencia de
-bytes **no aparece** en la imagen decodificada por el port de `AZTEC16.DFX`
-(ni en la de las copias `MAP7.DFX`). La estructura del nodo, en cambio,
-coincide (centro en `+0x00`, radio `+0x06`, normal en `+0x0C`, tipo en
-`+0x12`), y el port recorre **815** hojas, el mismo total que su test
-estático sobre `AZTEC16.DFX`.
+La cámara capturada pertenece a la ruta 3D del nivel que carga el juego, que
+**no** es `AZTEC16.DFX` sino `C:\GEX_REZ\GEX2\level\map7.dfx` (ruta
+construida con el `sprintf` de `0x00463403`; capturada en vivo con
+`dumpstr` sobre el argumento de ruta del cargador `0x00461E0B`). El recorrido
+BSP con esa cámara y ese nivel reproduce el **conteo y la lista completa de
+hojas visibles** del original en 18/18 frames (§9 de
+`S2_BSP_TRAVERSAL.md`).
 
-Queda por determinar si el original decodifica el contenedor `.DFX` en otro
-espacio (reubicación, origen del nivel u otro chunk) o si el BSP que usa no
-procede del `.DFX` que el port decodifica. **S-2 permanece abierta** por este
-punto; el contrato de emisión (`docs/D3D11_FIRST_SCENE_PLAN.md` §11) no se da
-por validado.
+### 14.7 Lo que sigue abierto (no cerrado)
+
+La cadena de cámara queda **cerrada**: reproduce bit a bit el marco local, M,
+A, B, `a_cam` y `b_cam` del original, y con ella el recorrido BSP reproduce
+**18/18 frames** con la lista completa de hojas idéntica (§9 de
+`S2_BSP_TRAVERSAL.md`).
+
+Lo que **queda abierto** es la comparación cuantitativa de la **emisión de
+geometría** (polígonos y triángulos por frame): el port emite sobre un
+contexto de emisión reconstruido estáticamente, no sobre una captura del
+original. El contrato de emisión (`docs/D3D11_FIRST_SCENE_PLAN.md` §11) **no
+se da por validado** hasta esa comparación.
 
 ---

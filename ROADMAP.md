@@ -78,11 +78,14 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     port se validó contra el proceso original y quedó **equivalente bit a
     bit** (M, A, B, a_cam, b_cam); se corrigieron tres defectos reales (negación
     de ángulos, aplicación de `M2` por columnas, truncado de la tabla
-    trigonométrica). Queda abierto el **espacio de datos del nivel**, que
-    impide reproducir el recuento de hojas visibles (307 en el original frente
-    a 0 en el port). **S-2 no se cierra.** Detalle en
+    trigonométrica).
+  - **Segunda tanda (2026-11-11):** el nivel que carga el juego es
+    `map7.dfx`, no `AZTEC16.DFX`; con el nivel correcto el recorrido reproduce
+    **18/18 frames** con la lista de hojas visible idéntica al original.
+    Queda abierta la **comparación de la emisión** (polígonos por frame).
+    **S-2 no se cierra.** Detalle en
     [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
-    [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8.
+    [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.
  🔄 EN CURSO
 
 - [ ] S-1: Parser DFX (2026-11-07) — parser del contenedor `.DFX` **implementado y validado** en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)): contenedor, relocalización y descriptor de nivel sobre AZTEC16.DFX y GEX.DFX. La integración del primer escenario (buffers, texturas y renderer) sigue pendiente; S-1 no se declara completo.

@@ -15,9 +15,11 @@
  *
  * The retail sine/cosine tables (BSS at 0x00646C20 / 0x00645C20) have no
  * statically located initializer, so the port generates them
- * mathematically in Q12. An exact bit-for-bit match with the retail
- * tables is NOT proven (see S2_CAMERA_VISIBILITY.md). The lookup keeps
- * the original quadrant structure over a half-turn sine table.
+ * mathematically in Q12. That generation was VERIFIED against the running
+ * original on 2026-11-11: the retail table is the truncated value
+ * trunc(4096*sin(2*pi*i/4096)) on all 1024 live entries (it differs from
+ * the rounded value on 502 of them), so the port truncates. The lookup
+ * keeps the original quadrant structure over a half-turn sine table.
  *
  * Ingeniería inversa estática y de solo lectura. No se modifican
  * ejecutables ni assets originales.

@@ -55,6 +55,59 @@ cambia de verdad y S-2 sigue abierta.
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - S-2 validado contra el original: el nivel `map7.dfx` y la lista de hojas idéntica
+
+**Hallazgo principal.** El ejecutable original **no** carga `AZTEC16.DFX`:
+construye la ruta del nivel con el `sprintf` de `0x00463403` y usa
+`C:\GEX_REZ\GEX2\level\map7.dfx` (ruta capturada en vivo con el trazador
+sobre el argumento del cargador `0x00461E0B`). La discrepancia medida en la
+tanda anterior (307 hojas visibles frente a 0) comparaba, por tanto, **niveles
+distintos**: `AZTEC16.DFX` en el port frente a `map7.dfx` en el juego.
+
+**Carga y buffer del nivel.** `0x00461E0B` lee el fichero, calcula
+`aligned = ((count + 0x200) >> 9) << 9`, relocaliza con `0x004735C0` (los
+DWORD de la tabla de offsets pasan a `B + v`) y compacta la imagen de
+`B + 4*aligned` a `B`; devuelve `B` en `EAX` (`0x00461EC9`). Medido:
+`B = 0x1940CF4C`, descriptor del nivel en `B + 0xDDE8`, y **raíz del BSP en
+`B + 0x9CE94`**, exactamente el `root_bsp` que extrae
+`gex_dfx_load_level`. El parser del contenedor y el descriptor del port son
+correctos.
+
+**Nodo raíz real** (48 bytes leídos de una vez): centro `(-5818,-2134,2124)`,
+radio `19460`, normal `(-2034,-3034,536)` en `+0x0C`, tipo `1` en `+0x12`, y los
+punteros a hijos ya relocalizados (el original guarda punteros absolutos; el
+port guarda offsets en el mismo espacio de imagen).
+
+**Resultado.** Con la cámara capturada y el nivel correcto, el port reproduce
+**18/18 frames** consecutivos con el **conteo y la lista completa de hojas
+visibles idénticos** al original (307, 306, 303, 301, 303, 302, 302, 307, 310,
+305, 292, 291, 305, 308, 310, 309, 297, 295 hojas).
+
+**Cambios en el repositorio.**
+- `port/tests/test_bsp.c` + `port/tests/ref_map7_frames.h`: regresión con los
+  18 frames de referencia (cámara, conteo y lista de hojas).
+- `tools/frame-trace/tracer.cs`: opciones de volcado de solo lectura
+  (`dump:`, `dumpabs:`, `dumpind:`, `dumpraw:`, `dumpabsraw:`, `dumpstack:`,
+  `dumpindraw:`, `dumpstr:`, `regs`, `dumplimit:`), documentadas en el README.
+- `port/src/render/d3d11_renderer.c`: se elimina el helper estático
+  `release_partial`, no usado, que impedía que `port/build.ps1 test`
+  terminara (el script aborta con cualquier aviso del compilador).
+- `port/tests/test_d3d11_renderer.c`: comparaciones con `uint64_t` explícito
+  (mismo aviso, en el test).
+
+**Documentación.** `S2_BSP_TRAVERSAL.md` §9 (el nivel real, el cargador, el
+nodo raíz y la comparación frame a frame), `S2_CAMERA_VISIBILITY.md` §14.6-14.7,
+`PROJECT_STATE.md`, `ROADMAP.md`, `RESEARCH.md`, `REVERSE_ENGINEERING.md` §4.1
+y `docs/D3D11_FIRST_SCENE_PLAN.md` §4.3: se corrigen las afirmaciones
+obsoletas (la emisión ya estaba implementada; la validación dinámica del
+recorrido y la visibilidad ya está hecha).
+
+**Lo que sigue abierto.** La **comparación cuantitativa de la emisión**: el
+original dibuja ~1517 polígonos por frame y el port emite sobre un contexto
+reconstruido estáticamente, no sobre una captura del original. Hasta esa
+comparación, el contrato de emisión (§11 del plan D3D11) no se da por validado
+y **S-2 no se declara completa**.
+
 ## 2026-11-11 - 0.0.0 - Auditoría documental posterior al Módulo 4C: consolidación del estado real
 
 Auditoría **solo documental** (sin cambios de funcionalidad) del repositorio

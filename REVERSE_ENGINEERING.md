@@ -352,6 +352,11 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
 4. **Separar hechos de hipótesis.** Todo lo que se afirma del original en
    ejecución se apoya en una lectura concreta (dirección, valor, instante) y
    se cita; lo que no se pudo comprobar se declara como abierto.
+4b. **Comparar contra la misma entrada.** Antes de medir una diferencia hay que
+   verificar **qué fichero y qué estado** usa el original: el juego carga
+   `C:\GEX_REZ\GEX2\level\map7.dfx`, no el `AZTEC16.DFX` del port, y una
+   comparación entre niveles distintos se confunde con un defecto del port
+   (lección de 2026-11-11).
 5. **Una conclusión por evidencia.** Si el port y el original no coinciden, se
    primero **localiza la etapa** divergente (con capturas del mismo
    instante), se corrige solo lo afectado y se añade una prueba de regresión

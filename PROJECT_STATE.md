@@ -33,13 +33,21 @@
   Regresión en `port/tests/test_camera.c` (`test_dynamic_reference_camera`,
   `test_table_truncation`). Detalle en
   [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14.
-- **Lo que sigue abierto:** el recuento de **hojas visibles** no coincide
-  (307 en el original, 0 en el port con esa misma cámara). Como la cadena de
-  cámara ya es equivalente bit a bit, la divergencia está en el **espacio
-  de datos del nivel**: el nodo raíz que el original prueba (centro
-  `(−5818,−2134,2124)`, radio 1100, tipo 1) no aparece en la imagen decodificada
-  por `port/src/asset/dfx.c`. **S-2 no se declara completa.** Detalle en
-  [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8.
+- **El nivel real (2026-11-11, 2.ª tanda):** el juego carga
+  `C:\GEX_REZ\GEX2\level\map7.dfx` (ruta capturada en vivo en el cargador
+  `0x461E0B`), **no** `AZTEC16.DFX`. La discrepancia «307 hojas frente a 0» era
+  una comparación entre niveles distintos.
+- **Resultado:** con el nivel correcto, el port reproduce **18/18 frames**
+  consecutivos con el **conteo y la lista completa de hojas visibles**
+  idénticos al original, y el `root_bsp` del port (`0x9CE94`) coincide
+  exactamente con el nodo raíz que el original entrega al recorrido
+  (`desc[0] = B + 0x9CE94`). Regresión en `port/tests/test_bsp.c` +
+  `port/tests/ref_map7_frames.h`.
+- **Lo que sigue abierto:** la comparación cuantitativa de la **emisión**
+  (conteos de polígonos/triángulos por frame): el original dibuja ~1517
+  polígonos por frame y el port emite sobre un contexto reconstruido
+  estáticamente. **S-2 no se declara completa.** Detalle en
+  [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 

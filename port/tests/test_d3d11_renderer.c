@@ -116,7 +116,7 @@ static int test_d3d11_renderer_basic(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + i * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 1);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 1));
     }
     
     /* Test frame time measurement */
@@ -150,7 +150,7 @@ static int test_d3d11_renderer_basic(void)
         for (i = 0; i < 3; i++) {
             status = gex_i4_app_step(&app, start_us + (i + 3) * 16667); /* 60 Hz */
             CHECK(status == GEX_FRAME_OK);
-            CHECK(app.renderer.d3d11_renderer.presents == i + 4);
+            CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 4));
         }
     } else {
         printf("INFO: Skipping renderer resize tests due to swapchain resize failure\n");
@@ -158,7 +158,7 @@ static int test_d3d11_renderer_basic(void)
         for (i = 0; i < 3; i++) {
             status = gex_i4_app_step(&app, start_us + (i + 3) * 16667); /* 60 Hz */
             CHECK(status == GEX_FRAME_OK);
-            CHECK(app.renderer.d3d11_renderer.presents == i + 4);
+            CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 4));
         }
     }
     
@@ -475,7 +475,7 @@ static int test_d3d11_renderer_frame_time(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + i * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 1);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 1));
     }
     
     /* Test frame time measurement (should have values now) */
@@ -596,7 +596,7 @@ static int test_d3d11_renderer_vsync(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + i * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 1);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 1));
     }
     
     /* Test VSync=1 (VSync enabled) */
@@ -606,7 +606,7 @@ static int test_d3d11_renderer_vsync(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + (i + 3) * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 4);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 4));
     }
     
     /* Test additional VSync values */
@@ -722,7 +722,7 @@ static int test_d3d11_renderer_r4_features(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + i * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 1);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 1));
     }
     
     /* Test frame time measurement (should have values now) */
@@ -736,7 +736,7 @@ static int test_d3d11_renderer_r4_features(void)
     for (i = 0; i < 3; i++) {
         status = gex_i4_app_step(&app, start_us + (i + 3) * 16667); /* 60 Hz */
         CHECK(status == GEX_FRAME_OK);
-        CHECK(app.renderer.d3d11_renderer.presents == i + 4);
+        CHECK(app.renderer.d3d11_renderer.presents == (uint64_t)(i + 4));
     }
     
     /* Test frame time measurement again */

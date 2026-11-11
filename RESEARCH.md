@@ -35,7 +35,9 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 > hardware mediante [`tools/frame-trace`](tools/frame-trace/README.md). Eso
 > convierte al propio binario en la referencia primaria de primer orden para
 > S-2: los valores capturados del proceso vivo son la fuente de verdad, por
-> encima de la relectura estática. Resultados en
+> encima de la relectura estática. Ojo: el original carga
+> `C:\GEX_REZ\GEX2\level\map7.dfx`, no `AZTEC16.DFX`; comparar el port
+> con otro nivel produce discrepancias falsas. Resultados en
 > [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
 > [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
 > reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.

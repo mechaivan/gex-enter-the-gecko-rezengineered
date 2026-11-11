@@ -8,9 +8,10 @@
  *
  * The original sine/cosine tables live in BSS at 0x00646C20 (sin) and
  * 0x00645C20 (cos). Their point values were not recovered statically, so
- * the port generates them mathematically in Q12; an exact bit-for-bit
- * match with the retail tables is therefore NOT proven (see
- * S2_CAMERA_VISIBILITY.md).
+ * the port generates them mathematically in Q12. That generation was
+ * VERIFIED against the running original on 2026-11-11: the retail table
+ * truncates instead of rounding, and reproduces trunc(4096*sin(2*pi*i/4096))
+ * on all 1024 live entries (see S2_CAMERA_VISIBILITY.md).
  *
  * Ingeniería inversa estática y de solo lectura. No se modifican
  * ejecutables ni assets originales.

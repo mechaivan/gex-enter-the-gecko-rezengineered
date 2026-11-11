@@ -13,6 +13,33 @@
 //
 // Usage:
 //   tracer.exe <exe> <workdir> <log> <timeoutMs> hw:<addr,...> <keyScript|none>
+//              [dump:<arg>:<off>,...] [dumpabs:<base>:<off>,...]
+//              [dumpind:<arg>:<ptrOff>:<off>,...] [dumpraw:<arg>:<off>:<len>]
+//              [dumpabsraw:<base>:<len>] [regs]
+//
+// Opciones de volcado (solo lectura, nunca se escribe en el proceso):
+//   dump:<arg>:<off>,...      dwords en (argumento <arg> + <off>); <arg> 0..2
+//                             son a0, a1 y a2 (las tres primeras palabras de
+//                             la pila en el punto de interrupcion)
+//   dumpabs:<base>:<off>,...  dwords en la direccion absoluta <base>; se puede
+//                             repetir separando bloques con ';'
+//   dumpind:<arg>:<ptrOff>:<off>,...
+//                             dwords en la direccion contenida en
+//                             (argumento <arg> + <ptrOff>), mas <off>
+//   dumpraw:<arg>:<off>:<len>  bytes contiguos en (argumento <arg> + <off>)
+//   dumpabsraw:<base>:<len>    bytes contiguos en la direccion <base>
+//   dumpstack:<off>,...        dwords en (esp + <off>) del punto de interrupcion
+//   dumpindraw:<arg>:<ptrOff>:<len>
+//                             bytes contiguos en la direccion contenida en
+//                             (argumento <arg> + <ptrOff>)
+//   dumpstr:<arg>:<off>:<max>  cadena terminada en NUL en (argumento <arg> + <off>)
+//   regs                      vuelca los registros del hilo en el punto
+//                             de interrupcion (eax..ebp, esp)
+//   dumplimit:N               numero maximo de bloques volcados por impacto
+//                             (4 por defecto)
+//
+// Salida: una linea BP por impacto (como antes) y, si se piden, lineas
+// MEM / ABS / IND / RAW / RAWABS / REG. summarize.mjs sigue leyendo BP.
 //
 //   addr      image-relative address in hex (e.g. 43e1ba), rebased automatically
 //   keyScript comma separated virtual-key codes in hex, sent 8 s apart (0D Enter,
@@ -119,6 +146,32 @@ public static class Tracer
     static long[] keyAt = new long[0];
     static IntPtr gameWindow = IntPtr.Zero;
 
+    // --- extensiones de volcado (solo lectura) ---
+    static int dumpArg = -1;                        // 0..2 -> a0, a1, a2
+    static readonly List<uint> dumpOffs = new List<uint>();
+    static readonly List<int> dumpArgs = new List<int>();      // un bloque por opcion dump:
+    static readonly List<uint[]> dumpOffSets = new List<uint[]>();
+    static readonly List<uint> dumpAbsBases = new List<uint>();
+    static readonly List<uint[]> dumpAbsOffSets = new List<uint[]>();
+    static int dumpIndArg = -1;
+    static readonly List<uint> dumpIndPtrOffs = new List<uint>();
+    static readonly List<uint[]> dumpIndOffSets = new List<uint[]>();
+    static int dumpRawArg = -1;                      // arg de dumpraw:
+    static uint dumpRawBase = 0;                   // desplazamiento de dumpraw:
+    static uint dumpRawLen = 0;                     // longitud de dumpraw:
+    static uint dumpAbsRawBase = 0;                // base de dumpabsraw:
+    static uint dumpAbsRawLen = 0;                 // longitud de dumpabsraw:
+    static bool wantRegs = false;
+    static readonly List<uint> dumpStackOffs = new List<uint>();  // dwords en (esp+off)
+    static int dumpIndRawArg = -1;                              // lectura contigua por indireccion
+    static uint dumpIndRawPtrOff = 0;
+    static uint dumpIndRawLen = 0;
+    static int dumpStrArg = -1;                                 // cadena terminada en NUL
+    static uint dumpStrOff = 0;
+    static uint dumpStrMax = 0;
+    static int dumpLimit = 4;                      // volcados por impacto
+    static WOW64_CONTEXT lastCtx;                  // contexto del impacto
+
     static void Log(string s) { log.WriteLine(s); log.Flush(); }
 
     static uint U32(IntPtr addr)
@@ -127,6 +180,28 @@ public static class Tracer
         IntPtr got;
         if (!ReadProcessMemory(hProc, addr, b, 4, out got)) return 0xFFFFFFFF;
         return BitConverter.ToUInt32(b, 0);
+    }
+
+    // Lee un bloque contiguo de bytes (solo lectura). Devuelve null si la
+    // memoria no es legible.
+    static byte[] Block(uint addr, int len)
+    {
+        var b = new byte[len];
+        IntPtr got;
+        if (!ReadProcessMemory(hProc, (IntPtr)addr, b, len, out got)) return null;
+        return b;
+    }
+
+    static string HexBlock(byte[] b)
+    {
+        if (b == null) return "<ilegible>";
+        var sb = new StringBuilder();
+        for (int i = 0; i < b.Length; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            sb.Append(b[i].ToString("X2"));
+        }
+        return sb.ToString();
     }
 
     static void ApplyHw(IntPtr hThread)
@@ -191,11 +266,97 @@ public static class Tracer
         var addrList = list == "none" ? new string[0] : list.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
         keyScript = (args.Length > 5 && args[5] != "none") ? args[5].Split(',') : new string[0];
 
+        for (int i = 6; i < args.Length; i++)
+        {
+            string opt = args[i];
+            if (opt == "regs") { wantRegs = true; continue; }
+            if (opt.StartsWith("dumplimit:"))
+            {
+                dumpLimit = int.Parse(opt.Substring(10));
+                continue;
+            }
+            if (opt.StartsWith("dump:"))
+            {
+                string[] parts = opt.Substring(5).Split(':');
+                dumpArg = int.Parse(parts[0]);
+                dumpArgs.Add(dumpArg);
+                var offs = new List<uint>();
+                foreach (var s in parts[1].Split(',')) offs.Add(Convert.ToUInt32(s, 16));
+                dumpOffs.AddRange(offs);
+                dumpOffSets.Add(offs.ToArray());
+            }
+            else if (opt.StartsWith("dumpabs:"))
+            {
+                foreach (var blk in opt.Substring(8).Split(';'))
+                {
+                    string[] parts = blk.Split(':');
+                    dumpAbsBases.Add(Convert.ToUInt32(parts[0], 16));
+                    var offs = new List<uint>();
+                    foreach (var s in parts[1].Split(',')) offs.Add(Convert.ToUInt32(s, 16));
+                    dumpAbsOffSets.Add(offs.ToArray());
+                }
+            }
+            else if (opt.StartsWith("dumpind:"))
+            {
+                string[] parts = opt.Substring(8).Split(':');
+                dumpIndArg = int.Parse(parts[0]);
+                dumpIndPtrOffs.Add(Convert.ToUInt32(parts[1], 16));
+                var offs = new List<uint>();
+                foreach (var s in parts[2].Split(',')) offs.Add(Convert.ToUInt32(s, 16));
+                dumpIndOffSets.Add(offs.ToArray());
+            }
+            else if (opt.StartsWith("dumpraw:"))
+            {
+                string[] parts = opt.Substring(8).Split(':');
+                dumpRawArg = int.Parse(parts[0]);
+                dumpRawBase = Convert.ToUInt32(parts[1], 16);
+                dumpRawLen = Convert.ToUInt32(parts[2], 16);
+            }
+            else if (opt.StartsWith("dumpstack:"))
+            {
+                foreach (var s in opt.Substring(10).Split(',')) dumpStackOffs.Add(Convert.ToUInt32(s, 16));
+            }
+            else if (opt.StartsWith("dumpindraw:"))
+            {
+                string[] parts = opt.Substring(11).Split(':');
+                dumpIndRawArg = int.Parse(parts[0]);
+                dumpIndRawPtrOff = Convert.ToUInt32(parts[1], 16);
+                dumpIndRawLen = Convert.ToUInt32(parts[2], 16);
+            }
+            else if (opt.StartsWith("dumpstr:"))
+            {
+                string[] parts = opt.Substring(8).Split(':');
+                dumpStrArg = int.Parse(parts[0]);
+                dumpStrOff = Convert.ToUInt32(parts[1], 16);
+                dumpStrMax = Convert.ToUInt32(parts[2], 16);
+            }
+            else if (opt.StartsWith("dumpabsraw:"))
+            {
+                string[] parts = opt.Substring(11).Split(':');
+                dumpAbsRawBase = Convert.ToUInt32(parts[0], 16);
+                dumpAbsRawLen = Convert.ToUInt32(parts[1], 16);
+            }
+            else
+            {
+                Console.Error.WriteLine("argumento desconocido: " + opt);
+                return 1;
+            }
+        }
+
         log = new StreamWriter(logPath, false, new UTF8Encoding(false));
         Log("# frame-trace (hardware breakpoints, no code patching)");
         Log("# exe=" + exe);
         Log("# workdir=" + workdir);
         Log("# started=" + DateTime.UtcNow.ToString("O"));
+        if (dumpArg >= 0) Log("# dump arg=" + dumpArg + " offs=" + dumpOffs.Count);
+        if (dumpAbsBases.Count > 0) Log("# dumpabs bases=" + dumpAbsBases.Count);
+        if (dumpIndArg >= 0) Log("# dumpind arg=" + dumpIndArg + " blocks=" + dumpIndOffSets.Count);
+        if (dumpRawLen > 0) Log("# dumpraw off=0x" + dumpRawBase.ToString("X8") + " len=" + dumpRawLen);
+        if (dumpAbsRawLen > 0) Log("# dumpabsraw base=0x" + dumpAbsRawBase.ToString("X8") + " len=" + dumpAbsRawLen);
+        if (wantRegs) Log("# regs");
+        if (dumpStackOffs.Count > 0) Log("# dumpstack offs=" + dumpStackOffs.Count);
+        if (dumpIndRawArg >= 0) Log("# dumpindraw arg=" + dumpIndRawArg + " len=" + dumpIndRawLen);
+        if (dumpStrArg >= 0) Log("# dumpstr arg=" + dumpStrArg + " max=" + dumpStrMax);
 
         var si = new STARTUPINFO(); si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
         PROCESS_INFORMATION pi;
@@ -271,6 +432,7 @@ public static class Tracer
                         if (hitCount.ContainsKey(at))
                         {
                             hitCount[at]++;
+                            lastCtx = ctx;
                             LogHit(at, ctx.Esp, evTid);
                             // RF: run the instruction once before the breakpoint can fire again
                             ctx.EFlags |= 0x10000u;
@@ -314,5 +476,116 @@ public static class Tracer
         seq++;
         Log(string.Format("BP\t{0}\t{1}\t{2}\t0x{3:X8}\t0x{4:X8}\t0x{5:X8}\t0x{6:X8}\t0x{7:X8}\t0x{8:X8}",
             seq, clock.ElapsedMilliseconds, tid, at, esp, ret, a0, a1, a2));
+
+        if (wantRegs)
+        {
+            Log(string.Format("REG\t{0}\t{1}\teax=0x{2:X8}\tebx=0x{3:X8}\tecx=0x{4:X8}\tedx=0x{5:X8}\tesi=0x{6:X8}\tedi=0x{7:X8}\tebp=0x{8:X8}\tesp=0x{9:X8}",
+                seq, clock.ElapsedMilliseconds, lastCtx.Eax, lastCtx.Ebx, lastCtx.Ecx,
+                lastCtx.Edx, lastCtx.Esi, lastCtx.Edi, lastCtx.Ebp, lastCtx.Esp));
+        }
+
+        if (dumpStackOffs.Count > 0)
+        {
+            var sb = new StringBuilder();
+            sb.Append(string.Format("STK\t{0}\t{1}\tesp=0x{2:X8}", seq, clock.ElapsedMilliseconds, esp));
+            foreach (uint off in dumpStackOffs)
+                sb.Append(string.Format("\t+0x{0:X}=0x{1:X8}", off, U32((IntPtr)(esp + off))));
+            Log(sb.ToString());
+        }
+
+        if (dumpStrArg >= 0)
+        {
+            uint argp = dumpStrArg == 0 ? a0 : (dumpStrArg == 1 ? a1 : a2);
+            if (argp != 0 && argp != 0xFFFFFFFF)
+            {
+                uint addr = argp + dumpStrOff;
+                byte[] b = Block(addr, (int)dumpStrMax);
+                if (b != null)
+                {
+                    int n = 0;
+                    while (n < b.Length && b[n] != 0) n++;
+                    string s = Encoding.ASCII.GetString(b, 0, n);
+                    Log(string.Format("STR\t{0}\t{1}\taddr=0x{2:X8}\t{3}", seq, clock.ElapsedMilliseconds, addr, s));
+                }
+            }
+        }
+
+        if (dumpIndRawArg >= 0)
+        {
+            uint argp = dumpIndRawArg == 0 ? a0 : (dumpIndRawArg == 1 ? a1 : a2);
+            uint ptr = U32((IntPtr)(argp + dumpIndRawPtrOff));
+            if (ptr != 0 && ptr != 0xFFFFFFFF && dumpIndRawLen > 0)
+            {
+                dumpLimit--;
+                Log(string.Format("INDRAW\t{0}\t{1}\tptr=0x{2:X8}\tlen={3}\t{4}",
+                    seq, clock.ElapsedMilliseconds, ptr, dumpIndRawLen,
+                    HexBlock(Block(ptr, (int)dumpIndRawLen))));
+            }
+        }
+
+        if (dumpLimit <= 0) return;
+
+        for (int bi = 0; bi < dumpArgs.Count; bi++)
+        {
+            if (dumpLimit <= 0) break;
+            uint ptr = dumpArgs[bi] == 0 ? a0 : (dumpArgs[bi] == 1 ? a1 : a2);
+            if (ptr == 0 || ptr == 0xFFFFFFFF) continue;
+            dumpLimit--;
+            var sb = new StringBuilder();
+            sb.Append(string.Format("MEM\t{0}\t{1}\tptr=0x{2:X8}", seq, clock.ElapsedMilliseconds, ptr));
+            foreach (uint off in dumpOffSets[bi])
+                sb.Append(string.Format("\t+0x{0:X}=0x{1:X8}", off, U32((IntPtr)(ptr + off))));
+            Log(sb.ToString());
+        }
+
+        for (int bi = 0; bi < dumpAbsBases.Count; bi++)
+        {
+            if (dumpLimit <= 0) break;
+            dumpLimit--;
+            uint bse = dumpAbsBases[bi];
+            uint[] boffs = dumpAbsOffSets[bi];
+            var sb = new StringBuilder();
+            sb.Append(string.Format("ABS\t{0}\t{1}\tbase=0x{2:X8}", seq, clock.ElapsedMilliseconds, bse));
+            foreach (uint off in boffs)
+                sb.Append(string.Format("\t+0x{0:X}=0x{1:X8}", off, U32((IntPtr)(bse + off))));
+            Log(sb.ToString());
+        }
+
+        if (dumpIndArg >= 0)
+        {
+            uint argp = dumpIndArg == 0 ? a0 : (dumpIndArg == 1 ? a1 : a2);
+            for (int bi = 0; bi < dumpIndPtrOffs.Count; bi++)
+            {
+                if (dumpLimit <= 0) break;
+                uint ptr = U32((IntPtr)(argp + dumpIndPtrOffs[bi]));
+                if (ptr == 0 || ptr == 0xFFFFFFFF) continue;
+                dumpLimit--;
+                var sb = new StringBuilder();
+                sb.Append(string.Format("IND\t{0}\t{1}\tptr=0x{2:X8}", seq, clock.ElapsedMilliseconds, ptr));
+                foreach (uint off in dumpIndOffSets[bi])
+                    sb.Append(string.Format("\t+0x{0:X}=0x{1:X8}", off, U32((IntPtr)(ptr + off))));
+                Log(sb.ToString());
+            }
+        }
+
+        if (dumpRawLen > 0)
+        {
+            uint argp = dumpRawArg == 0 ? a0 : (dumpRawArg == 1 ? a1 : a2);
+            if (argp != 0 && argp != 0xFFFFFFFF)
+            {
+                dumpLimit--;
+                Log(string.Format("RAW\t{0}\t{1}\tbase=0x{2:X8}\tlen={3}\t{4}",
+                    seq, clock.ElapsedMilliseconds, argp + dumpRawBase, dumpRawLen,
+                    HexBlock(Block(argp + dumpRawBase, (int)dumpRawLen))));
+            }
+        }
+
+        if (dumpAbsRawLen > 0)
+        {
+            dumpLimit--;
+            Log(string.Format("RAWABS\t{0}\t{1}\tbase=0x{2:X8}\tlen={3}\t{4}",
+                seq, clock.ElapsedMilliseconds, dumpAbsRawBase, dumpAbsRawLen,
+                HexBlock(Block(dumpAbsRawBase, (int)dumpAbsRawLen))));
+        }
     }
 }

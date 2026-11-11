@@ -44,6 +44,38 @@ tracer.exe <exe> <workdir> <log> <timeoutMs> hw:<addr,...> <keys|none>
 | `hw:` | hasta 4 direcciones relativas a la imagen, en hex (`hw:43e1ba,540650`) |
 | `keys` | códigos de tecla virtual en hex, separados por comas, uno cada 2 s desde los 8 s (`1B` Escape, `0D` Enter, `28` Abajo, `20` Espacio) |
 
+## Opciones de volcado (opcionales, solo lectura)
+
+Además de contar llamadas, el trazador puede volcar el estado del proceso
+en el punto de interrupción. **Nunca escribe en el proceso observado**: solo
+usa `ReadProcessMemory`. Se añaden como argumentos opcionales detrás de
+`<keys|none>`:
+
+| Opción | Significado |
+| --- | --- |
+| `dump:<arg>:<off>,...` | dwords en `(argumento <arg> + <off>)`; `<arg>` 0..2 son `a0`, `a1` y `a2` (las tres primeras palabras de la pila en el punto de interrupción). Repetible: cada opción añade un bloque |
+| `dumpabs:<base>:<off>,...` | dwords en la dirección absoluta `<base>`. Varios bloques separados por `;` |
+| `dumpind:<arg>:<ptrOff>:<off>,...` | dwords en la dirección contenida en `(argumento <arg> + <ptrOff>)`, más `<off>` |
+| `dumpraw:<arg>:<off>:<len>` | bytes contiguos en `(argumento <arg> + <off>)` |
+| `dumpabsraw:<base>:<len>` | bytes contiguos en la dirección absoluta `<base>` |
+| `dumpstack:<off>,...` | dwords en `(esp + <off>)` del punto de interrupción (para argumentos por debajo de `a2`) |
+| `dumpindraw:<arg>:<ptrOff>:<len>` | bytes contiguos en la dirección contenida en `(argumento <arg> + <ptrOff>)` |
+| `dumpstr:<arg>:<off>:<max>` | cadena terminada en NUL en `(argumento <arg> + <off>)` (rutas de fichero) |
+| `regs` | registros del hilo en el punto de interrupción (`eax`..`ebp`, `esp`) |
+| `dumplimit:N` | máximo de bloques volcados por impacto (4 por defecto) |
+
+Los desplazamientos, direcciones y longitudes se interpretan en **hexadecimal**.
+Cada bloque volcado consume una unidad del límite `dumplimit`.
+
+Ejemplo: volcar la ruta del nivel que carga el juego, la base del buffer DFX y
+la lista de hojas visibles del recorrido BSP:
+
+```bat
+tracer.exe C:\gex-run\GEX3D.EXE C:\gex-run trace.log 50000 ^
+  hw:461e0b,461ec9,401c00 1B,1B,1B,1B,0D,0D,28,0D,0D,20,0D,28,0D ^
+  regs dumplimit:40 dumpstr:0:0:260 dumpraw:2:0:800
+```
+
 Ejemplo mínimo (ancla del frame + tres sitios del update):
 
 ```bat

@@ -8,8 +8,13 @@
  * preservation, a_cam/b_cam offsets, all six semiplane boundaries,
  * unsigned radius, plane test, leaf predicate, and BSP traversal.
  *
- * No dynamic comparison with the original executable: these are
- * deterministic mathematical tests of the ported algorithms.
+ * Most of these are deterministic mathematical tests of the ported
+ * algorithms, but there IS a dynamic comparison with the original
+ * executable: `test_dynamic_reference_camera()` reproduces, value by
+ * value, the retail camera captured from the running GEX3D.EXE on
+ * 2026-11-11 (local frame, M, A, B, a_cam and b_cam), and
+ * `test_table_truncation()` fixes the truncation of the retail sine
+ * table. See S2_CAMERA_VISIBILITY.md.
  */
 
 #include "gex/camera.h"
