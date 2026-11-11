@@ -225,7 +225,6 @@ int main(int argc, char **argv)
     gex_d3d11_pipeline d3d11_pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
     gex_d3d11_mesh d3d11_mesh = GEX_D3D11_MESH_INITIALIZER;
     gex_emit_output cube_emit;
-    int geometry_ready = 0;
 #endif
 
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -347,15 +346,18 @@ int main(int argc, char **argv)
 
     /* Módulo 5A: pipeline de dibujo y primera geometría 3D visible.
      * Si algo falla (por ejemplo, que no haya d3dcompiler_47.dll), la
-     * aplicación sigue funcionando: el renderer solo limpia y presenta. */
+     * aplicación sigue funcionando: el renderer solo limpia y presenta. Cada
+     * etapa se registra por separado para poder diagnosticar cuál falló. */
     {
         gex_d3d11_pipeline_status pipeline_status =
             gex_d3d11_pipeline_init(&d3d11_pipeline, &d3d11_dev);
         gex_d3d11_mesh_status mesh_status = GEX_D3D11_MESH_BAD_ARGUMENT;
         gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
+        int shape_status = -1; /* -1 = no se intentó */
 
         if (pipeline_status == GEX_D3D11_PIPELINE_OK) {
-            if (gex_shape_cube(&cube_emit, 0.6f) == 0) {
+            shape_status = gex_shape_cube(&cube_emit, 0.6f);
+            if (shape_status == 0) {
                 mesh_status = gex_d3d11_mesh_create_from_emit(
                     d3d11_dev.device, &cube_emit, &d3d11_mesh);
                 if (mesh_status == GEX_D3D11_MESH_OK) {
@@ -367,15 +369,17 @@ int main(int argc, char **argv)
             }
         }
         if (geometry_status == GEX_D3D11_RENDERER_OK) {
-            geometry_ready = 1;
             printf("geometry: cube, %u triangles, vertex colors, no textures "
                    "(%ux%u logical)\n",
                    (unsigned)GEX_SHAPE_CUBE_TRIANGLES,
                    (unsigned)GEX_D3D11_REFERENCE_WIDTH,
                    (unsigned)GEX_D3D11_REFERENCE_HEIGHT);
         } else {
-            printf("geometry: none (pipeline: %s, mesh: %s)\n",
+            printf("geometry: none (pipeline: %s, shape: %s, mesh: %s)\n",
                    gex_d3d11_pipeline_status_name(pipeline_status),
+                   (shape_status < 0)
+                       ? "not attempted"
+                       : ((shape_status == 0) ? "ok" : "out of memory"),
                    gex_d3d11_mesh_status_name(mesh_status));
             if (pipeline_status != GEX_D3D11_PIPELINE_OK &&
                 d3d11_pipeline.last_error[0] != '\0') {
@@ -425,6 +429,22 @@ int main(int argc, char **argv)
             last_error = status;
         } else if (status < 0) {
             errors++;
+#if defined(_WIN32)
+            /* Diagnóstico del error de dibujo: el renderer guarda el estado
+             * del pipeline y el HRESULT del último fallo. */
+            if (app.d3d11_enabled &&
+                app.renderer.d3d11_renderer.last_draw_status !=
+                    GEX_D3D11_PIPELINE_OK) {
+                fprintf(stderr,
+                        "error: draw failed: %s (HRESULT=0x%08lX, draws=%" PRIu64
+                        ", draw errors=%" PRIu64 ")\n",
+                        gex_d3d11_pipeline_status_name(
+                            app.renderer.d3d11_renderer.last_draw_status),
+                        (unsigned long)app.renderer.d3d11_renderer.last_draw_hresult,
+                        app.renderer.d3d11_renderer.draws,
+                        app.renderer.d3d11_renderer.draw_errors);
+            }
+#endif
             printf("error: frame status: %s\n", gex_frame_status_name(status));
             last_error = status;
             if (errors >= GEX_I4_MAX_FRAME_ERRORS) {
@@ -469,17 +489,23 @@ int main(int argc, char **argv)
     }
     
 #if defined(_WIN32)
-    /* Shutdown D3D11 resources in the correct order */
+    /* Cierre de los recursos de D3D11 en orden inverso al de creación. Cada
+     * recurso se libera según su propio estado (todas las funciones son
+     * idempotentes), de modo que un fallo en cualquier etapa intermedia no
+     * deja recursos vivos: el pipeline y la malla se sueltan siempre, no solo
+     * cuando la geometría llegó a registrarse en el renderer. */
     if (gex_i4_app_is_d3d11_enabled(&app)) {
-        /* La geometría se suelta antes que el renderer: el renderer solo
-         * tiene punteros prestados a la malla y al pipeline. */
-        if (geometry_ready) {
-            gex_d3d11_renderer_set_geometry(&app.renderer.d3d11_renderer, NULL,
-                                            NULL, 0, 0);
-            gex_d3d11_mesh_destroy(&d3d11_mesh);
-            gex_d3d11_pipeline_shutdown(&d3d11_pipeline);
-            gex_emit_output_free(&cube_emit);
-        }
+        /* 1. El renderer deja de dibujar la geometría (punteros prestados). */
+        gex_d3d11_renderer_set_geometry(&app.renderer.d3d11_renderer, NULL,
+                                        NULL, 0, 0);
+    }
+    /* 2. La malla y el pipeline: ya nadie los usa. */
+    gex_d3d11_mesh_destroy(&d3d11_mesh);
+    gex_d3d11_pipeline_shutdown(&d3d11_pipeline);
+    /* 3. La geometría en memoria del host. */
+    gex_emit_output_free(&cube_emit);
+    /* 4. El renderer, la swapchain y el dispositivo. */
+    if (gex_i4_app_is_d3d11_enabled(&app)) {
         gex_i4_app_disable_d3d11(&app);
         gex_d3d11_swapchain_shutdown(&d3d11_sw);
         gex_d3d11_device_shutdown(&d3d11_dev);

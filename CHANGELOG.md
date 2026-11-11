@@ -2,6 +2,75 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Auditoría del Módulo 5A y primera ejecución real
+
+Auditoría del recorrido completo desde la inicialización hasta el cierre del
+Módulo 5A (commit `967726e`) y **primera ejecución real de la aplicación** con
+ventana Win32 y swapchain de Direct3D 11. Sin texturas, sin materiales y sin
+cambios en el ejecutable original ni en `C:\GEX_REZ`.
+
+Defectos encontrados y corregidos:
+
+1. **Liberación parcial.** La limpieza de pipeline, malla y geometría estaba
+   dentro de `if (geometry_ready)`: si la malla fallaba después de que el
+   pipeline existiera, se perdían los shaders, el input layout, los estados,
+   el constant buffer, el handle de `d3dcompiler_47.dll` y los triángulos del
+   cubo. Ahora cada recurso se libera según su propio estado (todas las
+   llamadas son idempotentes) y el renderer suelta la geometría antes de que
+   la malla y el pipeline se destruyan, de modo que **nunca se dibuja con
+   recursos destruidos**.
+2. **El diagnóstico se perdía al limpiar.** `release_all()` deja la
+   estructura a cero, así que el texto del error de compilación HLSL o el
+   «no se pudo cargar d3dcompiler_47.dll» se borraba justo cuando el llamador
+   iba a leerlo. Nuevo helper `fail_init()` que conserva mensaje y `HRESULT`.
+3. **Normal sin normalizar en el sombreado del cubo.** El factor Lambert
+   llegaba a 2,6 y las caras se quemaban a 255. Detectado **mirando la ventana
+   real** (las pruebas offscreen no lo veían). Corregido normalizando la
+   normal de la cara.
+4. **Los errores de dibujo no se diagnosticaban.** El renderer ahora guarda
+   `last_draw_status` y `last_draw_hresult`, y la aplicación imprime el estado
+   del pipeline cuando un frame falla.
+
+Comprobado además: orden de recursos COM (creación y destrucción inversos),
+punteros prestados entre renderer, pipeline y malla, comportamiento sin
+`d3dcompiler_47.dll` (la aplicación avisa y sigue limpiando y presenting) y
+redimensionado (el pipeline recibe el RTV en cada frame, así que un cambio de
+tamaño se refleja sin recrear recursos).
+
+Se añadió inyección de fallos por etapa al pipeline
+(`GEX_PIPELINE_TEST_FAULT_INJECT`, `gex_d3d11_pipeline_test_fail_stage`, diez
+etapas) para comprobar que un fallo en cualquier punto no deja recursos vivos
+y conserva el diagnóstico.
+
+Primera ejecución real (sesión de escritorio interactiva, GPU real, no WARP):
+
+```
+window: class=GexNativeLoopWindow, 960x540 client area
+renderer: Direct3D 11 (hardware)
+geometry: cube, 12 triangles, vertex colors, no textures (512x384 logical)
+frame limit reached (30 presents)
+exit: clean, frame errors=0, clock warnings=0
+```
+
+Evidencia visual: la ventana se capturó con `PrintWindow` y se analizaron los
+píxeles: 105 959 de 470 000 (22,5 %) distintos del color de limpieza, con la
+caja del cubo centrada y los tres colores de sus caras visibles
+((206,59,206), (91,26,26), (147,147,42)). **La captura no se publica en el
+repositorio**: es una evidencia local.
+
+Pruebas: `test_d3d11_pipeline` 287 comprobaciones (con inyección de fallos) y
+137 (sin ella), 0 fallos; `test_geometry_shapes` 355, 0 fallos (también con
+ASan/UBSan); suites anteriores sin regresiones: `test_sag` 69 305,
+`test_camera` 889, `test_bsp` 37, `test_level_emit` 38 809, `test_geometry`
+6 963, `test_adpcm` 60 052, `test_audio` 215, `test_frame` 410, `test_input`
+826, `test_i4_app` 117, `test_d3d11_device` 332, `test_d3d11_mesh` 108.
+
+Lo que **no** se declara: la geometría visible sigue siendo el cubo de prueba,
+no una escena del juego; faltan texturas, materiales, *depth buffer*,
+blending, la carga del nivel real y `WM_SIZE`. S-2 sigue sin validación
+dinámica contra el ejecutable y no se declara completo. `PROJECT_STATUS.svg`
+no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Módulo 5A: primer renderizado de geometría 3D con D3D11
 
 Pipeline de dibujo D3D11 mínimo y completo: vertex shader, pixel shader,

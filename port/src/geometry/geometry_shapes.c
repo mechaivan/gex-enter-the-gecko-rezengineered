@@ -161,9 +161,13 @@ int gex_shape_cube(gex_emit_output *out, float angle_radians)
             uint32_t color;
             int k;
 
-            /* Normal de la cara: el producto vectorial de dos aristas. */
+            /* Normal de la cara: el producto vectorial de dos aristas. Las
+             * aristas miden 2 unidades, así que el producto vectorial NO es
+             * unitario: hay que normalizarlo o el factor de sombreado se
+             * dispara (las caras salen quemadas al saturar a 255). */
             {
                 float e1[3], e2[3];
+                float len;
                 for (k = 0; k < 3; k++) {
                     e1[k] = rotated[q[1]][k] - rotated[q[0]][k];
                     e2[k] = rotated[q[2]][k] - rotated[q[0]][k];
@@ -171,6 +175,13 @@ int gex_shape_cube(gex_emit_output *out, float angle_radians)
                 normal[0] = e1[1] * e2[2] - e1[2] * e2[1];
                 normal[1] = e1[2] * e2[0] - e1[0] * e2[2];
                 normal[2] = e1[0] * e2[1] - e1[1] * e2[0];
+                len = sqrtf(normal[0] * normal[0] + normal[1] * normal[1] +
+                            normal[2] * normal[2]);
+                if (len > 0.0f) {
+                    normal[0] /= len;
+                    normal[1] /= len;
+                    normal[2] /= len;
+                }
             }
             dot = normal[0] * light[0] + normal[1] * light[1] +
                   normal[2] * light[2];

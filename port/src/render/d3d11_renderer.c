@@ -195,9 +195,15 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
         }
         if (st == GEX_D3D11_PIPELINE_OK) {
             renderer->draws++;
+            renderer->last_draw_status = GEX_D3D11_PIPELINE_OK;
+            renderer->last_draw_hresult = S_OK;
         } else {
             renderer->draw_errors++;
-            renderer->last_hresult = E_FAIL;
+            renderer->last_draw_status = st;
+            renderer->last_draw_hresult = renderer->pipeline->last_hresult;
+            renderer->last_hresult = (FAILED(renderer->last_draw_hresult))
+                                         ? renderer->last_draw_hresult
+                                         : E_FAIL;
             draw_failed = 1;
         }
     }

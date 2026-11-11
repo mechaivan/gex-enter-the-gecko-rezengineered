@@ -80,6 +80,9 @@ typedef struct gex_d3d11_renderer {
     UINT geometry_reference_height;
     uint64_t draws;                  /* llamadas a DrawIndexed */
     uint64_t draw_errors;            /* dibujos fallidos */
+    /* Diagnóstico del último dibujo fallido (Módulo 5A). */
+    gex_d3d11_pipeline_status last_draw_status;
+    HRESULT last_draw_hresult;
 } gex_d3d11_renderer;
 
 /*
@@ -103,7 +106,8 @@ typedef struct gex_d3d11_renderer {
         .frame_time_us = 0,                                                    \
         .pipeline = NULL, .mesh = NULL,                                        \
         .geometry_reference_width = 0, .geometry_reference_height = 0,         \
-        .draws = 0, .draw_errors = 0                                           \
+        .draws = 0, .draw_errors = 0,                                          \
+        .last_draw_status = GEX_D3D11_PIPELINE_OK, .last_draw_hresult = S_OK    \
     }
 
 /*

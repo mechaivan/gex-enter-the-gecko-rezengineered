@@ -712,6 +712,64 @@ static void test_renderer_geometry_contract(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Fallos de inicialización en cada etapa                               */
+/* ------------------------------------------------------------------ */
+
+#ifdef GEX_PIPELINE_TEST_FAULT_INJECT
+extern int gex_d3d11_pipeline_test_fail_stage;
+
+/* Comprueba que un fallo en cualquier etapa:
+ *  - devuelve el estado esperado para esa etapa;
+ *  - no deja ningún recurso vivo en la estructura;
+ *  - conserva el diagnóstico (el mensaje no se pierde al limpiar);
+ *  - deja el dispositivo utilizable (se puede reintentar). */
+static void test_init_faults(gex_d3d11_device *device)
+{
+    for (int stage = 1; stage <= 10; stage++) {
+        gex_d3d11_pipeline pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
+        gex_d3d11_pipeline_status st;
+        gex_d3d11_pipeline_status expected;
+
+        if (stage == 1) {
+            expected = GEX_D3D11_PIPELINE_NO_COMPILER;
+        } else if (stage == 2 || stage == 3) {
+            expected = GEX_D3D11_PIPELINE_SHADER_FAILED;
+        } else {
+            expected = GEX_D3D11_PIPELINE_CREATE_FAILED;
+        }
+
+        gex_d3d11_pipeline_test_fail_stage = stage;
+        st = gex_d3d11_pipeline_init(&pipeline, device);
+        CHECK(st == expected);
+
+        /* Ningún recurso queda vivo. */
+        CHECK(pipeline.initialized == 0);
+        CHECK(pipeline.vertex_shader == NULL);
+        CHECK(pipeline.pixel_shader == NULL);
+        CHECK(pipeline.input_layout == NULL);
+        CHECK(pipeline.rasterizer == NULL);
+        CHECK(pipeline.blend == NULL);
+        CHECK(pipeline.depth_stencil == NULL);
+        CHECK(pipeline.constant_buffer == NULL);
+        CHECK(pipeline.compiler_module == NULL);
+        CHECK(pipeline.device == NULL && pipeline.context == NULL);
+
+        /* El diagnóstico sobrevive a la limpieza. */
+        CHECK(pipeline.last_error[0] != '\0');
+        CHECK(pipeline.last_hresult != S_OK);
+
+        /* El dispositivo sigue vivo: se puede reintentar sin fallo. */
+        gex_d3d11_pipeline_test_fail_stage = 0;
+        CHECK(gex_d3d11_pipeline_init(&pipeline, device) ==
+              GEX_D3D11_PIPELINE_OK);
+        CHECK(pipeline.last_error[0] == '\0');
+        gex_d3d11_pipeline_shutdown(&pipeline);
+    }
+    gex_d3d11_pipeline_test_fail_stage = 0;
+}
+#endif
+
+/* ------------------------------------------------------------------ */
 
 int main(void)
 {
@@ -735,6 +793,9 @@ int main(void)
 
     test_init_errors(&device);
     test_init_and_shutdown(&device);
+#ifdef GEX_PIPELINE_TEST_FAULT_INJECT
+    test_init_faults(&device);
+#endif
     test_draw_and_colors(&device);
     test_resize(&device);
     test_invalid_states(&device);

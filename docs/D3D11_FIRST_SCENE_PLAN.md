@@ -1281,7 +1281,7 @@ estructuras reales de la emisión:
 
 - 6 caras x 2 triángulos = 12 triángulos, en el espacio lógico 512x384;
 - color por cara (rojo, verde, azul, amarillo, cian, magenta) sombreado por
-  su normal con una luz fija (Lambert);
+  su normal con una luz fija (Lambert; la normal se normaliza, §15.1);
 - profundidad por vértice, con las caras ordenadas de atrás hacia delante
   (algoritmo del pintor);
 - giro alrededor de Y parametrizable e inclinación fija de 0,35 rad para que
@@ -1290,9 +1290,10 @@ estructuras reales de la emisión:
 
 ### 14.8 Pruebas
 
-`port/tests/test_d3d11_pipeline.c` — **137 comprobaciones, 0 fallos** (Clang
-`-O0` y `-O2`), **offscreen con WARP**: sin ventanas, sin swapchain y sin
-demos interactivas. Cubre:
+`port/tests/test_d3d11_pipeline.c` — **137 comprobaciones, 0 fallos** sin
+inyección de fallos y **287, 0 fallos** con `-DGEX_PIPELINE_TEST_FAULT_INJECT`
+(Clang `-O0` y `-O2`), **offscreen con WARP**: sin ventanas, sin swapchain y
+sin demos interactivas. Cubre:
 
 1. nombres de estado y contrato del inicializador;
 2. el input layout frente a los offsets y formatos publicados, y que el
@@ -1312,7 +1313,10 @@ demos interactivas. Cubre:
    nada y el pipeline sigue utilizable;
 10. el cubo de prueba se dibuja y cubre una parte apreciable del viewport;
 11. el contrato de `gex_d3d11_renderer_set_geometry` (argumentos nulos y
-    renderer no inicializado).
+    renderer no inicializado);
+12. con la inyección de fallos: un fallo en cada una de las diez etapas de
+    inicialización del pipeline no deja ningún recurso vivo y conserva el
+    diagnóstico (§15.5).
 
 `port/tests/test_geometry_shapes.c` — **355 comprobaciones, 0 fallos**
 (portable, Clang `-O0`, `-O2` y ASan/UBSan): forma de la emisión, colores,
@@ -1336,3 +1340,187 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
 - Siguiente paso: **Módulo 4 (carga y conversión de texturas `.VFX`/NCC)** y,
   con él, la firma definitiva del shader de producción, el *depth buffer* y el
   `ID3D11InputLayout` con los atributos que consuma el material.
+
+---
+
+## 15. Auditoría de inicialización, limpieza y primera ejecución real (2026-11-11)
+
+Auditoría del Módulo 5A sobre el commit `967726e`: orden de recursos COM,
+liberación, punteros prestados, diagnóstico de errores y **primera ejecución
+real de la aplicación** con ventana Win32 y swapchain.
+
+### 15.1 Defectos encontrados y corregidos
+
+1. **Liberación parcial (el defecto principal).** La limpieza de pipeline, malla
+   y geometría estaba dentro de `if (geometry_ready)`, una bandera que solo se
+   activaba si la geometría llegaba a registrarse en el renderer. Si la malla
+   fallaba **después** de que el pipeline se hubiera creado, el pipeline
+   entero (shaders, input layout, estados, constant buffer y el handle de
+   `d3dcompiler_47.dll`) y los triángulos del cubo se perdían. **Corrección:**
+   cada recurso se libera según su propio estado y todas las llamadas son
+   idempotentes, de modo que el cierre es completo aunque cualquier etapa
+   intermedia haya fallado.
+2. **El diagnóstico se perdía al limpiar.** `release_all()` deja la estructura
+   a cero, así que el mensaje de error (el texto del compilador HLSL, o «no se
+   pudo cargar d3dcompiler_47.dll») se borraba exactamente cuando el
+   llamador iba a leerlo. **Corrección:** helper `fail_init()` que copia el
+   mensaje y el `HRESULT` a variables locales, limpia y los restaura.
+3. **Normal de la cara sin normalizar (defecto cosmético, encontrado con la
+   ejecución real).** El sombreado Lambert del cubo usaba el producto vectorial
+   de dos aristas **sin normalizar** (las aristas miden 2 unidades, así que el
+   producto vectorial mide hasta 4). El factor de sombra llegaba a 2,6 y las
+   caras se quemaban a 255 en el canal rojo. **Corrección:** normalización de
+   la normal; los factores quedan en [0,35, 1,0] y los colores ya no saturan.
+   Solo se detectó al mirar la ventana real: las pruebas offscreen medían
+   posiciones y colores del vértice, no el sombreado de la forma.
+4. **Los errores de dibujo no se diagnosticaban.** El renderer contaba los
+   fallos pero no exponía la causa. **Corrección:** el renderer guarda
+   `last_draw_status` y `last_draw_hresult`, y la aplicación imprime el estado
+   del pipeline cuando un frame falla.
+
+### 15.2 Orden de recursos COM
+
+**Creación** (cada paso depende del anterior):
+
+```
+ventana Win32
+  -> gex_d3d11_device_init           (dispositivo + contexto)
+  -> gex_d3d11_swapchain_init        (swapchain + backbuffer)
+  -> gex_i4_app_enable_d3d11         (renderer + RTV del backbuffer)
+  -> gex_d3d11_pipeline_init         (shaders, layout, estados, constant buffer)
+  -> gex_shape_cube                  (geometría en memoria del host)
+  -> gex_d3d11_mesh_create_from_emit (vertex/index buffers)
+  -> gex_d3d11_renderer_set_geometry (el renderer toma los punteros)
+```
+
+**Destrucción** (orden inverso, cada recurso según su propio estado):
+
+```
+gex_d3d11_renderer_set_geometry(NULL, NULL)  -> el renderer suelta la geometría
+gex_d3d11_mesh_destroy                        -> vertex/index buffers
+gex_d3d11_pipeline_shutdown                   -> shaders, layout, estados, DLL
+gex_emit_output_free                          -> triángulos del host
+gex_i4_app_disable_d3d11                      -> renderer + RTV
+gex_d3d11_swapchain_shutdown                  -> swapchain + backbuffer
+gex_d3d11_device_shutdown                     -> contexto + dispositivo
+```
+
+El paso 1 es el que garantiza que **no se dibuje con recursos destruidos**:
+el renderer solo tiene punteros prestados y deja de referenciarlos antes de que
+la malla y el pipeline se liberen.
+
+### 15.3 Punteros prestados
+
+| Prestador | Prestado a | Ciclo de vida |
+|---|---|---|
+| `gex_d3d11_device` | renderer, pipeline | propiedad de R-1; el renderer y el pipeline solo lo apuntan |
+| `gex_d3d11_swapchain` | renderer | propiedad de R-2 |
+| `gex_d3d11_pipeline` | renderer | propiedad de la aplicación; el renderer no lo libera |
+| `gex_d3d11_mesh` | renderer | propiedad de la aplicación; el renderer no lo libera |
+
+El renderer nunca libera lo que no es suyo: `gex_d3d11_renderer_shutdown` deja
+la estructura a cero, con lo que los punteros prestados desaparecen.
+
+### 15.4 Comportamiento sin `d3dcompiler_47.dll`
+
+El pipeline devuelve `GEX_D3D11_PIPELINE_NO_COMPILER` con el mensaje «no se
+pudo cargar d3dcompiler_47.dll» y **sin dejar ningún recurso vivo**. La
+aplicación lo muestra y sigue funcionando con el comportamiento anterior
+(limpiar y presentar). Comprobado con una variante de la aplicación que fuerza
+ese fallo (etapa 1 de la inyección de fallos):
+
+```
+geometry: none (pipeline: shader compiler unavailable, shape: not attempted, mesh: bad argument)
+shader error: no se pudo cargar d3dcompiler_47.dll
+...
+exit: clean, frame errors=0, clock warnings=0
+```
+
+### 15.5 Fallos de inicialización en cada etapa
+
+Se añadió inyección de fallos al pipeline (`GEX_PIPELINE_TEST_FAULT_INJECT` y
+`gex_d3d11_pipeline_test_fail_stage`), con el mismo patrón que
+`GEX_BSP_TEST_FAULT_INJECT` y `GEX_GEOM_TEST_FAULT_INJECT`. Las diez etapas
+son: cargar el compilador, compilar el VS, compilar el PS, crear el VS, crear
+el PS, crear el input layout, crear el rasterizador, crear el estado de
+blend, crear el estado de profundidad y crear el constant buffer.
+
+Para cada etapa se comprueba que: el estado devuelto es el esperado para esa
+etapa, **no queda ningún puntero COM vivo** en la estructura, el
+diagnóstico sobrevive a la limpieza (`last_error` no vacío y `last_hresult`
+distinto de `S_OK`), el handle de la DLL queda liberado y **el dispositivo
+sigue siendo utilizable** (un reintento sin fallo tiene éxito).
+
+Limitación: la API pública de D3D11 no expone el recuento de referencias, así
+que la ausencia de fugas se comprueba estructuralmente (todos los punteros a
+cero) y por el comportamiento observable (el dispositivo sigue vivo), no con
+un contador de referencias.
+
+### 15.6 Redimensionado y presentación
+
+- El renderer recrea el RTV tras un `ResizeBuffers` (`gex_d3d11_renderer_resize`).
+- El pipeline **no guarda el RTV**: lo recibe en cada `set_target`, que además
+  actualiza el viewport y el constant buffer. Por eso un cambio de tamaño se
+  refleja en el siguiente frame sin recrear ningún recurso.
+- La aplicación crea la ventana a 960x540 fijos y **no** gestiona `WM_SIZE`, así
+  que el redimensionado real de la ventana no se ejercita en la ejecución real;
+  el caso se cubre con render targets de distinto tamaño en la prueba
+  offscreen (256x192 y 320x240), que comprueba además que la proyección
+  cambia de escala como debe.
+
+### 15.7 Primera ejecución real
+
+Sí se pudo ejecutar la aplicación real. Entorno: sesión interactiva de
+escritorio (sesión 1, 1920x1080), compilador Clang 22.1.8, `d3d11.dll` del
+sistema y **GPU real** (el dispositivo se creó en modo hardware, no WARP).
+
+```
+Gex native loop - I-4
+window: class=GexNativeLoopWindow, 960x540 client area
+renderer: Direct3D 11 (hardware)
+backbuffer: 960 x 540, 2 buffers
+clear color: RGB(0.2, 0.2, 0.8)
+geometry: cube, 12 triangles, vertex colors, no textures (512x384 logical)
+frame limit reached (30 presents)
+final: t=0.38s presents=30 fps=79.6 ...
+exit: clean, frame errors=0, clock warnings=0
+```
+
+**Evidencia visual:** la ventana se capturó con `PrintWindow`
+(`PW_RENDERFULLCONTENT`) mientras la aplicación estaba presenting y se
+analizaron los píxeles:
+
+| Comprobación | Resultado |
+|---|---|
+| Ventana visible | sí, área de cliente 960x540 |
+| Píxeles distintos del color de limpieza | 105 959 de 470 000 analizados (22,5 %) |
+| Caja del cubo | x=311..663, y=121..479 (centrada en la ventana) |
+| Colores presentes | (206,59,206) magenta, (91,26,26) rojo oscuro, (147,147,42) amarillo apagado |
+
+Los tres colores son exactamente las tres caras visibles del cubo con el
+sombreado Lambert aplicado (base × factor, sin saturar). La captura
+**no** se publica en el repositorio: es una evidencia local, no un asset del
+proyecto.
+
+### 15.8 Las cuatro categorías de evidencia (separadas)
+
+| Categoría | Estado | Cómo se comprobó |
+|---|---|---|
+| **Pipeline validado con pruebas offscreen** | **SÍ** | `test_d3d11_pipeline`: 287 comprobaciones (con inyección de fallos) y 137 (sin ella), 0 fallos; WARP, render target propio, sin ventanas |
+| **Aplicación compilada** | **SÍ** | `gexloop.exe` enlazado con device, swapchain, renderer, pipeline, malla y geometría; compilación sin warnings propios |
+| **Ejecución real con ventana comprobada** | **SÍ** | la aplicación se ejecutó con ventana Win32 y swapchain real: 30 frames presentados, 0 errores de frame, salida limpia |
+| **Evidencia visual confirmada** | **SÍ** | captura de la ventana real: el cubo aparece, con las tres caras y el color esperado |
+
+Lo que **no** se afirma: que esto sea una escena del juego original. La
+geometría visible es el cubo de prueba del Módulo 5A; la emisión real de S-2
+sigue sin validación dinámica contra el ejecutable y el nivel no se carga
+todavía en la aplicación.
+
+### 15.9 Limitaciones que siguen abiertas
+
+- La geometría de la aplicación es el cubo de prueba, no un nivel: falta cargar
+  el `.DFX` y emitir su geometría en el bucle de frames.
+- El cubo es estático (buffers inmutables); animarlo exige buffers dinámicos.
+- Sin texturas, materiales NCC, *depth buffer* ni blending.
+- La ventana no se redimensiona (no hay gestión de `WM_SIZE`).
+- S-2 sigue sin validación dinámica contra el ejecutable original.

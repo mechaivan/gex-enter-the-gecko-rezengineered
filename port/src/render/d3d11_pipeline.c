@@ -167,6 +167,38 @@ static void copy_error(char *dst, size_t dst_size, ID3DBlob *errors)
     }
 }
 
+/* ========================================================================
+ * Inyección de fallos (solo pruebas)
+ * ======================================================================== */
+
+/*
+ * Mismo patrón que `GEX_BSP_TEST_FAULT_INJECT` y
+ * `GEX_GEOM_TEST_FAULT_INJECT`: una variable externa permite hacer fallar una
+ * etapa concreta de la inicialización para comprobar que no quedan recursos
+ * vivos a medias. El valor N (1..GEX_PIPELINE_FAULT_STAGES) hace fallar esa
+ * etapa; 0 desactiva la inyección.
+ */
+#define GEX_PIPELINE_FAULT_STAGES 10u
+
+#ifdef GEX_PIPELINE_TEST_FAULT_INJECT
+extern int gex_d3d11_pipeline_test_fail_stage;
+int gex_d3d11_pipeline_test_fail_stage = 0;
+static int fault_stage_count;
+
+static int fault_at(unsigned int stage)
+{
+    fault_stage_count++;
+    return (gex_d3d11_pipeline_test_fail_stage > 0 &&
+            (unsigned int)gex_d3d11_pipeline_test_fail_stage == stage);
+}
+#else
+static int fault_at(unsigned int stage)
+{
+    (void)stage;
+    return 0;
+}
+#endif
+
 static void release_blob(ID3DBlob **blob)
 {
     if (blob != NULL && *blob != NULL) {
@@ -208,6 +240,38 @@ static void release_all(gex_d3d11_pipeline *pipeline)
     memset(pipeline, 0, sizeof(*pipeline));
 }
 
+/*
+ * Fallo de inicialización: limpia todos los recursos **sin perder el
+ * diagnóstico**. `release_all` deja la estructura a cero, así que el mensaje
+ * y el HRESULT se copian a variables locales y se restauran después: sin
+ * esto, el texto del error de compilación del HLSL se perdería justo cuando
+ * hace falta.
+ */
+static gex_d3d11_pipeline_status fail_init(gex_d3d11_pipeline *pipeline,
+                                           gex_d3d11_pipeline_status status,
+                                           HRESULT hr,
+                                           const char *message)
+{
+    char text[sizeof(pipeline->last_error)];
+    HRESULT code = hr;
+
+    memset(text, 0, sizeof(text));
+    if (message != NULL) {
+        size_t len = strlen(message);
+        if (len >= sizeof(text)) {
+            len = sizeof(text) - 1u;
+        }
+        memcpy(text, message, len);
+    }
+    if (text[0] == '\0') {
+        snprintf(text, sizeof(text), "fallo de inicializacion del pipeline");
+    }
+    release_all(pipeline);
+    pipeline->last_hresult = code;
+    memcpy(pipeline->last_error, text, sizeof(text));
+    return status;
+}
+
 gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
                                                    const gex_d3d11_device *device)
 {
@@ -221,6 +285,12 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
     ID3DBlob *ps_code = NULL;
     ID3DBlob *errors = NULL;
     HRESULT hr;
+    DWORD load_error;
+    char message[sizeof(pipeline->last_error)];
+
+#ifdef GEX_PIPELINE_TEST_FAULT_INJECT
+    fault_stage_count = 0;
+#endif
 
     if (pipeline == NULL || device == NULL) {
         return GEX_D3D11_PIPELINE_BAD_ARGUMENT;
@@ -244,48 +314,63 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
     /* d3dcompiler_47.dll: el compilador HLSL que forma parte de Windows.
      * Se carga bajo demanda para que la aplicación no dependa de él en el
      * arranque y pueda informar del problema con claridad. */
-    pipeline->compiler_module = LoadLibraryA(D3DCOMPILER_DLL_A);
+    load_error = 0;
+    if (!fault_at(1u)) {
+        pipeline->compiler_module = LoadLibraryA(D3DCOMPILER_DLL_A);
+        if (pipeline->compiler_module == NULL) {
+            load_error = GetLastError();
+        }
+    }
     if (pipeline->compiler_module == NULL) {
-        pipeline->last_hresult = HRESULT_FROM_WIN32(GetLastError());
-        snprintf(pipeline->last_error, sizeof(pipeline->last_error),
-                 "no se pudo cargar %s", D3DCOMPILER_DLL_A);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_NO_COMPILER;
+        HRESULT code = (load_error != 0)
+                           ? HRESULT_FROM_WIN32(load_error)
+                           : HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND);
+        snprintf(message, sizeof(message), "no se pudo cargar %s",
+                 D3DCOMPILER_DLL_A);
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_NO_COMPILER, code,
+                         message);
     }
     proc = GetProcAddress(pipeline->compiler_module, "D3DCompile");
     if (proc == NULL) {
-        pipeline->last_hresult = HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND);
-        snprintf(pipeline->last_error, sizeof(pipeline->last_error),
-                 "%s no exporta D3DCompile", D3DCOMPILER_DLL_A);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_NO_COMPILER;
+        snprintf(message, sizeof(message), "%s no exporta D3DCompile",
+                 D3DCOMPILER_DLL_A);
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_NO_COMPILER,
+                         HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND), message);
     }
     compile_fn = (gex_d3dcompile_fn)(void *)proc;
 
     hr = compile_fn(GEX_HLSL_VERTEX, sizeof(GEX_HLSL_VERTEX) - 1u,
                     "gex_vertex.hlsl", NULL, NULL, "GexVS", "vs_4_0",
                     D3DCOMPILE_ENABLE_STRICTNESS, 0, &vs_code, &errors);
+    if (fault_at(2u)) {
+        hr = E_FAIL;
+        release_blob(&vs_code);
+    }
     if (FAILED(hr) || vs_code == NULL) {
-        pipeline->last_hresult = hr;
-        copy_error(pipeline->last_error, sizeof(pipeline->last_error), errors);
+        memset(message, 0, sizeof(message));
+        copy_error(message, sizeof(message), errors);
         release_blob(&errors);
         release_blob(&vs_code);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_SHADER_FAILED;
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_SHADER_FAILED, hr,
+                         message);
     }
     release_blob(&errors);
 
     hr = compile_fn(GEX_HLSL_PIXEL, sizeof(GEX_HLSL_PIXEL) - 1u,
                     "gex_pixel.hlsl", NULL, NULL, "GexPS", "ps_4_0",
                     D3DCOMPILE_ENABLE_STRICTNESS, 0, &ps_code, &errors);
+    if (fault_at(3u)) {
+        hr = E_FAIL;
+        release_blob(&ps_code);
+    }
     if (FAILED(hr) || ps_code == NULL) {
-        pipeline->last_hresult = hr;
-        copy_error(pipeline->last_error, sizeof(pipeline->last_error), errors);
+        memset(message, 0, sizeof(message));
+        copy_error(message, sizeof(message), errors);
         release_blob(&errors);
         release_blob(&ps_code);
         release_blob(&vs_code);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_SHADER_FAILED;
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_SHADER_FAILED, hr,
+                         message);
     }
     release_blob(&errors);
 
@@ -293,24 +378,38 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
         pipeline->device, ID3D10Blob_GetBufferPointer(vs_code),
         (UINT)ID3D10Blob_GetBufferSize(vs_code), NULL,
         &pipeline->vertex_shader);
-    pipeline->last_hresult = hr;
+    if (fault_at(4u)) {
+        hr = E_FAIL;
+        if (pipeline->vertex_shader != NULL) {
+            ID3D11VertexShader_Release(pipeline->vertex_shader);
+            pipeline->vertex_shader = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->vertex_shader == NULL) {
         release_blob(&ps_code);
         release_blob(&vs_code);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el vertex shader");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     hr = ID3D11Device_CreatePixelShader(
         pipeline->device, ID3D10Blob_GetBufferPointer(ps_code),
         (UINT)ID3D10Blob_GetBufferSize(ps_code), NULL,
         &pipeline->pixel_shader);
-    pipeline->last_hresult = hr;
+    if (fault_at(5u)) {
+        hr = E_FAIL;
+        if (pipeline->pixel_shader != NULL) {
+            ID3D11PixelShader_Release(pipeline->pixel_shader);
+            pipeline->pixel_shader = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->pixel_shader == NULL) {
         release_blob(&ps_code);
         release_blob(&vs_code);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el pixel shader");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     /* El layout se valida contra la firma del vertex shader: por eso el
@@ -321,12 +420,19 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
         ID3D10Blob_GetBufferPointer(vs_code),
         (UINT)ID3D10Blob_GetBufferSize(vs_code),
         &pipeline->input_layout);
-    pipeline->last_hresult = hr;
+    if (fault_at(6u)) {
+        hr = E_FAIL;
+        if (pipeline->input_layout != NULL) {
+            ID3D11InputLayout_Release(pipeline->input_layout);
+            pipeline->input_layout = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->input_layout == NULL) {
         release_blob(&ps_code);
         release_blob(&vs_code);
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el input layout");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
     release_blob(&ps_code);
     release_blob(&vs_code);
@@ -346,10 +452,17 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
 
     hr = ID3D11Device_CreateRasterizerState(pipeline->device, &raster_desc,
                                             &pipeline->rasterizer);
-    pipeline->last_hresult = hr;
+    if (fault_at(7u)) {
+        hr = E_FAIL;
+        if (pipeline->rasterizer != NULL) {
+            ID3D11RasterizerState_Release(pipeline->rasterizer);
+            pipeline->rasterizer = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->rasterizer == NULL) {
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el rasterizador");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     /* Blending desactivado: el color del vértice se escribe tal cual. */
@@ -368,10 +481,17 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
 
     hr = ID3D11Device_CreateBlendState(pipeline->device, &blend_desc,
                                        &pipeline->blend);
-    pipeline->last_hresult = hr;
+    if (fault_at(8u)) {
+        hr = E_FAIL;
+        if (pipeline->blend != NULL) {
+            ID3D11BlendState_Release(pipeline->blend);
+            pipeline->blend = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->blend == NULL) {
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el estado de blend");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     /* Sin depth buffer: el orden de dibujo es el orden de emisión
@@ -384,10 +504,18 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
 
     hr = ID3D11Device_CreateDepthStencilState(pipeline->device, &depth_desc,
                                               &pipeline->depth_stencil);
-    pipeline->last_hresult = hr;
+    if (fault_at(9u)) {
+        hr = E_FAIL;
+        if (pipeline->depth_stencil != NULL) {
+            ID3D11DepthStencilState_Release(pipeline->depth_stencil);
+            pipeline->depth_stencil = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->depth_stencil == NULL) {
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message),
+                 "no se pudo crear el estado de profundidad");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     /* Constant buffer con el viewport y la resolución de referencia. */
@@ -401,10 +529,17 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
 
     hr = ID3D11Device_CreateBuffer(pipeline->device, &cb_desc, NULL,
                                    &pipeline->constant_buffer);
-    pipeline->last_hresult = hr;
+    if (fault_at(10u)) {
+        hr = E_FAIL;
+        if (pipeline->constant_buffer != NULL) {
+            ID3D11Buffer_Release(pipeline->constant_buffer);
+            pipeline->constant_buffer = NULL;
+        }
+    }
     if (FAILED(hr) || pipeline->constant_buffer == NULL) {
-        release_all(pipeline);
-        return GEX_D3D11_PIPELINE_CREATE_FAILED;
+        snprintf(message, sizeof(message), "no se pudo crear el constant buffer");
+        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
+                         message);
     }
 
     pipeline->initialized = 1;
@@ -498,9 +633,11 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_draw(gex_d3d11_pipeline *pipeline,
     }
     if (!mesh->initialized || mesh->vertex_buffer == NULL ||
         mesh->index_buffer == NULL) {
+        pipeline->last_hresult = E_INVALIDARG;
         return GEX_D3D11_PIPELINE_BAD_ARGUMENT;
     }
     if (mesh->index_count == 0u || mesh->vertex_count == 0u) {
+        pipeline->last_hresult = E_INVALIDARG;
         return GEX_D3D11_PIPELINE_NO_GEOMETRY;
     }
 
