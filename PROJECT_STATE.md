@@ -8,7 +8,8 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-11 (Módulo 4A: contenedor de texturas .VFX)
+**Last updated:** 2026-11-11 (Módulo 4B: formato de píxel y decodificadores
+CPU de las texturas .VFX)
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 
@@ -138,25 +139,31 @@
   demostrados** (el juego entrega los bytes tal cual a Glide) y no se inventa
   nada. Detalle en
   [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md).
-- **Módulo 4B (2026-11-11): búsqueda del formato de píxel.** El registro VFX
-  queda identificado como un **`GrTexInfo` de Glide** (DEMOSTRADO): el
-  `GrTexInfo` de la fuente que el juego construye en `0x0065BFA0`
-  (`0x00432AB7..0x00432AE2`) tiene la misma disposición, con `+0x0C` =
-  formato y `+0x10` = puntero a los datos, y el cargador de `.VFX`
-  (`0x00461C32`) rellena ese mismo puntero. Además: la **paleta** solo
-  existe para el **formato 1** (bloque de **112 B** en `+0x14`, que el juego
-  **comparte** entre dos texturas con un `memcpy` de 0x70 B en `0x004732FB`; en
-  AZTEC16.VFX hay un par, las entradas 25 y 83) y el **formato 12** es el
-  único que activa el blending alfa. API nueva en `gex/vfx.h`:
-  `gex_vfx_format_info_get` y `gex_vfx_palette_twin`. **Resultado negativo:**
-  los bloques de datos **no** son un raster plano de 1 o 2 bytes por píxel (la
-  discontinuidad horizontal menos la vertical no identifica un ancho único), así
-  que el **formato de píxel**, las dimensiones y el contenido de la paleta
-  siguen **DESCONOCIDOS** y **no se implementa ningún decodificador**.
-  `test_vfx`: **2 223 comprobaciones, 0 fallos** (`-O0`, `-O2` y ASan/UBSan).
-  Detalle en [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §5.
-- **Pendiente de integración:** el decodificador de píxel y la creación de
-  recursos D3D11 de textura (Módulo 4B), materiales, *depth buffer*, blending
+- **Módulo 4B (2026-11-11) y auditoría correctiva:** el **formato de píxel, las
+  dimensiones y el contenido de la tabla quedan DEMOSTRADOS**. El registro VFX
+  es un **`GrTexInfo` de Glide 2.x** (`smallLod`, `largeLod`, `aspectRatio`,
+  `format`, `data`): el `GrTexInfo` de la fuente que el juego construye en
+  `0x0065BFA0` (`0x00432AB7..0x00432AE2`) tiene esa misma disposición y el
+  cargador de `.VFX` (`0x00461C32`) rellena `+0x10` con `registro+0x8C`. Los
+  identificadores de `+0x0C` son los de la enumeración `GrTextureFormat_t` de
+  Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`, 11 = `GR_TEXFMT_ARGB_1555`,
+  12 = `GR_TEXFMT_ARGB_4444`**. El bloque de 112 B de `+0x14` es una
+  **`GuNccTable`** y **no** una paleta (la paleta de Glide son 1 024 B, y el
+  `type = 0` de `grTexDownloadTable` en `0x0046614A` es `GR_TEXTABLE_NCC0`);
+  el `packed_data` de todas las tablas de los originales coincide byte a byte
+  con el que calcula el SDK. Las **dimensiones** salen del LOD (`256 >> lod`)
+  y del aspecto (`8x1`…`1x8`): el tamaño del bloque coincide con el esperado
+  en **15 251 de 15 251 registros** de los 37 `.VFX` originales, todos con un
+  único nivel. API nueva en `gex/vfx.h`: `gex_vfx_format_info_get`,
+  `gex_vfx_ncc_table_twin`, `gex_vfx_ncc_table_parse/pack`,
+  `gex_vfx_texture_info_get` y los decodificadores
+  `gex_vfx_decode_argb1555/argb4444/yiq422/level` (salida RGBA8, alfa recto)
+  en `port/src/asset/vfx_decode.c`. `test_vfx`: **2 968 comprobaciones, 0
+  fallos** (`-O0`, `-O2` y ASan/UBSan). Detalle en
+  [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §4 y §6.
+- **Pendiente de integración:** la creación de recursos D3D11 de textura
+  (Módulo 4C, con el decodificador de píxel ya disponible), materiales,
+  *depth buffer*, blending
   del original, la cámara real del juego, el *resize* de la ventana y la
   animación. El primer escenario original todavía no está renderizado con
   texturas ni con la cámara real. Sigue pendiente la validación dinámica de

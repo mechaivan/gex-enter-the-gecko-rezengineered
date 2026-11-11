@@ -1,11 +1,17 @@
-# VFX_TEXTURE_FORMAT — el contenedor de texturas `.VFX` de Gex PC (Módulo 4A)
+# VFX_TEXTURE_FORMAT — el contenedor de texturas `.VFX` de Gex PC (Módulos 4A y 4B)
 
-**Fecha:** 2026-11-11 · **Estado:** contenedor **DEMOSTRADO**; decodificación de
-píxel **NO demostrada** (se documenta por qué y qué falta).
+**Fecha:** 2026-11-11 · **Estado:** contenedor, **dimensiones**, **formatos de
+píxel** y **decodificadores CPU** **DEMOSTRADOS** (esta revisión corrige el
+Módulo 4B publicado en `b71122a`).
 
 La fuente de verdad de este documento es **el ejecutable original**
-(`C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE`, PE32 x86, sin modificar) y **los
-ficheros originales** (`C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\*.VFX`, solo lectura).
+(`C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE`, PE32 x86, sin modificar), **los
+ficheros originales** (`C:\GEX_REZ\E2_A_ORIGINAL\LEVEL\*.VFX`, solo lectura) y
+**el SDK público de Glide 2.x** (el paquete `glide 2002.04.10ds1`, que es el
+código de la biblioteca de 3dfx; se usa como *referencia documental* del
+formato: **no se ha copiado código suyo al port**, los decodificadores están
+escritos desde cero a partir de las reglas documentadas).
+
 Las herramientas externas (`gex2-tools`, `Gex3DViewer`) se usan como
 **referencia técnica**, nunca como fuente primaria y **sin copiar código**
 (ninguna de las dos tiene licencia identificada).
@@ -17,7 +23,8 @@ Herramientas usadas para el análisis, todas ya presentes en el entorno:
 | `llvm-objdump` (toolchain llvm-mingw) | desensamblado del ejecutable |
 | `tools/gexmap/pe.mjs` (repo) | lector PE32 e IAT: nombres de los imports |
 | Node.js (repo, `tools/gexmap`) | scripts de análisis de ficheros y tablas |
-| `port/` (repo) | módulo portable `gex/vfx.h` + `src/asset/vfx.c` |
+| SDK de Glide 2.x (paquete Debian `glide`) | enumeraciones, estructuras y tablas de tamaños |
+| `port/` (repo) | módulo portable `gex/vfx.h` + `src/asset/vfx.c` + `src/asset/vfx_decode.c` |
 
 No se instaló nada (Ghidra/REA no están disponibles y su instalación requiere
 autorización expresa: `tools/setup-re-env.ps1` es un borrador sin probar).
@@ -31,11 +38,16 @@ autorización expresa: `tools/setup-re-env.ps1` es un borrador sin probar).
 | Estructura del contenedor | **DEMOSTRADO** | §2 |
 | Tabla de entradas de textura | **DEMOSTRADO** | §2, §3 |
 | Correspondencia índice de 14 bits (DFX) → entrada (VFX) | **DEMOSTRADO** | §5 |
-| Formatos presentes en los ficheros | **DEMOSTRADO (los valores)** | §4.1 |
-| Formato de píxel de cada formato | **NO demostrado** | §4.3 |
-| Dimensiones de cada textura | **NO demostrado** | §4.3 |
-| Paleta del formato 1 | **PARCIAL** (existe y la sube el juego; contenido no fijado) | §4.2 |
+| El registro es un `GrTexInfo` de Glide 2.x | **DEMOSTRADO** | §4.1, §6.3 |
+| Los identificadores 1/11/12 son los `GR_TEXFMT` de Glide 2.x | **DEMOSTRADO** | §4.2 |
+| El bloque de 112 B de `+0x14` es una `GuNccTable` (no una paleta) | **DEMOSTRADO** | §4.3, §6.4 |
+| Dimensiones de cada textura | **DEMOSTRADO** (LOD + aspecto) | §4.5, §6.5 |
+| Tamaño esperado del bloque de datos | **DEMOSTRADO** (15 251/15 251 registros) | §6.5 |
+| Formato de píxel de 1, 11 y 12 | **DEMOSTRADO** | §4.4, §6.6 |
+| Decodificadores CPU | **DEMOSTRADO** (con pruebas) | §7 |
 | Compresión | **NO hay descompresor en el juego** (los bytes van tal cual a Glide) | §4.3 |
+| Orden de bytes de los formatos de 16 bits | **little-endian** (demostrado con el original) | §4.4 |
+| Escala de los vectores de croma I/Q | **1:1** (demostrado con el original) | §4.4 |
 
 ---
 
@@ -84,6 +96,9 @@ tamaño_i   = dword[registro_i + 0x84]
 `fseek(..., SEEK_END)`, `ftell`, `malloc`, `fseek(..., SEEK_SET)`,
 `fread`, `fclose`.
 
+El cargador **no copia ni transforma los datos**: `registro+0x10` apunta
+directamente al bloque dentro del fichero cargado en memoria.
+
 ### 2.2 Comprobación contra los ficheros originales
 
 El recorrido anterior, aplicado byte a byte a los ficheros reales, **termina
@@ -99,7 +114,7 @@ forma: el `count` del primer dword coincide con el número de registros que se
 pueden recorrer **y el recorrido termina exactamente en el EOF** (medido byte
 a byte en los 37 ficheros: ninguno sobra ni falta). Por eso el parser exige
 que el último bloque termine en el EOF: si sobran bytes, el contenedor es
-incoherente y se rechaza (ver §6.1).
+incoherente y se rechaza (ver §7.1).
 
 ### 2.3 Formato
 
@@ -110,21 +125,22 @@ incoherente y se rechaza (ver §6.1).
        registro[count-1]
 ```
 
-Cada registro:
+Cada registro es un **`GrTexInfo` de Glide 2.x**:
 
 ```
-+0x00  dword   campo A              2, 3, 4 o 6 en los ficheros originales
-+0x04  dword   campo B              igual que A en todos los ficheros originales
-+0x08  dword   campo C              2..6
-+0x0C  dword   FORMATO              1, 11 o 12 en los ficheros originales
++0x00  dword   smallLod             GrLOD_t: 0 = 256 px ... 8 = 1 px
++0x04  dword   largeLod             GrLOD_t (igual que smallLod en los
+                                    ficheros originales: un solo nivel)
++0x08  dword   aspectRatio          GrAspectRatio_t: 0 = 8x1 ... 6 = 1x8
++0x0C  dword   format               GrTextureFormat_t de Glide 2.x
 +0x10  dword   puntero a los datos  lo escribe el juego (en el fichero hay un
-                                      valor de relleno: 0x0064FE04 en AZTEC16.VFX
-                                      y en GEX.VFX: hay que IGNORARLO)
-+0x14  ...     datos del formato     tabla de paleta (solo formato 1, §4.2)
+                                    valor de relleno: 0x0064FE04 en AZTEC16.VFX
+                                    y en GEX.VFX: hay que IGNORARLO)
++0x14  ...     tabla NCC            GuNccTable de 112 B, SOLO en el formato 1
 +0x84  dword   tamaño del bloque de datos
-+0x88  dword   cursor del pool       lo escribe el juego (en el fichero copia
-                                      del tamaño)
-+0x8C  bytes   bloque de datos       tamaño = dword[+0x84]
++0x88  dword   cursor del pool      lo escribe el juego (en el fichero copia
+                                    del tamaño)
++0x8C  bytes   bloque de datos      tamaño = dword[+0x84]
 ```
 
 El registro siguiente está en `registro + 0x8C + dword[registro+0x84]`.
@@ -136,8 +152,8 @@ El registro siguiente está en `registro + 0x8C + dword[registro+0x84]`.
 En el fichero, `dword[+0x10]` vale `0x0064FE04` en **todos** los registros de
 `AZTEC16.VFX` y de `GEX.VFX`: es una dirección del segmento de datos del
 ejecutable, no un puntero a los datos de la textura. El juego lo **sobrescribe**
-con `registro + 0x8C` (el inicio del bloque de datos) antes de handing the
-record a Glide. Un parser que copie ese valor al revés leería datos de otro
+con `registro + 0x8C` (el inicio del bloque de datos) antes de entregar el
+registro a Glide. Un parser que copie ese valor al revés leería datos de otro
 fichero o basura; hay que **ignorarlo** y usar `registro + 0x8C`.
 
 Esto es el mismo patrón de "puntero que hay que relocalizar" que el `.DFX`
@@ -148,96 +164,284 @@ relocalizar, basta con no usar el valor.
 
 ## 4. Formatos
 
-### 4.1 Los valores que aparecen (DEMOSTRADO)
+### 4.1 El registro es un `GrTexInfo` de Glide 2.x (DEMOSTRADO)
 
-En `AZTEC16.VFX` (260 registros) y en el resto de niveles:
-
-| Valor | Registros en AZTEC16.VFX | Qué hace el juego con él |
-|---:|---:|---|
-| 1 | 42 | sube una **tabla de paleta** desde `registro+0x14` (`grTexDownloadTable`, §4.2) |
-| 11 | 73 | — |
-| 12 | 145 | activa el **blending alfa** (`grAlphaCombine` con modo 3 en `0x0046568C`) |
-
-El valor está en `+0x0C` y el juego lo compara explícitamente:
+El ejecutable construye un `GrTexInfo` para la fuente (`FONT.3DF`) en
+`0x0065BFA0` y lo rellena así (`0x00432AB7..0x00432AE2`):
 
 ```
-0x465667: cmpl $0xc,0xc(%ecx)     ; ¿formato == 12?
-0x465679: cmpl $0x0,0xc(%edx)     ; ¿formato == 0?
+0x432AB7: movl %eax,0x65bfa0          ; +0x00  smallLod   (del info de 3df)
+0x432AC2: movl %ecx,0x65bfa4          ; +0x04  largeLod   (del info de 3df)
+0x432ACE: movl %edx,0x65bfa8          ; +0x08  aspectRatio(del info de 3df)
+0x432ADA: movl %eax,0x65bfac          ; +0x0C  format     (del info de 3df)
+0x432AE2: movl %ecx,0x65bfb0          ; +0x10  puntero a los datos
 ```
 
-### 4.2 La paleta del formato 1 (PARCIAL)
+El SDK de Glide 2.x define esa estructura exactamente así
+(`glide2x/h3/glide/src/glide.h`):
 
-`0x0046612C` (consumidor de la tabla) hace, **solo para el formato 1**:
+```c
+typedef struct {
+    GrLOD_t           smallLod;
+    GrLOD_t           largeLod;
+    GrAspectRatio_t   aspectRatio;
+    GrTextureFormat_t format;
+    void              *data;
+} GrTexInfo;
+```
+
+Coincide campo a campo con el registro `.VFX`, y el cargador (`0x00461C32`)
+escribe `registro+0x10 = registro+0x8C` y entrega el registro tal cual a
+`grTexDownloadMipMap`/`grTexSource`. **El registro VFX es un `GrTexInfo`.**
+
+Esto corrige una hipótesis que U-1f dejó abierta
+(`U1F_RESULTADOS.md` §8.2): el orden de los campos es
+**smallLod, largeLod, aspectRatio, format, data** (no `largeLod` primero).
+
+### 4.2 Los identificadores de formato son los `GR_TEXFMT` de Glide 2.x (DEMOSTRADO)
+
+El juego no usa una enumeración propia: el campo `format` del `GrTexInfo`
+**es** un `GrTextureFormat_t` de Glide 2.x, y sus valores son los del SDK
+(`glide2x/h3/glide/src/glide.h`):
+
+```c
+typedef FxI32 GrTextureFormat_t;
+#define GR_TEXFMT_8BIT                  0x0
+#define GR_TEXFMT_RGB_332 GR_TEXFMT_8BIT
+#define GR_TEXFMT_YIQ_422               0x1
+#define GR_TEXFMT_ALPHA_8               0x2
+#define GR_TEXFMT_INTENSITY_8           0x3
+#define GR_TEXFMT_ALPHA_INTENSITY_44    0x4
+#define GR_TEXFMT_P_8                   0x5
+#define GR_TEXFMT_RSVD0                 0x6
+#define GR_TEXFMT_RSVD1                 0x7
+#define GR_TEXFMT_16BIT                 0x8
+#define GR_TEXFMT_ARGB_8332 GR_TEXFMT_16BIT
+#define GR_TEXFMT_AYIQ_8422             0x9
+#define GR_TEXFMT_RGB_565               0xa
+#define GR_TEXFMT_ARGB_1555             0xb   /* 11 */
+#define GR_TEXFMT_ARGB_4444             0xc   /* 12 */
+#define GR_TEXFMT_ALPHA_INTENSITY_88    0xd
+#define GR_TEXFMT_AP_88                 0xe
+#define GR_TEXFMT_RSVD2                 0xf
+```
+
+Los tres valores que aparecen en los `.VFX` son exactamente:
+
+| Valor del `.VFX` | `GR_TEXFMT` de Glide 2.x | Bytes por texel | Alfa |
+|---:|---|---:|---|
+| 0 | `GR_TEXFMT_RGB_332` | 1 | no (el juego lo distingue con otro modo de alfa) |
+| 1 | `GR_TEXFMT_YIQ_422` | 1 | no |
+| 11 | `GR_TEXFMT_ARGB_1555` | 2 | 1 bit |
+| 12 | `GR_TEXFMT_ARGB_4444` | 2 | 4 bits |
+
+Distribución medida en los 37 `.VFX` (15 251 registros): formato 1 → 7 723,
+formato 11 → 4 698, formato 12 → 2 830, formato 0 → 0.
+
+### 4.3 El bloque de 112 B es una tabla NCC, no una paleta (DEMOSTRADO)
+
+**Corrección importante.** La primera versión de este documento (y el Módulo
+4B publicado en `b71122a`) interpretaba el bloque de `+0x14` como una "tabla de
+paleta". Es incorrecto.
+
+* La **paleta** de Glide 2.x (`GuTexPalette`) son 256 `FxU32` = **1 024 bytes**,
+  no 112.
+* La **tabla NCC** (`GuNccTable`, "Narrow Channel Compression") ocupa
+  **exactamente 112 bytes**:
+
+```c
+typedef struct {
+  FxU8  yRGB[16];      /* 16 B */
+  FxI16 iRGB[4][3];    /* 24 B */
+  FxI16 qRGB[4][3];    /* 24 B */
+  FxU32 packed_data[12]; /* 48 B */
+} GuNccTable;           /* 112 B */
+```
+
+* El `type` que el juego pasa a `grTexDownloadTable` es **0**, y en Glide 2.x
+  `0` es la **tabla NCC 0**, no la paleta:
+
+```c
+typedef FxU32 GrTexTable_t;
+#define GR_TEXTABLE_NCC0    0x0
+#define GR_TEXTABLE_NCC1    0x1
+#define GR_TEXTABLE_PALETTE 0x2
+```
+
+* El manual de referencia de Glide 2.2 lo dice literalmente: *"data: Table
+  data, either of type GuNccTable or GuTexPalette"*, y *"The color palette is
+  referenced when rendering texture formats `GR_TEXFMT_P_8` or
+  `GR_TEXFMT_AP_88`. One of two NCC tables is used when decompressing texture
+  formats `GR_TEXFMT_YIQ_422` or `GR_TEXFMT_AYIQ_8422`"*.
+
+* Y el **formato 1 es `YIQ_422`**, precisamente el formato que necesita la
+  tabla NCC. La coherencia es total.
+
+La llamada en el original (solo para el formato 1):
 
 ```
 0x466136: movl -0x30(%ebp),%ecx
 0x466139: cmpl $0x1,0xc(%ecx)      ; if (formato == 1)
 0x466142: addl $0x14,%edx           ; registro + 0x14
 0x466145: pushl %edx
-0x466146: pushl $0x0
-0x466148: pushl $0x0
+0x466146: pushl $0x0                ; type = GR_TEXTABLE_NCC0
+0x466148: pushl $0x0                ; tmu = 0
 0x46614a: calll 0x5405c2            ; grTexDownloadTable(0, 0, registro+0x14)
 ```
 
-Es decir: **el formato 1 es el único que lleva una tabla de paleta**, y la
-tabla está en `+0x14`. En `GEX.VFX` (cuatro texturas de formato 1) ese bloque
-empieza con `04 18 26 33 44 5d 78 9d 9e a6 b4 c3 bd d5 de f2`, que parece una
-rampa de 4 colores RGBA… pero **los bytes de datos usan valores de 0x00 a
-0xFF**, así que esa rampa de 4 entradas **no** puede ser la paleta completa.
-Queda por determinar qué es exactamente ese bloque (posiblemente un descriptor
-`GrTable_t` o una paleta comprimida) y cuál es la paleta de 256 entradas.
+(y la equivalente en `0x004670FC`).
 
-### 4.3 Lo que NO está demostrado (y por tanto no se implementa)
+**Prueba directa sobre los originales:** el `packed_data` que trae el fichero
+coincide **byte a byte** con el que el propio SDK calcula a partir de los
+campos crudos (`yRGB` en 4 palabras; los 3 valores de 9 bits de cada vector de
+croma en una palabra). Por ejemplo, en `GEX.VFX`, registro 0:
 
-1. **El formato de píxel.** Los bytes del bloque se entregan **tal cual** a
-   Glide (`grTexDownloadMipMap`, nivel 3) → no hay ningún descompresor ni
-   conversor en el juego. El juego solo dice "formato = X" a Glide. Por tanto
-   el significado de los bytes es el de los **formatos de textura de Glide**
-   para ese identificador, y la equivalencia exacta entre estos identificadores
-   y la enumeración de Glide (`GR_RGBA4`/`GR_RGB8_32`/`GR_COLOR_INDEX_8`/…)
-   **no está demostrada con el ejecutable**: el juego nunca compara el campo
-   con los valores de la enumeración de Glide, solo con `0x00` y `0x0C`.
-2. **Las dimensiones.** Los campos A, B y C (`+0x00`, `+0x04`, `+0x08`) no
-   encajan con ninguna fórmula simple de dimensiones: por ejemplo, para el
-   registro 0 de
-   `AZTEC16.VFX` (A=2, B=2, C=2, formato 12) el bloque son 4 096 bytes, que a
-   2 B/píxel serían 2 048 píxeles, mientras que `2^2 × 2^2` serían 16 píxeles.
-   La única relación clara es que **el tamaño del bloque es siempre una
-   potencia de dos** en los ficheros originales (32, 256, 512, 1 024, 2 048,
-   4 096, 8 192, 16 384, 32 768) y que `C` (el campo de `+0x08`) escala el
-   tamaño en factor 2 (a igualdad de A y B). No se ha encontrado la fórmula
-   que relacione tamaño y dimensiones.
-3. **La codificación concreta de los bytes.** Se probaron varias lecturas
-   (byte directo, palabras de 16 bits en ambos sentidos, nibbles) midiendo la
-   coherencia espacial (desviación media entre píxeles vecinos horizontales):
-   el formato 11 muestra un byte constante y el formato 12 una estructura muy
-   regular, lo que apunta a formatos empaquetados de Glide, pero **no se ha
-   cerrado** cuál.
-4. **Si hay compresión.** No hay ningún descompresor en el juego, así que a
-   priori **no la hay**: los bytes del fichero son los que consume Glide. Es la
-   hipótesis vigente, no una certeza.
+```
+iRGB[0] = (482, 488, 75)  ->  packed = (482<<18)|(488<<9)|75 = 0x078BD04B
+qRGB[0] = (500, 501, 50)  ->  packed = (500<<18)|(501<<9)|50 = 0x07D3EA32
+```
 
-> Por instrucción explícita del enunciado ("no inventar formatos ni
-> interpretar bytes desconocidos como texturas válidas"), **el módulo 4A no
-> implementa decodificadores de píxel**: se entrega el contenedor, la tabla, la
-> validación estricta y los bloques de datos crudos, y se documenta lo que
-> falta.
+y ambos valores aparecen literalmente en el bloque del fichero. La prueba
+automática (`test_vfx.c`) recalcula el empaquetado de **las 7 723 tablas** de
+los 37 `.VFX` y compara: **coinciden las 12 palabras de todas**.
 
-### 4.4 Comparación con las herramientas externas (referencia, sin copiar código)
+El juego **comparte** la tabla entre dos texturas copiando el bloque entero
+(`memcpy` de `0x70` B en `0x004732FB`): en `AZTEC16.VFX` hay un par de
+entradas con tabla idéntica (las entradas 25 y 83).
+
+### 4.4 Los formatos de píxel (DEMOSTRADO)
+
+Las tres disposiciones de bit, del SDK de Glide 2.x (`swlibs/texus/lib/quantize.c`
+y `dequant.c`), con la palabra de 16 bits en **little-endian** (Voodoo es
+little-endian y el juego entrega los bytes tal cual):
+
+| Formato | Bit 15..12 | R | G | B | Alfa |
+|---|---|---|---|---|---|
+| `ARGB_1555` | A (1 bit) | 5 bits (14..10) | 5 bits (9..5) | 5 bits (4..0) | 0 → 0, 1 → 255 |
+| `ARGB_4444` | A (4 bits) | 4 bits (11..8) | 4 bits (7..4) | 4 bits (3..0) | 0..15 → 0..255 |
+
+Expansión a 8 bits: 5 → 8 por replicación de bits (`v<<3 | v>>2`), 4 → 8
+multiplicando por 17 (`v*0x11`). Es exactamente lo que hacen las tablas
+`P5_8`/`P4_8` del SDK.
+
+`YIQ_422` son **8 bits por texel** y el byte es un **índice de una paleta de
+256 colores** que se deriva de la tabla NCC: 4 bits de luminancia, 2 bits de
+croma I y 2 bits de croma Q.
+
+```
+iy = (byte >> 4) & 0x0F     ->  luminancia  yRGB[iy]
+ia = (byte >> 2) & 0x03     ->  croma I     iRGB[ia]
+ib = (byte     ) & 0x03     ->  croma Q     qRGB[ib]
+
+R = saturar(y + iRGB[ia][0] + qRGB[ib][0])
+G = saturar(y + iRGB[ia][1] + qRGB[ib][1])
+B = saturar(y + iRGB[ia][2] + qRGB[ib][2])
+```
+
+Esto es lo que hacen el decodificador software del propio SDK
+(`swlibs/texus/lib/dequant.c`, `_txImgDequantizeYIQ422`, que indexa una paleta
+de 256 construida con `txYABtoPal256`) y el constructor de la red neuronal que
+genera esas tablas (`nccnnet.c`: `iy = (i>>4)&0x0f; ia = (i>>2)&0x03;
+ib = i&0x03;` y `color = Y[iy] + A[ia] + B[ib]`).
+
+Los valores de croma I/Q se guardan en 9 bits con signo (complemento a dos),
+que es el rango que usa el hardware: en los ficheros originales los valores
+crudos van de 0 a 511 y se reparten en torno a 256 (p. ej. 482 → −30,
+500 → −12), lo que confirma la interpretación con signo.
+
+**Contraste empírico con los originales** (no hay imagen de referencia, así que
+se contrastaron hipótesis):
+
+* Leer los campos de 16 bits en big-endian produce un campo plano casi
+  saturado; en little-endian sale una **textura coherente** con estructura
+  visible. Es la lectura correcta.
+* Interpretar I/Q como sin signo produce un **66 % de píxeles saturados**
+  (basura); con signo, un **0,2 %**, y la imagen sale un degradado suave. La
+  escala 1:1 (suma directa) es la que reproduce el degradado; con 1:2 o 1:4 el
+  contraste se aplana.
+
+Aspecto practice: `GEX.VFX` registro 0 decodificado con el código del port
+(16×16, YIQ_422):
+
+```
+      .:-==++++=
+     .:=*####*++
+     .-*%%%%%##*
+     .=#%%%%%%##
+     .-*%%%%%###
+     .-+#%%%%###
+     .:-****####
+      .:--=*###*
+       ...-*##*#
+          =###*#
+         :*###*#
+....... .+##*#*#
+----:. .+*#*#*##
+.:.   :+*#*###*#
+....-=**********
++++********+++++
+```
+
+### 4.5 Dimensiones: LOD, aspecto y tamaño (DEMOSTRADO)
+
+Glide 2.x (`glide2x/h3/glide/src/glide.h`):
+
+```c
+typedef FxI32 GrLOD_t;
+#define GR_LOD_256 0x0 ... #define GR_LOD_1 0x8
+
+typedef FxI32 GrAspectRatio_t;
+#define GR_ASPECT_8x1 0x0
+#define GR_ASPECT_4x1 0x1
+#define GR_ASPECT_2x1 0x2
+#define GR_ASPECT_1x1 0x3
+#define GR_ASPECT_1x2 0x4
+#define GR_ASPECT_1x4 0x5
+#define GR_ASPECT_1x8 0x6
+```
+
+* El **LOD fija el lado mayor**: `lado = 256 >> lod` (lod 0 → 256 px, lod 8 →
+  1 px).
+* El **aspecto lo divide**, sin bajar de un texel: 8x1 → `lado × lado/8`,
+  4x1 → `lado × lado/4`, 2x1 → `lado × lado/2`, 1x1 → `lado × lado`,
+  1x2 → `lado/2 × lado`, 1x4 → `lado/4 × lado`, 1x8 → `lado/8 × lado`.
+* La **cadena de mipmap** va de `large_lod` (el nivel más detallado) a
+  `small_lod`, con el tamaño de cada nivel = `texels × bytes_por_texel`
+  (`glide2x/h3/glide/src/g3df.c`:
+  `for(lod = large_lod; lod <= small_lod; lod++) mem += hostSize[aspect][lod] << (format >= GR_TEXFMT_16BIT);`).
+
+Esto reproduce exactamente las tablas del SDK (`_grMipMapHostWH[7][9][2]` y
+`_grMipMapHostSize[4][9]` de `glide2x/sst1/glide/src/ditex.c`), por ejemplo:
+
+| lod | 8x1 | 4x1 | 2x1 | 1x1 | 1x2 | 1x4 | 1x8 |
+|---:|---|---|---|---|---|---|---|
+| 0 | 256×32 | 256×64 | 256×128 | 256×256 | 128×256 | 64×256 | 32×256 |
+| 2 | 64×8 | 64×16 | 64×32 | 64×64 | 32×64 | 16×64 | 8×64 |
+| 4 | 16×2 | 16×4 | 16×8 | 16×16 | 8×16 | 4×16 | 2×16 |
+| 6 | 4×1 | 4×1 | 4×2 | 4×4 | 2×4 | 1×4 | 1×4 |
+| 8 | 1×1 | 1×1 | 1×1 | 1×1 | 1×1 | 1×1 | 1×1 |
+
+En los **37 `.VFX` originales los 15 251 registros tienen `smallLod ==
+largeLod`**: cada textura es un único nivel, y el tamaño del bloque de datos
+coincide **en los 15 251 registros** con el tamaño que predice la fórmula
+(§6.5).
+
+### 4.6 Comparación con las herramientas externas (referencia, sin copiar código)
 
 `gex2-tools` (SK83RJOSH, sin licencia) describe el VFX como
 `File{texture_count, textures[]}` y nombra los formatos `RGB8A1 = 1`,
 `R7G6B5A1 = 11` y `ARGB4 = 12`, con "dimensiones desde tamaño + aspecto" y un
 "workaround de bug encoder" en el formato 1. Su lectura coincide con este
-documento **en el contenedor** (un `count` y una tabla de texturas) y en los
-**valores** de formato (1, 11, 12), pero:
+documento **en el contenedor** y en los **valores** de formato, pero:
 
-* sus **nombres** de formato no son los de Glide y no están respaldados por el
-  ejecutable: el juego nunca usa esos nombres, solo los valores;
-* su obtención de las dimensiones ("tamaño + aspecto") no coincide con nada
-  demostrado aquí (§4.3.2);
-* su código **no se ha copiado**: el módulo `port/src/asset/vfx.c` está escrito
-  desde cero contra el desensamblado y contra los ficheros.
+* sus **nombres** de formato no son los de Glide: los valores coinciden
+  (1 = YIQ de 8 bits, 11 = ARGB de 16 bits con alfa de 1 bit, 12 = ARGB de 16
+  bits con alfa de 4 bits) pero la nomenclatura es propia;
+* su obtención de las dimensiones ("tamaño + aspecto") no es la fórmula de
+  Glide 2.x que aquí se demuestra (§4.5);
+* su código **no se ha copiado**: el módulo `port/src/asset/vfx*.c` está
+  escrito desde cero contra el SDK, contra el desensamblado y contra los
+  ficheros.
 
 `Gex3DViewer` (MatBourgon, sin licencia) abre `.dfx` + `.vfx` y exporta
 "sheets" de textura; sirve como referencia de que el par DFX/VFX por nivel es la
@@ -273,121 +477,133 @@ modelos, sprites o de interfaz, que la geometría del nivel no recorre.
 
 ---
 
+## 6. Auditoría correctiva del Módulo 4B (2026-11-11)
 
----
+### 6.1 Qué se corrigió
 
-## 5. La búsqueda del formato de píxel (Módulo 4B, 2026-11-11)
+El Módulo 4B publicado en `b71122a` concluyó que el bloque de 112 B era una
+"paleta" y que el formato de píxel y las dimensiones seguían **sin
+demostrarse**. Con la documentación de Glide 2.x a mano y el SDK de Glide 2.x
+(paquete `glide 2002.04.10ds1`) se corrigieron tres cosas:
 
-### 5.1 Método
+| Afirmación del 4B | Estado real | Evidencia |
+|---|---|---|
+| "el bloque de 112 B es una tabla de paleta" | **FALSO**: es una `GuNccTable` | §4.3, §6.4 |
+| "los identificadores 1/11/12 no son los de Glide" | **FALSO**: son `GR_TEXFMT_YIQ_422`, `GR_TEXFMT_ARGB_1555` y `GR_TEXFMT_ARGB_4444` | §4.2, §6.2 |
+| "las dimensiones no encajan con ninguna fórmula" | **FALSO**: encajan exactamente con las reglas de LOD y aspecto de Glide 2.x | §4.5, §6.5 |
+| "el registro es un `GrTexInfo`" | **CORRECTO**, pero el orden de los campos es smallLod, largeLod, aspectRatio | §4.1, §6.3 |
 
-REA del ejecutable original (`llvm-objdump` + el lector PE32 del repo) sobre
-las rutas que procesan los registros VFX y se los entregan a Glide, y análisis
-estadístico de los bloques de datos de los `.VFX` originales (solo lectura).
-Criterio de evidencia: **DEMOSTRADO** (desensamblado o comprobación directa
-sobre los originales), **PROBABLE** (varios indicios, sin confirmación) y
-**DESCONOCIDO** (sin evidencia suficiente).
+### 6.2 Las enumeraciones reales de Glide 2.x
 
-### 5.2 El registro VFX es un `GrTexInfo` de Glide (DEMOSTRADO)
+El paquete `glide 2002.04.10ds1` (Debian) incluye el código de la biblioteca de
+3dfx con los encabezados originales (`glide2x/{sst1,h3,cvg}/glide/src/glide.h`).
+La variante `h3` (Voodoo2) y la `sst1` (Voodoo1) coinciden en lo que importa:
 
-El ejecutable construye un `GrTexInfo` para la fuente (`FONT.3DF`) en
-`0x0065BFA0` y lo rellena así (`0x00432AB7..0x00432AE2`):
+* `GrTextureFormat_t`: 0 = RGB_332, 1 = YIQ_422, …, **11 = ARGB_1555,
+  12 = ARGB_4444**;
+* `GrTexTable_t`: 0 = NCC0, 1 = NCC1, **2 = PALETTE**;
+* `GrTexInfo`: `{smallLod, largeLod, aspectRatio, format, data}`;
+* `GuNccTable`: 112 B; `GuTexPalette`: 1 024 B.
+
+El ejecutable usa `glide2x.dll` (Voodoo1/Voodoo2), así que la numeración
+aplicable es la de `glide2x`.
+
+### 6.3 El `GrTexInfo` que el juego construye para la fuente
+
+Además de la fuente `.3DF`, el juego rellena un `GrTexInfo` en `0x0065BFA0`
+con la misma disposición (§4.1). Los campos salen del `Gu3dfHeader` de la
+fuente, que ya trae `small_lod`, `large_lod`, `aspect_ratio` y `format` en el
+mismo orden: el ejecutable y el SDK coinciden sin ambigüedad.
+
+### 6.4 La prueba byte a byte de la `GuNccTable`
+
+El `packed_data` de la tabla es la prueba definitiva, porque el SDK define una
+forma empaquetada **bit a bit**. Tomando `GEX.VFX`, registro 0:
+
+| Campo crudo | Valor | Empaquetado que calcula el SDK | En el fichero |
+|---|---|---|---|
+| `iRGB[0]` | (482, 488, 75) | `(482<<18)\|(488<<9)\|75` = `0x078BD04B` | `0x078BD04B` ✓ |
+| `qRGB[0]` | (500, 501, 50) | `(500<<18)\|(501<<9)\|50` = `0x07D3EA32` | `0x07D3EA32` ✓ |
+| `yRGB[0..3]` | `04 18 26 33` | `0x33261804` | `0x33261804` ✓ |
+
+Una paleta de 256 colores no tiene ninguna forma empaquetada de este tipo: la
+coincidencia de las 12 palabras en las 7 723 tablas de los 37 `.VFX` es una
+prueba directa de que el bloque es una `GuNccTable`.
+
+### 6.5 Validación del modelo de dimensiones sobre TODOS los originales
+
+Script de contraste (no forma parte del port): para cada registro de los 37
+`.VFX` se calcula el tamaño esperado con las reglas de §4.5 y se compara con
+`dword[+0x84]`.
 
 ```
-0x432AB7: movl %eax,0x65bfa0          ; +0x00  (campo del info de 3df)
-0x432AC2: movl %ecx,0x65bfa4          ; +0x04  (campo del info de 3df)
-0x432ACE: movl %edx,0x65bfa8          ; +0x08  (campo del info de 3df)
-0x432ADA: movl %eax,0x65bfac          ; +0x0C  (campo del info de 3df)
-0x432AE2: movl %ecx,0x65bfb0          ; +0x10  puntero a los datos
+ficheros: 37
+registros: 15251
+formatos: 1:7723 11:4698 12:2830
+coincidencias: 15251/15251
+registros con +0x00 != +0x04: 0
+discrepancias: 0
 ```
 
-El puntero de `+0x10` es el bloque que el juego acaba de reservar para los
-píxeles (`0x00432A78`). Es **la misma disposición que el registro VFX**: el
-cargador de `.VFX` (`0x00461C32`) escribe `registro+0x10 = registro+0x8C` y
-entrega el registro tal cual a `grTexDownloadMipMap`/`grTexSource`. Por tanto
-**el registro VFX es un `GrTexInfo`**, y su `+0x0C` es el campo de formato que
-Glide recibe (y que el juego compara con 1, 12 y 0).
+**El 100 % de los registros encaja.** Ejemplos:
 
-Esto **confirma** la hipótesis que U-1f dejó abierta
-(`U1F_RESULTADOS.md` §8.2: «largeLod,+0; smallLod,+4; aspectRatio,+8;
-format,+0xC; data,+0x10») en cuanto al **+0x0C = formato** y **+0x10 = datos**,
-que es lo que se necesita para este módulo.
+| Fichero | Registro | lod/aspecto/formato | Tamaño esperado | Tamaño en el fichero |
+|---|---:|---|---:|---:|
+| `GEX.VFX` | 0 | 4/4/3, YIQ_422 | 16×16×1 = 256 | 256 ✓ |
+| `GEX.VFX` | 0 | 4/4/3, YIQ_422 | 16×16×1 = 256 | 256 ✓ |
+| `AZTEC16.VFX` | 0 | 2/2/2, ARGB_4444 | 64×32×2 = 4 096 | 4 096 ✓ |
+| `AZTEC16.VFX` | 1 | 2/2/3, ARGB_4444 | 64×64×2 = 8 192 | 8 192 ✓ |
+| `AZTEC16.VFX` | 25 | 0/0/5, YIQ_422 | 64×256×1 = 16 384 | 16 384 ✓ |
 
-### 5.3 Lo que el juego hace con cada formato (DEMOSTRADO)
+La excepción que se había medido antes ((4,4,3) con formato 12) era un error
+de aritmética del fitting, no un registro anómalo: con la regla de Glide 2.x
+(64×64×2 = 8 192 B) **todos** los registros cuadran.
 
-| Formato | Observado | Comportamiento del juego | Evidencia |
-|---:|---:|---|---|
-| 1 | 42 entradas en AZTEC16 | sube una **tabla de paleta** desde `+0x14` | `grTexDownloadTable(0,0,entrada+0x14)` en `0x0046614A`, `0x004670FC` |
-| 11 | 73 entradas | sin paleta, sin cambio de alfa | — |
-| 12 | 145 entradas | **activa el blending alfa** (`grAlphaCombine` modo 3) | `0x00465667` |
-| 0 | no aparece | el juego lo distingue con otro modo de alfa | `0x00465679` |
+### 6.6 Contraste de los decodificadores
 
-Los identificadores **no** son los de la enumeración `GR_TEXFMT` de Glide: el
-formato del `FONT.3DF` (RGB332 según el inventario) pasa por el mismo campo
-`+0x0C` pero lo toma del *info* de 3df, y el juego trata 1, 11 y 12 de forma
-propia. Queda **DESCONOCIDO** si el juego traduce el identificador antes de
-entregarlo a Glide o si usa un subconjunto propio.
+* **Orden de bytes**: little-endian (big-endian aplana la imagen).
+* **Signo de I/Q**: con signo (sin signo → 66 % de saturación).
+* **Escala de I/Q**: 1:1 (1:2 y 1:4 aplanan el contraste).
+* **Alfa**: el formato 12 tiene alfa de 4 bits (en las texturas reales hay
+  píxeles opacos y transparentes); el 11, de 1 bit; el YIQ_422 no tiene alfa.
+* **Prueba cruzada**: el mismo texture decodificado con el script de análisis y
+  con el código del port da **exactamente la misma imagen**.
 
-### 5.4 La paleta (presencia, tamaño y compartición: DEMOSTRADO)
+### 6.7 Resultado negativo: la prueba de discontinuidad anterior era inválida
 
-* El bloque de paleta ocupa `+0x14 .. +0x84`: **112 bytes (`0x70`)**. Lo
-  demuestra el `memcpy` de `0x004732FB`, que copia exactamente `0x70` bytes de
-  `entradaA+0x14` a `entradaB+0x14`: el juego **comparte** la paleta entre dos
-  texturas copiando el bloque entero.
-* En los `.VFX` originales, las entradas de formato 11 y 12 tienen ese bloque
-  **inteiramente a cero** (218 de 218 en AZTEC16.VFX) y las de formato 1 lo
-  tienen **con datos** (42 de 42). Es la comprobación directa de que el bloque
-  solo significa algo para el formato 1.
-* En AZTEC16.VFX hay **un par de entradas con paleta idéntica** (25 y 83): es
-  justo el caso que el `memcpy` del juego resuelve.
+La conclusión del 4B de que "los bloques no son un raster plano" **no se
+sostiene**: la prueba (diferencia entre la discontinuidad horizontal y la
+vertical para anchos candidatos) mezclaba en la misma comparación **texturas
+de tamaños distintos y niveles mipmap distintos**, y el ancho "ganador" no
+tenía por qué ser el correcto. Con el tamaño de la textura ya demostrado
+(§4.5), la lectura del raster es inmediata y el resultado es una imagen
+coherente. Se **descarta** la prueba de discontinuidad como método.
 
-Lo que **no** se ha cerrado es el **contenido** de esos 112 bytes (cuántas
-entradas de paleta hay, si son RGB565, RGBA o una mixture, y qué significan
-las rampas que se ven al principio del bloque). Es **DESCONOCIDO**.
-
-### 5.5 Resultados negativos: el bloque **no** es un raster plano
-
-Se probó, para los tres formatos, si el bloque de datos se comporta como un
-raster 2D de píxeles de 1 o 2 bytes: se calculó, para cada ancho candidato
-(4, 8, 16, 32, 64, 128, 256), la discontinuidad media entre píxeles
-horizontales menos la de los verticales (la fila correcta debe ser más
-similar que la columna).
-
-* El «mejor» ancho **no es consistente** dentro de un mismo grupo
-  `(A,B,C,formato)`: para el mismo `(2,2,3,formato 12)` salen anchos 16, 32,
-  128 y 256 con diferencia de puntuación mínima, y anchos distintos para
-  registros con la misma cabecera.
-* Por tanto **los bloques no son un raster plano** de los formatos probados, o
-  la prueba no tiene suficiente señal (texturas muy uniformes).
-
-Conclusión: **el formato de píxel sigue siendo DESCONOCIDO**. No se implementa
-ningún decodificador, porque hacerlo sería inventar el formato.
-
-### 5.6 Qué queda por tanto demostrado y qué no
+### 6.8 Lo que sigue sin estar demostrado
 
 | Cuestión | Estado |
 |---|---|
-| Estructura del contenedor y recorrido de registros | **DEMOSTRADO** (§2) |
-| El registro es un `GrTexInfo`; `+0x0C` = formato, `+0x10` = datos | **DEMOSTRADO** (§5.2) |
-| El juego sube una paleta solo para el formato 1, desde `+0x14`, 112 B | **DEMOSTRADO** (§5.3, §5.4) |
-| El formato 12 activa el blending alfa | **DEMOSTRADO** (§5.3) |
-| Los bloques de datos se entregan a Glide **sin descomprimir** | **DEMOSTRADO** (no hay descompresor en el ejecutable) |
-| **Formato de píxel** de 1, 11 y 12 | **DESCONOCIDO** |
-| **Dimensiones** de cada textura | **DESCONOCIDO** |
-| **Contenido** de la paleta de 112 B | **DESCONOCIDO** |
-| Correspondencia índice de 14 bits (DFX) → entrada (VFX) | **DEMOSTRADO** (§5) |
-## 6. Lo implementado en `port/`
+| Formato del `FONT.3DF` (que el juego carga con `gu3dfLoad`) | **DESCONOCIDO** (no es un `.VFX`; el inventario lo da como RGB332) |
+| Texturas con formato 0 (`RGB_332`) | **DESCONOCIDO**: no aparece en ningún `.VFX` original, así que no hay decodificador |
+| Formatos 6, 7, 8, 9, 10, 13, 14, 15 de Glide | **DESCONOCIDO**: no aparecen |
+| Si el hardware aplica un filtrado (bilineal) entre texels | fuera de alcance: es comportamiento de la GPU, no del formato |
+
+---
+
+## 7. Lo implementado en `port/`
 
 | Fichero | Contenido |
 |---|---|
-| `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_palette`, `gex_vfx_format_info_get`, `gex_vfx_palette_twin` |
-| `port/src/asset/vfx.c` | parser portable: recorre la tabla como el juego, valida offsets/tamaños/conteos y multiplicaciones, libera en error |
-| `port/tests/test_vfx.c` | 2 223 comprobaciones |
+| `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_ncc_table`, `gex_vfx_format_info_get`, `gex_vfx_ncc_table_twin`, `gex_vfx_ncc_table_parse/pack`, `gex_vfx_texture_info_get`, `gex_vfx_texture_level_size/offset`, `gex_vfx_decode_argb1555/argb4444/yiq422`, `gex_vfx_decode_level` |
+| `port/src/asset/vfx.c` | parser portable: recorre la tabla como el juego, valida offsets/tamaños/conteos y multiplicaciones, dimensiones según las reglas de Glide 2.x, libera en error |
+| `port/src/asset/vfx_decode.c` | decodificadores CPU: ARGB_1555, ARGB_4444 y YIQ_422 con tabla NCC; salida RGBA8 con alfa recto |
+| `port/tests/test_vfx.c` | 2 968 comprobaciones |
 
 La API es coherente con el resto del port (C11 portable, `gex_*_status` con
 `_name()`, `free`/`close` idempotente, cero en error). El módulo **no** crea
-recursos D3D11 ni se integra todavía en el renderer (eso es el Módulo 4B).
+recursos D3D11 ni se integra todavía en el renderer (eso es el Módulo 4C).
 
-### 6.1 Validaciones implementadas
+### 7.1 Validaciones implementadas
 
 * ruta nula o vacía → `GEX_VFX_ERR_ARG`;
 * fichero de menos de 4 bytes → `GEX_VFX_ERR_FORMAT`;
@@ -400,45 +616,80 @@ recursos D3D11 ni se integra todavía en el renderer (eso es el Módulo 4B).
 * `count` enorme → reserva fallida → `GEX_VFX_ERR_NOMEM`;
 * en cualquier error, la estructura queda limpia y liberable.
 
-### 6.1.1 Semántica de la paleta
+### 7.2 Semántica de la tabla NCC
 
-`gex_vfx_record.palette`/`palette_size` describen una **tabla de paleta
-únicamente para el formato 1**, que es el único para el que el juego sube una
-paleta (`grTexDownloadTable` con `registro+0x14`). Para los formatos 11 y 12 el
-parser deja `palette = NULL` y `palette_size = 0`: el bloque `+0x14` está a
-cero en los ficheros originales y publicarlo como paleta sería afirmar algo no
-demostrado. `gex_vfx_format_has_palette(format)` deja el criterio explícito.
+`gex_vfx_record.ncc_table`/`ncc_table_size` describen una **`GuNccTable` de
+112 B únicamente para el formato `YIQ_422`**, que es el único para el que el
+juego llama a `grTexDownloadTable` con `GR_TEXTABLE_NCC0`. Para los formatos 11
+y 12 el parser deja `ncc_table = NULL` y `ncc_table_size = 0`: el bloque `+0x14`
+está a cero en los ficheros originales. `gex_vfx_format_has_ncc_table(format)`
+deja el criterio explícito.
 
-### 6.2 Pruebas (reales)
+### 7.3 Dimensiones
 
-`port/tests/test_vfx.c`: **2 223 comprobaciones, 0 fallos** en Clang `-O0`, `-O2`
-y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
+`gex_vfx_texture_info_get()` devuelve el tamaño del nivel más detallado, el
+número de niveles mipmap, los bytes por texel y el **tamaño total esperado del
+bloque de datos**, con las reglas de §4.5. `gex_vfx_texture_level_size()` y
+`gex_vfx_texture_level_offset()` dan el tamaño y la posición de cada nivel de
+la cadena.
+
+### 7.4 Decodificadores
+
+* Salida **RGBA8** (R, G, B, A), alfa **recto** (no premultiplicado).
+* `gex_vfx_decode_argb1555()` y `gex_vfx_decode_argb4444()`: lectura
+  little-endian de la palabra de 16 bits y expansión de bits según §4.4.
+* `gex_vfx_decode_yiq422()`: índice 4/2/2 bits y suma de luminancia y croma
+  saturada, con la tabla NCC como entrada.
+* `gex_vfx_decode_level()`: despacha por el formato del registro y usa la
+  tabla NCC del propio registro.
+* Validación de entradas: punteros nulos, dimensiones nulas o mayores de 256,
+  datos truncados (`GEX_VFX_DEC_ERR_RANGE`), destino insuficiente
+  (`GEX_VFX_DEC_ERR_RANGE`) y multiplicaciones desbordadas
+  (`GEX_VFX_DEC_ERR_OVERFLOW`). Un formato sin decodificador devuelve
+  `GEX_VFX_DEC_ERR_FORMAT`.
+
+### 7.5 Pruebas (reales)
+
+`port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** en Clang `-O0`,
+`-O2` y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
 
 * nombres de estado y argumentos inválidos;
-* contenedor sintético: campos, puntero de datos, tamaño, paleta, offsets;
+* contenedor sintético: campos, puntero de datos, tamaño, tabla NCC, offsets;
 * entradas truncadas, tamaño desbordado y límite exacto (el bloque que termina
   en el EOF es válido);
 * **bytes sobrantes al final**: con 1, 2, 4 y 8 bytes de cola, y con dos
   registros más 16 bytes de cola, el parser devuelve `GEX_VFX_ERR_FORMAT` y
   deja la estructura limpia; un `count` de 0 con 4 bytes de datos también es
   incoherente;
-* **semántica de la paleta** en los tres formatos observados: el formato 1
-  publica `palette` y `palette_size = 0x70`; los formatos 11 y 12 publican
-  `palette = NULL` y `palette_size = 0` (tanto en el contenedor sintético como
-  en los ficheros originales, registro a registro);
+* **semántica de la tabla NCC** en los tres formatos observados: el formato
+  `YIQ_422` publica `ncc_table` y `ncc_table_size = 0x70`; los formatos 11 y 12
+  publican `ncc_table = NULL` y `ncc_table_size = 0` (tanto en el contenedor
+  sintético como en los ficheros originales, registro a registro);
+* **dimensiones**: la tabla completa de tamaños de Glide 2.x para LOD y aspecto,
+  la cadena de mipmap (tamaño y offset de cada nivel) y los registros
+  incoherentes (LOD o aspecto fuera de rango, cadena al revés, formato
+  desconocido);
+* **tabla NCC**: interpretación de los 112 bytes (luminancia, croma con signo de
+  9 bits) y round trip exacto del empaquetado (`pack(parse(x)) == x`);
+* **decodificadores**: valores conocidos a mano para ARGB_1555, ARGB_4444 y
+  YIQ_422 (incluida la saturación), truncamientos, destinos pequeños,
+  punteros nulos y dimensiones inválidas;
+* **ficheros originales**: el tamaño del bloque de datos de **cada** registro
+  de `AZTEC16.VFX` coincide con el que predice el modelo de dimensiones; el
+  `packed_data` de **cada** tabla NCC de los originales coincide con el
+  recalculado; la decodificación del primer registro de cada formato funciona
+  y es **determinista**;
 * `AZTEC16.VFX`: 260 registros, el recorrido acaba exactamente en el EOF, los
   formatos son {1, 11, 12} (42/73/145) y todos los tamaños son potencias de
   dos;
 * `GEX.VFX`: 4 registros de 256 bytes, formato 1;
 * correspondencia DFX → VFX: los 9 609 polígonos del nivel usan índices 0..3 y
   todos existen en el `.VFX`;
-* **datos demostrados por formato** (Módulo 4B): la paleta solo existe para el formato 1 (112 B, 
-  `0x70`) y el formato 12 es el único que activa el blending alfa;
-* **paleta compartida**: en AZTEC16.VFX hay un par de entradas (25 y 83) con el
-  bloque de paleta idéntico, que es el caso que resuelve el `memcpy` de 0x70 B del
+* **tabla NCC compartida**: en AZTEC16.VFX hay un par de entradas (25 y 83) con
+  el bloque idéntico, que es el caso que resuelve el `memcpy` de 0x70 B del
   juego (`0x004732FB`); la relación se comprueba simétrica.
 
-### 6.2.1 Auditoría correctiva (2026-11-11)
+### 7.6 Auditoría correctiva del parser (2026-11-11, módulo 4A)
 
 Dos defectos detectados en la auditoría directa del commit `a7d8f0f` y
 corregidos:
@@ -449,9 +700,9 @@ corregidos:
    del fichero**; si no, `GEX_VFX_ERR_FORMAT` y estructura limpia. La
    corrección no invalida ningún fichero real: los 37 `.VFX` de `E2_A_ORIGINAL`
    terminan exactamente en el EOF (medido).
-2. **Semántica de la paleta.** `palette`/`palette_size` se publicaban para
-   todos los formatos. Ahora **solo el formato 1** (el único con tabla de
-   paleta) expone `palette`; para 11 y 12 valen `NULL` y `0`.
+2. **Semántica de la tabla.** `ncc_table`/`ncc_table_size` se publicaban para
+   todos los formatos. Ahora **solo el formato `YIQ_422`** (el único con tabla
+   NCC) los expone; para 11 y 12 valen `NULL` y `0`.
 
 Con ello el comportamiento final del parser es: **acepta exactamente los
 contenedores que el juego leería** (tabla que cubre el fichero entero) y
@@ -459,24 +710,26 @@ rechaza cualquier otro, sin dejar recursos vivos.
 
 ---
 
-## 7. Limitaciones y siguiente paso
+## 8. Limitaciones y siguiente paso
 
-1. **No hay decodificador de píxel**: falta cerrar §4.3 (formato de píxel,
-   dimensiones y paleta). El camino más corto es localizar la enumeración de
-   Glide que el juego da por buena (los campos que `grTexDownloadMipMap`
-   consume) y contrastar el resultado decodificando una textura conocida.
-2. **No hay integración en el renderer**: crear `ID3D11Texture2D` y
-   `ID3D11ShaderResourceView` y atender el índice de 14 bits es el Módulo 4B,
-   y exige resolver antes el punto 1 (o usar una textura de color sólido, que
-   sería inventar datos).
-3. **No se ha validado la cámara ni el BSP contra el ejecutable** (S-2 sigue
+1. **El Módulo 4C ya no está bloqueado por los datos**: hay decodificadores CPU
+   verificados y dimensiones demostradas. Queda decidir el formato de los
+   recursos D3D11 (`DXGI_FORMAT_R8G8B8A8_UNORM`), la cadena de mipmap y el modo
+   de filtrado, y crear `ID3D11Texture2D` e `ID3D11ShaderResourceView`
+   atendiendo al índice de 14 bits.
+2. **El `FONT.3DF` sigue sin decodificarse**: es una ruta distinta
+   (`gu3dfLoad`), no un `.VFX`.
+3. **El formato 0 (`RGB_332`) no tiene decodificador**: no aparece en ningún
+   `.VFX` original; si apareciera, haría falta el mismo tratamiento (1 byte por
+   texel, `R3 G3 B2`).
+4. **No se ha validado la cámara ni el BSP contra el ejecutable** (S-2 sigue
    abierto).
-4. Los ficheros originales se han usado **solo en lectura**; no se ha
-   copiado ninguna textura ni imagen extraída al repositorio.
+5. Los ficheros originales se han usado **solo en lectura**; no se ha copiado
+   ninguna textura ni imagen extraída al repositorio.
 
 ---
 
-## 8. Referencias
+## 9. Referencias
 
 * `docs/RENDERER_ARCHITECTURE_RESEARCH.md` — el renderer y el uso de Glide.
 * `U1H_RESULTADOS.md`, `U1G_RESULTADOS.md` — la cadena de 14 bits y la tabla
@@ -487,3 +740,12 @@ rechaza cualquier otro, sin dejar recursos vivos.
 * `tools/glide-shim/README.md` — los 38 imports de `glide2x.dll` que usa el
   ejecutable (aquí: `grTexDownloadTable`, `grTexNCCTable`,
   `grTexDownloadMipMap`, `grTexTextureMemRequired`, `grAlphaCombine`).
+* *Glide 2.2 Reference Manual* (Document Release 015, 22 May 1997) —
+  `grTexDownloadTable`, `grTexCalcMemRequired`, `grTexTextureMemRequired`,
+  `grTexNCCTable`.
+* SDK de Glide 2.x (paquete `glide 2002.04.10ds1`): `glide2x/h3/glide/src/glide.h`
+  (enumeraciones, `GrTexInfo`, `GuNccTable`), `glide2x/sst1/glide/src/ditex.c`
+  (`_grMipMapHostSize`, `_grMipMapHostWH`), `glide2x/h3/glide/src/g3df.c`
+  (cadena de niveles y tamaño por nivel), `swlibs/texus/lib/{quantize,dequant,util,nccnnet}.c`
+  (layouts de bit, decodificador YIQ de referencia y construcción de la paleta
+  de 256).

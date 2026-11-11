@@ -346,24 +346,34 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
 - **Correspondencia con la geometría:** el índice de textura de 14 bits del
   `.DFX` indexa **directamente** esta tabla (en AZTEC16: 9 609 polígonos usan
   los índices 0..3 sobre 260 entradas).
-- **Lo que NO se implementa (y por qué):** el **decodificador de píxel**. El
-  juego entrega los bytes del bloque **tal cual** a Glide
-  (`grTexDownloadMipMap`), así que no hay ningún descompresor ni conversor que
-  estudiar: el formato de píxel, las dimensiones y la paleta completa **no
-  están demostrados** y no se inventa nada. Detalle, evidencia y lo que falta:
+- **Lo que se implementó después (Módulo 4B):** el **decodificador de píxel**,
+  con el formato de píxel, las dimensiones y la tabla NCC **demostrados**
+  (ver §4B). Detalle, evidencia y límites:
   [`docs/VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md).
 
-**4B. Investigación del formato de píxel (2026-11-11) ó PARCIAL**
+**4B. Investigación del formato de píxel (2026-11-11) — CERRADO**
+
+- El **Módulo 4B** (2026-11-11, con auditoría correctiva) cerró el **formato
+  de píxel**, las **dimensiones** y la **tabla NCC**: los identificadores 1, 11
+  y 12 son `GR_TEXFMT_YIQ_422`, `GR_TEXFMT_ARGB_1555` y `GR_TEXFMT_ARGB_4444`
+  de Glide 2.x; el bloque de 112 B de `+0x14` es una `GuNccTable` (no una
+  paleta) y las dimensiones salen del LOD (`256 >> lod`) y del aspecto
+  (`8x1`…`1x8`), con el tamaño del bloque coincidiendo en **15 251 de 15 251
+  registros** de los 37 `.VFX` originales.
+- Hay **decodificadores CPU portables** (`port/src/asset/vfx_decode.c`:
+  `gex_vfx_decode_argb1555`, `gex_vfx_decode_argb4444`,
+  `gex_vfx_decode_yiq422`, `gex_vfx_decode_level`) con salida **RGBA8** y alfa
+  recto, más `gex_vfx_texture_info_get` para las dimensiones. 2 968
+  comprobaciones, 0 fallos.
+
+**4C. Integración de texturas en D3D11 — PENDIENTE**
 
 - Crear `ID3D11Texture2D`/`ID3D11ShaderResourceView` a partir de las
   entradas decodificadas y atender el índice de 14 bits desde el shader.
-- El **Módulo 4B** (2026-11-11) cerró la semántica de la paleta y el
-  tipo de registro (`GrTexInfo`), pero el **formato de píxel**, las dimensiones y
-  el contenido de la paleta siguen **DESCONOCIDOS**: sin decodificador
-  no se pueden subir texturas reales sin inventar datos.
-- Depende de cerrar el decodificador: sin él solo se podría subir un color
-  sólido, que sería inventar datos.
-
+- Ya no depende de cerrar el decodificador: el dato es real y está decodificado.
+- Falta decidir el formato de recurso (`DXGI_FORMAT_R8G8B8A8_UNORM`), la
+  cadena de mipmap y el modo de filtrado, y conectar el índice de 14 bits del
+  `.DFX` con la textura en el shader.
 #### Módulo 5: Integración con el renderer D3D11 — PARCIAL (5A implementado, 2026-11-11)
 
 La interfaz original de esta sección (`gex_d3d11_scene.h/c` con
@@ -658,10 +668,11 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: el Módulo 4B — cerrar el decodificador de píxel del `.VFX` y
-subir las texturas a D3D11 (el Módulo 4A ya tiene el contenedor y la tabla
-demostrados), y con él el material definitivo: shader de producción, *depth
-buffer* y el `ID3D11InputLayout` con los atributos que consuma la textura.**
+**Siguiente paso: el Módulo 4C — subir las texturas del `.VFX` a D3D11 (el
+Módulo 4A tiene el contenedor y la tabla demostrados y el Módulo 4B el
+formato de píxel, las dimensiones y los decodificadores CPU verificados),
+y con él el material definitivo: shader de producción, *depth buffer* y el
+`ID3D11InputLayout` con los atributos que consuma la textura.**
 
 - **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión
   de polígonos (Módulo 2, §11), el Módulo 3 completo (conversión portable §12 y
@@ -1356,9 +1367,10 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
 - **El color se escribe sin blending**: el canal alfa del vértice se escribe en
   el render target pero no se usa para transparency; el blending del original
   está pendiente.
-- Siguiente paso: **Módulo 4 (carga y conversión de texturas `.VFX`/NCC)** y,
-  con él, la firma definitiva del shader de producción, el *depth buffer* y el
-  `ID3D11InputLayout` con los atributos que consuma el material.
+- Siguiente paso: **Módulo 4C (carga de texturas `.VFX` en D3D11; el Módulo 4B
+  ya decodifica el píxel y las dimensiones)** y, con él, la firma definitiva del
+  shader de producción, el *depth buffer* y el `ID3D11InputLayout` con los
+  atributos que consuma el material.
 
 ---
 
@@ -1708,9 +1720,10 @@ evidencia local y **no se publica** en el repositorio.
 ### 16.9 Lo que sigue pendiente
 
 - **Texturas**: la imagen usa solo el color por vértice; el nivel real se ve
-  como una maqueta monocroma. El contenedor `.VFX` ya está implementado
-  (Módulo 4A, §17) pero **falta el decodificador de píxel** y, con él, el
-  Módulo 4B (recursos D3D11 e integración).
+  como una maqueta monocroma. El contenedor `.VFX` (Módulo 4A, §17) y el
+  **decodificador de píxel** (Módulo 4B, con formato de píxel y dimensiones
+  demostrados) ya están implementados; falta el **Módulo 4C** (recursos D3D11
+  e integración).
 - **Cámara real**: la vista es diagnóstica; falta el estado de cámara del
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
@@ -1739,8 +1752,9 @@ El documento técnico completo está en
 - **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` (portable) con
   `port/tests/test_vfx.c`: 1 668 comprobaciones, 0 fallos (`-O0`, `-O2` y
   ASan/UBSan).
-- **No hay decodificador de píxel**: los bytes se entregan tal cual a Glide
-  (`grTexDownloadMipMap`), así que el formato de píxel, las dimensiones y la
-  paleta completa **no están demostrados**. Por instrucción del enunciado no
-  se inventa ningún formato: el Módulo 4B (recursos D3D11 e integración)
-  queda pendiente de cerrar ese punto.
+- **El decodificador de píxel ya existe** (Módulo 4B): el formato de píxel
+  (`YIQ_422`, `ARGB_1555`, `ARGB_4444`), las dimensiones (LOD y aspecto de
+  Glide 2.x) y la tabla NCC (`GuNccTable`) están **demostrados** y verificados
+  contra los 37 `.VFX` originales. Lo que queda pendiente es la **integración
+  gráfica** (Módulo 4C): `ID3D11Texture2D`, `ID3D11ShaderResourceView` y el
+  índice de 14 bits en el shader.

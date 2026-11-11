@@ -124,16 +124,21 @@ concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
 > dimensiones y la paleta completa NO están demostrados** y por eso no se
 > implementan decodificadores. Herramientas: `llvm-objdump` y
 > `tools/gexmap/pe.mjs` (IAT); sin Ghidra niREA.
-> **Módulo 4B (2026-11-11, búsqueda del formato de píxel):** el registro VFX
-> se identifica como un **`GrTexInfo` de Glide**: el `GrTexInfo` de la fuente
-> que el juego construye en `0x0065BFA0` (`0x00432AB7..0x00432AE2`) tiene la
-> misma disposición que el registro VFX, con `+0x0C` = formato y `+0x10` =
-> puntero a los datos (`0x00461C32` lo rellena con `registro+0x8C`). La paleta
-> solo existe para el **formato 1** (112 B desde `+0x14`,
-> `grTexDownloadTable` en `0x0046614A`) y el juego la **comparte** entre
-> texturas con un `memcpy` de 0x70 B (`0x004732FB`). El **formato de píxel**
-> sigue **DESCONOCIDO**: los bloques no son un raster plano de 1 o 2 bytes por
-> píxel. Detalle: `docs/VFX_TEXTURE_FORMAT.md` §5.
+> **Módulo 4B (2026-11-11) y auditoría correctiva del mismo día:** el registro
+> VFX es un **`GrTexInfo` de Glide 2.x** (`smallLod`, `largeLod`,
+> `aspectRatio`, `format`, `data`): el `GrTexInfo` que el juego construye para
+> la fuente en `0x0065BFA0` (`0x00432AB7..0x00432AE2`) tiene exactamente esa
+> disposición y el cargador de `.VFX` (`0x00461C32`) rellena `+0x10` con
+> `registro+0x8C`. Los identificadores de `+0x0C` son los de la enumeración
+> `GrTextureFormat_t` de Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`,
+> 11 = `GR_TEXFMT_ARGB_1555`, 12 = `GR_TEXFMT_ARGB_4444`**. El bloque de 112 B
+> de `+0x14` es una **`GuNccTable`** (no una paleta: la paleta son 1 024 B y el
+> `type = 0` de `grTexDownloadTable` en `0x0046614A` es
+> `GR_TEXTABLE_NCC0`), y el juego la **comparte** entre texturas con un
+> `memcpy` de 0x70 B (`0x004732FB`). Las **dimensiones** se derivan del LOD
+> (`256 >> lod`) y del aspecto (`8x1`…`1x8`): el tamaño del bloque coincide en
+> **15 251 de 15 251 registros** de los 37 `.VFX` originales. Detalle:
+> `docs/VFX_TEXTURE_FORMAT.md` §4 y §6.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

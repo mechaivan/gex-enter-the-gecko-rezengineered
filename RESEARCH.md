@@ -806,7 +806,63 @@ que habrá que verificar contra el juego real (Fase 1–2):
   y contra el desensamblado), media en los identificadores de formato, **nula
   (no afirmada)** en el formato de píxel.
 
-## S-29 - Módulo 4B: búsqueda del formato de píxel de las texturas VFX  - **Método:** REA de las rutas que entregan los registros VFX a Glide   (`0x00461C32`, `0x00465667`, `0x00466136`, `0x004732FB`) + construcción   del `GrTexInfo` de la fuente (`0x00432AB7..0x00432AE2`, estructura en   `0x0065BFA0`) + análisis estadístico de los bloques de datos originales. - **Resultado:** el **registro VFX es un `GrTexInfo` de Glide** (DEMOSTRADO):   `+0x0C` es el campo de formato y `+0x10` el puntero a los datos. Esto   confirma la hipótesis que U-1f dejó abierta en `U1F_RESULTADOS.md`   Â§8.2 para `+0x0C` y `+0x10`. - **Formatos (DEMOSTRADO el comportamiento, DESCONOCIDO el píxel):** el   formato 1 es el único que sube una **tabla de paleta** desde `+0x14`   (`grTexDownloadTable`); el 12 activa el blending alfa; el 0 tiene otro modo   de alfa. El bloque de paleta ocupa **112 B (`0x70`)**: lo demuestra el   `memcpy` de `0x004732FB`, con el que el juego **comparte** la paleta entre   dos texturas (en AZTEC16.VFX hay un par, las entradas 25 y 83, con bloques   idénticos). - **Resultado negativo:** los bloques de datos **no** se comportan como un raster   plano de 1 o 2 bytes por píxel (la discontinuidad horizontal menos la vertical no   identifica un ancho único ni siquiera dentro de un mismo grupo   `(A,B,C,formato)`). El **formato de píxel**, las **dimensiones** y el   **contenido de la paleta** siguen **DESCONOCIDOS**: por instrucción del   enunciado no se implementa ningún decodificador. - **Confianza:** alta en el GrTexInfo y en la semántica de la paleta;   nula (no afirmada) en el formato de píxel. 
+## S-29 - Módulo 4B: búsqueda del formato de píxel de las texturas VFX
+
+- **Método:** REA de las rutas que entregan los registros VFX a Glide
+  (`0x00461C32`, `0x00465667`, `0x00466136`, `0x004732FB`) + construcción
+  del `GrTexInfo` de la fuente (`0x00432AB7..0x00432AE2`, estructura en
+  `0x0065BFA0`) + análisis estadístico de los bloques de datos originales.
+- **Resultado (tal como se publicó en `b71122a`, y **CORREGIDO** por S-30):**
+  el **registro VFX es un `GrTexInfo` de Glide** (DEMOSTRADO): `+0x0C` es el
+  campo de formato y `+0x10` el puntero a los datos. Esto confirma la
+  hipótesis que U-1f dejó abierta en `U1F_RESULTADOS.md` §8.2 para `+0x0C` y
+  `+0x10`.
+- **Conclusión entonces (incorrecta):** el bloque de 112 B de `+0x14` se
+  interpretó como una "tabla de paleta" y se afirmó que el formato de píxel y
+  las dimensiones seguían **DESCONOCIDOS**.
+
+## S-30 - Auditoría correctiva del Módulo 4B: `GuNccTable`, `GR_TEXFMT` y dimensiones
+
+- **Método:** documentación oficial de Glide 2.x (manual de referencia 2.2,
+  `glideref.htm`) y el **SDK de Glide 2.x** (paquete `glide 2002.04.10ds1`:
+  `glide2x/*/glide/src/glide.h`, `ditex.c`, `g3df.c` y `swlibs/texus`), más
+  el contraste byte a byte contra los 37 `.VFX` originales (solo lectura).
+- **Corrección 1 - la tabla no es una paleta (DEMOSTRADO):** el bloque de 112 B
+  de `+0x14` es una **`GuNccTable`** (`yRGB[16]` + `iRGB[4][3]` + `qRGB[4][3]`
+  + `packed_data[12]` = 112 B exactos). La paleta de Glide 2.x
+  (`GuTexPalette`) son 1 024 B, y el `type = 0` que el juego pasa a
+  `grTexDownloadTable` es `GR_TEXTABLE_NCC0` (la paleta sería `2`).
+- **Corrección 2 - los identificadores sí son los de Glide (DEMOSTRADO):**
+  `1 = GR_TEXFMT_YIQ_422`, `11 = GR_TEXFMT_ARGB_1555`, `12 = GR_TEXFMT_ARGB_4444`
+  (`0 = GR_TEXFMT_RGB_332`). Los valores coinciden exactamente con la
+  enumeración `GrTextureFormat_t` del SDK de Glide 2.x.
+- **Corrección 3 - las dimensiones sí se derivan (DEMOSTRADO):** el registro es
+  un `GrTexInfo` con el orden **smallLod, largeLod, aspectRatio, format,
+  data**; el LOD fija el lado mayor (`256 >> lod`) y el aspecto lo divide
+  (8x1 … 1x8). El tamaño esperado del bloque coincide con `dword[+0x84]` en
+  **15 251 de 15 251 registros** de los 37 `.VFX` (formato 1: 7 723, 11: 4 698,
+  12: 2 830), y todos tienen un único nivel (`smallLod == largeLod`).
+- **Prueba byte a byte de la `GuNccTable`:** el `packed_data` de **todas** las
+  tablas de los originales coincide con el que el SDK calcula desde los campos
+  crudos (p. ej. `iRGB[0] = (482, 488, 75)` → `0x078BD04B`).
+- **Formato de píxel (DEMOSTRADO):** ARGB_1555 (`A1 R5 G5 B5`) y ARGB_4444
+  (`A4 R4 G4 B4`) en palabras de 16 bits **little-endian**; YIQ_422 son 8 bits
+  por texel y el byte es un índice 4/2/2 bits (luminancia `yRGB`, croma I y Q)
+  sobre la paleta de 256 colores de la tabla NCC. Contraste empírico con los
+  originales: big-endian aplana la imagen, I/Q sin signo da 66 % de saturación
+  y con signo 0,2 %.
+- **Resultado negativo (se descarta la prueba anterior):** la discontinuidad
+  horizontal menos vertical no identifica un ancho porque mezclaba texturas de
+  tamaños distintos; con el tamaño ya demostrado la lectura del raster es
+  inmediata y sale una imagen coherente.
+- **Implementación:** decodificadores CPU portables
+  (`port/src/asset/vfx_decode.c`) para los tres formatos, salida RGBA8 con
+  alfa recto, más las dimensiones (`gex_vfx_texture_info_get`). `test_vfx`:
+  **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y ASan/UBSan).
+- **Confianza:** alta en todo lo anterior (SDK + contraste byte a byte con los
+  originales). Sigue **DESCONOCIDO** el `FONT.3DF` (ruta `gu3dfLoad`) y el
+  formato 0 (`RGB_332`), que no aparece en ningún `.VFX`.
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

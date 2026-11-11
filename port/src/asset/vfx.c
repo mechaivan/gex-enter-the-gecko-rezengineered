@@ -62,18 +62,20 @@ static gex_vfx_status parse_records(gex_vfx_file *file)
             return GEX_VFX_ERR_RANGE;
         }
 
-        rec->field_a = (uint32_t)file->data[offset + 0x00] |
-                       ((uint32_t)file->data[offset + 0x01] << 8) |
-                       ((uint32_t)file->data[offset + 0x02] << 16) |
-                       ((uint32_t)file->data[offset + 0x03] << 24);
-        rec->field_b = (uint32_t)file->data[offset + 0x04] |
-                       ((uint32_t)file->data[offset + 0x05] << 8) |
-                       ((uint32_t)file->data[offset + 0x06] << 16) |
-                       ((uint32_t)file->data[offset + 0x07] << 24);
-        rec->field_c = (uint32_t)file->data[offset + 0x08] |
-                       ((uint32_t)file->data[offset + 0x09] << 8) |
-                       ((uint32_t)file->data[offset + 0x0A] << 16) |
-                       ((uint32_t)file->data[offset + 0x0B] << 24);
+        /* El registro es un `GrTexInfo` de Glide 2.x: smallLod, largeLod,
+         * aspectRatio, format y el puntero a los datos. */
+        rec->small_lod = (uint32_t)file->data[offset + 0x00] |
+                         ((uint32_t)file->data[offset + 0x01] << 8) |
+                         ((uint32_t)file->data[offset + 0x02] << 16) |
+                         ((uint32_t)file->data[offset + 0x03] << 24);
+        rec->large_lod = (uint32_t)file->data[offset + 0x04] |
+                         ((uint32_t)file->data[offset + 0x05] << 8) |
+                         ((uint32_t)file->data[offset + 0x06] << 16) |
+                         ((uint32_t)file->data[offset + 0x07] << 24);
+        rec->aspect_ratio = (uint32_t)file->data[offset + 0x08] |
+                            ((uint32_t)file->data[offset + 0x09] << 8) |
+                            ((uint32_t)file->data[offset + 0x0A] << 16) |
+                            ((uint32_t)file->data[offset + 0x0B] << 24);
         rec->format = (uint32_t)file->data[offset + 0x0C] |
                       ((uint32_t)file->data[offset + 0x0D] << 8) |
                       ((uint32_t)file->data[offset + 0x0E] << 16) |
@@ -103,16 +105,16 @@ static gex_vfx_status parse_records(gex_vfx_file *file)
         }
         rec->data = file->data + offset + GEX_VFX_RECORD_DATA_OFFSET;
 
-        /* La tabla de paleta solo existe para el formato 1: es el único que
-         * el juego sube con grTexDownloadTable. Para los demás formatos el
-         * bloque +0x14 está a cero en los ficheros originales y no se
-         * publica como paleta. */
-        if (rec->format == GEX_VFX_FORMAT_1) {
-            rec->palette = file->data + offset + GEX_VFX_RECORD_PALETTE_OFFSET;
-            rec->palette_size = GEX_VFX_PALETTE_BYTES;
+        /* La tabla NCC solo existe para el formato YIQ_422 (1): es el único
+         * que el juego sube con grTexDownloadTable, y el único para el que
+         * Glide espera un `GuNccTable` de 112 B. Para los demás formatos el
+         * bloque +0x14 está a cero en los ficheros originales. */
+        if (rec->format == GEX_VFX_FORMAT_YIQ_422) {
+            rec->ncc_table = file->data + offset + GEX_VFX_RECORD_NCC_TABLE_OFFSET;
+            rec->ncc_table_size = GEX_VFX_NCC_TABLE_BYTES;
         } else {
-            rec->palette = NULL;
-            rec->palette_size = 0;
+            rec->ncc_table = NULL;
+            rec->ncc_table_size = 0;
         }
 
         offset = data_end;
@@ -232,12 +234,13 @@ int gex_vfx_find_index(const gex_vfx_file *file, uint32_t index14)
     return (int)index14;
 }
 
-int gex_vfx_format_has_palette(uint32_t format)
+int gex_vfx_format_has_ncc_table(uint32_t format)
 {
-    /* El juego solo sube una tabla de paleta (grTexDownloadTable con
-     * registro+0x14) para el formato 1; para los demás, el bloque +0x14
-     * está a cero en los ficheros originales. */
-    return format == GEX_VFX_FORMAT_1 ? 1 : 0;
+    /* Solo el formato YIQ_422 (1) lleva tabla NCC: es el único para el que
+     * el juego llama a grTexDownloadTable y el único para el que Glide
+     * espera una tabla de descompresión (GuNccTable). Para los demás, el
+     * bloque +0x14 está a cero en los ficheros originales. */
+    return format == GEX_VFX_FORMAT_YIQ_422 ? 1 : 0;
 }
 
 int gex_vfx_format_info_get(uint32_t format, gex_vfx_format_info *out)
@@ -248,54 +251,216 @@ int gex_vfx_format_info_get(uint32_t format, gex_vfx_format_info *out)
     memset(out, 0, sizeof(*out));
     out->format = format;
     switch (format) {
-    case GEX_VFX_FORMAT_1:
-        /* Paleta desde +0x14 (0x70 B) y ninguna activación de alfa. */
-        out->has_palette = 1;
+    case GEX_VFX_FORMAT_YIQ_422:
+        /* Tabla NCC desde +0x14 (112 B) y ninguna activación de alfa. */
+        out->name = "GR_TEXFMT_YIQ_422";
+        out->has_ncc_table = 1;
         out->enables_alpha = 0;
-        out->palette_bytes = GEX_VFX_PALETTE_BYTES;
+        out->ncc_table_bytes = GEX_VFX_NCC_TABLE_BYTES;
+        out->bytes_per_texel = 1;
+        out->decodable = 1;
         return 1;
-    case GEX_VFX_FORMAT_11:
-        /* Sin paleta y sin activación de alfa. */
+    case GEX_VFX_FORMAT_ARGB_1555:
+        /* Sin tabla y sin activación de alfa. */
+        out->name = "GR_TEXFMT_ARGB_1555";
+        out->bytes_per_texel = 2;
+        out->decodable = 1;
         return 1;
-    case GEX_VFX_FORMAT_12:
-        /* Sin paleta, pero el juego activa el blending alfa. */
+    case GEX_VFX_FORMAT_ARGB_4444:
+        /* Sin tabla, pero el juego activa el blending alfa. */
+        out->name = "GR_TEXFMT_ARGB_4444";
         out->enables_alpha = 1;
+        out->bytes_per_texel = 2;
+        out->decodable = 1;
         return 1;
-    case GEX_VFX_FORMAT_0:
-        /* El juego distingue el formato 0 con otro modo de alfa; no aparece
-         * en los .VFX originales. */
+    case GEX_VFX_FORMAT_RGB_332:
+        /* El juego lo distingue con otro modo de alfa; no aparece en los
+         * .VFX originales, así que no hay decodificador. */
+        out->name = "GR_TEXFMT_RGB_332";
         out->enables_alpha = 1;
+        out->bytes_per_texel = 1;
+        out->decodable = 0;
         return 1;
     default:
         return 0;
     }
 }
 
-int gex_vfx_palette_twin(const gex_vfx_file *file, uint32_t index)
+int gex_vfx_ncc_table_twin(const gex_vfx_file *file, uint32_t index)
 {
     uint32_t i;
 
     if (file == NULL || index >= (uint32_t)file->record_count) {
         return -1;
     }
-    if (file->records[index].palette == NULL ||
-        file->records[index].palette_size == 0u) {
+    if (file->records[index].ncc_table == NULL ||
+        file->records[index].ncc_table_size == 0u) {
         return -1;
     }
     for (i = 0; i < (uint32_t)file->record_count; i++) {
         if (i == index) {
             continue;
         }
-        if (file->records[i].palette == NULL ||
-            file->records[i].palette_size != file->records[index].palette_size) {
+        if (file->records[i].ncc_table == NULL ||
+            file->records[i].ncc_table_size != file->records[index].ncc_table_size) {
             continue;
         }
-        if (memcmp(file->records[i].palette, file->records[index].palette,
-                   file->records[index].palette_size) == 0) {
+        if (memcmp(file->records[i].ncc_table, file->records[index].ncc_table,
+                   file->records[index].ncc_table_size) == 0) {
             return (int)i;
         }
     }
     return -1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dimensiones (reglas de Glide 2.x)                                   */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Glide 2.x: el valor del LOD fija el lado mayor de la textura
+ * (GR_LOD_256 = 0 ... GR_LOD_1 = 8) y la relación de aspecto lo divide
+ * (GR_ASPECT_8x1 = 0 ... GR_ASPECT_1x8 = 6). El lado menor nunca baja de
+ * un texel.
+ */
+static uint32_t lod_side(uint32_t lod)
+{
+    return 256u >> lod; /* lod 0..8 */
+}
+
+static void level_size(uint32_t aspect, uint32_t lod, uint32_t *width,
+                       uint32_t *height)
+{
+    uint32_t side = lod_side(lod);
+    uint32_t w;
+    uint32_t h;
+
+    switch (aspect) {
+    case 0: /* 8x1 */
+        w = side;
+        h = (side + 7u) / 8u;
+        break;
+    case 1: /* 4x1 */
+        w = side;
+        h = (side + 3u) / 4u;
+        break;
+    case 2: /* 2x1 */
+        w = side;
+        h = (side + 1u) / 2u;
+        break;
+    case 3: /* 1x1 */
+        w = side;
+        h = side;
+        break;
+    case 4: /* 1x2 */
+        w = (side + 1u) / 2u;
+        h = side;
+        break;
+    case 5: /* 1x4 */
+        w = (side + 3u) / 4u;
+        h = side;
+        break;
+    default: /* 6: 1x8 */
+        w = (side + 7u) / 8u;
+        h = side;
+        break;
+    }
+    if (w < 1u) {
+        w = 1u;
+    }
+    if (h < 1u) {
+        h = 1u;
+    }
+    *width = w;
+    *height = h;
+}
+
+int gex_vfx_texture_info_get(const gex_vfx_record *rec,
+                             gex_vfx_texture_info *out)
+{
+    gex_vfx_format_info fmt;
+    uint32_t lod;
+    uint32_t total;
+
+    if (rec == NULL || out == NULL) {
+        return 0;
+    }
+    memset(out, 0, sizeof(*out));
+
+    if (!gex_vfx_format_info_get(rec->format, &fmt)) {
+        return 0;
+    }
+    if (rec->small_lod > 8u || rec->large_lod > 8u ||
+        rec->aspect_ratio > 6u) {
+        return 0;
+    }
+    /* La cadena de mipmap va de large_lod (el nivel más detallado) a
+     * small_lod; si small_lod < large_lod la cadena está vacía. */
+    if (rec->small_lod < rec->large_lod) {
+        return 0;
+    }
+
+    out->format = rec->format;
+    out->small_lod = rec->small_lod;
+    out->large_lod = rec->large_lod;
+    out->aspect_ratio = rec->aspect_ratio;
+    out->levels = rec->small_lod - rec->large_lod + 1u;
+    out->bytes_per_texel = fmt.bytes_per_texel;
+    out->has_ncc_table =
+        (rec->ncc_table != NULL && rec->ncc_table_size == GEX_VFX_NCC_TABLE_BYTES)
+            ? 1
+            : 0;
+
+    level_size(rec->aspect_ratio, rec->large_lod, &out->width, &out->height);
+
+    total = 0;
+    for (lod = rec->large_lod; lod <= rec->small_lod; lod++) {
+        uint32_t w;
+        uint32_t h;
+        level_size(rec->aspect_ratio, lod, &w, &h);
+        total += w * h * out->bytes_per_texel;
+    }
+    out->total_bytes = total;
+    return 1;
+}
+
+int gex_vfx_texture_level_size(const gex_vfx_texture_info *info,
+                                uint32_t level, uint32_t *width,
+                                uint32_t *height)
+{
+    uint32_t lod;
+
+    if (info == NULL || width == NULL || height == NULL) {
+        return 0;
+    }
+    if (level >= info->levels) {
+        return 0;
+    }
+    lod = info->large_lod + level;
+    if (lod > 8u) {
+        return 0;
+    }
+    level_size(info->aspect_ratio, lod, width, height);
+    return 1;
+}
+
+uint32_t gex_vfx_texture_level_offset(const gex_vfx_texture_info *info,
+                                       uint32_t level)
+{
+    uint32_t lod;
+    uint32_t offset;
+
+    if (info == NULL || level >= info->levels) {
+        return 0;
+    }
+    offset = 0;
+    for (lod = info->large_lod; lod < info->large_lod + level; lod++) {
+        uint32_t w;
+        uint32_t h;
+        level_size(info->aspect_ratio, lod, &w, &h);
+        offset += w * h * info->bytes_per_texel;
+    }
+    return offset;
 }
 
 const char *gex_vfx_status_name(gex_vfx_status status)

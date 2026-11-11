@@ -2,6 +2,75 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Auditoría correctiva del Módulo 4B: `GuNccTable`, `GR_TEXFMT` y decodificadores de píxel
+
+Corrección de las conclusiones del Módulo 4B (`b71122a`) tras contrastarlas
+con la documentación oficial de Glide 2.x y con el **SDK de Glide 2.x** (paquete
+`glide 2002.04.10ds1`, el código de la biblioteca de 3dfx). Tres de las
+conclusiones anteriores eran **incorrectas** y se corrigen aquí; el resto se
+confirma. Detalle, evidencia y resultados negativos en
+[`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §4 y §6.
+
+**Correcciones:**
+
+- El bloque de 112 B de `+0x14` **no es una paleta**: es una **`GuNccTable`**
+  (`yRGB[16]` + `iRGB[4][3]` + `qRGB[4][3]` + `packed_data[12]` = 112 B
+  exactos). La paleta de Glide 2.x (`GuTexPalette`) son 1 024 B y el `type = 0`
+  que el juego pasa a `grTexDownloadTable` (`0x0046614A`) es
+  `GR_TEXTABLE_NCC0` (la paleta sería `2`). Prueba byte a byte: el
+  `packed_data` de **todas** las tablas de los 37 `.VFX` originales coincide
+  con el que el SDK calcula desde los campos crudos.
+- Los identificadores de `+0x0C` **sí** son los de la enumeración
+  `GrTextureFormat_t` de Glide 2.x: **1 = `GR_TEXFMT_YIQ_422`**,
+  **11 = `GR_TEXFMT_ARGB_1555`**, **12 = `GR_TEXFMT_ARGB_4444`**
+  (`0 = `GR_TEXFMT_RGB_332`).
+- Las dimensiones **sí** se derivan: el registro es un `GrTexInfo` de Glide 2.x
+  con el orden **smallLod, largeLod, aspectRatio, format, data**; el LOD fija
+  el lado mayor (`256 >> lod`) y el aspecto lo divide (`8x1`…`1x8`). El
+  tamaño esperado del bloque coincide con `dword[+0x84]` en **15 251 de 15 251
+  registros** de los 37 `.VFX` (formato 1: 7 723, 11: 4 698, 12: 2 830), todos
+  con un único nivel.
+
+**Resultado negativo que se descarta:** la discontinuidad horizontal menos
+vertical no identifica un ancho porque mezclaba texturas de tamaños distintos;
+con el tamaño ya demostrado la lectura del raster es inmediata y sale una
+imagen coherente.
+
+**Implementación (portable, sin D3D11, sin tocar los originales):**
+
+- `port/include/gex/vfx.h` + `port/src/asset/vfx.c`: la semántica de la
+  **tabla NCC** sustituye a la de "paleta"
+  (`GEX_VFX_NCC_TABLE_BYTES`, `gex_vfx_format_has_ncc_table`,
+  `gex_vfx_ncc_table_twin`, `gex_vfx_ncc_table_parse/pack`) y se añade el
+  cálculo de dimensiones (`gex_vfx_texture_info_get`,
+  `gex_vfx_texture_level_size/offset`).
+- `port/src/asset/vfx_decode.c` (nuevo): **decodificadores CPU** de
+  `ARGB_1555`, `ARGB_4444` y `YIQ_422` (con la tabla NCC), con salida **RGBA8**
+  y alfa recto, validación de tamaños, truncamientos, desbordamientos y
+  formatos no soportados (`gex_vfx_decode_level` despacha por el formato del
+  registro).
+- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** en Clang `-O0`,
+  `-O2` y ASan/UBSan: dimensiones contra la tabla de tamaños de Glide 2.x,
+  round trip del empaquetado NCC, decodificadores con valores conocidos a mano
+  y contraste con los originales (tamaño de cada bloque, `packed_data` de
+  cada tabla y decodificación determinista).
+
+Documentación actualizada: `docs/VFX_TEXTURE_FORMAT.md` (reescrito),
+`RESEARCH.md` (S-29 corregido y **S-30** nuevo), `REVERSE_ENGINEERING.md`,
+`ROADMAP.md` (S-4), `PROJECT_STATE.md`, `docs/D3D11_FIRST_SCENE_PLAN.md`
+(módulos **4B cerrado** y **4C** nuevo, que era el 4B de la integración
+D3D11) y este `CHANGELOG.md`.
+
+Estado: el **formato de píxel**, las **dimensiones** y el **contenido de la
+tabla NCC** quedan **DEMOSTRADOS** y hay decodificadores CPU verificados, así
+que el Módulo 4C (recursos `ID3D11Texture2D`, `ID3D11ShaderResourceView` y
+binding) ya no está bloqueado por los datos. Sigue **DESCONOCIDO** el
+`FONT.3DF` (ruta `gu3dfLoad`) y el formato 0 (`RGB_332`), que no aparece en
+ningún `.VFX`. Fuera de alcance: no se ha tocado el renderer, los shaders ni
+la escena. S-2 sigue sin validación dinámica contra el ejecutable y no se
+declara completo. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
+
 ## 2026-11-11 - 0.0.0 - Módulo 4B: búsqueda del formato de píxel de las texturas VFX
 
 Continuación del Módulo 4A: REA de las rutas que entregan los registros VFX a
