@@ -42,7 +42,7 @@ static gex_camera cam_default(void) {
     c.focal = 0x140;
     c.field_0x44 = 0x200;
     c.width = 0x180;
-    c.far = 0x2EE0;
+    c.far_plane = 0x2EE0;
     return c;
 }
 
@@ -339,7 +339,7 @@ static void test_visibility_a_planes(void) {
     mat_diag(c.mat_b, 4096, 4096, 4096);
     c.a_cam[0] = c.a_cam[1] = c.a_cam[2] = 0;
     c.b_cam[0] = c.b_cam[1] = c.b_cam[2] = 0;
-    c.far = 1000;
+    c.far_plane = 1000;
     c.pos[0] = c.pos[1] = c.pos[2] = 0;
 
     int16_t p[3];
@@ -351,7 +351,7 @@ static void test_visibility_a_planes(void) {
     p[0] = -9; p[1] = 0; p[2] = 0;
     CHECK(gex_cam_sphere_visible(&c, p, 10));      /* near > -r */
     p[0] = 1010; p[1] = 0; p[2] = 0;
-    CHECK(!gex_cam_sphere_visible(&c, p, 10));     /* far >= far+r */
+    CHECK(!gex_cam_sphere_visible(&c, p, 10));     /* far_plane >= far_plane+r */
     p[0] = 1009; p[1] = 0; p[2] = 0;
     CHECK(gex_cam_sphere_visible(&c, p, 10));
 
@@ -373,7 +373,7 @@ static void test_visibility_b_planes(void) {
     mat_diag(c.mat_b, -4096, -4096, 4096);
     c.a_cam[0] = c.a_cam[1] = c.a_cam[2] = 0;
     c.b_cam[0] = c.b_cam[1] = c.b_cam[2] = 0;
-    c.far = 1000;
+    c.far_plane = 1000;
 
     int16_t p[3];
     p[0] = 11; p[1] = 0; p[2] = 0;   /* A.x = 11 (ok), B.x = -11 <= -r */
@@ -391,7 +391,7 @@ static void test_visibility_cam_offsets(void) {
     gex_camera c = cam_default();
     mat_diag(c.mat_a, 4096, 4096, 4096);
     mat_diag(c.mat_b, 4096, 4096, 4096);
-    c.far = 1000;
+    c.far_plane = 1000;
 
     int16_t p[3] = { 0, 0, 100 };
 
@@ -421,12 +421,12 @@ static void test_visibility_unsigned_radius(void) {
     mat_diag(c.mat_b, 4096, 4096, 4096);
     c.a_cam[0] = c.a_cam[1] = c.a_cam[2] = 0;
     c.b_cam[0] = c.b_cam[1] = c.b_cam[2] = 0;
-    c.far = 100;
+    c.far_plane = 100;
 
     int16_t p[3] = { 0, 0, 0 };
     /* Radius 0xFFFF is 65535, not -1. */
     CHECK(gex_cam_sphere_visible(&c, p, 0xFFFF));
-    /* With a wrapped radius of -1 the far limit would be 99 and this
+    /* With a wrapped radius of -1 the far_plane limit would be 99 and this
      * centre (3000) would be rejected. */
     p[0] = 3000;
     CHECK(gex_cam_sphere_visible(&c, p, 0xFFFF));
@@ -509,7 +509,7 @@ static int ref_sphere_visible(const gex_camera *cam,
     ref_xform(&b_mat, c, T_B);
 
     int32_t neg_r = ref_sub32(0, r);
-    int32_t far_plus_r = ref_add32(cam->far, r);
+    int32_t far_plus_r = ref_add32(cam->far_plane, r);
     int32_t d0 = ref_sub32(T_A[0], cam->a_cam[0]);
     if (d0 <= neg_r) return 0;
     if (d0 >= far_plus_r) return 0;
@@ -595,7 +595,7 @@ static void test_plane_distance_reference(void) {
     }
 }
 
-/* Extreme a_cam / far values make the signed differences overflow; the
+/* Extreme a_cam / far_plane values make the signed differences overflow; the
  * result must still be the wrapped 32-bit one. */
 static void test_visibility_wrap(void) {
     gex_camera c = cam_default();
@@ -603,7 +603,7 @@ static void test_visibility_wrap(void) {
     mat_diag(c.mat_b, 4096, 4096, 4096);
     memset(c.a_cam, 0, sizeof(c.a_cam));
     memset(c.b_cam, 0, sizeof(c.b_cam));
-    c.far = 1000;
+    c.far_plane = 1000;
 
     int16_t p[3] = { 0, 0, 0 };
 
@@ -626,14 +626,14 @@ static void test_visibility_wrap(void) {
     CHECK(gex_cam_sphere_visible(&c, py, 10) ==
           ref_sphere_visible(&c, py, 10));
 
-    /* far + radius wraps when far is INT32_MAX: 0 >= (INT32_MIN + 9) is
-     * true, so the far limit rejects the point. */
+    /* far_plane + radius wraps when far_plane is INT32_MAX: 0 >= (INT32_MIN + 9) is
+     * true, so the far_plane limit rejects the point. */
     memset(c.a_cam, 0, sizeof(c.a_cam));
-    c.far = INT32_MAX;
+    c.far_plane = INT32_MAX;
     CHECK(!gex_cam_sphere_visible(&c, p, 10));
     CHECK(gex_cam_sphere_visible(&c, p, 10) ==
           ref_sphere_visible(&c, p, 10));
-    c.far = 1000;
+    c.far_plane = 1000;
 }
 
 /* 256 deterministic camera configurations against the reference model,
@@ -651,7 +651,7 @@ static void test_visibility_reference(void) {
             c.a_cam[k] = ref_bits_i32(lcg_next(&s));
             c.b_cam[k] = ref_bits_i32(lcg_next(&s));
         }
-        c.far = ref_bits_i32(lcg_next(&s));
+        c.far_plane = ref_bits_i32(lcg_next(&s));
         uint16_t radius = (uint16_t)(lcg_next(&s) >> 16);
 
         int got = gex_cam_sphere_visible(&c, center, radius);
@@ -714,7 +714,7 @@ static void test_bsp_child_order_camera(void) {
  *   camera object   0x0065CD80
  *     +0x00 position        (0x0925, 0x0FE7, 0x0C02)
  *     +0x30 Euler angles    (0xFE73, 0x0000, 0x0AF2)
- *     +0x40 focal 0x0140, +0x44 0x0200, +0x48 width 0x0180, +0x5C far 0x2134
+ *     +0x40 focal 0x0140, +0x44 0x0200, +0x48 width 0x0180, +0x5C far_plane 0x2134
  *     +0x60 local frame     (0,0,4096) (0,3523,2114) (3321,0,2656)
  *                          (-3321,0,2656) (0,-3523,2114)
  *     +0x88 matrix A       3074 -1352 -2343 / -258 113 -4099 / 657 -3917 -1520
@@ -751,7 +751,7 @@ static void test_dynamic_reference_camera(void) {
     c.focal = 0x140;
     c.field_0x44 = 0x200;
     c.width = 0x180;
-    c.far = 0x2134;
+    c.far_plane = 0x2134;
     c.base = &base;
 
     gex_cam_update(&c);
@@ -786,10 +786,66 @@ static void test_table_truncation(void) {
     CHECK(gex_cam_sin_tab[100] == 625);   /* 625.9 -> 625 (trunc), 626 (round) */
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Matriz de emision (cam+0xE0) frente a la captura del original.
+ *
+ * El GEX3D.EXE en ejecucion, con el breakpoint de hardware en 0x004269C2 y el
+ * nivel map7.dfx, deja en 0x65CD60 la matriz de emision y en +0x14 su
+ * traslacion:
+ *
+ *   m = [-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]
+ *   t = (7467, 4494, 1345)
+ *
+ * El port debe reconstruirlas bit a bit desde el estado de camara.
+ * ------------------------------------------------------------------------- */
+static void test_emit_matrix_reference(void) {
+    static const int16_t exp_m[9] = {-2636, -5998, 0, -3430, 1508, -5374,
+                                      3074, -1352, -2343};
+    static const int32_t exp_t[3] = {7467, 4494, 1345};
+    gex_camera c;
+    gex_cam_emit_matrix em;
+    int i;
+
+    memset(&c, 0, sizeof(c));
+    c.pos[0] = 2341; c.pos[1] = 4071; c.pos[2] = 3074;
+    c.euler[0] = -397; c.euler[1] = 0; c.euler[2] = 2802;
+    c.focal = 0x140;
+    c.width = 0x180;
+    c.row_scale[0] = 0x1000;
+    c.row_scale[1] = 0x1000;
+    c.row_scale[2] = 0x1000;
+
+    CHECK(gex_cam_build_emit_matrix(&c, &em) == 0);
+    for (i = 0; i < 9; i++) {
+        CHECK(em.m[i] == exp_m[i]);
+    }
+    for (i = 0; i < 3; i++) {
+        CHECK(em.t[i] == exp_t[i]);
+    }
+
+    /* La escala por fila (cam+0x490/0x492/0x494) multiplica esa fila y solo
+     * esa, con imul + sar 12. */
+    c.row_scale[0] = 0x2000;
+    CHECK(gex_cam_build_emit_matrix(&c, &em) == 0);
+    CHECK(em.m[0] == (int16_t)(((int32_t)exp_m[0] * 0x2000) >> 12));
+    CHECK(em.m[1] == (int16_t)(((int32_t)exp_m[1] * 0x2000) >> 12));
+    CHECK(em.m[2] == (int16_t)(((int32_t)exp_m[2] * 0x2000) >> 12));
+    CHECK(em.m[3] == exp_m[3]);
+    CHECK(em.m[6] == exp_m[6]);
+    /* Y la traslacion se recalcula con la matriz ya escalada. */
+    CHECK(em.t[0] != exp_t[0]);
+
+    /* Argumentos invalidos. */
+    CHECK(gex_cam_build_emit_matrix(NULL, &em) != 0);
+    CHECK(gex_cam_build_emit_matrix(&c, NULL) != 0);
+}
+
 int main(void) {
     printf("Running camera tests...\n");
     test_tables_init();
     test_table_truncation();
+    test_emit_matrix_reference();
     test_rotation_exact();
     test_identity_orientation();
     test_simple_rot_z();

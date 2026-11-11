@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "gex/asset/dfx.h"
+#include "gex/camera.h"
 #include "gex/bsp.h"
 #include "gex/emit.h"
 #include "gex/geometry.h"
@@ -45,7 +46,15 @@ typedef struct gex_scene_stats {
     size_t   skipped_clipped;      /* descartados por profundidad */
     int32_t  view_cx;              /* centro de pantalla de la vista usada */
     int32_t  view_cy;
-    int16_t  view_scale;           /* escala Q12 de la vista (m[0] = m[4]) */
+    int16_t  view_scale;
+    /* Modo de vista: 1 = camara original del juego, 0 = vista diagnostica. */
+    int      camera_mode;
+    /* Matriz de emision usada (cam+0xE0): 9 int16 Q12 + traslacion. */
+    int16_t  emit_m[9];
+    int32_t  emit_t[3];
+    /* Parametros de proyeccion usados. */
+    int32_t  proj_focal;
+    int32_t  proj_near_z;           /* escala Q12 de la vista (m[0] = m[4]) */
 } gex_scene_stats;
 
 typedef enum gex_scene_status {
@@ -93,6 +102,20 @@ typedef struct gex_scene_level {
  * cámara original (`cam_ctx`) necesita el estado de cámara del juego, que el
  * port todavía no tiene.
  */
+/*
+ * Cámara de referencia del juego para el escenario MAP7.
+ *
+ * Estado capturado del objeto de cámara del GEX3D.EXE (0x0065CD80) en el
+ * frame 0 del escenario `map7.dfx`, el mismo nivel que carga el original:
+ * posición (2341, 4071, 3074), ángulos Euler (-397, 0, 2802) en Q12 de
+ * vuelta, focal 0x140 (320), ancho 0x180 (384) y escalas de fila 0x1000.
+ * Los parámetros de proyección (centro 256/192 y plano cercano 160) son
+ * los que el juego fija una vez en 0x4636DD..0x4636FB.
+ *
+ * Deja la cámara lista para usar (marco local, O, M, A/B, a_cam y b_cam).
+ */
+void gex_scene_reference_camera(gex_camera *cam);
+
 void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog);
 
 /*
@@ -104,6 +127,19 @@ void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog);
  * liberable con `gex_scene_level_free` (que es idempotente).
  */
 gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path);
+
+/*
+ * Carga un nivel con la cámara original del juego:
+ *   .DFX -> descriptor -> BSP con la prueba de esfera de la cámara ->
+ *   emisión con la matriz de emisión de `cam+0xE0` -> geometría.
+ *
+ * No hay matriz sintética ni encuadre automático: la geometría queda donde
+ * la deja el original, con la misma proyección (focal, centro y plano
+ * cercano) y el mismo split de emisor.
+ */
+gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
+                                             const char *path,
+                                             const gex_camera *cam);
 
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);

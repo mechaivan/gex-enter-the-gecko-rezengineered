@@ -1107,6 +1107,129 @@ BSP con esa cámara y ese nivel reproduce el **conteo y la lista completa de
 hojas visibles** del original en 18/18 frames (§9 de
 `S2_BSP_TRAVERSAL.md`).
 
+## 15. Integración de la cámara original en el renderer (2026-11-11)
+
+La cadena de cámara validada en §14 se ha integrado en el renderer de
+Direct3D 11: el escenario `map7.dfx` se dibuja ahora con la cámara real del
+juego, sin matriz sintética ni encuadre automático.
+
+### 15.1 De la cámara a la matriz de emisión (`cam+0xE0`)
+
+`0x46DD40` escribe en el bloque de 0x20 B al que apunta `cam+0xE0` la
+matriz que consume la proyección. La construcción exacta (verificada contra
+el desensamblado y contra la captura del proceso vivo) es:
+
+| Paso | Dirección | Operación |
+|---|---|---|
+| 1 | `0x46DFA2..0x46E11D` | `O = M2 · R` (el mismo cambio de ejes de §6.1) |
+| 2 | `0x46E2A3..0x46E2E8` | fila 0: `(v << 9) / 0x140` (`idiv`, trunca hacia cero) |
+| 3 | `0x46E2EC..0x46E33C` | fila 1: `(v * 0x180) / 0xF0` (`idiv`, trunca hacia cero) |
+| 4 | `0x46E33C` | fila 2: sin escalar |
+| 5 | `0x46E340..0x46E448` | cada fila escalada por `cam+0x490`/`+0x492`/`+0x494` (`imul` + `sar 12`) |
+| 6 | `0x46E4C6..0x46E51D` | traslación `= E · (−camPos)` (`sar 12`), en `+0x14/+0x18/+0x1C` |
+
+Los pasos 2 y 3 son los factores **1,6** que el original aplica al pasar de
+la orientación de la cámara a la de pantalla; con `cam+0x490/492/494 =
+0x1000` (el caso de MAP7) el paso 5 es la identidad.
+
+Con la cámara de referencia del frame 0 el port reconstruye **bit a bit** la
+matriz y la traslación capturadas del proceso vivo:
+
+```text
+capturado en 0x65CD60   m = [-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]
+                        t = (7467, 4494, 1345)
+port (gex_cam_build_emit_matrix)
+                        m = [-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]
+                        t = (7467, 4494, 1345)          ✔
+```
+
+Implementación: `gex_cam_build_emit_matrix()` en `port/src/camera/camera.c`
+(contrato en `port/include/gex/camera.h`).
+
+### 15.2 Estado de cámara de referencia (MAP7, frame 0)
+
+Capturado del objeto de cámara del GEX3D.EXE (`0x0065CD80`) con el
+breakpoint de hardware en `0x004269C2`:
+
+| Campo | Dirección | Valor |
+|---|---|---|
+| posición | `cam+0x00..0x05` | (2341, 4071, 3074) |
+| Euler | `cam+0x30..0x35` | (-397, 0, 2802) |
+| focal | `cam+0x40` | 0x140 (320) |
+| ancho | `cam+0x48` | 0x180 (384) |
+| corte lejano | `cam+0x5C` | 8500 |
+| escala por fila | `cam+0x490/492/494` | 0x1000, 0x1000, 0x1000 |
+| base identidad | `cam+0x43C` | 0 |
+
+Los parámetros de proyección (centro x 256, centro y 192 y plano cercano 160)
+los fija el juego una vez en `0x4636DD..0x4636FB` y no dependen de la
+cámara.
+
+### 15.3 Qué cambia en el port
+
+- `port/src/camera/camera.c`: `gex_cam_build_emit_matrix()` (matriz de emisión
+  y traslación) y los campos `row_scale[3]`, `proj_cx`, `proj_cy` y
+  `near_z` de `gex_camera`. El campo `far` se renombra a `far_plane` porque
+  `far` es una macro de los encabezados de Windows y rompía la compilación
+  del módulo Win32.
+- `port/src/scene/scene_level.c`: `gex_scene_reference_camera()` (el estado
+  de §15.2) y `gex_scene_level_load_camera()`, que recorre el BSP **con la
+  prueba de esfera de la cámara** (`gex_cam_sphere_visible`) y emite con la
+  matriz de `cam+0xE0`, en **una sola pasada** (sin encuadre automático).
+- `port/src/app/i4_main_win32.c`: con `--level` se usa la cámara original;
+  `--diagnostic-view` conserva la vista sintética con encuadre automático
+  como opción independiente.
+
+### 15.4 Resultado con MAP7
+
+Comparado con lo que el GEX3D.EXE original deja para el frame 0 (las
+referencias están en `port/tests/ref_emit_frames.h` y
+`port/tests/ref_map7_frames.h`):
+
+| Magnitud | Original | Port |
+|---|---|---|
+| Hojas visibles | 307 | 307 (mismas hojas, mismo orden) |
+| Matriz de emisión | `[-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]` | idéntica bit a bit |
+| Traslación | (7467, 4494, 1345) | idéntica bit a bit |
+| Triángulos aceptados | 1123 | 1123 |
+| Orden de dibujo | 1123 triángulos | **1123/1123 en la misma posición** |
+
+### 15.5 Ejecución real
+
+Con GPU hardware (D3D11 11_1) y ventana Win32 de 960×540:
+
+```text
+renderer: Direct3D 11 (hardware)
+textures: 4 decodificadas de 'C:\GEX_REZ\GEX2\level\map7.vfx'
+geometry: level 'C:\GEX_REZ\GEX2\level\map7.dfx'
+  level: entries=25620 vertices=9606 polygons=16292 leaves=307
+  emitted: triangles=1123 (fog passes=0) discarded by depth=0
+  view: ORIGINAL GAME CAMERA (cam+0xE0)
+    emit matrix: [-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]
+    translation: (7467, 4494, 1345)
+    projection: focal=320 cx=256 cy=192 near_z=160
+final: t=0.67s presents=60 fps=90.0 ... exit: clean, frame errors=0
+```
+
+La captura de esa ventana (no se sube al repositorio) muestra la geometría
+de MAP7 con texturas desde el punto de vista de la cámara del juego; con
+`--diagnostic-view` se ve el nivel entero desde fuera, que es lo propio de
+la vista sintética.
+
+### 15.6 Lo que sigue abierto
+
+- **El vuelo de cámara**: la cámara del juego avanza frame a frame por el
+  escenario (18 frames capturados en `ref_map7_frames.h`). El port usa el
+  estado del frame 0; reproducir el vuelo requires la lógica de movimiento
+  del original, que no está reconstruida.
+- **La LUT de niebla**: el original mezcla la niebla por vértice con su tabla
+  `[0x64FEA8]`, que genera `0x461895` a partir de dos profundidades del
+  nivel. El port usa la fórmula analítica equivalente con los valores A y B
+  capturados: **solo afecta al color**, no a la geometría ni a la posición.
+- **El color de niebla** (`[0x6474C4]`) lo anima el juego frame a frame; el
+  port usa el valor capturado del frame 0.
+- **Los materiales y el blending por polígono** siguen fuera de alcance.
+
 ### 14.7 Lo que sigue abierto (no cerrado)
 
 La cadena de cámara queda **cerrada**: reproduce bit a bit el marco local, M,

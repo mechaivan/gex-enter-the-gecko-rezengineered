@@ -114,7 +114,8 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
      (`gex_level_emit`, §11). Produce `gex_emit_output`, una lista de
      triángulos ya proyectados, clasificados, subdivididos, con niebla aplicada
      y ordenados. El recorrido y la visibilidad están validados dinámicamente
-     (§ 4.3); la comparación cuantitativa de la emisión sigue pendiente.
+     (§ 4.3) y la emisión de nivel está validada contra el original
+     (§ 18.8 y § 4.3).
 
 3. **Generación de Buffers**
    - Conversión de `gex_emit_output` a vértices e índices: **implementada** en
@@ -189,6 +190,18 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   original es el **máximo** de las tres (`0x426CC1..0x426D06`); una pasada
   anterior la tomó erróneamente como mínimo y dejó una regresión en el orden
   de dibujo, ya corregida.
+- **Cámara original integrada en el renderer (2026-11-11):** el escenario
+  `map7.dfx` se dibuja con la cámara real del juego. El port reconstruye
+  la matriz de emisión `cam+0xE0` desde el estado de cámara
+  (`gex_cam_build_emit_matrix`), recorre el BSP con la prueba de esfera
+  original y proyecta con los parámetros del juego (focal 320, centro
+  256/192, plano cercano 160), sin matriz sintética ni encuadre automático.
+  Resultado frente al original: mismas 307 hojas visibles (mismo orden),
+  misma matriz de emisión bit a bit y los mismos 1123 triángulos **en el
+  mismo orden de dibujo**. Verificado con GPU hardware (D3D11 11_1) y
+  ventana Win32 de 960×540. El modo sintético se conserva con
+  `--diagnostic-view`. Detalle en
+  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) § 15.
 - **Contrato de emisión (§ 11): validado contra el original.** La emisión de
   nivel reproduce **triángulo a triángulo** el resultado del original: mismo
   conjunto (1123 en el frame de referencia, con las profundidades idénticas
@@ -729,10 +742,12 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
    (`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA`, activada por polígono según el formato),
    pero el port usa un estado único: queda pendiente el blending por polígono
    (§18.8).
-5. **Materiales de producción, *depth buffer*, niebla después de la textura y
-   cámara real del juego:** el recorrido y la visibilidad ya están validados (§ 4.3); la emisión sigue pendiente (§18.8). **S-2 sigue abierta**:
-   la comparación cuantitativa de la emisión contra
-   el ejecutable original no se ha hecho.
+5. **Materiales de producción, *depth buffer* y niebla después de la
+   textura:** el recorrido, la visibilidad y la emisión de nivel ya están
+   validados contra el ejecutable original (§ 4.3 y § 18.8) y la **cámara real
+   del juego está integrada en el renderer** (matriz `cam+0xE0` reconstruida
+   bit a bit, misma visibilidad y mismo orden de dibujo). Quedan pendientes
+   los materiales, el *depth buffer* y la niebla por polígono.
 
 ### 9.3 Evidencias Clave
 
@@ -764,9 +779,11 @@ añadir el *depth buffer* y el blending por polígono del original.
   tabla de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
   `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
   ventanas.
-- **Sigue pendiente y no se declara cerrado:** la comparación cuantitativa de la emisión de S-2
-  contra el ejecutable original. Mientras no exista, la emisión es
-  «reconstruida y coherente», no «demostrada idéntica».
+- **Ya no sigue pendiente:** la emisión de S-2 está validada contra el
+  ejecutable original para la ruta de MAP7 (mismas hojas visibles, misma
+  matriz de emisión bit a bit y los mismos 1123 triángulos en el mismo orden
+  de dibujo; § 18.8). Quedan abiertos el emisor lejano, la LUT de niebla por
+  vértice y los materiales.
 
 El Módulo 5A deja la geometría real dibujándose en pantalla: cada vértice
 lleva posición, profundidad, color, UV, textura, capa y flags, y los índices
@@ -1622,11 +1639,13 @@ proyecto.
 | **Evidencia visual confirmada** | **SÍ** | captura de la ventana real: el cubo aparece, con las tres caras y el color esperado |
 
 Lo que **no** se afirma: que esto sea una escena del juego original. En
-esta sección (§15, el Módulo 5A) la geometría visible es el cubo de prueba; la
-emisión real de S-2 sigue sin comparación cuantitativa contra el ejecutable.
-**Actualización posterior:** el nivel real y sus texturas ya se cargan en la
-aplicación (§16 y §18), pero el encuadre sigue siendo el diagnóstico del port y
-S-2 continúa abierta.
+esta sección (§15, el Módulo 5A) la geometría visible es el cubo de prueba.
+**Actualización posterior (2026-11-11):** el nivel real y sus texturas ya se
+cargan en la aplicación (§16 y §18) y la emisión de S-2 está validada contra
+el ejecutable original para la ruta de MAP7 (§18.8). La cámara real del juego
+está además integrada en el renderer (§15 de `S2_CAMERA_VISIBILITY.md`): el
+nivel se dibuja con la matriz `cam+0xE0` y la visibilidad original, y el
+modo diagnóstico queda como opción (`--diagnostic-view`).
 
 ### 15.9 Limitaciones que siguen abiertas
 
@@ -1644,10 +1663,10 @@ Al cierre del Módulo 5A quedaban estas; **el estado actual es**:
   **sigue abierto** (§18.5 y §18.8).
 - La ventana no se redimensiona (no hay gestión de `WM_SIZE`) → **sigue
   abierto**.
-- S-2 tiene el recorrido y la visibilidad validados dinámicamente, pero la emisión sigue sin comparación contra el ejecutable original → **sigue
-  abierta**.
-
----
+- S-2 tiene el recorrido, la visibilidad y la emisión de nivel (ruta MAP7)
+  validados dinámicamente contra el ejecutable original, y la cámara real
+  integrada en el renderer; siguen abiertos el emisor lejano, la LUT de
+  niebla por vértice y los materiales.
 
 ## 16. Módulo 5B: primera geometría real de AZTEC16.DFX (2026-11-11)
 
@@ -1700,8 +1719,10 @@ Esto **no** es la cámara del juego: el original usa la matriz `cam+0xE0` con
 la orientación real de la cámara, y el port todavía no tiene ese estado. La
 visibilidad del BSP es además «todas las hojas», porque la prueba de esfera de
 `gex_camera` necesita el estado de cámara del juego, ya capturado y validado (§ 4.3). **La comparación
-de la cámara y del recorrido BSP contra el ejecutable sigue pendiente** y esta
-vista no la sustituye.
+de la cámara, del recorrido BSP y de la emisión contra el ejecutable ya está
+hecha** (§ 4.3 y § 18.8) y la cámara real está integrada en el renderer
+(§ 15 de `S2_CAMERA_VISIBILITY.md`); esta vista sintética se conserva como
+opción de diagnóstico y no sustituye a la original.
 
 ### 16.3 Encuadre automático
 

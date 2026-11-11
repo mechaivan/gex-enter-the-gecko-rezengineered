@@ -90,6 +90,15 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     subdivisión del original. El port reproduce ahora la emisión de nivel
     **triángulo a triángulo**: mismo conjunto, **mismo orden de dibujo** y
     mismas fases de subdivisión (1123/1123 en el frame de referencia).
+  - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
+    estado de cámara original en la ruta de escena y en el renderer D3D11:
+    la matriz de emisión `cam+0xE0` se reconstruye desde la cámara
+    (bit a bit contra el original), la visibilidad del BSP usa la prueba de
+    esfera de la cámara y desaparece la dependencia de la matriz sintética
+    y del encuadre automático en el modo de cámara. `map7.dfx` se dibuja con
+    la cámara del juego y reproduce sus 307 hojas, su matriz de emisión y sus
+    1123 triángulos en el mismo orden de dibujo. El modo diagnóstico se
+    conserva (`--diagnostic-view`).
   - **Cuarta tanda (2026-11-11, corrección de la tercera):** la profundidad de
     referencia del original es la **máxima** de las tres, no la mínima
     (`0x426CC1..0x426D06`); la pasada anterior lo había leído al revés y

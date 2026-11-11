@@ -371,7 +371,12 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    (`0x34`), 128 de tipo `0x1C` y 1 de tipo `0x14`. Comparar "dibujos" con
    "triangulos de nivel" produce una divergencia falsa. El punto de medida de
    la emision de nivel es `0x42649C` (triangulo aceptado en el bucket).
-8. **Validar la semantica de una comparacion con datos, no con la lectura del
+8. **Una matriz de proyeccion no es una matriz de vista.** El bloque de
+   `cam+0xE0` no es la `O` de la camara: es la `O` con las filas 0 y 1
+   escaladas por 1,6 (`(v<<9)/0x140` y `(v*0x180)/0xF0`) y con una traslacion
+   `E · (-camPos)`. Sin ese paso la geometria aparece con otra escala y otro
+   encuadre aunque las matrices de visibilidad sean correctas.
+9. **Validar la semantica de una comparacion con datos, no con la lectura del
    desensamblado.** El patron `cltd`/`subl`/`sarl` es division por dos con
    redondeo hacia cero, y las comparaciones `jle`/`jge` son con signo: leerlas
    al reves cambia el resultado de maximo a minimo. La comprobacion decisiva

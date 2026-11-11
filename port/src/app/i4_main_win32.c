@@ -48,15 +48,19 @@ typedef struct i4_options {
     uint64_t frame_limit; /* 0 = unlimited */
     uint64_t second_limit; /* 0 = unlimited */
     const char *level_path; /* .DFX to load, or NULL for the test cube */
+    int diagnostic_view; /* 1 = vista sintetica + encuadre automatico */
 } i4_options;
 
 static void usage(const char *exe)
 {
-    printf("usage: %s [--frames N] [--seconds N] [--level PATH]\n", exe);
+    printf("usage: %s [--frames N] [--seconds N] [--level PATH] "
+           "[--diagnostic-view]\n", exe);
     printf("  --frames N   exit after N presented frames\n");
     printf("  --seconds N  exit after N seconds\n");
-    printf("  --level PATH load a .DFX level (diagnostic view, not the "
-           "original camera)\n");
+    printf("  --level PATH load a .DFX level with the ORIGINAL game camera "
+           "(the reference MAP7 camera state)\n");
+    printf("  --diagnostic-view  use the synthetic matrix and the automatic "
+           "framing instead of the game camera\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -119,6 +123,7 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->frame_limit = 0;
     options->second_limit = 0;
     options->level_path = NULL;
+    options->diagnostic_view = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -133,6 +138,8 @@ static int parse_options(int argc, char **argv, i4_options *options)
                 fprintf(stderr, "invalid --seconds value\n");
                 return 0;
             }
+        } else if (strcmp(argv[i], "--diagnostic-view") == 0) {
+            options->diagnostic_view = 1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
             options->level_path = argv[++i];
             if (options->level_path[0] == '\0') {
@@ -418,8 +425,22 @@ int main(int argc, char **argv)
         if (pipeline_status == GEX_D3D11_PIPELINE_OK) {
             if (options.level_path != NULL) {
                 /* Nivel real: .DFX -> descriptor -> BSP -> emisión ->
-                 * geometría -> buffers D3D11. */
-                scene_status = gex_scene_level_load(&scene, options.level_path);
+                 * geometría -> buffers D3D11.
+                 *
+                 * Con la cámara original del juego (matriz de emisión
+                 * cam+0xE0, prueba de esfera del BSP y la misma
+                 * proyección) o, con --diagnostic-view, con la vista
+                 * sintética y el encuadre automático de siempre. */
+                if (options.diagnostic_view) {
+                    scene_status = gex_scene_level_load(&scene,
+                                                        options.level_path);
+                } else {
+                    gex_camera cam;
+                    gex_scene_reference_camera(&cam);
+                    scene_status = gex_scene_level_load_camera(&scene,
+                                                              options.level_path,
+                                                              &cam);
+                }
                 if (scene_status == GEX_SCENE_OK) {
                     mesh_status = gex_d3d11_mesh_create(
                         d3d11_dev.device, &scene.geometry, &d3d11_mesh);
@@ -524,9 +545,23 @@ int main(int argc, char **argv)
                        s->triangles, s->fog_triangles, s->skipped_clipped);
                 printf("  geometry: vertices=%zu indices=%zu\n",
                        s->vertices, s->indices);
-                printf("  view: DIAGNOSTIC (not the original game camera): "
-                       "scale=0x%X cx=%d cy=%d\n",
-                       (unsigned)s->view_scale, s->view_cx, s->view_cy);
+                if (s->camera_mode) {
+                    printf("  view: ORIGINAL GAME CAMERA (cam+0xE0)\n");
+                    printf("    emit matrix: [%d %d %d] [%d %d %d] "
+                           "[%d %d %d]\n",
+                           s->emit_m[0], s->emit_m[1], s->emit_m[2],
+                           s->emit_m[3], s->emit_m[4], s->emit_m[5],
+                           s->emit_m[6], s->emit_m[7], s->emit_m[8]);
+                    printf("    translation: (%d, %d, %d)\n",
+                           s->emit_t[0], s->emit_t[1], s->emit_t[2]);
+                    printf("    projection: focal=%d cx=%d cy=%d near_z=%d\n",
+                           s->proj_focal, s->view_cx, s->view_cy,
+                           s->proj_near_z);
+                } else {
+                    printf("  view: DIAGNOSTIC (synthetic matrix + automatic "
+                           "framing): scale=0x%X cx=%d cy=%d\n",
+                           (unsigned)s->view_scale, s->view_cx, s->view_cy);
+                }
             } else {
                 printf("geometry: cube, %u triangles, vertex colors, no "
                        "textures (%ux%u logical)\n",

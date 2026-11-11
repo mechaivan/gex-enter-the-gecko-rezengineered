@@ -90,12 +90,47 @@ typedef struct {
     int32_t a_cam[3];          /* +0xC8  A · camPos */
     int32_t b_cam[3];          /* +0xD4  B · camPos */
     gex_cam_mat3 m;            /* +0xE8  M = transpose(O) (embedded copy) */
-    int32_t far;               /* +0x5C  corte lejano (0x2EE0 = 12000) */
+    int32_t far_plane;               /* +0x5C  corte lejano (0x2EE0 = 12000) */
     int32_t flag_identity;     /* +0x43C != 0 => base = identity */
     int use_alt_angles;        /* != 0 => use cam->euler_alt instead of cam->euler */
     int16_t euler_alt[3];      /* +0x128 alternative angles */
     const gex_cam_mat3 *base;  /* +0xF0  base matrix (or NULL) */
+    /* Escala por fila de la matriz de emision (0x46E340..0x46E448):
+     * +0x490 escala la fila 0, +0x492 la fila 1 y +0x494 la fila 2.
+     * El valor es un factor Q12: 0x1000 es la identidad. El juego los deja
+     * a 0x1000 en el escenario de MAP7. */
+    int16_t row_scale[3];
+    /* Parametros de proyeccion que el juego fija una vez (0x4636DD..0x4636FB):
+     * centro x (0x646814 = 256), centro y (0x646818 = 192) y plano cercano
+     * (0x6474E8 = 160). No forman parte del bloque de camara, pero la
+     * proyeccion los necesita junto con el. */
+    int32_t proj_cx;
+    int32_t proj_cy;
+    int32_t near_z;
 } gex_camera;
+
+/* Matriz de emision: el bloque de 0x20 B al que apunta cam+0xE0.
+ *   +0x00..+0x10  9 int16 Q12, w[3r+c] (fila 0 = x de pantalla,
+ *                 fila 1 = y de pantalla, fila 2 = profundidad)
+ *   +0x14/+0x18/+0x1C  3 int32 de traslacion
+ * Es lo que consume 0x4269C2 (0x646BE0.. y 0x646BB4..). */
+typedef struct {
+    int16_t m[9];
+    int32_t t[3];
+} gex_cam_emit_matrix;
+
+/* Construye la matriz de emision de la camara (0x46DD40, pasos 3 a 5 y
+ * la traslacion de 0x46E4C6):
+ *
+ *   1. O = M2 * R (la misma O que se valida para la visibilidad);
+ *   2. fila 0: (v << 9) / 0x140   (0x46E2A3..0x46E2E8);
+ *   3. fila 1: (v * 0x180) / 0xF0  (0x46E2EC..0x46E33C);
+ *   4. fila 2: sin escalar;
+ *   5. cada fila escalada por cam+0x490/0x492/0x494 con imul + sar 12;
+ *   6. traslacion = E * (-camPos) con sar 12 (0x46E4C6..0x46E51D).
+ *
+ * Devuelve 0 en exito y -1 con argumentos invalidos. */
+int gex_cam_build_emit_matrix(const gex_camera *cam, gex_cam_emit_matrix *out);
 
 /* Trigonometric tables (Q12). Filled by gex_cam_init_tables().
  * Full-turn tables, indexed by angle & 0xFFF; the internal lookup uses
@@ -189,11 +224,11 @@ static inline int gex_cam_node_is_leaf(uint16_t type) {
 }
 
 /* Test a sphere (center c, unsigned radius r) against the six semiplanos
- * defined by camera matrices A/B and far distance. Returns 1 if visible.
- * The original rejects when a distance is <= -r (or >= far+r on the near
+ * defined by camera matrices A/B and far_plane distance. Returns 1 if visible.
+ * The original rejects when a distance is <= -r (or >= far_plane+r on the near
  * plane), i.e. it accepts:
  *
- *   (T_A.x − A_cam.x) > −r   &&  (T_A.x − A_cam.x) < far + r
+ *   (T_A.x − A_cam.x) > −r   &&  (T_A.x − A_cam.x) < far_plane + r
  *   (T_A.y − A_cam.y) > −r
  *   (T_A.z − A_cam.z) > −r
  *   (T_B.x − B_cam.x) > −r

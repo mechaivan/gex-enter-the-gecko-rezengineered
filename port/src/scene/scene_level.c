@@ -143,6 +143,96 @@ static void scene_frame_view(gex_emit_matrix *mat, const scene_box *box)
     }
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Camara original del juego                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Camara de referencia del escenario MAP7.
+ *
+ * Estado capturado del objeto de camara del GEX3D.EXE (0x0065CD80) en el
+ * frame 0 del escenario `map7.dfx` (el mismo nivel que carga el original),
+ * con el breakpoint de hardware en 0x004269C2:
+ *
+ *   cam+0x00..0x05  posicion   (2341, 4071, 3074)
+ *   cam+0x30..0x35  Euler      (-397, 0, 2802)   Q12 de vuelta
+ *   cam+0x40        focal      0x140 (320)
+ *   cam+0x48        ancho      0x180 (384)
+ *   cam+0x5C        corte lejano 8500
+ *   cam+0x490/492/494 escala por fila de la matriz de emision 0x1000
+ *   cam+0x43C       bandera de base identica 0
+ *
+ * Los parametros de proyeccion (centro 256/192 y plano cercano 160) los fija
+ * el juego una vez en 0x4636DD..0x4636FB y no dependen de la camara.
+ */
+void gex_scene_reference_camera(gex_camera *cam) {
+    if (cam == NULL) {
+        return;
+    }
+    memset(cam, 0, sizeof(*cam));
+    cam->pos[0] = 2341;
+    cam->pos[1] = 4071;
+    cam->pos[2] = 3074;
+    cam->euler[0] = -397;
+    cam->euler[1] = 0;
+    cam->euler[2] = 2802;
+    cam->focal = 0x140;       /* 320 */
+    cam->field_0x44 = 0x200;  /* 512 */
+    cam->width = 0x180;       /* 384 */
+    cam->far_plane = 8500;
+    cam->row_scale[0] = 0x1000;
+    cam->row_scale[1] = 0x1000;
+    cam->row_scale[2] = 0x1000;
+    cam->proj_cx = 256;       /* [0x646814] */
+    cam->proj_cy = 192;       /* [0x646818] */
+    cam->near_z = 160;        /* [0x6474E8] */
+    /* Marco local, O, M, A/B, a_cam y b_cam (la cadena completa). */
+    gex_cam_update(cam);
+}
+
+/*
+ * Matriz de emision y niebla de la camara original (escenario MAP7).
+ *
+ * La matriz es la de `cam+0xE0` reconstruida por
+ * `gex_cam_build_emit_matrix` (0x46DD40): las mismas nueve palabras que el
+ * juego copia a 0x646BE0 y la misma traslacion que deja en +0x14/+0x18/+0x1C.
+ *
+ * Los parametros de niebla son los capturados del original en ese frame:
+ * umbral 6299 ([0x65BF80]), split 0xFFFF ([0x65BF04], emisor cercano siempre),
+ * A = -93584512 ([0x647564]) y B = 14848 ([0x647570]). El factor por vertice
+ * se evalua con la formula analitica (el juego usa su LUT de [0x64FEA8], que
+ * el port no reproduce todavia: solo afecta al color, no a la geometria).
+ */
+static void scene_camera_view(const gex_camera *cam, gex_emit_matrix *mat,
+                               gex_emit_fog *fog) {
+    gex_cam_emit_matrix em;
+
+    if (mat != NULL) {
+        memset(mat, 0, sizeof(*mat));
+        if (cam != NULL && gex_cam_build_emit_matrix(cam, &em) == 0) {
+            memcpy(mat->m, em.m, sizeof(mat->m));
+            mat->t[0] = em.t[0];
+            mat->t[1] = em.t[1];
+            mat->t[2] = em.t[2];
+            mat->focal = cam->focal;
+            mat->cx = cam->proj_cx;
+            mat->cy = cam->proj_cy;
+            mat->near_z = cam->near_z;
+        }
+    }
+    if (fog != NULL) {
+        static const uint8_t fog_rgb[3] = {0, 0, 0}; /* [0x6474C4] en el frame 0 */
+        memset(fog, 0, sizeof(*fog));
+        memcpy(fog->fog_rgb, fog_rgb, sizeof(fog->fog_rgb));
+        fog->threshold = 6299;       /* [0x65BF80] */
+        fog->split_z = 0xFFFF;       /* [0x65BF04]: emisor cercano */
+        fog->a_q12 = -93584512;      /* [0x647564] */
+        fog->b_q12 = 14848;          /* [0x647570] */
+        fog->have_lut = 0;
+    }
+}
+
 gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
 {
     gex_emit_matrix mat;
@@ -222,8 +312,92 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
     scene->stats.view_cx = mat.cx;
     scene->stats.view_cy = mat.cy;
     scene->stats.view_scale = mat.m[0];
+    scene->stats.camera_mode = 0;
 
     /* 5. Conversión a vértices e índices. */
+    gst = gex_geometry_build(&scene->emit, &scene->geometry);
+    if (gst != GEX_GEOM_OK) {
+        return GEX_SCENE_ERR_GEOMETRY;
+    }
+    scene->geometry_loaded = 1;
+    scene->stats.vertices = scene->geometry.vertex_count;
+    scene->stats.indices = scene->geometry.index_count;
+    scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
+
+    scene->loaded = 1;
+    return GEX_SCENE_OK;
+}
+
+gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
+                                             const char *path,
+                                             const gex_camera *cam) {
+    gex_emit_matrix mat;
+    gex_emit_fog fog;
+    gex_dfx_status dst;
+    gex_bsp_status bst;
+    gex_emit_status est;
+    gex_geom_status gst;
+
+    if (scene == NULL || path == NULL || path[0] == '\0' || cam == NULL) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (scene->loaded) {
+        return GEX_SCENE_ERR_ARG;
+    }
+
+    /* 1. Contenedor .DFX y descriptor del nivel (igual que en el modo
+     *    diagnostico). */
+    dst = gex_dfx_load(path, &scene->container);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_LOAD;
+    }
+    scene->container_loaded = 1;
+    scene->stats.container_entries = scene->container.count;
+
+    dst = gex_dfx_load_level(&scene->container, &scene->level);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_LEVEL;
+    }
+    scene->level_loaded = 1;
+    scene->stats.descriptor_vertices = scene->level.descriptor.vertex_count;
+    scene->stats.descriptor_polygons = scene->level.descriptor.polygon_count;
+
+    /* 2. Recorrido del BSP con la camara original: la prueba de esfera
+     *    contra los seis semiplanos de A/B (0x00401C00) y el orden de
+     *    apilado por plano. */
+    bst = gex_bsp_walk(scene->container.image, scene->container.image_size,
+                       scene->level.descriptor.root_bsp, scene_visible_all,
+                       NULL, cam, &scene->leaves);
+    if (bst != GEX_BSP_OK) {
+        return GEX_SCENE_ERR_BSP;
+    }
+    scene->leaves_loaded = 1;
+    scene->stats.leaf_count = (uint32_t)scene->leaves.count;
+
+    /* 3. Emision con la matriz de la camara: una sola pasada, sin encuadre
+     *    automatico. */
+    scene_camera_view(cam, &mat, &fog);
+    est = gex_level_emit(scene->container.image, scene->container.image_size,
+                         &scene->level.descriptor, &scene->leaves, &mat, &fog,
+                         0, &scene->emit);
+    if (est != GEX_EMIT_OK) {
+        return GEX_SCENE_ERR_EMIT;
+    }
+    scene->emit_loaded = 1;
+    scene->stats.triangles = scene->emit.count;
+    scene->stats.fog_triangles = scene->emit.fog_pass_count;
+    scene->stats.view_cx = mat.cx;
+    scene->stats.view_cy = mat.cy;
+    scene->stats.view_scale = mat.m[0];
+    scene->stats.camera_mode = 1;
+    memcpy(scene->stats.emit_m, mat.m, sizeof(mat.m));
+    scene->stats.emit_t[0] = mat.t[0];
+    scene->stats.emit_t[1] = mat.t[1];
+    scene->stats.emit_t[2] = mat.t[2];
+    scene->stats.proj_focal = mat.focal;
+    scene->stats.proj_near_z = mat.near_z;
+
+    /* 4. Conversion a vertices e indices. */
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;

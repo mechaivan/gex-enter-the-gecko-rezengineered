@@ -140,6 +140,90 @@ tipo de comando, y validar la semantica de una comparacion con datos),
 `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
 `docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
 
+## 2026-11-11 - 0.0.0 - Camara original del juego integrada en el renderer D3D11: MAP7 se dibuja con la camara real
+
+El escenario `map7.dfx` (el que carga el original) se representa ahora en el
+renderer de Direct3D 11 con la **camara real del juego**: sin matriz
+sintetica y sin encuadre automatico. El modo diagnostico anterior se
+conserva como opcion independiente (`--diagnostic-view`).
+
+**Matriz de emision reconstruida desde la camara.** El bloque de 0x20 B al
+que apunta `cam+0xE0` no es la `O` de la camara: es la `O` con las filas 0 y
+1 escaladas por 1,6 y con la traslacion `E * (-camPos)`:
+
+| Paso | Direccion | Operacion |
+|---|---|---|
+| 1 | `0x46DFA2..0x46E11D` | `O = M2 * R` |
+| 2 | `0x46E2A3..0x46E2E8` | fila 0: `(v << 9) / 0x140` |
+| 3 | `0x46E2EC..0x46E33C` | fila 1: `(v * 0x180) / 0xF0` |
+| 4 | `0x46E33C` | fila 2: sin escalar |
+| 5 | `0x46E340..0x46E448` | escala por fila de `cam+0x490/492/494` (`imul` + `sar 12`) |
+| 6 | `0x46E4C6..0x46E51D` | traslacion `E * (-camPos)` (`sar 12`) |
+
+Implementado en `gex_cam_build_emit_matrix()` (`port/src/camera/camera.c`).
+Con la camara de referencia del frame 0 reproduce **bit a bit** la captura del
+proceso vivo:
+
+```text
+m = [-2636 -5998 0] [-3430 1508 -5374] [3074 -1352 -2343]
+t = (7467, 4494, 1345)
+```
+
+**Camara de referencia (MAP7, frame 0)**, capturada del objeto de camara del
+GEX3D.EXE (`0x0065CD80`) con el breakpoint en `0x004269C2`: posicion
+(2341, 4071, 3074), Euler (-397, 0, 2802) en Q12 de vuelta, focal 0x140
+(320), ancho 0x180 (384), corte lejano 8500, escala por fila 0x1000 y base
+identidad desactivada. Los parametros de proyeccion (centro 256/192 y plano
+cercano 160) los fija el juego en `0x4636DD..0x4636FB`.
+
+**Integracion.**
+
+- `port/src/camera/camera.c`: `gex_cam_build_emit_matrix()` y los campos
+  `row_scale[3]`, `proj_cx`, `proj_cy` y `near_z` de `gex_camera`. El campo
+  `far` pasa a llamarse `far_plane` porque `far` es una macro de los
+  encabezados de Windows y rompia la compilacion del modulo Win32.
+- `port/src/scene/scene_level.c`: `gex_scene_reference_camera()` y
+  `gex_scene_level_load_camera()`, que recorre el BSP con la prueba de
+  esfera de la camara y emite con la matriz de `cam+0xE0` en una sola pasada.
+- `port/src/app/i4_main_win32.c`: `--level` usa la camara original;
+  `--diagnostic-view` conserva la vista sintetica.
+
+**Validacion frente al original** (referencias en
+`port/tests/ref_emit_frames.h` y `port/tests/ref_map7_frames.h`):
+
+| Magnitud (frame 0) | Original | Port |
+|---|---|---|
+| Hojas visibles | 307 | 307, mismas hojas y mismo orden |
+| Matriz de emision | captura | identica bit a bit |
+| Traslacion | (7467, 4494, 1345) | identica bit a bit |
+| Triangulos aceptados | 1123 | 1123 |
+| Orden de dibujo | 1123 triangulos | 1123/1123 en la misma posicion |
+
+**Pruebas.** Regresiones nuevas: `test_emit_matrix_reference()` en
+`port/tests/test_camera.c` (matriz de emision bit a bit contra la captura y
+efecto de la escala por fila) y `test_map7_camera_mode()` en
+`port/tests/test_scene_level.c` (hojas, matriz, triangulos y orden de
+dibujo contra las referencias del original). Suite verde con
+`port/build.ps1 test` y con `-O0`, `-O2`, ASan y UBSan sobre camera, bsp,
+level_emit y scene_level (`port/run_sanitizers.ps1`, ahora en el repo).
+
+**Ejecucion real** con GPU hardware (D3D11 11_1) y ventana Win32 de
+960x540: el port dibuja MAP7 con las texturas de `map7.vfx` y las mismas
+1123 primitivas que el original; la ventana muestra la geometria desde el
+punto de vista de la camara del juego. La captura no se sube al
+repositorio.
+
+**Documentacion.** `S2_CAMERA_VISIBILITY.md` 15 (construccion de la matriz
+de emision, camara de referencia, integracion, resultado y limites),
+`S2_BSP_TRAVERSAL.md` 5.14, `docs/D3D11_FIRST_SCENE_PLAN.md`,
+`PROJECT_STATE.md`, `ROADMAP.md`, `REVERSE_ENGINEERING.md` 4.1 (regla 8: una
+matriz de proyeccion no es una matriz de vista) y este `CHANGELOG.md`.
+`PROJECT_STATUS.svg` sin cambios: MAIN no varia.
+
+**Limites abiertos:** el vuelo de camara frame a frame del original, la LUT
+de niebla por vertice (`[0x64FEA8]`, solo afecta al color), el color de
+niebla animado y los materiales.
+
 ## 2026-11-11 - 0.0.0 - Emision de S-2 validada contra el original: contexto real capturado y corregida la profundidad de referencia
 
 **Contexto de emision capturado** (breakpoint de hardware en `0x004269C2`, nivel

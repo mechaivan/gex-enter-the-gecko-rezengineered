@@ -46,6 +46,16 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 > [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
 > reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.
 
+La integracion de la camara real en el renderer (2026-11-11) ha seguido la
+misma disciplina: la matriz de emision que el port usa no se deduce del
+nombre de los campos ni de una aproximacion, sino de las instrucciones
+(`0x46DD40`: cambio de ejes, escalado de las filas 0 y 1 por 1,6, escala por
+fila de `cam+0x490/492/494` y traslacion `E * (-camPos)`) y de la captura del
+proceso vivo, con la que coincide **bit a bit**. La validacion posterior
+(hojas visibles, numero de triangulos y orden de dibujo) se hace contra las
+referencias ya capturadas del original, no contra un total.
+
+
 ## S-01 — PCGamingWiki: "Gex: Enter the Gecko" ⭐ referencia pública principal PC
 
 - URL: <https://www.pcgamingwiki.com/wiki/Gex:_Enter_the_Gecko>

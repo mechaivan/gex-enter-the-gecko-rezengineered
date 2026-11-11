@@ -61,6 +61,16 @@
   comparación numérica de los colores con niebla; las ramas alternativas
   (`[0x551644+0xa0] & 1` y `& 0x1000`), que no se pueden forzar de forma no
   invasiva; y el detalle interno de la tabla de buckets (0xC00 entradas).
+- **Cámara real en el renderer (2026-11-11):** la cámara original del juego
+  está integrada en el renderer D3D11. El port reconstruye la matriz de
+  emisión `cam+0xE0` desde el estado de cámara (validado bit a bit contra
+  el proceso vivo), recorre el BSP con la prueba de esfera original y usa
+  la proyección del juego (focal 320, centro 256/192, plano cercano 160).
+  Con `map7.dfx` el port reproduce las 307 hojas visibles (mismo orden), la
+  matriz de emisión bit a bit y los 1123 triángulos en el mismo orden de
+  dibujo. Ejecutado con GPU hardware y ventana Win32 real. El modo
+  diagnóstico (matriz sintética + encuadre automático) se conserva con
+  `--diagnostic-view`.
 - **Estado de S-2:** la ruta de emisión de nivel **ejercitada por MAP7**
   (recorrido BSP, visibilidad y emisión con el emisor cercano) queda
   **demostrada equivalente al original fase a fase**, no solo por el recuento:
@@ -169,9 +179,12 @@
   el descriptor, 815 hojas del BSP, **2 854 triángulos emitidos** (1 427
   pasadas de niebla), 0 descartados por profundidad, **4 914 vértices y 8 562
   índices** de geometría. La vista es **diagnóstica** (matriz de emisión
-  sintética, niebla generada con 0x461895 y encuadre automático), **no la
-  cámara original**: la validación dinámica de la cámara y del recorrido BSP
-  contra el ejecutable sigue pendiente. Pruebas: `test_scene_level`
+  sintética, niebla generada con 0x461895 y encuadre automático). Desde el
+  2026-11-11 el módulo tiene además `gex_scene_level_load_camera()`, que
+  carga el nivel con la **cámara original** (matriz de emisión `cam+0xE0`,
+  prueba de esfera del BSP y la misma proyección) y reproduce las 307 hojas,
+  la matriz de emisión bit a bit y los 1123 triángulos del original en el
+  mismo orden de dibujo. Pruebas: `test_scene_level`
   **8 627 comprobaciones, 0 fallos** (portable, `-O0`/`-O2`/ASan+UBSan) y
   `test_level_emit` sube a **38 855**. Detalle en
   [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §16.
@@ -240,10 +253,10 @@
   texturizado (3 101 colores distintos en la captura de la ventana, frente a
   la maqueta plana anterior). `test_vfx`: **3 010 comprobaciones, 0 fallos**
   (`-O0`, `-O2` y ASan/UBSan); `test_d3d11_pipeline`: **324** (WARP); suite
-  completa **16/16**. **Límites:** el factor de zoom de la UV depende de la
-  cámara real del juego (S-2 sigue abierta), la niebla se aplica antes de la
-  textura (el original la aplica después) y el blending alfa se aplica a todo
-  el dibujo (el original, por polígono). Detalle en
+   completa **16/16**. **Límites:** la niebla se aplica antes de la
+   textura (el original la aplica después) y el blending alfa se aplica a todo
+   el dibujo (el original, por polígono). La cámara real del juego ya está
+   integrada en el renderer (§15 de `S2_CAMERA_VISIBILITY.md`); de esa ruta
   [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §9 y
   [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §18.
 - **Pendiente de integración:** los **materiales de producción** (el shader

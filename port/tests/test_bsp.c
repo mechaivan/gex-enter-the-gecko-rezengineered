@@ -267,7 +267,7 @@ static void test_child_order_distance_bits(void) {
     memset(&cam, 0, sizeof(cam));
     cam.width = 0x180;
     cam.focal = 0x140;
-    cam.far = 1000;
+    cam.far_plane = 1000;
     cam.flag_identity = 1;
     gex_cam_update(&cam);
 
@@ -361,7 +361,7 @@ static void test_map7_reference(void) {
         cam.focal = 0x140;
         cam.field_0x44 = 0x200;
         cam.width = 0x180;
-        cam.far = 0x2134;
+        cam.far_plane = 0x2134;
         cam.base = &base;
         gex_cam_update(&cam);
 

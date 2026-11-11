@@ -131,8 +131,9 @@ implementación definida.
 `0x00426588` están implementados como módulo puro en `port/src/emit/`
 (2026-11-10, 17.ª–18.ª pasadas): sin D3D11, sin Win32 y sin Glide. Su ruta está
 reconstruida con evidencia en §5 y validada con pruebas estáticas. La
-**validación dinámica contra el ejecutable** (recorrido y visibilidad) se
-describe en §9; la de la emisión (conteos de geometría) **sigue pendiente**.
+**validación dinámica contra el ejecutable** (recorrido, visibilidad y
+emisión) se describe en §9: la emisión de nivel está **validada fase a fase**
+contra el original para la ruta de MAP7 (§9.5).
 
 ## 5. Ruta de emisión de polígonos — reconstruida e implementada (2026-11-10)
 
@@ -599,10 +600,18 @@ Construcción: `0x46DD40(cam)` (124412-124964) la reescribe **cada frame**:
 1. `R = RotX·RotY·RotZ` sobre `cam+0xF0` (identidad si `cam+0x43C != 0`).
 2. Cambio de ejes `M2 = [0x1000,0,0; 0,0,0xF000; 0,0x1000,0]` aplicado por
    columnas.
-3. Escalado **por columna** con los words `cam+0x490` (col 0), `+0x492`
-   (col 1) y `+0x494` (col 2).
-4. Traslación: `0x46999C` multiplica por `-camPos` (y por `0x647520/524/528`)
-   y deja el resultado en `+0x14/+0x18/+0x1C`.
+3. Escalado de las **filas 0 y 1** (0x46E2A3..0x46E33C): la fila 0 con
+   `(v << 9) / 0x140` y la fila 1 con `(v * 0x180) / 0xF0` (los factores 1,6
+   de la proyeccion); la fila 2 no se toca.
+4. Escalado por fila de `cam+0x490` (fila 0), `+0x492` (fila 1) y `+0x494`
+   (fila 2) con `imul` + `sar 12` (0x46E340..0x46E448). En MAP7 los tres
+   valen `0x1000` (identidad).
+5. Traslación: `0x46999C` (0x46E4C6) multiplica la matriz **ya escalada**
+   por `-camPos` y deja el resultado en `+0x14/+0x18/+0x1C`.
+
+El port reconstruye esta matriz con `gex_cam_build_emit_matrix()` y la
+valida bit a bit contra la captura del proceso vivo
+(ver `S2_CAMERA_VISIBILITY.md` § 15).
 
 Relación con las otras matrices de cámara:
 
@@ -1271,7 +1280,9 @@ capturados en `port/tests/ref_emit_frames.h` (`REF_EMIT_ACCEPTED`,
 **No se declara S-2 completo**: la visibilidad original, el recorrido y la
 emisión están implementados y documentados, y el recorrido y la visibilidad
 **están validados dinámicamente** contra el ejecutable (§9: 18/18 frames con
-la lista de hojas idéntica). Queda pendiente la **comparación cuantitativa de
-la emisión** (§9.5). La integración con el renderizador ya tiene su primera
-mitad (Módulo 3: geometría y buffers); la segunda (shaders, texturas y dibujo)
-sigue pendiente.
+la lista de hojas idéntica) y la **emisión de nivel** está validada fase a
+fase para la ruta de MAP7 (§9.5: mismas hojas, misma matriz de emisión bit a
+bit y los mismos 1123 triángulos en el mismo orden de dibujo). La integración
+con el renderizador usa ya la cámara original del juego
+(`S2_CAMERA_VISIBILITY.md` § 15); de esa segunda mitad quedan los materiales,
+el *depth buffer* y la niebla por polígono.

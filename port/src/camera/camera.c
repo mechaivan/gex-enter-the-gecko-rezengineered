@@ -487,10 +487,10 @@ int gex_cam_sphere_visible(const gex_camera *cam,
     transform3(&b_mat, c, T_B);
 
     /* x86 `neg`/`add`/`sub` wrap at 32 bits. a_cam/b_cam are caller data
-     * and `far` comes from the camera, so none of these differences may
+     * and `far_plane` comes from the camera, so none of these differences may
      * rely on signed overflow not happening. */
     const int32_t neg_r = sub_wrap(0, r);
-    const int32_t far_plus_r = add_wrap(cam->far, r);
+    const int32_t far_plus_r = add_wrap(cam->far_plane, r);
 
     int32_t d0 = sub_wrap(T_A[0], cam->a_cam[0]);
     if (d0 <= neg_r) return 0;
@@ -522,4 +522,75 @@ int32_t gex_cam_plane_distance(const gex_camera *cam,
     }
     int32_t d = sar12(acc);
     return sub_wrap(d, distance);
+}
+
+/* ------------------------------------------------------------------ */
+/* Matriz de emision (cam+0xE0)                                       */
+/* ------------------------------------------------------------------ */
+
+/* Construye la matriz de emision de la camara.
+ *
+ * 0x46DD40 escribe en el bloque de 0x20 B al que apunta cam+0xE0:
+ *
+ *   a) Paso 3 (0x46DFA2..0x46E11D): O = M2 * R. La misma O que se valida
+ *      bit a bit para la visibilidad (cam+0xE4), pero escrita aqui.
+ *   b) 0x46E2A3..0x46E33C: escala las filas 0 y 1 de esa matriz:
+ *        fila 0: (v << 9) / 0x140   (idiv, trunca hacia cero)
+ *        fila 1: (v * 0x180) / 0xF0  (idiv, trunca hacia cero)
+ *      La fila 2 no se toca. Son los factores 1,6 que el original aplica
+ *      al pasar de la orientacion de la camara a la de pantalla.
+ *   c) 0x46E340..0x46E448: escala cada fila por cam+0x490 (fila 0),
+ *      cam+0x492 (fila 1) y cam+0x494 (fila 2), con imul + sar 12.
+ *      En MAP7 los tres valen 0x1000 (identidad).
+ *   d) 0x46E4C6..0x46E51D: traslacion = E * (-camPos) con sar 12, escrita
+ *      en +0x14/+0x18/+0x1C del mismo bloque.
+ *
+ * El resultado es exactamente lo que 0x4269C2 copia a 0x646BE0 (las nueve
+ * palabras) y a 0x646BB4 (la traslacion) antes de proyectar.
+ */
+int gex_cam_build_emit_matrix(const gex_camera *cam, gex_cam_emit_matrix *out) {
+    gex_cam_mat3 o;
+
+    if (cam == NULL || out == NULL) {
+        return -1;
+    }
+    if (gex_cam_build_orientation(cam, &o) != 0) {
+        return -1;
+    }
+
+    for (int c = 0; c < 3; c++) {
+        int32_t r0 = (int32_t)o.w[c];
+        int32_t r1 = (int32_t)o.w[3 + c];
+        int32_t r2 = (int32_t)o.w[6 + c];
+        /* idiv de x86: division con signo truncada hacia cero. */
+        /* El desplazamiento del original es un `shl` de 32 bits: se hace
+         * sobre los bits sin signo para no depender del comportamiento
+         * indefinido de `<<` con valores negativos. */
+        int32_t shifted = (int32_t)((uint32_t)r0 << 9);
+        out->m[c] = (int16_t)(shifted / 0x140);
+        out->m[3 + c] = (int16_t)((r1 * 0x180) / 0xF0);
+        out->m[6 + c] = (int16_t)r2;
+    }
+
+    for (int r = 0; r < 3; r++) {
+        int32_t scale = (int32_t)cam->row_scale[r];
+        for (int c = 0; c < 3; c++) {
+            int32_t v = (int32_t)out->m[3 * r + c];
+            int32_t scaled = (int32_t)((uint32_t)((int32_t)v * scale));
+            out->m[3 * r + c] = low_i16(sar12((uint32_t)scaled));
+        }
+    }
+
+    for (int r = 0; r < 3; r++) {
+        uint32_t acc = 0;
+        for (int c = 0; c < 3; c++) {
+            /* El original niega el vector de posicion en 16 bits antes de
+             * transformarlo (0x46E4C6). */
+            int16_t neg = neg_i16(cam->pos[c]);
+            acc += (uint32_t)((int32_t)out->m[3 * r + c] * (int32_t)neg);
+        }
+        out->t[r] = sar12(acc);
+    }
+
+    return 0;
 }
