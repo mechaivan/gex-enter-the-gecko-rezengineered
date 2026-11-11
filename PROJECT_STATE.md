@@ -138,6 +138,23 @@
   demostrados** (el juego entrega los bytes tal cual a Glide) y no se inventa
   nada. Detalle en
   [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md).
+- **Módulo 4B (2026-11-11): búsqueda del formato de píxel.** El registro VFX
+  queda identificado como un **`GrTexInfo` de Glide** (DEMOSTRADO): el
+  `GrTexInfo` de la fuente que el juego construye en `0x0065BFA0`
+  (`0x00432AB7..0x00432AE2`) tiene la misma disposición, con `+0x0C` =
+  formato y `+0x10` = puntero a los datos, y el cargador de `.VFX`
+  (`0x00461C32`) rellena ese mismo puntero. Además: la **paleta** solo
+  existe para el **formato 1** (bloque de **112 B** en `+0x14`, que el juego
+  **comparte** entre dos texturas con un `memcpy` de 0x70 B en `0x004732FB`; en
+  AZTEC16.VFX hay un par, las entradas 25 y 83) y el **formato 12** es el
+  único que activa el blending alfa. API nueva en `gex/vfx.h`:
+  `gex_vfx_format_info_get` y `gex_vfx_palette_twin`. **Resultado negativo:**
+  los bloques de datos **no** son un raster plano de 1 o 2 bytes por píxel (la
+  discontinuidad horizontal menos la vertical no identifica un ancho único), así
+  que el **formato de píxel**, las dimensiones y el contenido de la paleta
+  siguen **DESCONOCIDOS** y **no se implementa ningún decodificador**.
+  `test_vfx`: **2 223 comprobaciones, 0 fallos** (`-O0`, `-O2` y ASan/UBSan).
+  Detalle en [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §5.
 - **Pendiente de integración:** el decodificador de píxel y la creación de
   recursos D3D11 de textura (Módulo 4B), materiales, *depth buffer*, blending
   del original, la cámara real del juego, el *resize* de la ventana y la

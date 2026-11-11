@@ -2,6 +2,63 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 4B: búsqueda del formato de píxel de las texturas VFX
+
+Continuación del Módulo 4A: REA de las rutas que entregan los registros VFX a
+Glide y análisis de los bloques de datos de los `.VFX` originales (solo
+lectura). **No se implementa ningún decodificador**: el formato de píxel no ha
+quedado demostrado y no se inventa.
+
+Hallazgos (documentados en `docs/VFX_TEXTURE_FORMAT.md` §5):
+
+* **El registro VFX es un `GrTexInfo` de Glide (DEMOSTRADO).** El `GrTexInfo`
+  que el juego construye para la fuente (`0x0065BFA0`, relleno en
+  `0x00432AB7..0x00432AE2`) tiene la misma disposición que el registro VFX:
+  `+0x00/+0x04/+0x08` tres campos, **`+0x0C` = formato** y **`+0x10` = puntero
+  a los datos**; el cargador de `.VFX` (`0x00461C32`) escribe ese puntero con
+  `registro + 0x8C` y entrega el registro tal cual a `grTexDownloadMipMap` y
+  `grTexSource`. Esto confirma la hipótesis que U-1f dejó abierta
+  (`U1F_RESULTADOS.md` §8.2) para `+0x0C` y `+0x10`.
+* **Comportamiento por formato (DEMOSTRADO):** el **formato 1** es el único que
+  sube una **tabla de paleta** desde `+0x14` (`grTexDownloadTable`, en
+  `0x0046614A` y `0x004670FC`); el **formato 12** es el único que activa el
+  blending alfa (`0x00465667`); el formato 0 se distingue con otro modo de
+  alfa. Los identificadores **no** son los de la enumeración `GR_TEXFMT` de
+  Glide.
+* **La paleta (DEMOSTRADO presencia, tamaño y compartición):** ocupa **112 B
+  (`0x70`)** desde `+0x14`; el juego la **comparte** entre dos texturas
+  copiando el bloque entero (`memcpy` de 0x70 B en `0x004732FB`). Medido en
+  los originales: las 218 entradas de formato 11 y 12 de AZTEC16.VFX tienen el
+  bloque **a cero** y las 42 de formato 1 lo tienen **con datos**; hay **un par
+  de entradas con paleta idéntica** (25 y 83), que es justo el caso que
+  resuelve ese `memcpy`.
+* **Los bloques no son un raster plano (resultado negativo).** Para los tres
+  formatos se midió la discontinuidad horizontal menos la vertical para
+  anchos candidatos (4…256): el «mejor» ancho no es consistente ni dentro de
+  un mismo grupo `(A,B,C,formato)`, así que los datos no son un raster 2D
+  simple de 1 o 2 bytes por píxel (o la prueba no tiene señal suficiente).
+* **Sin descompresor:** los bytes se entregan a Glide **verbatim**; no existe
+  ninguna routine de descompresión en el ejecutable.
+
+Implementación (portable, sin D3D11, sin tocar los originales):
+
+- `port/include/gex/vfx.h` + `port/src/asset/vfx.c`: `gex_vfx_format_info_get()`
+  (los datos demostrados de cada formato: paleta, alfa y tamaño del bloque) y
+  `gex_vfx_palette_twin()` (la entrada que comparte paleta, que es la relación
+  que el juego resuelve copiando el bloque).
+- `port/tests/test_vfx.c`: **2 223 comprobaciones, 0 fallos** en Clang `-O0`,
+  `-O2` y ASan/UBSan: los datos por formato de 1, 11, 12 y 0, la presencia de
+  la paleta solo en el formato 1, la simetría de los gemelos de paleta y el
+  par real de AZTEC16.VFX.
+
+Estado: el **formato de píxel**, las **dimensiones** y el **contenido de la
+paleta** siguen **DESCONOCIDOS**, así que **no hay decodificador** y el
+Módulo 4C (recursos `ID3D11Texture2D`, `ID3D11ShaderResourceView` y binding)
+sigue bloqueado: subir una textura sin decodificador sería inventar datos.
+Fuera de alcance, como se pidió: no se ha tocado el renderer, los shaders ni
+la escena. S-2 sigue sin validación dinámica contra el ejecutable y no se
+declara completo. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Auditoría correctiva del parser VFX (cierre del Módulo 4A)
 
 Dos correcciones sobre el commit `a7d8f0f`, **sin ampliar el alcance**: no se

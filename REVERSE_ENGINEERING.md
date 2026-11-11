@@ -124,6 +124,16 @@ concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
 > dimensiones y la paleta completa NO están demostrados** y por eso no se
 > implementan decodificadores. Herramientas: `llvm-objdump` y
 > `tools/gexmap/pe.mjs` (IAT); sin Ghidra niREA.
+> **Módulo 4B (2026-11-11, búsqueda del formato de píxel):** el registro VFX
+> se identifica como un **`GrTexInfo` de Glide**: el `GrTexInfo` de la fuente
+> que el juego construye en `0x0065BFA0` (`0x00432AB7..0x00432AE2`) tiene la
+> misma disposición que el registro VFX, con `+0x0C` = formato y `+0x10` =
+> puntero a los datos (`0x00461C32` lo rellena con `registro+0x8C`). La paleta
+> solo existe para el **formato 1** (112 B desde `+0x14`,
+> `grTexDownloadTable` en `0x0046614A`) y el juego la **comparte** entre
+> texturas con un `memcpy` de 0x70 B (`0x004732FB`). El **formato de píxel**
+> sigue **DESCONOCIDO**: los bloques no son un raster plano de 1 o 2 bytes por
+> píxel. Detalle: `docs/VFX_TEXTURE_FORMAT.md` §5.
 
 - [~] Timing/FPS (I-01, I-02): E-3/M-13 estático acotado 2026-10-10
       (objdump, sin Ghidra/dinámico): sleeps/GetTickCount/contadores/

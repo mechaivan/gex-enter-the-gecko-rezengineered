@@ -65,12 +65,23 @@ extern "C" {
 /* Offset de la tabla de paleta del formato 1 (la sube grTexDownloadTable). */
 #define GEX_VFX_RECORD_PALETTE_OFFSET 0x14u
 
-/* Formatos observados en los ficheros originales. El valor es el que el
- * juego pasa a Glide (grTexDownloadMipMap); la equivalencia con la
- * enumeración de Glide es una HIPÓTESIS (docs/VFX_TEXTURE_FORMAT.md §4.2). */
+/* Tamaño del bloque de paleta: desde +0x14 hasta +0x84 (0x70 B). Es el
+ * tamaño que el juego copia entre entradas que comparten paleta
+ * (`memcpy` de 0x70 B en `0x004732FB`). */
+#define GEX_VFX_PALETTE_BYTES (GEX_VFX_RECORD_SIZE_OFFSET - \
+                               GEX_VFX_RECORD_PALETTE_OFFSET)
+
+/* Formatos observados en los ficheros originales. Son los identificadores que
+ * el juego usa en su propio campo de formato (`GrTexInfo.format`, +0x0C) y
+ * con los que decide la paleta y el blending alfa. **No** son los de la
+ * enumeración GR_TEXFMT de Glide: el juego trata 1, 11 y 12 de forma propia
+ * (docs/VFX_TEXTURE_FORMAT.md §5.3). El FORMATO DE PÍXEL de cada uno sigue
+ * sin estar demostrado. */
 #define GEX_VFX_FORMAT_1  1u  /* con tabla de paleta en +0x14 */
 #define GEX_VFX_FORMAT_11 11u
 #define GEX_VFX_FORMAT_12 12u /* el juego activa el blending alfa con este */
+#define GEX_VFX_FORMAT_0  0u  /* el juego lo distingue con otro modo de
+                                * alfa; no aparece en los .VFX originales */
 
 /* Un registro del contenedor. */
 typedef struct gex_vfx_record {
@@ -139,6 +150,35 @@ int gex_vfx_find_index(const gex_vfx_file *file, uint32_t index14);
  * tiene (el juego la sube con grTexDownloadTable). Devuelve 1 o 0.
  */
 int gex_vfx_format_has_palette(uint32_t format);
+
+/*
+ * Datos demostrados sobre cada FORMATO (ver docs/VFX_TEXTURE_FORMAT.md §4):
+ * qué hace el juego con él. NO incluye el formato de píxel, que no está
+ * demostrado.
+ */
+typedef struct gex_vfx_format_info {
+    uint32_t format;        /* el identificador tal cual */
+    int has_palette;        /* el juego sube una paleta desde +0x14 */
+    int enables_alpha;      /* el juego activa el blending alfa con él */
+    uint32_t palette_bytes; /* tamaño del bloque de paleta (0x70) o 0 */
+} gex_vfx_format_info;
+
+/*
+ * Rellena `out` con los datos demostrados del formato. Devuelve 1 si el
+ * formato es uno de los observados en los ficheros originales (1, 11, 12) y 0
+ * si no se conoce nada de él.
+ */
+int gex_vfx_format_info_get(uint32_t format, gex_vfx_format_info *out);
+
+/*
+ * Entrada que comparte la paleta con `index`.
+ *
+ * El juego copia el bloque de paleta (0x70 B) de una entrada a otra cuando
+ * dos texturas usan la misma paleta (`memcpy` en `0x004732FB`), de modo que
+ * solo tiene sentido entre entradas con bloques idénticos. Devuelve el índice
+ * de la otra entrada, o -1 si no hay ninguna (o si `index` no tiene paleta).
+ */
+int gex_vfx_palette_twin(const gex_vfx_file *file, uint32_t index);
 
 #ifdef __cplusplus
 }

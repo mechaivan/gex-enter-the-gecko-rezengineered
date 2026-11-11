@@ -273,13 +273,115 @@ modelos, sprites o de interfaz, que la geometría del nivel no recorre.
 
 ---
 
+
+---
+
+## 5. La búsqueda del formato de píxel (Módulo 4B, 2026-11-11)
+
+### 5.1 Método
+
+REA del ejecutable original (`llvm-objdump` + el lector PE32 del repo) sobre
+las rutas que procesan los registros VFX y se los entregan a Glide, y análisis
+estadístico de los bloques de datos de los `.VFX` originales (solo lectura).
+Criterio de evidencia: **DEMOSTRADO** (desensamblado o comprobación directa
+sobre los originales), **PROBABLE** (varios indicios, sin confirmación) y
+**DESCONOCIDO** (sin evidencia suficiente).
+
+### 5.2 El registro VFX es un `GrTexInfo` de Glide (DEMOSTRADO)
+
+El ejecutable construye un `GrTexInfo` para la fuente (`FONT.3DF`) en
+`0x0065BFA0` y lo rellena así (`0x00432AB7..0x00432AE2`):
+
+```
+0x432AB7: movl %eax,0x65bfa0          ; +0x00  (campo del info de 3df)
+0x432AC2: movl %ecx,0x65bfa4          ; +0x04  (campo del info de 3df)
+0x432ACE: movl %edx,0x65bfa8          ; +0x08  (campo del info de 3df)
+0x432ADA: movl %eax,0x65bfac          ; +0x0C  (campo del info de 3df)
+0x432AE2: movl %ecx,0x65bfb0          ; +0x10  puntero a los datos
+```
+
+El puntero de `+0x10` es el bloque que el juego acaba de reservar para los
+píxeles (`0x00432A78`). Es **la misma disposición que el registro VFX**: el
+cargador de `.VFX` (`0x00461C32`) escribe `registro+0x10 = registro+0x8C` y
+entrega el registro tal cual a `grTexDownloadMipMap`/`grTexSource`. Por tanto
+**el registro VFX es un `GrTexInfo`**, y su `+0x0C` es el campo de formato que
+Glide recibe (y que el juego compara con 1, 12 y 0).
+
+Esto **confirma** la hipótesis que U-1f dejó abierta
+(`U1F_RESULTADOS.md` §8.2: «largeLod,+0; smallLod,+4; aspectRatio,+8;
+format,+0xC; data,+0x10») en cuanto al **+0x0C = formato** y **+0x10 = datos**,
+que es lo que se necesita para este módulo.
+
+### 5.3 Lo que el juego hace con cada formato (DEMOSTRADO)
+
+| Formato | Observado | Comportamiento del juego | Evidencia |
+|---:|---:|---|---|
+| 1 | 42 entradas en AZTEC16 | sube una **tabla de paleta** desde `+0x14` | `grTexDownloadTable(0,0,entrada+0x14)` en `0x0046614A`, `0x004670FC` |
+| 11 | 73 entradas | sin paleta, sin cambio de alfa | — |
+| 12 | 145 entradas | **activa el blending alfa** (`grAlphaCombine` modo 3) | `0x00465667` |
+| 0 | no aparece | el juego lo distingue con otro modo de alfa | `0x00465679` |
+
+Los identificadores **no** son los de la enumeración `GR_TEXFMT` de Glide: el
+formato del `FONT.3DF` (RGB332 según el inventario) pasa por el mismo campo
+`+0x0C` pero lo toma del *info* de 3df, y el juego trata 1, 11 y 12 de forma
+propia. Queda **DESCONOCIDO** si el juego traduce el identificador antes de
+entregarlo a Glide o si usa un subconjunto propio.
+
+### 5.4 La paleta (presencia, tamaño y compartición: DEMOSTRADO)
+
+* El bloque de paleta ocupa `+0x14 .. +0x84`: **112 bytes (`0x70`)**. Lo
+  demuestra el `memcpy` de `0x004732FB`, que copia exactamente `0x70` bytes de
+  `entradaA+0x14` a `entradaB+0x14`: el juego **comparte** la paleta entre dos
+  texturas copiando el bloque entero.
+* En los `.VFX` originales, las entradas de formato 11 y 12 tienen ese bloque
+  **inteiramente a cero** (218 de 218 en AZTEC16.VFX) y las de formato 1 lo
+  tienen **con datos** (42 de 42). Es la comprobación directa de que el bloque
+  solo significa algo para el formato 1.
+* En AZTEC16.VFX hay **un par de entradas con paleta idéntica** (25 y 83): es
+  justo el caso que el `memcpy` del juego resuelve.
+
+Lo que **no** se ha cerrado es el **contenido** de esos 112 bytes (cuántas
+entradas de paleta hay, si son RGB565, RGBA o una mixture, y qué significan
+las rampas que se ven al principio del bloque). Es **DESCONOCIDO**.
+
+### 5.5 Resultados negativos: el bloque **no** es un raster plano
+
+Se probó, para los tres formatos, si el bloque de datos se comporta como un
+raster 2D de píxeles de 1 o 2 bytes: se calculó, para cada ancho candidato
+(4, 8, 16, 32, 64, 128, 256), la discontinuidad media entre píxeles
+horizontales menos la de los verticales (la fila correcta debe ser más
+similar que la columna).
+
+* El «mejor» ancho **no es consistente** dentro de un mismo grupo
+  `(A,B,C,formato)`: para el mismo `(2,2,3,formato 12)` salen anchos 16, 32,
+  128 y 256 con diferencia de puntuación mínima, y anchos distintos para
+  registros con la misma cabecera.
+* Por tanto **los bloques no son un raster plano** de los formatos probados, o
+  la prueba no tiene suficiente señal (texturas muy uniformes).
+
+Conclusión: **el formato de píxel sigue siendo DESCONOCIDO**. No se implementa
+ningún decodificador, porque hacerlo sería inventar el formato.
+
+### 5.6 Qué queda por tanto demostrado y qué no
+
+| Cuestión | Estado |
+|---|---|
+| Estructura del contenedor y recorrido de registros | **DEMOSTRADO** (§2) |
+| El registro es un `GrTexInfo`; `+0x0C` = formato, `+0x10` = datos | **DEMOSTRADO** (§5.2) |
+| El juego sube una paleta solo para el formato 1, desde `+0x14`, 112 B | **DEMOSTRADO** (§5.3, §5.4) |
+| El formato 12 activa el blending alfa | **DEMOSTRADO** (§5.3) |
+| Los bloques de datos se entregan a Glide **sin descomprimir** | **DEMOSTRADO** (no hay descompresor en el ejecutable) |
+| **Formato de píxel** de 1, 11 y 12 | **DESCONOCIDO** |
+| **Dimensiones** de cada textura | **DESCONOCIDO** |
+| **Contenido** de la paleta de 112 B | **DESCONOCIDO** |
+| Correspondencia índice de 14 bits (DFX) → entrada (VFX) | **DEMOSTRADO** (§5) |
 ## 6. Lo implementado en `port/`
 
 | Fichero | Contenido |
 |---|---|
-| `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_palette` |
+| `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_palette`, `gex_vfx_format_info_get`, `gex_vfx_palette_twin` |
 | `port/src/asset/vfx.c` | parser portable: recorre la tabla como el juego, valida offsets/tamaños/conteos y multiplicaciones, libera en error |
-| `port/tests/test_vfx.c` | 1 668 comprobaciones |
+| `port/tests/test_vfx.c` | 2 223 comprobaciones |
 
 La API es coherente con el resto del port (C11 portable, `gex_*_status` con
 `_name()`, `free`/`close` idempotente, cero en error). El módulo **no** crea
@@ -309,7 +411,7 @@ demostrado. `gex_vfx_format_has_palette(format)` deja el criterio explícito.
 
 ### 6.2 Pruebas (reales)
 
-`port/tests/test_vfx.c`: **1 668 comprobaciones, 0 fallos** en Clang `-O0`, `-O2`
+`port/tests/test_vfx.c`: **2 223 comprobaciones, 0 fallos** en Clang `-O0`, `-O2`
 y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
 
 * nombres de estado y argumentos inválidos;
@@ -329,7 +431,12 @@ y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
   dos;
 * `GEX.VFX`: 4 registros de 256 bytes, formato 1;
 * correspondencia DFX → VFX: los 9 609 polígonos del nivel usan índices 0..3 y
-  todos existen en el `.VFX`.
+  todos existen en el `.VFX`;
+* **datos demostrados por formato** (Módulo 4B): la paleta solo existe para el formato 1 (112 B, 
+  `0x70`) y el formato 12 es el único que activa el blending alfa;
+* **paleta compartida**: en AZTEC16.VFX hay un par de entradas (25 y 83) con el
+  bloque de paleta idéntico, que es el caso que resuelve el `memcpy` de 0x70 B del
+  juego (`0x004732FB`); la relación se comprueba simétrica.
 
 ### 6.2.1 Auditoría correctiva (2026-11-11)
 

@@ -109,8 +109,7 @@ static gex_vfx_status parse_records(gex_vfx_file *file)
          * publica como paleta. */
         if (rec->format == GEX_VFX_FORMAT_1) {
             rec->palette = file->data + offset + GEX_VFX_RECORD_PALETTE_OFFSET;
-            rec->palette_size = (uint32_t)(GEX_VFX_RECORD_SIZE_OFFSET -
-                                            GEX_VFX_RECORD_PALETTE_OFFSET);
+            rec->palette_size = GEX_VFX_PALETTE_BYTES;
         } else {
             rec->palette = NULL;
             rec->palette_size = 0;
@@ -239,6 +238,64 @@ int gex_vfx_format_has_palette(uint32_t format)
      * registro+0x14) para el formato 1; para los demás, el bloque +0x14
      * está a cero en los ficheros originales. */
     return format == GEX_VFX_FORMAT_1 ? 1 : 0;
+}
+
+int gex_vfx_format_info_get(uint32_t format, gex_vfx_format_info *out)
+{
+    if (out == NULL) {
+        return 0;
+    }
+    memset(out, 0, sizeof(*out));
+    out->format = format;
+    switch (format) {
+    case GEX_VFX_FORMAT_1:
+        /* Paleta desde +0x14 (0x70 B) y ninguna activación de alfa. */
+        out->has_palette = 1;
+        out->enables_alpha = 0;
+        out->palette_bytes = GEX_VFX_PALETTE_BYTES;
+        return 1;
+    case GEX_VFX_FORMAT_11:
+        /* Sin paleta y sin activación de alfa. */
+        return 1;
+    case GEX_VFX_FORMAT_12:
+        /* Sin paleta, pero el juego activa el blending alfa. */
+        out->enables_alpha = 1;
+        return 1;
+    case GEX_VFX_FORMAT_0:
+        /* El juego distingue el formato 0 con otro modo de alfa; no aparece
+         * en los .VFX originales. */
+        out->enables_alpha = 1;
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+int gex_vfx_palette_twin(const gex_vfx_file *file, uint32_t index)
+{
+    uint32_t i;
+
+    if (file == NULL || index >= (uint32_t)file->record_count) {
+        return -1;
+    }
+    if (file->records[index].palette == NULL ||
+        file->records[index].palette_size == 0u) {
+        return -1;
+    }
+    for (i = 0; i < (uint32_t)file->record_count; i++) {
+        if (i == index) {
+            continue;
+        }
+        if (file->records[i].palette == NULL ||
+            file->records[i].palette_size != file->records[index].palette_size) {
+            continue;
+        }
+        if (memcmp(file->records[i].palette, file->records[index].palette,
+                   file->records[index].palette_size) == 0) {
+            return (int)i;
+        }
+    }
+    return -1;
 }
 
 const char *gex_vfx_status_name(gex_vfx_status status)

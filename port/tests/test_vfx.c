@@ -466,12 +466,115 @@ static void test_dfx_to_vfx_correspondence(void)
     gex_vfx_close(&vfx);
 }
 
+/* ------------------------------------------------------------------ */
+/* Datos demostrados por formato                                        */
+/* ------------------------------------------------------------------ */
+
+static void test_format_info(void)
+{
+    gex_vfx_format_info info;
+
+    /* Formato 1: es el único con paleta (el juego la sube con
+     * grTexDownloadTable desde +0x14) y no activa el blending alfa. */
+    CHECK(gex_vfx_format_info_get(GEX_VFX_FORMAT_1, &info) == 1);
+    CHECK(info.format == GEX_VFX_FORMAT_1);
+    CHECK(info.has_palette == 1);
+    CHECK(info.enables_alpha == 0);
+    CHECK(info.palette_bytes == GEX_VFX_PALETTE_BYTES);
+    CHECK(info.palette_bytes == 0x70u);
+
+    /* Formato 11: sin paleta y sin alfa. */
+    CHECK(gex_vfx_format_info_get(GEX_VFX_FORMAT_11, &info) == 1);
+    CHECK(info.format == GEX_VFX_FORMAT_11);
+    CHECK(info.has_palette == 0);
+    CHECK(info.enables_alpha == 0);
+    CHECK(info.palette_bytes == 0u);
+
+    /* Formato 12: sin paleta, pero el juego activa el blending alfa. */
+    CHECK(gex_vfx_format_info_get(GEX_VFX_FORMAT_12, &info) == 1);
+    CHECK(info.format == GEX_VFX_FORMAT_12);
+    CHECK(info.has_palette == 0);
+    CHECK(info.enables_alpha == 1);
+    CHECK(info.palette_bytes == 0u);
+
+    /* Formato 0: el juego lo distingue con otro modo de alfa (no aparece en
+     * los .VFX originales). */
+    CHECK(gex_vfx_format_info_get(0, &info) == 1);
+    CHECK(info.has_palette == 0);
+    CHECK(info.enables_alpha == 1);
+
+    /* Formato desconocido: no se afirma nada. */
+    CHECK(gex_vfx_format_info_get(999, &info) == 0);
+    CHECK(info.format == 999);
+    CHECK(info.has_palette == 0 && info.enables_alpha == 0);
+
+    CHECK(gex_vfx_format_info_get(GEX_VFX_FORMAT_1, NULL) == 0);
+
+    /* Coherencia con el predicado simple. */
+    CHECK(gex_vfx_format_has_palette(GEX_VFX_FORMAT_1) == 1);
+    CHECK(gex_vfx_format_has_palette(GEX_VFX_FORMAT_11) == 0);
+    CHECK(gex_vfx_format_has_palette(GEX_VFX_FORMAT_12) == 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Paleta compartida entre entradas                                     */
+/* ------------------------------------------------------------------ */
+
+static void test_palette_twins(void)
+{
+    gex_vfx_file file;
+    uint32_t i;
+    int pairs = 0;
+
+    if (!file_exists(AZTEC_VFX)) {
+        printf("skip palette twins (no file)\n");
+        return;
+    }
+    CHECK(gex_vfx_open(&file, AZTEC_VFX) == GEX_VFX_OK);
+
+    /* Solo las entradas de formato 1 tienen paleta, y su bloque no está a
+     * cero; las de formato 11 y 12 lo tienen a cero (dato medido en los
+     * 37 .VFX del inventario). */
+    for (i = 0; i < file.record_count; i++) {
+        const gex_vfx_record *rec = &file.records[i];
+        if (rec->format == GEX_VFX_FORMAT_1) {
+            CHECK(rec->palette != NULL);
+            CHECK(rec->palette_size == GEX_VFX_PALETTE_BYTES);
+        } else {
+            CHECK(rec->palette == NULL);
+            CHECK(rec->palette_size == 0u);
+        }
+    }
+
+    /* El juego copia el bloque de paleta entre dos entradas que la
+     * comparten (memcpy de 0x70 B en 0x004732FB): en AZTEC16.VFX hay un par
+     * (entradas 25 y 83) con paletas idénticas. */
+    for (i = 0; i < file.record_count; i++) {
+        int twin = gex_vfx_palette_twin(&file, i);
+        if (twin >= 0) {
+            pairs++;
+            CHECK(file.records[twin].palette != NULL);
+            CHECK(memcmp(file.records[twin].palette, file.records[i].palette,
+                         GEX_VFX_PALETTE_BYTES) == 0);
+            /* Y la relación es simétrica. */
+            CHECK(gex_vfx_palette_twin(&file, (uint32_t)twin) == (int)i);
+        }
+    }
+    printf("AZTEC16.VFX: entradas con paleta compartida: %d\n", pairs);
+
+    CHECK(gex_vfx_palette_twin(&file, file.record_count) == -1);
+    CHECK(gex_vfx_palette_twin(NULL, 0) == -1);
+    gex_vfx_close(&file);
+}
+
 int main(void)
 {
     test_names_and_args();
     test_synthetic_container();
     test_broken_containers();
     test_trailing_bytes();
+    test_format_info();
+    test_palette_twins();
     test_real_aztec();
     test_real_gex_vfx();
     test_dfx_to_vfx_correspondence();

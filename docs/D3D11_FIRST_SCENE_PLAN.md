@@ -353,10 +353,14 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
   están demostrados** y no se inventa nada. Detalle, evidencia y lo que falta:
   [`docs/VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md).
 
-**4B. Recursos D3D11 e integración — PENDIENTE**
+**4B. Investigación del formato de píxel (2026-11-11) ó PARCIAL**
 
 - Crear `ID3D11Texture2D`/`ID3D11ShaderResourceView` a partir de las
   entradas decodificadas y atender el índice de 14 bits desde el shader.
+- El **Módulo 4B** (2026-11-11) cerró la semántica de la paleta y el
+  tipo de registro (`GrTexInfo`), pero el **formato de píxel**, las dimensiones y
+  el contenido de la paleta siguen **DESCONOCIDOS**: sin decodificador
+  no se pueden subir texturas reales sin inventar datos.
 - Depende de cerrar el decodificador: sin él solo se podría subir un color
   sólido, que sería inventar datos.
 
