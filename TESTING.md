@@ -1696,10 +1696,10 @@ bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
 debug layer: not available (hr=0x887A002D); failure was clean
 hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
 hardware: ok, feature level 11_1, flags 0x0
-314 checks, 0 failures, 0 skipped
+332 checks, 0 failures, 0 skipped
 ```
 
-Qué cubren los 314 checks: nombres de estados y niveles; argumentos y estado
+Qué cubren los 332 checks: nombres de estados y niveles; argumentos y estado
 (`NULL`, driver inválido, doble `init` sin tocar el vivo, `shutdown` no-ops);
 **WARP real** (creación + `CheckFormatSupport` + contexto inmediato + cierre +
 re-init + ciclo de 3 tandas); **hardware real** (idéntico); dos dispositivos

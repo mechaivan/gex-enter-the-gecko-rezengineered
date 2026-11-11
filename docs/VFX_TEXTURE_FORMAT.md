@@ -597,7 +597,7 @@ coherente. Se **descarta** la prueba de discontinuidad como método.
 | `port/include/gex/vfx.h` | API pública: `gex_vfx_file`, `gex_vfx_record`, `gex_vfx_status`, `gex_vfx_open/parse/close`, `gex_vfx_find_index`, `gex_vfx_format_has_ncc_table`, `gex_vfx_format_info_get`, `gex_vfx_ncc_table_twin`, `gex_vfx_ncc_table_parse/pack`, `gex_vfx_texture_info_get`, `gex_vfx_texture_level_size/offset`, `gex_vfx_decode_argb1555/argb4444/yiq422`, `gex_vfx_decode_level` |
 | `port/src/asset/vfx.c` | parser portable: recorre la tabla como el juego, valida offsets/tamaños/conteos y multiplicaciones, dimensiones según las reglas de Glide 2.x, libera en error |
 | `port/src/asset/vfx_decode.c` | decodificadores CPU: ARGB_1555, ARGB_4444 y YIQ_422 con tabla NCC; salida RGBA8 con alfa recto |
-| `port/tests/test_vfx.c` | 2 968 comprobaciones |
+| `port/tests/test_vfx.c` | 3 010 comprobaciones |
 
 La API es coherente con el resto del port (C11 portable, `gex_*_status` con
 `_name()`, `free`/`close` idempotente, cero en error). El módulo **no** crea
@@ -650,7 +650,7 @@ la cadena.
 
 ### 7.5 Pruebas (reales)
 
-`port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** en Clang `-O0`,
+`port/tests/test_vfx.c`: **3 010 comprobaciones, 0 fallos** en Clang `-O0`,
 `-O2` y ASan/UBSan (`-fsanitize=address,undefined -fno-sanitize-recover=all`).
 
 * nombres de estado y argumentos inválidos;
@@ -805,7 +805,7 @@ de niebla por vértice).
 
 ### 9.6 Verificación
 
-- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+- `port/tests/test_vfx.c`: **3 010 comprobaciones, 0 fallos** (`-O0`, `-O2` y
   ASan/UBSan), incluido el banco de texturas portable.
 - `port/tests/test_d3d11_pipeline.c`: **324 comprobaciones, 0 fallos** (WARP),
   incluida una prueba de muestreo con un `.VFX` sintético de 64x64 en

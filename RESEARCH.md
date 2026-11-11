@@ -890,7 +890,7 @@ que habrá que verificar contra el juego real (Fase 1–2):
   `src/render/d3d11_texture.c` (atlas, SRV, sampler y tabla de búsqueda),
   el pixel shader del pipeline (UV + índice `nointerpolation` + modulación con
   el color por vértice) y la carga del `.VFX` en la aplicación.
-- **Verificación:** `test_vfx` 2 968 comprobaciones y `test_d3d11_pipeline` 324,
+- **Verificación:** `test_vfx` 3 010 comprobaciones y `test_d3d11_pipeline` 324,
   0 fallos; suite completa 16/16. En ejecución real el nivel de AZTEC16 sale
   texturizado (3 101 colores distintos en la captura de la ventana).
 - **Límites:** el factor de zoom de la UV depende de la cámara real del juego

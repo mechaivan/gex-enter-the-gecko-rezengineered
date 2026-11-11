@@ -6,10 +6,16 @@ propia escrita a partir de la evidencia documentada en `docs/`.
 
 ## Estado
 
-Cuatro subsistemas implementados y probados sin el juego; el último habla con el
+Subsistemas implementados y probados sin el juego; el audio habla con el
 dispositivo de sonido real y, desde I-4, existe además un **proceso nativo con
-ventana Win32 real**. Sobre esa ventana, R-1 crea el dispositivo Direct3D 11 y
-R-2 la swapchain DXGI y R-3 la primera salida visible mediante clear + Present:
+ventana Win32 real**. Sobre esa ventana, R-1 crea el dispositivo Direct3D 11,
+R-2 la swapchain DXGI y R-3 la primera salida visible mediante clear + Present.
+A partir del **Módulo 5B** la aplicación puede cargar un nivel `.DFX` real y,
+desde el **Módulo 4C**, **dibujarlo con las texturas de su `.VFX`**: el nivel
+sale texturizado en ejecución real con GPU hardware (evidencia en
+[`../docs/D3D11_FIRST_SCENE_PLAN.md`](../docs/D3D11_FIRST_SCENE_PLAN.md) §16 y
+§18). El recuento de comprobaciones de la tabla es el **verificado** en la
+suite completa (16/16, 0 fallos):
 
 | Componente | Original | Cabecera | Estado |
 | --- | --- | --- | --- |
@@ -26,10 +32,20 @@ R-2 la swapchain DXGI y R-3 la primera salida visible mediante clear + Present:
 | Núcleo de aplicación | orden de I-3 + Escape/foco | `gex/app/i4_app.h` | funcional, 117 checks |
 | Ventana Win32 | shell S6 (`0x00463091`/`0x00463278`), adaptado | `gex/platform/win32_window.h` | funcional (Windows), probada |
 | Ejecutable I-4 | — | `src/app/i4_main_win32.c` | `gexloop.exe`, ventana real |
-| Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 314 checks; hardware y WARP a FL 11_1; sin swapchain |
+| Dispositivo D3D11 (R-1) | decisión de I-5 confirmada: D3D 11 | `gex/render/d3d11_device.h` | funcional (Windows), 332 checks; hardware y WARP a FL 11_1; sin swapchain |
 | Swapchain DXGI (R-2) | `grSstWinOpen` `0x0046324D` (2 buffers de color), adaptado | `gex/render/d3d11_swapchain.h` | funcional (Windows), 572 checks; bitblt, 2 buffers, 960×540, resize; sin `Present` |
-| Renderer Direct3D 11 (R-3) | implementación del contrato `gex_renderer` | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; primera salida gráfica visible con `Present`, clear del backbuffer y render target view |
-| Estabilidad y diagnóstico R-4 | VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks; VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo entre frames | 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+| Renderer Direct3D 11 (R-3) | implementación del contrato `gex_renderer` | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks con ventana (15 en una sesion sin escritorio: la parte de
+    swapchain se omite); primera salida gráfica visible con `Present`, clear del backbuffer y render target view |
+| Estabilidad y diagnóstico R-4 | VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo | `gex/render/d3d11_renderer.h` | funcional (Windows), 145 checks con ventana (15 en una sesion sin escritorio: la parte de
+    swapchain se omite); VSync configurable, Debug Layer, diagnóstico de dispositivo, medición de tiempo entre frames | 17e0a0ca49dfbdc4fd45b0948129b7baebfd940d
+| Parser del contenedor `.DFX` | estructura del nivel, `0x0043E1BA` | `gex/asset/dfx.h` | funcional (portable), 38 855 checks con la emisión |
+| Recorrido BSP y visibilidad | `0x00401C00` → `0x00426E43` | `gex/bsp.h`, `gex/camera.h` | funcional (portable), 889 + 37 checks |
+| Emisión de polígonos y geometría | `0x0043DC3A` → `0x00426E43` → emisores | `gex/emit.h`, `gex/geometry.h` | funcional (portable), 38 855 + 6 963 checks |
+| Contenedor y decodificadores de texturas `.VFX` | `GuTexInfo`/`GuNccTable` de Glide 2.x | `gex/vfx.h`, `gex/vfx_texture.h` | funcional (portable), 3 010 checks |
+| Mallas D3D11 (vertex/index buffers) | — | `gex/render/d3d11_mesh.h` | funcional (Windows), 108 checks; hardware y WARP |
+| Pipeline de dibujo D3D11 | — | `gex/render/d3d11_pipeline.h` | funcional (Windows), 324 checks (WARP); shaders en ejecución, `DrawIndexed` |
+| Atlas de texturas D3D11 | — | `gex/render/d3d11_texture.h` | funcional (Windows); sampler lineal + WRAP, sin mipmaps |
+| Carga de un nivel real (`.DFX` + `.VFX`) | — | `gex/scene_level.h` | funcional (portable), 8 627 checks; el nivel se dibuja texturizado |
 
 No hay motor, ni lógica de juego. La ventana, el teclado, el reloj QPC, el frame loop
 y el renderizado **sí** son reales: `gexloop.exe` abre una ventana, responde a teclas,
@@ -38,7 +54,15 @@ mediante Direct3D 11. El audio sigue siendo audible por separado: `sagplay --dev
 entrega el PCM a un `IDirectSoundBuffer` real. Lo que **no** está verificado es la audición
 humana (el agente no puede oír); la confirmación por oído es del mantenedor.
 
-`gexloop` integra la primera presentación visible: `pre_frame` y `update` siguen siendo stubs, pero `present` usa Direct3D 11 para mostrar un color de limpieza en la ventana. Es un prototipo con salida gráfica, no el juego.
+`gexloop` integra la primera presentación visible: `pre_frame` y `update`
+siguen siendo stubs, pero `present` usa Direct3D 11. Sin `--level` muestra un
+color de limpieza; con `--level .../AZTEC16.DFX` carga el nivel y **lo dibuja con
+las texturas de su `.VFX`**. Sigue siendo un prototipo con salida gráfica, no el
+juego: **no hay cámara real** (el encuadre es el diagnóstico del port, y la
+validación dinámica contra el ejecutable original —S-2— sigue abierta), **no hay
+*depth buffer*** (se dibuja en el orden del painter, como el original) y la
+niebla y el *blending alfa* no se aplican todavía igual que en el original
+(nebla antes de la textura y *blending* global en vez de por polígono).
 
 ## Estructura
 

@@ -9,7 +9,7 @@
 >
 > **Actualización 2026-11-03 (mantenimiento previo a R-3):** contrato de
 > inicialización formalizado — macro `GEX_D3D11_DEVICE_INITIALIZER`, tabla
-> exacta de resultados de `init` y prueba ampliada a **314 checks** (§4.1 y
+> exacta de resultados de `init` y prueba ampliada a **332 checks** (§4.1 y
 > §6.1). El diseño y las decisiones de R-1 no cambian.
 >
 > Documentación oficial consultada (Microsoft Learn, 2026-11-02):
@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | Cabecera del dispositivo | `port/include/gex/render/d3d11_device.h` | contrato Windows-only (patrón de `backend_dsound.h`) |
 | Implementación | `port/src/render/d3d11_device.c` | `D3D11CreateDevice` + ciclo de vida COM |
-| Prueba automatizada | `port/tests/test_d3d11_device.c` | 314 checks (WARP, hardware, errores, COM, ciclo de vida, contrato de inicialización) |
+| Prueba automatizada | `port/tests/test_d3d11_device.c` | 332 checks (WARP, hardware, errores, COM, ciclo de vida, contrato de inicialización) |
 | Sonda de consola | `port/tools/d3d11probe.c` → `build/d3d11probe.exe` | informe legible por el mantenedor |
 | Build | `port/build.ps1` | `test` ejecuta la prueba; `probe` (y `all`) compilan y ejecutan la sonda |
 | `port/Makefile` | solo comentario | la pieza queda documentada como Windows-only, **no se compila en POSIX** |
@@ -184,8 +184,8 @@ con la invariante de `last_hresult`.
 
 | Compilador | Versión | Compilación | Ejecución |
 | --- | --- | --- | --- |
-| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 314 checks, 0 fallos |
-| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 314 checks, 0 fallos |
+| Clang (llvm-mingw, retcomm) | 22.1.8 (`x86_64-w64-windows-gnu`) | limpia, sin avisos con `-std=c11 -O2 -Wall -Wextra -Wpedantic` | 332 checks, 0 fallos |
+| GCC de GNU (MSYS2 mingw64) | 16.1.0 | limpia, sin avisos | 332 checks, 0 fallos |
 
 - `d3d11.h` es **idéntico por MD5** (`99543847B249FD31417E0753691591C9`) en
   llvm-mingw y en MSYS2 mingw64; `libd3d11.a` existe en ambos. No se
@@ -200,7 +200,7 @@ con la invariante de `last_hresult`.
 
 ## 6. Resultados reales de las pruebas
 
-### 6.1 Batería automatizada (314 checks)
+### 6.1 Batería automatizada (332 checks)
 
 ```text
 warp: creating D3D_DRIVER_TYPE_WARP device...
@@ -209,7 +209,7 @@ bogus flags 0xFFFFFFFF: status=create failed hr=0x80070057
 debug layer: not available (hr=0x887A002D); failure was clean
 hardware: creating D3D_DRIVER_TYPE_HARDWARE device...
 hardware: ok, feature level 11_1, flags 0x0
-314 checks, 0 failures, 0 skipped
+332 checks, 0 failures, 0 skipped
 ```
 
 Idéntico con Clang 22.1.8 y con GCC 16.1.0. Cobertura por bloques:
@@ -257,7 +257,7 @@ limpio sin recursos abiertos. Consecuencias:
 ```text
 build.ps1 all (Clang 22.1.8):
 69305 + 60052 + 215 + 410 + 826 + 117 + 1009 + 50 checks previos, 0 fallos
-314 checks, 0 failures   test_d3d11_device (actualizado)
+332 checks, 0 failures   test_d3d11_device (actualizado)
 Total: 132 298 checks, 0 fallos
 tools/m13-core: 120 checks, 0 fallos (loop_core intacto)
 tools/gexmap: 22/22

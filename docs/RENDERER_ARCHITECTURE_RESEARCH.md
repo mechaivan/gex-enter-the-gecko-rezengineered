@@ -106,7 +106,7 @@ imports+grafo; el *papel de juego* de cada una sigue siendo hipótesis):
 | `0x00424C0F` | 121 | 2 | `grBufferSwap(1)` de la ruta de arranque |
 | `0x00424D82` | 648 | 1 | `grSstQueryHardware`: sonda de hardware Glide |
 | `0x00473238` | 504 | 1 | descarga de mipmap y de nivel parcial |
-| `0x00469836` | 122 | 3 | `grTexNCCTable`: tabla de paleta |
+| `0x00469836` | 122 | 3 | `grTexNCCTable`: tabla NCC (`GuNccTable`, 112 B) |
 
 Ruta de cine (S4, también ALTA): `0x00537EA6` hace `grSstWinOpen`
 **640×480 @ 60 Hz** para película, `0x00537D70` vuelca vídeo con

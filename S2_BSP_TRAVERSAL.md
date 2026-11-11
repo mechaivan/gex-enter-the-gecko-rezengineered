@@ -33,7 +33,7 @@ validación dinámica contra el ejecutable original.
 - `test_camera` enlaza `src/bsp/bsp.c`, porque incluye la prueba de orden de
   hijos con `gex_bsp_walk`.
 - **Emisión (2026-11-11):** implementada en `include/gex/emit.h` +
-  `src/emit/emit.c` (`gex_level_emit`, §5), con **38 809 comprobaciones** en
+  `src/emit/emit.c` (`gex_level_emit`, §5), con **38 855 comprobaciones** en
   `tests/test_level_emit.c` y consumida por el Módulo 3
   (`include/gex/geometry.h` + `src/geometry/geometry.c`,
   `tests/test_geometry.c`, 6 963 comprobaciones) y por los buffers D3D11
@@ -808,7 +808,7 @@ Diferencias de seguridad/port respecto al original:
   verificar; (6) AZTEC16 se usaba como validación visual con matriz identidad.
   Se reconstruyen la prioridad de la subdivisión, los cuatro principales y los
   tres *slivers*, el gate completo, los dos registros de `0x426588`, la capa
-  `int8` y la clave `(maxz >> 2) + 4*layer`. `test_level_emit` pasa a **38 809
+  `int8` y la clave `(maxz >> 2) + 4*layer`. `test_level_emit` pasa a **38 855
   comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y
   ASan/UBSan; AZTEC16 se valida estructuralmente (815 hojas, 9609 polígonos,
   1121 triángulos cercanos y 2242 lejanos —1121 con pasada de niebla— con una
@@ -817,7 +817,7 @@ Diferencias de seguridad/port respecto al original:
 
 Cifras históricas (7, 18, 23, 44 comprobaciones) corresponden a estados
 intermedios y no son el resultado vigente. El resultado vigente es **37
-comprobaciones de BSP + 889 de cámara + 38 809 de emisión**, 0 fallos.
+comprobaciones de BSP + 889 de cámara + 38 855 de emisión**, 0 fallos.
 
 ## 7. Limitaciones
 

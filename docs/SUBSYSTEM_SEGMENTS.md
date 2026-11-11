@@ -149,7 +149,7 @@ el grafo directo: se publica como variante **no** ejecutada, no como código viv
 | `0x00424C0F` | 121 | call | 2 | sí | A G I T | ALTA | swap(1) de la ruta de arranque; ancla en +112 |
 | `0x00424D82` | 648 | call | 1 | sí | G I T | ALTA | grSstQueryHardware: sonda de hardware Glide |
 | `0x00473238` | 504 | call | 1 | sí | G I T | ALTA | descarga de mipmap y de nivel parcial |
-| `0x00469836` | 122 | call | 3 | sí | G I T | ALTA | grTexNCCTable: tabla de paleta |
+| `0x00469836` | 122 | call | 3 | sí | G I T | ALTA | grTexNCCTable: tabla NCC (`GuNccTable`, 112 B) |
 
 Sostén: son las únicas funciones de juego que llaman directamente a Glide, y
 cada una declara la API concreta. `0x0046558A` concentra `_grDrawTriangle`,

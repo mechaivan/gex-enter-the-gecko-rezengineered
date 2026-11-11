@@ -117,7 +117,7 @@ concreta falta. Ejemplos actuales: el mezclador `0x005380B3` (bucle
 > valor de relleno que hay que ignorar**). El recorrido así descrito termina
 > exactamente en el EOF de los 44 `.VFX` del inventario. El formato de la
 > textura está en `+0x0C` (valores 1, 11 y 12 en los originales); solo el
-> formato 1 sube una tabla de paleta desde `+0x14` (`grTexDownloadTable` en
+> formato 1 sube una tabla NCC desde `+0x14` (`grTexDownloadTable` en
 > `0x0046612C`) y el formato 12 activa el blending alfa
 > (`0x0046568C`). El índice de textura de 14 bits de la geometría indexa
 > esa tabla directamente (`0x00465648`). **El formato de píxel, las

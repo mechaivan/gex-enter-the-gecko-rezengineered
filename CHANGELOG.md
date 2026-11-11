@@ -2,6 +2,78 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Auditoría documental posterior al Módulo 4C: consolidación del estado real
+
+Auditoría **solo documental** (sin cambios de funcionalidad) del repositorio
+tras el commit `97c07ba` (Módulo 4C). Se corrigen afirmaciones que habían
+quedado desfasadas y se dejan explícitas las limitaciones reales.
+
+**Cifras corregidas.** El informe del Módulo 4C decía 3 010 comprobaciones de
+`test_vfx`; el `CHANGELOG.md`, el `RESEARCH.md` y
+`docs/VFX_TEXTURE_FORMAT.md` seguían con **2 968**, que era la cifra anterior
+a añadir las pruebas del banco de texturas. El valor **real y verificado** es
+**3 010** (`test_vfx: 3010 checks, 0 failures`); se ha ejecutado el código,
+no estimado. Las entradas históricas del `CHANGELOG.md` (1 668, 2 223, 2 968)
+**no se tocan**: son el registro fiel de cada commit.
+
+**Otras cifras verificadas y corregidas** (ejecutando el código, sin estimar):
+`test_level_emit` documentaba **38 809** comprobaciones y realmente hace
+**38 855**; `test_d3d11_device` documentaba **314** y hace **332**. Se han
+corregido en `docs/D3D11_FIRST_SCENE_PLAN.md`, `docs/D3D11_DEVICE.md`,
+`docs/TESTING.md`, `S2_BSP_TRAVERSAL.md`, `ROADMAP.md`, `PROJECT_STATE.md`,
+`README.md` y `port/README.md`. El renderer (R-3/R-4) documentaba **104**
+comprobaciones: la cifra real es **145** con ventana y **15** en una sesión sin
+escritorio (donde la parte de swapchain se omite), y así queda escrito. Las
+entradas históricas del `CHANGELOG.md` **no se tocan**.
+
+**Afirmaciones obsoletas corregidas**
+
+- `PROJECT_STATE.md`: el bloque "Pendiente de integración" ya no incluye la
+  creación de recursos de textura (Módulo 4C, hecho) y dice con precisión que
+  el escenario **ya se renderiza con las texturas del `.VFX`** pero **todavía no
+  con la cámara real**; el estado de los hitos marca el Hito 4 (texturas) como
+  cerrado; y el punto de R-3 a R-5 ya no afirma que "lo que sigue sin existir
+  es... texturas".
+- `docs/D3D11_FIRST_SCENE_PLAN.md`: §4.2 ("Necesitan validación") y §9.2
+  ("Pendientes expresos") seguían listando los *shaders* y el *formato NCC*
+  como pendientes; ahora se marcan como **hechos** (con la referencia a la
+  sección que lo demuestra) y se mantiene el *clipping*, el *blending* por
+  polígono y el resto como pendientes. §15.8 y §15.9 (el registro del Módulo
+  5A) se anotan como históricos y se duplicaban dos líneas idénticas
+  (`WM_SIZE` y S-2). §5 (interfaz de "escena") y §16 ya no dicen que falten
+  texturas.
+- `docs/VFX_TEXTURE_FORMAT.md`: la tabla de ficheros y §7.5 ("Pruebas
+  (reales)") reflejaban 2 968 comprobaciones.
+- `RESEARCH.md` (S-31) y `ROADMAP.md` (S-4): misma cifra obsoleta.
+- El bloque de 112 B de `+0x14` seguía llamándose "tabla de paleta" en
+  varios sitios (`docs/D3D11_FIRST_SCENE_PLAN.md` §5 y §17,
+  `PROJECT_STATE.md`, `REVERSE_ENGINEERING.md`,
+  `docs/RENDERER_ARCHITECTURE_RESEARCH.md` y `docs/SUBSYSTEM_SEGMENTS.md`, en
+  la descripción de `grTexNCCTable`): ahora es **tabla NCC** (`GuNccTable`).
+- `docs/D3D11_FIRST_SCENE_PLAN.md` §15.9 (limitaciones del Módulo 5A)
+  **duplicaba** dos líneas idénticas (`WM_SIZE` y S-2); se han eliminado.
+- `ROADMAP.md` (S-5 y S-5b) seguían diciendo "falta: texturas" y "falta:
+  carga del nivel real": ambos están hechos (Módulos 4C y 5B).
+
+**Limitaciones que se conservan explícitamente**
+
+1. La **cámara original** sigue sin validación dinámica: el encuadre es el
+   **diagnóstico** del port, no el del juego, y de ella depende el factor de
+   zoom de la UV.
+2. **No hay *depth buffer***: se sigue el orden del painter (orden de emisión),
+   como en el original.
+3. **Niebla**: se aplica dentro del color por vértice, es decir **antes** de
+   la textura; el original la aplica después, en el combinador de color.
+4. **Blending alfa**: se aplica a todo el dibujo; el original lo activa **por
+   polígono** según el formato de la textura.
+5. **S-2 sigue abierta**: la validación dinámica del recorrido BSP, la
+   visibilidad y la emisión de geometría contra el ejecutable original **no**
+   se ha hecho y no se declara hecha.
+
+`PROJECT_STATUS.svg` **no cambia**: MAIN sigue en 40 % (falta la cámara real y
+el *depth buffer*).
+
+
 ## 2026-11-11 - 0.0.0 - Módulo 4C: las texturas del `.VFX` en Direct3D 11
 
 El nivel real de AZTEC16 deja de mostrarse como una maqueta de color plano:
@@ -61,7 +133,7 @@ Documentación: `docs/D3D11_FIRST_SCENE_PLAN.md` §18 y
 
 **Pruebas**
 
-- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+- `port/tests/test_vfx.c`: **3 010 comprobaciones, 0 fallos** (`-O0`, `-O2` y
   ASan/UBSan), incluido el banco de texturas (índices válidos e inválidos,
   entradas no decodificables, contraste con los originales).
 - `port/tests/test_d3d11_pipeline.c`: **324 comprobaciones, 0 fallos** (WARP):

@@ -13,7 +13,7 @@
   - Creación/destrucción del dispositivo en modo HARDWARE/WARP
   - Feature levels 11_1→9_1 registrados
   - Contexto inmediato y manejo de COM
-  - 314 checks, 0 fallos
+  - 332 checks, 0 fallos
 
 - **R-2: Swapchain DXGI** (`gex_d3d11_swapchain`) - ✅ COMPLETADO
   - Creación sobre HWND existente de I-4
@@ -149,14 +149,22 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Opcodes:** Handlers demostrados para 0x20, 0x24, 0x28, 0x30, 0x34, 0x40/0x48/0x4C, 0xB4, 0xF0
 - **Tabla de texturas:** Índice de 14 bits → .VFX
 
-### 4.2 Necesitan Validación
+### 4.2 Necesitan Validación (estado a 2026-11-11)
 
-- **Shaders:** Necesarios para renderizar, pero no están en U-1 (fuera de alcance)
-- **Formato de texturas NCC:** Conversiones a D3D11 (requieren investigación)
+- **Shaders:** **resuelto.** Los escriben los módulos 5A y 4C: vertex/pixel
+  shader propios, compilados en ejecución con `d3dcompiler_47.dll`, con
+  muestreo de textura y modulación por el color por vértice (§14 y §18).
+- **Formato de texturas NCC:** **resuelto.** El bloque de 112 B de `+0x14` es
+  una `GuNccTable` (no una paleta) y los formatos `YIQ_422`, `ARGB_1555` y
+  `ARGB_4444` están decodificados en CPU con salida RGBA8 (§17 y §18).
 - **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
   explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
-- **Alpha blending:** Semántica no completamente documentada en U-1
+- **Alpha blending:** **parcialmente resuelto.** La semántica del blending del
+  original es `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA` y el original lo activa
+  **por polígono** según el formato de la textura; el port usa un único estado
+  de blending para todo el dibujo (con alfa 255 el resultado es idéntico). Queda
+  documentado como diferencia pendiente (§18.5 y §18.8).
 
 ---
 
@@ -332,7 +340,9 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
   - cargar el `.VFX` del nivel y construir su **tabla de texturas**, la misma
     que el original construye en `0x006488F4` desde `0x00461C32`;
   - exponer, por entrada, el formato (`+0x0C`), el bloque de datos
-    (`+0x8C`, tamaño en `+0x84`) y la tabla de paleta del formato 1 (`+0x14`);
+    (`+0x8C`, tamaño en `+0x84`) y la **tabla NCC** del formato `YIQ_422`
+    (`+0x14`, 112 B; el nombre "paleta" era erróneo y se corrigió en el
+    Módulo 4B, §17);
   - validar estrictamente ruta, cabecera, offsets, tamaños, conteos y
     multiplicaciones, liberando todo en error.
 - **Interfaz real:**
@@ -398,7 +408,8 @@ La interfaz original de esta sección (`gex_d3d11_scene.h/c` con
 `gex_d3d11_scene_load` y `gex_d3d11_scene_render`) **no existe en el port** y
 queda sustituida por la arquitectura real: el renderer R-3 (`gex_d3d11_renderer`)
 consigue una geometría opcional y la dibuja antes de cada `Present`. No hay
-un objeto "escena" porque todavía no hay materiales ni texturas.
+un objeto "escena" porque todavía no hay materiales con iluminación (las
+texturas del `.VFX` sí están, desde el Módulo 4C: §18).
 
 **5A. Pipeline de dibujo — `gex/render/d3d11_pipeline.h`, `src/render/d3d11_pipeline.c`** (Windows-only)
 
@@ -445,9 +456,11 @@ El renderer guarda la geometría como **punteros prestados** y la dibuja entre
 el `ClearRenderTargetView` y el `Present`. Si no hay geometría, el
 comportamiento es exactamente el anterior (limpiar y presentar).
 
-**Pendiente del Módulo 5:** materiales NCC, texturas del Módulo 4, estado de
-profundidad real y el `D3D11InputLayout` definitivo cuando exista la firma del
-shader de producción.
+**Pendiente del Módulo 5 (estado a 2026-11-11):** materiales NCC con
+iluminación, **estado de profundidad real** (*depth buffer*) y el
+`D3D11InputLayout` definitivo cuando exista la firma del shader de
+producción. Las **texturas del Módulo 4 ya están** (Módulo 4C, §18) y el
+nivel real ya se carga (§16): lo que queda es el material y la profundidad.
 
 ### 5.2 Orden de Implementación
 
@@ -462,8 +475,8 @@ shader de producción.
 estructural, la visibilidad de cámara y la emisión de polígonos (Módulo 2)
 están implementados y auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
-de cámara + 37 de BSP + 38 809 de emisión, 0 fallos. La **emisión de polígonos**
-también está implementada (`gex_level_emit`, §11) y auditada con 38 809
+de cámara + 37 de BSP + 38 855 de emisión, 0 fallos. La **emisión de polígonos**
+también está implementada (`gex_level_emit`, §11) y auditada con 38 855
 comprobaciones, pero le falta la validación dinámica contra el ejecutable
 original, así que no se declara cerrada.
 
@@ -517,7 +530,8 @@ variante `0x00461ECA` en §H).
   - Verificación de integridad de datos
 
 - **Renderizado básico (implementado el 2026-11-11, §14):**
-  - Dibujo de geometría sin texturas: **hecho** (color por vértice)
+  - Dibujo de geometría sin texturas: **hecho** (color por vértice); desde el
+    Módulo 4C el pipeline además **muestrea la textura** del `.VFX` (§18)
   - Validación visual simple (siluetas): pendiente de una escena real; hoy se
     comprueba **pixel a pixel** en render offscreen con WARP (posición,
     colores e interpolación)
@@ -575,7 +589,7 @@ cuando no se pasa `cam_ctx`.
 extremo en [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada,
 descriptores, proyección a píxeles de 10 bits, subdivisión, niebla, emisores,
 buckets, diferencias con modelos y con la primitiva 2D `0x4FF06F`) y se
-implementa en `gex_level_emit` (§11), con 38 809 comprobaciones. Sigue
+implementa en `gex_level_emit` (§11), con 38 855 comprobaciones. Sigue
 pendiente la validación dinámica contra el ejecutable: sin ella no se puede
 afirmar que el port reproduce el orden y los colores reales de una escena.
 
@@ -611,7 +625,9 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 - **Estado:** 🔄 PARCIAL (2026-11-11). El **Módulo 5A** ya tiene el pipeline de
   dibujo completo (§14): shaders, `ID3D11InputLayout`, estados, `DrawIndexed` y
   una geometría 3D de prueba (el cubo) visible en la ventana de la aplicación.
-  Lo que falta para cerrar el hito: **texturas** (Hito 4), *depth buffer*,
+  Lo que falta para cerrar el hito: los **materiales NCC con iluminación** y el
+*depth buffer* (las **texturas** del Hito 4 están hechas en el Módulo 4C,
+§18; el *depth buffer* y la cámara original siguen pendientes),
   blending del original y la carga del nivel real (`.DFX`) en el bucle de
   frames. **El primer escenario original no está terminado.**
 - **Objetivo:** Renderizar AZTEC16 con D3D11
@@ -666,14 +682,26 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 3. **AZTEC16 como nivel de prueba:** Completo y bien documentado
 4. **Integración con renderer existente:** Reutilizar componentes R-1 a R-4
 
-### 9.2 Pendientes Expresos
+### 9.2 Pendientes Expresos (estado a 2026-11-11)
 
-1. **Shaders:** Necesarios pero fuera del alcance de U-1
-2. **Formato NCC:** Requiere investigación adicional
+1. ~~**Shaders:** Necesarios pero fuera del alcance de U-1~~ → **hecho**
+   (Módulo 5A: vertex/pixel shader con `d3dcompiler_47.dll`; Módulo 4C: además
+   muestreo de textura y modulación por el color por vértice).
+2. ~~**Formato NCC:** Requiere investigación adicional~~ → **hecho** (Módulo 4B
+   con la auditoría correctiva: `GuNccTable`, `GR_TEXFMT_YIQ_422` /
+   `_ARGB_1555` / `_ARGB_4444` y decodificadores CPU verificados; Módulo 4C:
+   las texturas se suben a D3D11).
 3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
    `0x401C00` ya está implementado en
    [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
-4. **Alpha blending:** Semántica no completamente documentada
+4. **Alpha blending:** la semántica del original es conocida
+   (`SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA`, activada por polígono según el formato),
+   pero el port usa un estado único: queda pendiente el blending por polígono
+   (§18.8).
+5. **Materiales de producción, *depth buffer*, niebla después de la textura y
+   cámara real del juego:** siguen pendientes (§18.8). **S-2 sigue abierta**:
+   la validación dinámica del recorrido BSP, la visibilidad y la emisión contra
+   el ejecutable original no se ha hecho.
 
 ### 9.3 Evidencias Clave
 
@@ -929,7 +957,7 @@ const char *gex_emit_status_name(gex_emit_status status);
 - La geometría de modelo (`0x4013A0`, traslación `sar 4`) **no** entra en este
   módulo: tiene su propia ruta y su propio contrato.
 
-Validación actual (18.ª pasada): `port/tests/test_level_emit.c` con **38 809
+Validación actual (18.ª pasada): `port/tests/test_level_emit.c` con **38 855
 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. AZTEC16
 se comprueba de forma estructural y de determinismo (815 hojas, 9609 polígonos,
 rangos, gate, ambas rutas y repetición bit a bit), **no** visual.
@@ -1375,7 +1403,9 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
 
 - **No hay validación dinámica contra el ejecutable original**: S-2 sigue
   abierto y el primer escenario original **no** está terminado.
-- **No hay texturas ni materiales**: el Módulo 4 sigue entero; el índice de
+- ~~**No hay texturas ni materiales**~~: en esta sección (§14, el Módulo
+  5A) era así; desde el Módulo 4C **sí hay texturas** (§18) y lo que sigue
+  sin existir son los materiales con iluminación. El índice de
   textura viaja por vértice pero no se resuelve.
 - **No hay depth buffer**: el orden de las caras lo resuelve el algoritmo del
   pintor, igual que el original. Con geometría que se solape de forma
@@ -1560,21 +1590,31 @@ proyecto.
 | **Ejecución real con ventana comprobada** | **SÍ** | la aplicación se ejecutó con ventana Win32 y swapchain real: 30 frames presentados, 0 errores de frame, salida limpia |
 | **Evidencia visual confirmada** | **SÍ** | captura de la ventana real: el cubo aparece, con las tres caras y el color esperado |
 
-Lo que **no** se afirma: que esto sea una escena del juego original. La
-geometría visible es el cubo de prueba del Módulo 5A; la emisión real de S-2
-sigue sin validación dinámica contra el ejecutable y el nivel no se carga
-todavía en la aplicación.
+Lo que **no** se afirma: que esto sea una escena del juego original. En
+esta sección (§15, el Módulo 5A) la geometría visible es el cubo de prueba; la
+emisión real de S-2 sigue sin validación dinámica contra el ejecutable.
+**Actualización posterior:** el nivel real y sus texturas ya se cargan en la
+aplicación (§16 y §18), pero el encuadre sigue siendo el diagnóstico del port y
+S-2 continúa abierta.
 
 ### 15.9 Limitaciones que siguen abiertas
 
-- La geometría de la aplicación es el cubo de prueba, no un nivel: falta cargar
-  el `.DFX` y emitir su geometría en el bucle de frames.
-- El cubo es estático (buffers inmutables); animarlo exige buffers dinámicos.
-- Sin texturas, materiales NCC, *depth buffer* ni blending.
-- La ventana no se redimensiona (no hay gestión de `WM_SIZE`).
-- S-2 sigue sin validación dinámica contra el ejecutable original.
-- La ventana no se redimensiona (no hay gestión de `WM_SIZE`).
-- S-2 sigue sin validación dinámica contra el ejecutable original.
+Al cierre del Módulo 5A quedaban estas; **el estado actual es**:
+
+- ~~La geometría de la aplicación es el cubo de prueba, no un nivel~~ →
+  **cerrado por el Módulo 5B**: con `--level` se carga el `.DFX` y se dibuja su
+  geometría real (§16).
+- ~~Sin texturas~~ → **cerrado por el Módulo 4C**: las texturas del `.VFX` se
+  decodifican y se muestrean (§18).
+- El cubo es estático (buffers inmutables); animarlo exige buffers dinámicos →
+  **sigue abierto**.
+- **Sin materiales NCC con iluminación, sin *depth buffer* y con el blending
+  alfa aplicado a todo el dibujo** (el original lo activa por polígono) →
+  **sigue abierto** (§18.5 y §18.8).
+- La ventana no se redimensiona (no hay gestión de `WM_SIZE`) → **sigue
+  abierto**.
+- S-2 sigue sin validación dinámica contra el ejecutable original → **sigue
+  abierta**.
 
 ---
 
@@ -1709,7 +1749,7 @@ coherencia de índices, determinismo entre dos cargas y liberación
 idempotente).
 
 `port/tests/test_level_emit.c` sube a **38 855 comprobaciones** (antes
-38 809) con el generador de niebla público y la coherencia LUT/analítica.
+38 855) con el generador de niebla público y la coherencia LUT/analítica.
 
 Suite completa sin regresiones: `test_sag` 69 305, `test_camera` 889,
 `test_bsp` 37, `test_level_emit` 38 855, `test_geometry` 6 963,
@@ -1738,10 +1778,12 @@ evidencia local y **no se publica** en el repositorio.
 ### 16.9 Lo que sigue pendiente
 
 - **Texturas**: la imagen usa solo el color por vértice; el nivel real se ve
-  como una maqueta monocroma. El contenedor `.VFX` (Módulo 4A, §17) y el
+  como una maqueta monocroma. El contenedor `.VFX` (Módulo 4A, §17), el
   **decodificador de píxel** (Módulo 4B, con formato de píxel y dimensiones
-  demostrados) ya están implementados; falta el **Módulo 4C** (recursos D3D11
-  e integración).
+  demostrados) y los **recursos D3D11 con el muestreo de textura** (Módulo 4C,
+  §18) ya están implementados: el nivel sale texturizado. Siguen pendientes
+  los **materiales de producción**, el ***depth buffer***, el **blending por
+  polígono** y la **niebla aplicada después de la textura** (§18.8).
 - **Cámara real**: la vista es diagnóstica; falta el estado de cámara del
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
@@ -1777,7 +1819,7 @@ El documento técnico completo está en
 - **El índice de 14 bits del `.DFX` indexa esta tabla directamente**; en
   AZTEC16 los 9 609 polígonos usan los índices 0..3 sobre 260 entradas.
 - **Implementado** en `gex/vfx.h` + `src/asset/vfx.c` + `src/asset/vfx_decode.c`
-  (portable) con `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos**
+  (portable) con `port/tests/test_vfx.c`: **3 010 comprobaciones, 0 fallos**
   (`-O0`, `-O2` y ASan/UBSan).
 - **El decodificador de píxel existe** (Módulo 4B): el formato de píxel
   (`YIQ_422`, `ARGB_1555`, `ARGB_4444`), las dimensiones (LOD y aspecto de
@@ -1884,7 +1926,7 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
 
 ### 18.6 Pruebas
 
-- `port/tests/test_vfx.c`: **2 968 comprobaciones, 0 fallos** (`-O0`, `-O2` y
+- `port/tests/test_vfx.c`: **3 010 comprobaciones, 0 fallos** (`-O0`, `-O2` y
   ASan/UBSan). Incluye el banco de texturas (carga, decodificación, índices
   válidos e inválidos, entradas que no se pueden decodificar) y el contraste
   con los originales.
