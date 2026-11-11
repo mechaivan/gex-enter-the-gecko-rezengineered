@@ -110,13 +110,20 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
      (`cam+0x88` = A, `cam+0xA8` = B) y `0x0046999C` (`(M·v) sar 12`). No es
      *clipping*: no recorta geometría.
    - Recorte por coordenadas proyectadas y emisión de la lista de polígonos
-     visibles (`0x004269C2`): pendiente
+     visibles (`0x004269C2`): **implementado** en `port/src/emit/emit.c`
+     (`gex_level_emit`, §11). Produce `gex_emit_output`, una lista de
+     triángulos ya proyectados, clasificados, subdivididos, con niebla aplicada
+     y ordenados. La validación dinámica contra el ejecutable original sigue
+     pendiente.
 
 3. **Generación de Buffers**
-   - Conversión de vértices (12B): los datos son vértices; el descriptor
-     (D3D11_INPUT_ELEMENT_DESC) define cómo interpreta D3D11 esos datos
-   - Generación de índices para triángulos
-   - Creación de vertex/index buffers en D3D11
+   - Conversión de `gex_emit_output` a vértices e índices: **implementada** en
+     `port/src/geometry/geometry.c` (§12), portable y sin D3D11
+   - Creación de vertex/index buffers en D3D11: **implementada** en
+     `port/src/render/d3d11_mesh.c` (§13), Windows-only
+   - El `D3D11_INPUT_ELEMENT_DESC` y el `ID3D11InputLayout` **no** se crean
+     todavía: necesitan la firma de un shader (Módulo 5). El layout de 28 B está
+     fijado con constantes `GEX_VERTEX_OFFSET_*` y `_Static_assert`
 
 4. **Materiales y Texturas**
    - Carga de .VFX: tabla de texturas en `0x006488F4`
@@ -241,31 +248,73 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   void gex_bsp_walk_free(gex_bsp_walk_result *r);
   ```
 
-#### Módulo 3: Generador de Buffers D3D11 (`gex_buffer_builder.h/c`)
-- **Responsabilidades:**
-  - Convertir vértices DFX a formato D3D11
-  - Generar índices para triángulos
-  - Crear vertex/index buffers
-- **Estructuras de datos:**
-  ```c
-  typedef struct {
-      ID3D11Buffer *vertex_buffer;
-      ID3D11Buffer *index_buffer;
-      uint32_t vertex_count;
-      uint32_t index_count;
-      D3D11_INPUT_ELEMENT_DESC *input_layout;
-      uint32_t input_layout_count;
-  } gex_mesh_buffers;
-  ```
-- **Interfaz:**
-  ```c
-  gex_buffer_status gex_buffers_build_from_polygons(
-      ID3D11Device *device,
-      const gex_visible_polygon_list *polygons,
-      const float *vertices,
-      const int16_t *normals,
-      gex_mesh_buffers *out);
-  ```
+#### Módulo 3: Generador de geometría y buffers D3D11 — IMPLEMENTADO (2026-11-11)
+
+Se implementó en **dos módulos separados**, no en un `gex_buffer_builder.h/c`
+único: la conversión es portable y la creación de recursos es Windows-only.
+El diseño original de esta sección (que partía de `gex_visible_polygon_list`,
+`vertices` y `normals` en crudo) quedó obsoleto cuando `gex_level_emit` pasó a
+ser la entrada real: los triángulos ya llegan proyectados, con color por
+vértice, UV, textura, capa, flags y niebla aplicada.
+
+##### 3a. Conversión portable — `gex/geometry.h`, `src/geometry/geometry.c`
+
+```c
+typedef struct {
+    float    x, y, z;   /* píxeles proyectados + profundidad de emisión */
+    uint32_t color;     /* AARRGGBB por vértice (niebla ya aplicada)        */
+    float    u, v;      /* UV normalizadas 0..1 desde bytes 0..255           */
+    uint16_t texture;   /* índice de textura del registro UV (14 bits)       */
+    int8_t   layer;     /* byte[uv+0x0B] con signo                           */
+    uint8_t  flags;     /* GEX_EMIT_F_* del triángulo de origen              */
+} gex_vertex;           /* 28 B, sin relleno                                 */
+
+typedef struct {
+    gex_vertex *vertices;
+    uint32_t   *indices;
+    size_t      vertex_count;
+    size_t      index_count;      /* 3 * triangle_count */
+    size_t      triangle_count;
+    size_t      skipped_clipped;  /* GEX_EMIT_F_DEPTH_CLIPPED descartados */
+} gex_geometry;
+
+gex_geom_status gex_geometry_build(const gex_emit_output *emit,
+                                   gex_geometry *out);
+void gex_geometry_free(gex_geometry *geom);
+const char *gex_geom_status_name(gex_geom_status status);
+```
+
+Estados: `GEX_GEOM_OK`, `GEX_GEOM_ERR_ARG`, `GEX_GEOM_ERR_RANGE`,
+`GEX_GEOM_ERR_NOMEM`, `GEX_GEOM_ERR_OVERFLOW`.
+
+##### 3b. Recursos D3D11 — `gex/render/d3d11_mesh.h`, `src/render/d3d11_mesh.c`
+
+```c
+typedef struct gex_d3d11_mesh {
+    ID3D11Buffer *vertex_buffer;
+    ID3D11Buffer *index_buffer;
+    UINT          vertex_count, index_count;
+    UINT          vertex_stride;   /* GEX_VERTEX_STRIDE = 28 */
+    UINT          index_stride;    /* 2 o 4                  */
+    DXGI_FORMAT   index_format;    /* R16_UINT o R32_UINT    */
+    UINT          vertex_buffer_bytes, index_buffer_bytes;
+    HRESULT       last_hresult;
+    int           initialized;
+} gex_d3d11_mesh;
+
+gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
+                                            const gex_geometry *geom,
+                                            gex_d3d11_mesh *mesh);
+gex_d3d11_mesh_status gex_d3d11_mesh_create_from_emit(
+    ID3D11Device *device, const gex_emit_output *emit, gex_d3d11_mesh *mesh);
+void gex_d3d11_mesh_destroy(gex_d3d11_mesh *mesh);
+const char *gex_d3d11_mesh_status_name(gex_d3d11_mesh_status status);
+```
+
+No se crea `D3D11_INPUT_ELEMENT_DESC` ni `ID3D11InputLayout`: requieren la firma
+del shader, que pertenece al Módulo 5. El layout queda descrito por
+`GEX_VERTEX_OFFSET_POSITION/COLOR/UV/TEXTURE/LAYER/FLAGS` y verificado con
+`_Static_assert`. Detalles y decisiones: §12 y §13.
 
 #### Módulo 4: Cargador de Texturas (`gex_texture_loader.h/c`)
 - **Responsabilidades:**
@@ -328,15 +377,22 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 4. **Módulo 4: Cargador de Texturas** - Recursos para renderizado
 5. **Módulo 5: Integración** - Punto de entrada completo
 
-**Estado real (2026-11-10):** el parser DFX (Módulo 1) está implementado en
+**Estado real (2026-11-11):** el parser DFX (Módulo 1) está implementado en
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
 estructural y la visibilidad de cámara (Módulo 2) están implementados y
 auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
-de cámara + 37 de BSP, 0 fallos. La emisión de polígonos sigue pendiente, y con
-ella la integración del culling en un pipeline real. Los Módulos 3 (generador
-de buffers D3D11), 4 (cargador de texturas) y 5 (integración con renderer)
-siguen pendientes. La investigación de la carga `.DFX` está cerrada
+de cámara + 37 de BSP, 0 fallos. La **emisión de polígonos** también está
+implementada (`gex_level_emit`, §11) y auditada con 38 809 comprobaciones, pero
+le falta la validación dinámica contra el ejecutable original, así que no se
+declara cerrada.
+
+El **Módulo 3 está implementado en sus dos mitades**: la conversión portable
+`gex_emit_output → gex_geometry` (§12) y la creación de vertex/index buffers
+D3D11 (§13), con 6 963 y 108 comprobaciones respectivamente. Lo que **no**
+existe todavía es el `ID3D11InputLayout`, los shaders y el dibujo: el Módulo 4
+(cargador de texturas) y el Módulo 5 (integración con renderer) siguen
+pendientes. La investigación de la carga `.DFX` está cerrada
 ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
@@ -356,10 +412,16 @@ variante `0x00461ECA` en §H).
   - Selección correcta de polígonos visibles
   - Validación con datos conocidos de AZTEC16
 
-- **Generador de Buffers:**
-  - Conversión correcta de vértices (12B → D3D11)
-  - Generación de índices para triángulos
-  - Creación exitosa de buffers en D3D11
+- **Generador de Buffers (implementado, §12 y §13):**
+  - Conversión exacta de cada triángulo emitido a tres vértices de 28 B con
+    posición, profundidad, color, UV, textura, capa y flags
+  - Índices correctos para todos los triángulos, incluidas subdivisiones y
+    pasadas de niebla
+  - Deduplicación exacta y determinista por igualdad de los 28 B
+  - Triángulos clipeados por profundidad descartados y contados
+  - Creación real de `ID3D11Buffer` de vértices e índices con WARP y hardware
+  - Errores: punteros nulos, conteos incoherentes, overflow, fallo de reserva,
+    índice fuera de rango, doble creación y liberación repetida
 
 - **Cargador de Texturas:**
   - Parseo correcto de .VFX
@@ -401,45 +463,58 @@ variante `0x00461ECA` en §H).
   - Tests unitarios: cobertura de los casos documentados
 
 ### Hito 2: Recorrido BSP Funcional
-- **Estado:** 🔄 PARCIAL (2026-11-10). Recorrido estructural y visibilidad de
-  cámara implementados y auditados en `port/`
+- **Estado:** 🔄 PARCIAL (2026-11-11). Recorrido estructural, visibilidad de
+  cámara **y emisión de polígonos** implementados y auditados en `port/`
   ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); la **ruta de
-  emisión de polígonos está reconstruida con evidencia estática** (§5 del primer
-  documento) pero **no implementada**, por lo que el hito no se declara
-  completo.
+  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); falta la
+  **validación dinámica contra el ejecutable original**, por lo que el hito no
+  se declara completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
   lista de polígonos visibles.
 - **Criterio de éxito:**
   - Recorrido completo del árbol BSP (estructural: hecho)
-  - Lista de polígonos visibles generada (pendiente: implementar emisión a
-    partir de la especificación de §5)
-  - Validación con nodos conocidos de AZTEC
+  - Lista de polígonos visibles generada (`gex_level_emit`, §11: hecho a nivel
+    estático y estructural)
+  - Validación con nodos conocidos de AZTEC (estructural: hecho; dinámica contra
+    el ejecutable: pendiente)
 
-**Estado 2026-11-10:** recorrido estructural implementado en `port/`
+**Estado 2026-11-11:** recorrido estructural implementado en `port/`
 (`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con predicado
 NULL. La visibilidad original (cámara) está implementada en
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) — prueba de esfera
 contra 6 semiplanos con matrices A/B y orden de apilado — y auditada contra el
 desensamblado: 889 comprobaciones de cámara + 37 de BSP, 0 fallos, integradas
-en `build.ps1 test` y `make test`. No hay emisión ni validación dinámica contra
-el ejecutable; `port/` sigue usando el predicado inyectado cuando no se pasa
-`cam_ctx`.
+en `build.ps1 test` y `make test`. `port/` sigue usando el predicado inyectado
+cuando no se pasa `cam_ctx`.
 
-**Emisión (2026-11-10):** la ruta está descrita de extremo a extremo en
-[`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada, descriptores,
-proyección a píxeles de 10 bits, subdivisión, niebla, emisores, buckets,
-diferencias con modelos y con la primitiva 2D `0x4FF06F`). Es documentación, no
-código: el Módulo 3 (generador de buffers) sigue sin implementar y debe usar
-§5.12 como especificación de entrada.
+**Emisión (implementada el 2026-11-11):** la ruta está descrita de extremo a
+extremo en [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada,
+descriptores, proyección a píxeles de 10 bits, subdivisión, niebla, emisores,
+buckets, diferencias con modelos y con la primitiva 2D `0x4FF06F`) y se
+implementa en `gex_level_emit` (§11), con 38 809 comprobaciones. Sigue
+pendiente la validación dinámica contra el ejecutable: sin ella no se puede
+afirmar que el port reproduce el orden y los colores reales de una escena.
 
 
 ### Hito 3: Buffers D3D11 Generados
+- **Estado:** ✅ IMPLEMENTADO (2026-11-11) en lo que el hito pedía —conversión y
+  creación de buffers—, con una corrección de criterio: el objetivo «3 882
+  vértices» describía el **vertex buffer del nivel completo**, no lo que produce
+  la emisión. `gex_level_emit` emite triángulos ya transformados, y la
+  deduplicación exacta reduce 6 726 esquinas a 3 918 vértices en AZTEC16 con la
+  cámara sintética de prueba. Las 3 882 entradas de la tabla de vértices DFX son
+  otra cosa (la fuente sin proyectar) y no se usan como vértices de dibujo.
 - **Objetivo:** Convertir geometría a buffers D3D11
 - **Criterio de éxito:**
-  - Vertex buffer creado con 3,882 vértices
-  - Index buffer creado con índices correctos
-  - Tests de conversión: 100% precisión
+  - Vertex buffer creado con los vértices de la geometría emitida (hecho:
+    3 918 en AZTEC16 con la cámara de prueba)
+  - Index buffer creado con índices correctos (hecho: 6 726 índices, todos en
+    rango, verificados también por lectura de vuelta desde la GPU)
+  - Tests de conversión: exactitud bit a bit verificada (6 963 comprobaciones
+    portables + 108 de D3D11, 0 fallos)
+- **Lo que este hito no incluye:** shaders, `ID3D11InputLayout`, texturas y
+  `DrawIndexed`. Los buffers existen y son verificables; **no hay renderizado
+  visible**.
 
 ### Hito 4: Texturas Cargadas
 - **Objetivo:** Cargar .VFX y crear texturas D3D11
@@ -521,28 +596,27 @@ código: el Módulo 3 (generador de buffers) sigue sin implementar y debe usar
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: implementar la emisión de polígonos de S-2 (lista de hojas
-visibles → polígonos) y, después, el Módulo 3 (Generador de Buffers D3D11).**
+**Siguiente paso: el Módulo 4 (carga y conversión de texturas `.VFX`) y, con
+él, la firma de shader que permite crear el `ID3D11InputLayout` del Módulo 5.**
 
-- **Prerrequisito real:** la visibilidad de cámara ya está implementada y
-  auditada, pero la emisión de polígonos sigue pendiente; sin ella no existe la
-  lista de polígonos visibles que alimenta al Módulo 3. También falta la
-  validación dinámica contra el ejecutable original.
-- **Objetivo específico del Módulo 3:** implementar
-  `gex_buffers_build_from_polygons` para convertir los vértices DFX (12 B) en
-  datos de vértice e índice y crear los buffers D3D11 correspondientes.
-- **Criterios de éxito:**
-  - Vertex buffer creado con 3 882 vértices de AZTEC16
-  - Index buffer creado con índices correctos a partir de polígonos visibles
-  - Tests de conversión: 100 % precisión
-- **Prerrequisitos:** Parser DFX (implementado), Recorrido BSP estructural
-  (implementado) y visibilidad de cámara implementada
-  ([`S2_CAMERA_VISIBILITY.md` §6](../S2_CAMERA_VISIBILITY.md)); la emisión de
-  polígonos sigue sin implementarse.
-- **Pruebas unitarias incluidas:** Validación de estructura de buffers, conteos de vértices/índices.
+- **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión de
+  polígonos (Módulo 2, §11) y el Módulo 3 completo —conversión portable (§12) y
+  vertex/index buffers D3D11 (§13)—. Los buffers se crean y se verifican por
+  lectura de vuelta con WARP y con hardware.
+- **Lo que falta antes de ver píxeles:** los shaders (no documentados en U-1), la
+  carga `.VFX`/NCC, el `ID3D11InputLayout` derivado de la firma del shader, la
+  configuración del pipeline y el `DrawIndexed` en el renderer R-3.
+- **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la tabla
+  de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
+  `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
+  ventanas.
+- **Sigue pendiente y no se declara cerrado:** la validación dinámica de S-2
+  contra el ejecutable original. Mientras no exista, la emisión es
+  «reconstruida y coherente», no «demostrada idéntica».
 
-Este hito conecta la geometría BSP con D3D11 y es el fundamento para los Módulos 4
-(cargador de texturas) y 5 (integración con renderer).
+El Módulo 3 deja la geometría lista para ese dibujo: cada vértice lleva
+posición, profundidad, color, UV, textura, capa y flags, y los índices cubren
+todos los triángulos emitidos, incluidas subdivisiones y pasadas de niebla.
 
 ---
 
@@ -770,3 +844,246 @@ rangos, gate, ambas rutas y repetición bit a bit), **no** visual.
 - El generador de `byte[uv+0x0B]`; se transporta tal cual desde la imagen.
 - La equivalencia bit a bit de las tablas trigonométricas.
 - El modo de mezcla Glide del prefijo `0xE1`.
+
+---
+
+## 12. Módulo 3a: conversión portable `gex_emit_output` → geometría (2026-11-11)
+
+Implementado en `port/include/gex/geometry.h` y `port/src/geometry/geometry.c`.
+Pruebas en `port/tests/test_geometry.c`. Sin Windows, sin D3D11, sin Win32 y sin
+Glide: solo C11, `stdint.h`, `stddef.h`, `stdlib.h` y `string.h`.
+
+### 12.1 Entrada real
+
+La entrada **no** es la tabla de vértices DFX (12 B) ni `gex_visible_polygon_list`
+(el diseño original de §5.1, ya obsoleto): es el `gex_emit_output` que produce
+`gex_level_emit` (§11). Cada `gex_emit_triangle` llega con:
+
+- `x[3]`, `y[3]`: píxeles proyectados de 10 bits ya recortados/gateados
+- `z[3]`: profundidad de emisión (`int32`, en `[near_z, 0xFFFF]` si el triángulo
+  fue aceptado)
+- `color[3]`: AARRGGBB por vértice, con la niebla ya mezclada cuando corresponde
+- `u[3]`, `v[3]`: bytes 0..255 del registro UV
+- `texture`: índice de 14 bits, `layer`: `int8_t`, `flags`: `GEX_EMIT_F_*`
+
+No se recalcula nada: la conversión es de representación, no de geometría. El
+resultado de `gex_level_emit` no se altera.
+
+### 12.2 Vértice
+
+`gex_vertex` mide **28 B y no tiene relleno**. El layout es el contrato:
+
+| Offset | Campo | Tipo | Contenido |
+|-------:|-------|------|-----------|
+| 0  | `x, y, z` | `float` | píxeles proyectados + profundidad |
+| 12 | `color` | `uint32_t` | AARRGGBB por vértice |
+| 16 | `u, v` | `float` | UV normalizadas 0..1 |
+| 24 | `texture` | `uint16_t` | índice de textura |
+| 26 | `layer` | `int8_t` | capa con signo |
+| 27 | `flags` | `uint8_t` | `GEX_EMIT_F_*` del triángulo de origen |
+
+Constantes públicas: `GEX_VERTEX_STRIDE` (28) y `GEX_VERTEX_OFFSET_POSITION`,
+`_COLOR`, `_UV`, `_TEXTURE`, `_LAYER`, `_FLAGS`. `geometry.c` las verifica con
+`_Static_assert` sobre `sizeof` y `offsetof`, así que un cambio de ABI rompe la
+compilación en vez de corromper la GPU.
+
+**Por qué `z` es `float`:** los triángulos aceptados tienen profundidad en
+`[near_z, 0xFFFF]`, muy por debajo de 2^24, así que la conversión `int32 →
+float` es exacta y reversible. La profundidad no se usa para el *depth buffer*
+todavía (eso necesita la proyección del Módulo 5), pero se conserva para no
+perder información en fases posteriores.
+
+**Por qué `u`/`v` se normalizan:** el registro UV original guarda bytes 0..255.
+`byte / 255.0f` es exacto en binario para esos valores y `round(u * 255)`
+recupera el byte original; la prueba lo comprueba esquina por esquina.
+
+### 12.3 Índices y deduplicación
+
+`indices` es siempre `uint32_t` y `index_count == 3 * triangle_count`. El módulo
+D3D11 decide después el formato real (`R16_UINT` o `R32_UINT`).
+
+La deduplicación es **exacta**: dos esquinas comparten vértice solo si sus 28 B
+son idénticos (`memcmp`), con hash FNV-1a y tabla abierta de potencia de dos y
+carga ≤ 0.5. Es determinista por construcción: el primer vértice visto fija su
+índice y el orden del vertex buffer, y el index buffer conserva el orden de
+emisión. Una segunda conversión de la misma entrada produce índices idénticos
+byte a byte (comprobado con AZTEC16).
+
+Consecuencia práctica en AZTEC16 (cámara sintética de prueba): 2 242 triángulos
+emitidos → 6 726 índices y **3 918 vértices** en vez de 6 726 esquinas. No se
+duplica geometría y no se fusiona nada que difiera en color, UV, textura, capa
+o flags.
+
+### 12.4 Triángulos clipeados
+
+Los triángulos con `GEX_EMIT_F_DEPTH_CLIPPED` se **descartan** y se cuentan en
+`skipped_clipped`. El contrato de `gex_emit_project` (§11.4) obliga al llamador
+a saltarlos, y sus `x`/`y` valen 0: dibujarlos sería geometría falsa en el
+origen de la pantalla.
+
+### 12.5 Validación y errores
+
+Antes de reservar se comprueba, en este orden:
+
+| Condición | Resultado |
+|-----------|-----------|
+| `out == NULL` | `GEX_GEOM_ERR_ARG` |
+| `emit == NULL` | `GEX_GEOM_ERR_ARG` |
+| `count > 0 && tris == NULL` | `GEX_GEOM_ERR_ARG` |
+| `count > capacity` | `GEX_GEOM_ERR_RANGE` |
+| `count == 0` | `GEX_GEOM_OK` vacío, punteros `NULL` |
+| `count > SIZE_MAX/3` | `GEX_GEOM_ERR_OVERFLOW` |
+| `count*3 > UINT32_MAX` | `GEX_GEOM_ERR_OVERFLOW` |
+| `count*3` no cabe en bytes | `GEX_GEOM_ERR_OVERFLOW` |
+| tabla hash no representable | `GEX_GEOM_ERR_OVERFLOW` |
+| `malloc` falla | `GEX_GEOM_ERR_NOMEM` |
+
+Ninguna multiplicación se calcula antes de comprobar que no desborda. En
+cualquier error `out` queda a cero: nunca hay memoria a medias ni punteros
+colgantes. `gex_geometry_free` es idempotente y tolera `NULL`.
+
+`gex_geometry_build` **no** consulta `emit->overflow`: una lista truncada sigue
+siendo coherente, y quien la construyó ya recibió `GEX_EMIT_ERR_OVERFLOW`.
+
+### 12.6 Pruebas
+
+`port/tests/test_geometry.c` — **6 963 comprobaciones, 0 fallos** con
+`-DGEX_GEOM_TEST_FAULT_INJECT`; 6 952 sin él (se omiten las de inyección de
+fallo). Ejecutado en Clang `-O0`, `-O2` y `-O1 -fsanitize=address,undefined`
+con `-fno-sanitize-recover=all`. Grupos:
+
+1. **Un triángulo:** los 9 atributos de las 3 esquinas, índices `0,1,2`,
+   reversibilidad de UV.
+2. **Varios triángulos:** orden de índices, reutilización de vértices, conteos.
+3. **Clipeados:** se saltan, se cuentan, no entran vértices con `x=y=0`; todo
+   clipeado → geometría vacía válida.
+4. **Pasada de niebla:** el registro principal y la pasada de niebla del mismo
+   triángulo **no** se fusionan (colores y `GEX_EMIT_F_FOG_PASS` distintos).
+5. **Subdivisión real** (`gex_emit_subdivide`): 4 principales + 1 *sliver*, todos
+   con `GEX_EMIT_F_SUBDIVIDED`.
+6. **Extremo a extremo** con una imagen DFX sintética: emisor lejano (principal
+   + niebla, 2 triángulos, 6 vértices) y subdivisión (4 triángulos, sin niebla).
+7. **Entrada vacía y argumentos nulos**, incluidos nombres de estado y valores
+   desconocidos.
+8. **Límites y overflow:** `count > capacity`, `count*3` no representable,
+   `count*3 > UINT32_MAX`, tabla hash no representable.
+9. **Fallo de reserva inyectado:** las tres reservas fallan por turno; `out`
+   queda a cero y liberar es seguro.
+10. **Liberación repetida** y estructuras ya a cero.
+11. **AZTEC16 real** (solo lectura): 2 242 triángulos, 1 121 de niebla, 3 918
+    vértices, 6 726 índices, todos en rango, y determinismo bit a bit del index
+    buffer entre dos conversiones.
+
+---
+
+## 13. Módulo 3b: vertex/index buffers D3D11 (2026-11-11)
+
+Implementado en `port/include/gex/render/d3d11_mesh.h` y
+`port/src/render/d3d11_mesh.c`. Pruebas en `port/tests/test_d3d11_mesh.c`.
+Windows-only, igual que `d3d11_device.h`: el código portable no incluye la
+cabecera y el `Makefile` POSIX no compila la fuente.
+
+### 13.1 Alcance exacto
+
+**Hace:** crea un `ID3D11Buffer` de vértices y otro de índices a partir de una
+`gex_geometry` ya convertida, valida la geometría, elige el formato de índice y
+libera todo en `destroy`.
+
+**No hace:** no crea shaders, ni `D3D11_INPUT_ELEMENT_DESC`, ni
+`ID3D11InputLayout`, ni texturas, ni samplers, ni constant buffers, ni llama a
+`IASetVertexBuffers`/`DrawIndexed`. Los buffers existen y son verificables;
+**no hay renderizado visible**.
+
+### 13.2 Estructura
+
+```c
+typedef struct gex_d3d11_mesh {
+    ID3D11Buffer *vertex_buffer;
+    ID3D11Buffer *index_buffer;
+    UINT          vertex_count, index_count;
+    UINT          vertex_stride;        /* 28 */
+    UINT          index_stride;         /* 2 o 4 */
+    DXGI_FORMAT   index_format;         /* R16_UINT o R32_UINT */
+    UINT          vertex_buffer_bytes, index_buffer_bytes;
+    HRESULT       last_hresult;         /* S_OK o el fallo de CreateBuffer */
+    int           initialized;          /* 1 = vivo */
+} gex_d3d11_mesh;
+```
+
+`GEX_D3D11_MESH_INITIALIZER` produce exactamente el mismo estado que
+`memset(&mesh, 0, sizeof mesh)` salvo `last_hresult = S_OK`, que en cero también
+es `S_OK` (0). `destroy` devuelve la estructura a ese estado, así que se puede
+reutilizar y una segunda llamada es un no-op.
+
+### 13.3 Decisiones
+
+1. **`D3D11_USAGE_IMMUTABLE`, sin acceso de CPU.** La geometría de un nivel no
+   cambia por frame; inmutable es el uso más barato y el que menos puede
+   romperse. `BindFlags` es `VERTEX_BUFFER` o `INDEX_BUFFER` según el buffer.
+2. **Formato de índice automático.** `vertex_count <= 65536` →
+   `DXGI_FORMAT_R16_UINT` (índices 0..65535 caben); por encima,
+   `DXGI_FORMAT_R32_UINT`. La conversión a 16 bits se hace en un bloque temporal
+   que se libera siempre, y solo después de validar que todo índice está en
+   rango.
+3. **Validación antes de crear nada.** Se rechaza la geometría vacía, los
+   punteros nulos con conteos > 0, `index_count % 3 != 0`, cualquier índice
+   `>= vertex_count`, y cualquier tamaño que no quepa en `UINT` o que desborde
+   `size_t`.
+4. **Sin fugas en error.** Si falla el buffer de índices se libera el de vértices
+   antes de devolver; si falla la reserva temporal no se crea nada.
+5. **`BAD_STATE` protege un mesh vivo.** Un segundo `create` sobre un mesh
+   inicializado devuelve error y no toca ni un campo: el llamador debe destruir
+   primero. Así un fallo de doble creación no filtra dos buffers.
+6. **`create_from_emit`** encadena `gex_geometry_build` + `create` y libera
+   siempre la geometría intermedia. Los errores de conversión se traducen a
+   `BAD_GEOMETRY` (argumentos/conteos) o `OUT_OF_MEMORY` (reserva), con
+   `last_hresult = S_OK`.
+
+### 13.4 Estados
+
+| Estado | Significado |
+|--------|-------------|
+| `GEX_D3D11_MESH_OK` | ambos buffers creados |
+| `GEX_D3D11_MESH_BAD_ARGUMENT` | device, geometry o mesh nulos |
+| `GEX_D3D11_MESH_BAD_STATE` | el mesh ya estaba inicializado |
+| `GEX_D3D11_MESH_BAD_GEOMETRY` | vacía, conteos o índices inválidos, tamaño no representable |
+| `GEX_D3D11_MESH_BUFFER_FAILED` | `CreateBuffer` falló; el `HRESULT` está en `last_hresult` |
+| `GEX_D3D11_MESH_OUT_OF_MEMORY` | falló la reserva temporal de índices de 16 bits |
+
+### 13.5 Pruebas
+
+`port/tests/test_d3d11_mesh.c` — **108 comprobaciones, 0 fallos** en Clang
+`-O0` y `-O2`, con `-Wall -Wextra -Wpedantic` y sin warnings. Sin ventanas, sin
+swapchain y sin demos interactivas.
+
+1. **Nombres de estado** y contrato del inicializador (idéntico a cero,
+   `destroy` de un mesh inicial es no-op, `destroy(NULL)` seguro).
+2. **WARP** (el rasterizador software de Windows): 3 triángulos → 9 vértices y
+   9 índices; se comprueban `ByteWidth`, `Usage`, `BindFlags` y
+   `CPUAccessFlags` con `GetDesc`, y el **contenido exacto** copiando cada buffer
+   a un *staging* y leyéndolo: los 28 B de cada vértice y los índices son los
+   convertidos, con color, UV, textura, capa y flags intactos.
+3. **Frontera de formato de índice:** 65 536 vértices → `R16_UINT` con
+   `0xFFFF` leído de vuelta; 65 537 → `R32_UINT` con `0x10000` leído de vuelta.
+4. **Errores:** punteros nulos, geometría vacía, punteros nulos con conteos > 0,
+   `index_count` no múltiplo de 3, índice fuera de rango, doble creación
+   (`BAD_STATE` con el mesh intacto) y `create_from_emit` con conteos
+   incoherentes y con lista vacía.
+5. **Hardware** cuando el runtime lo permite; en esta máquina se obtuvo
+   *feature level* 11_1 y los buffers se crearon también en hardware. Si el
+   runtime lo rechazara, la prueba imprime el límite y omite el bloque (nunca un
+   aprobado falso).
+6. **AZTEC16 real:** 2 242 triángulos, 3 918 vértices y 6 726 índices →
+   vertex buffer de 109 704 B y index buffer de 13 452 B, creados con WARP, con
+   los índices leídos de la GPU comprobados uno a uno contra la conversión.
+
+### 13.6 Lo que sigue sin poder afirmarse
+
+- Que la escena se **vea**: no hay shaders, ni input layout, ni pipeline, ni
+  `DrawIndexed`.
+- Que la emisión sea **idéntica** al ejecutable: falta la validación dinámica
+  de S-2.
+- Que las texturas estén resueltas: el índice de 14 bits se transporta por
+  vértice, pero el `.VFX`/NCC no se carga (Módulo 4).
+- Que el *depth buffer* use `z`: la profundidad se conserva por vértice, pero su
+  transformación a espacio de proyección pertenece al Módulo 5.

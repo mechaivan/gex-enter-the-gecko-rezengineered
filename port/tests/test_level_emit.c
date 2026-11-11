@@ -54,7 +54,7 @@ static gex_emit_fog fog_with_lut(int16_t total_z, int16_t none_z) {
     if (A > lim) A = lim;
     if (A < -lim) A = -lim;
     f.lut[0] = 0;
-    for (uint32_t i = 1; i < 3464u; i += 4) {
+    for (uint32_t i = 1; i < 0x3620u; i += 4) {
         /* reproducir shl de x86 sobre A con signo sin UB de C */
         int32_t ash = (int32_t)((uint32_t)A << 12);
         int32_t v = B + (ash / (int32_t)i);

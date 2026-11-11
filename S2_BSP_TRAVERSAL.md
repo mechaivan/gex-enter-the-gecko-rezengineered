@@ -32,6 +32,14 @@ validación dinámica contra el ejecutable original.
   `clang -DGEX_BSP_TEST_FAULT_INJECT -std=c11 -O2 -Wall -Wextra -Wpedantic -I include tests/test_bsp.c src/bsp/bsp.c src/camera/camera.c src/asset/dfx.c src/asset/sag.c -lm -o test_bsp`
 - `test_camera` enlaza `src/bsp/bsp.c`, porque incluye la prueba de orden de
   hijos con `gex_bsp_walk`.
+- **Emisión (2026-11-11):** implementada en `include/gex/emit.h` +
+  `src/emit/emit.c` (`gex_level_emit`, §5), con **38 809 comprobaciones** en
+  `tests/test_level_emit.c` y consumida por el Módulo 3
+  (`include/gex/geometry.h` + `src/geometry/geometry.c`,
+  `tests/test_geometry.c`, 6 963 comprobaciones) y por los buffers D3D11
+  (`include/gex/render/d3d11_mesh.h`, `tests/test_d3d11_mesh.c`, 108
+  comprobaciones). Sigue **pendiente la validación dinámica contra el ejecutable
+  original**: S-2 no se declara completo.
 
 ## 2. Nodo BSP (0x20 B)
 
@@ -487,7 +495,11 @@ una **línea 2D** de 0x14 B (opcode `0x40`) en el bucket 0 del pool
 
 ### 5.12 Qué necesita un generador de buffers D3D11
 
-Requisitos derivados de la evidencia anterior (no implementados):
+Requisitos derivados de la evidencia anterior. **Estado (2026-11-11):** los ocho
+puntos están cubiertos por `gex_level_emit` (`port/src/emit/emit.c`) y su
+consumidor `gex_geometry_build` (`port/src/geometry/geometry.c`), salvo el
+*depth buffer* y el `CullMode`, que pertenecen al Módulo 5. Se conserva el
+enunciado porque fija qué debe transportar la emisión y por qué.
 
 1. **Transformación**: la matriz de emisión `*[cam+0xE0]` (3×3 Q12 row-major
    + traslación `int32`, §5.14) y la proyección entera de §5.5. Para D3D11
@@ -513,6 +525,30 @@ Requisitos derivados de la evidencia anterior (no implementados):
    0x34 por polígono y puede desbordar al subdividir).
 8. **Culling por flags**: `0x8000` (oculto) y `0x0004` (forzar sólido) deben
    respetarse; el resto de bits no tiene consumidor en esta ruta.
+
+**Qué hace el consumidor con estos requisitos (Módulo 3, 2026-11-11):** la
+transformación, el *culling* 2D, la subdivisión, el color por vértice, la niebla
+y el orden ya los resuelve `gex_level_emit`; el generador de geometría no
+recalcula nada de eso. `gex_geometry_build` transporta **tal cual** `x/y/z`,
+`color`, `u/v`, `texture`, `layer` y `flags` de cada esquina a un `gex_vertex`
+de 28 B, deduplica por igualdad exacta de esos 28 B y emite un índice por
+esquina en el orden de emisión (que es el orden de dibujo decidido en §5.9). Los
+triángulos marcados `GEX_EMIT_F_DEPTH_CLIPPED` —cuyas `x`/`y` valen 0 por
+contrato— se descartan y se cuentan, en vez de dibujarse en el origen de la
+pantalla. `gex_d3d11_mesh_create` convierte esa geometría en dos
+`ID3D11Buffer` inmutables y elige `R16_UINT` o `R32_UINT` según el conteo de
+vértices.
+
+Lo que la emisión **no** entrega y el Módulo 3 tampoco inventa: el
+`D3D11_INPUT_ELEMENT_DESC`/`ID3D11InputLayout` (necesita la firma del shader), la
+matriz de proyección a espacio de clip para el *depth buffer* y el modo de
+mezcla. Esos tres son Módulo 5.
+
+Consecuencia práctica medida en AZTEC16 con la cámara sintética de prueba:
+2 242 triángulos emitidos (1 121 de ellos con pasada de niebla) → 6 726 índices
+y 3 918 vértices tras deduplicar. La deduplicación no fusiona nada que difiera
+en color, UV, textura, capa o flags, así que una pasada de niebla nunca comparte
+vértices con el registro principal del mismo triángulo.
 
 ### 5.13 Límites de esta reconstrucción
 
@@ -797,11 +833,16 @@ comprobaciones de BSP + 889 de cámara + 38 809 de emisión**, 0 fallos.
   (`port/include/gex/emit.h`), **separada** de `gex_camera.m` (`cam+0xE8`,
   visibilidad). No debe usarse `gex_camera.m` como sustituto (son matrices
   distintas, §5.14).
-- Sin D3D11, shaders, texturas.
+- **Geometría y buffers (Módulo 3, 2026-11-11):** la conversión a vértices e
+  índices y la creación de vertex/index buffers D3D11 están implementadas y
+  probadas, pero **no hay renderizado visible**: faltan shaders,
+  `ID3D11InputLayout`, texturas y `DrawIndexed` (Módulos 4 y 5).
 - `PROJECT_STATUS.svg` sin cambios (MAIN sigue en 40 %; S-2 no completo).
 
 ---
 
 **No se declara S-2 completo**: la visibilidad original y la emisión están
 implementadas y documentadas, pero falta la validación dinámica contra el
-ejecutable y la integración con el renderizador (Módulo 3).
+ejecutable. La integración con el renderizador ya tiene su primera mitad
+(Módulo 3: geometría y buffers); la segunda (shaders, texturas y dibujo) sigue
+pendiente.

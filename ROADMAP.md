@@ -77,9 +77,9 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 
 - [ ] S-1: Parser DFX (2026-11-07) — parser del contenedor `.DFX` **implementado y validado** en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)): contenedor, relocalización y descriptor de nivel sobre AZTEC16.DFX y GEX.DFX. La integración del primer escenario (buffers, texturas y renderer) sigue pendiente; S-1 no se declara completo.
 - [ ] S-2: Recorrido BSP (2026-11-07) — **recorrido estructural y visibilidad de cámara implementados y validados** en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)): DFS con detección de ciclos, referencias compartidas, límite de hojas y 815 hojas en AZTEC16; la **visibilidad original de cámara y su cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`) están implementadas** ([`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md)) y auditadas (889 comprobaciones de cámara + 37 de BSP, 0 fallos; `build.ps1 test` y `make test`), con la aritmética de 32 bits reproduciendo el wrap de x86. La **ruta de emisión de polígonos está implementada en código** (17.ª–18.ª pasadas): módulo puro `port/src/emit/emit.c` + `port/include/gex/emit.h` con `gex_level_emit` y sus fases (`collect`, `project`, `classify`, `subdivide`, `sort`), reproduciendo la proyección exacta de `0x46A1D0`, la niebla `0x64FEA8`/`0x461895`, los umbrales `0x65BF80`/`0x65BF04`, el determinante de `0x46B6B5`, el reparto de color entre `0x426256` y `0x426588` (segunda pasada de niebla), la prioridad de la subdivisión (4 principales + hasta 3 *slivers*, sin niebla), el gate completo de los emisores y la ordenación por `(maxz >> 2) + 4*layer` con desempate LIFO. La 18.ª pasada audita y corrige seis defectos (x/y sin inicializar, aritmética con wrap x86, offsets comprobados, mezcla de color real, subdivisión/emisores/orden verificados y AZTEC16 estructural) y deja `port/tests/test_level_emit.c` en **38 809 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. Pendientes: validación dinámica contra el ejecutable y sustituir la aproximación de tablas trigonométricas por valores verificados; S-2 no se declara completo.
-- [ ] S-3: Generador de Buffers D3D11 (2026-11-07) — convertir vértices DFX (12B) a formato D3D11 y crear vertex/index buffers
+- [x] S-3: Generador de Buffers D3D11 (2026-11-07, completado 2026-11-11) — **implementado en dos mitades**: conversión portable `gex_emit_output → gex_geometry` (`port/include/gex/geometry.h`, `port/src/geometry/geometry.c`) y creación/liberación de vertex/index buffers D3D11 (`port/include/gex/render/d3d11_mesh.h`, `port/src/render/d3d11_mesh.c`, Windows-only). Vértice de 28 B con posición, profundidad, color por vértice, UV, textura, capa y flags; deduplicación exacta y determinista; índices correctos para todos los triángulos, subdivisiones y pasadas de niebla; validación de punteros, conteos, multiplicaciones y desbordamientos antes de reservar o crear; `R16_UINT`/`R32_UINT` automático. Pruebas: `test_geometry` **6 963 comprobaciones, 0 fallos** (Clang `-O0`/`-O2` y ASan/UBSan) y `test_d3d11_mesh` **108 comprobaciones, 0 fallos** (WARP + hardware, lectura de vuelta, AZTEC16 real). **No incluye** shaders, `ID3D11InputLayout`, texturas ni `DrawIndexed`: no hay renderizado visible. Detalle en [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §12–§13.
 - [ ] S-4: Cargador de Texturas (2026-11-07) — cargar .VFX, construir tabla de texturas (índice 14 bits) y crear texturas D3D11
-- [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16
+- [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16 (incluye los shaders y el `ID3D11InputLayout` que el Módulo 3 dejó fuera a propósito)
 
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 
@@ -273,8 +273,10 @@ llamada `gex_audio_sched_tick(&sched)` ya está dentro del frame loop, una vez
 por frame presentado y tras el update (`port/src/core/frame.c`); I-4 rellena
 `pre_frame`/`update`/`present` con stubs y un renderer nulo, y lee el reloj real.
 El renderizado y la lógica de juego quedaban para hitos posteriores; I-4 no los
-adelanta. (Estado actual: R-3/R-4/R-5 completaron el pipeline D3D11 básico; la
-geometría del escenario y la lógica de juego siguen pendientes.)
+adelanta. (Estado actual: R-3/R-4/R-5 completaron el pipeline D3D11 básico; el
+Módulo 3 añadió después la geometría del escenario —conversión portable y
+vertex/index buffers reales—, pero siguen pendientes los shaders, las texturas,
+el `ID3D11InputLayout` y el dibujo; la lógica de juego no ha empezado.)
 
 ## Publicación pública (hitos transversales ⬜ — no iniciados)
 

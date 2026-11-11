@@ -2,6 +2,76 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 3: geometría portable y buffers D3D11
+
+Implementación del **Módulo 3** del plan del primer escenario, en dos módulos
+separados por plataforma. No se tocan D3D11 existente (R-1…R-5), Win32, Glide,
+ejecutables ni assets; `C:\GEX_REZ` solo se lee. No se introduce ningún shader,
+ni carga `.VFX`, ni integración de dibujo: eso sigue siendo Módulo 4 y 5.
+
+Archivos nuevos:
+
+- `port/include/gex/geometry.h` + `port/src/geometry/geometry.c` — conversión
+  portable `gex_emit_output → gex_geometry`, sin Windows ni D3D11.
+- `port/include/gex/render/d3d11_mesh.h` + `port/src/render/d3d11_mesh.c` —
+  creación y liberación de `ID3D11Buffer` de vértices e índices (Windows-only).
+- `port/tests/test_geometry.c` (6 963 comprobaciones) y
+  `port/tests/test_d3d11_mesh.c` (108 comprobaciones).
+
+Contrato:
+
+1. `gex_vertex` de **28 B sin relleno** con posición `float x,y,z`, color
+   AARRGGBB por vértice, UV normalizadas 0..1, índice de textura de 14 bits,
+   capa `int8_t` y flags `GEX_EMIT_F_*`. Offsets publicados como
+   `GEX_VERTEX_OFFSET_*` y verificados con `_Static_assert`.
+2. `gex_geometry_build` deduplica por **igualdad exacta de los 28 B** (FNV-1a +
+   tabla abierta, carga ≤ 0.5). Es determinista: el primer vértice fija el
+   índice y el orden del vertex buffer; el index buffer conserva el orden de
+   emisión.
+3. Los triángulos con `GEX_EMIT_F_DEPTH_CLIPPED` se descartan y se cuentan en
+   `skipped_clipped` (sus x/y valen 0 por contrato).
+4. `gex_geometry_build` valida punteros, `count > capacity`, `count*3`,
+   representabilidad en `uint32_t`, tamaño de la tabla hash y cada
+   multiplicación antes de reservar; en error `out` queda a cero. Estado
+   `GEX_GEOM_ERR_ARG/RANGE/NOMEM/OVERFLOW`. `gex_geometry_free` es idempotente.
+5. `gex_d3d11_mesh_create` crea buffers `D3D11_USAGE_IMMUTABLE` con
+   `BindFlags` correcto, elige `DXGI_FORMAT_R16_UINT` si
+   `vertex_count <= 65536` y `R32_UINT` si no, valida que todo índice esté en
+   rango y no deja recursos COM vivos en ningún error. `BAD_STATE` protege un
+   mesh vivo; `destroy` es idempotente y deja la estructura reutilizable.
+6. `gex_d3d11_mesh_create_from_emit` encadena conversión y creación liberando
+   siempre la geometría intermedia.
+
+Resultados reales de las pruebas:
+
+- `test_geometry`: **6 963 comprobaciones, 0 fallos** con
+  `-DGEX_GEOM_TEST_FAULT_INJECT` (6 952 sin él), en Clang `-O0`, `-O2` y
+  `-O1 -fsanitize=address,undefined -fno-sanitize-recover=all`, sin warnings
+  con `-Wall -Wextra -Wpedantic`.
+- `test_d3d11_mesh`: **108 comprobaciones, 0 fallos** en Clang `-O0` y `-O2`,
+  sin ventanas ni demos interactivas: WARP y hardware (feature level 11_1),
+  frontera R16/R32, lectura de vuelta de ambos buffers, errores y estados.
+- AZTEC16 con la cámara sintética de prueba: `gex_level_emit` →
+  `triangles=2242 fog=1121 vertices=3918 indices=6726`, vertex buffer de
+  109 704 B e index buffer de 13 452 B creados con WARP, índices leídos de la
+  GPU comprobados uno a uno, y determinismo bit a bit del index buffer entre
+  dos conversiones.
+- `test_level_emit` sigue en **38 809 comprobaciones, 0 fallos**. Se corrige el
+  helper `fog_with_lut` de las pruebas: el bucle recorre `i < 0x3620`, como el
+  generador real `0x461895` (rellena los 3 464 índices de la LUT); para
+  `i <= 865` los valores no cambian, así que ninguna expectativa se relaja.
+
+Lo que **no** se declara: no hay shaders, ni `ID3D11InputLayout`, ni texturas,
+ni `DrawIndexed`, así que **no hay renderizado visible**; los buffers existen y
+se verifican por lectura de vuelta. S-2 sigue sin validación dinámica contra el
+ejecutable original y no se declara completo. `PROJECT_STATUS.svg` no cambia
+(MAIN 40 %).
+
+Integración: `test_geometry` añadido a `port/Makefile` y a `port/build.ps1 test`;
+`test_d3d11_mesh` añadido a `port/build.ps1 test` (Windows-only). Documentación
+en `docs/D3D11_FIRST_SCENE_PLAN.md` §12–§13, `PROJECT_STATE.md`, `ROADMAP.md`
+(S-3) y `S2_BSP_TRAVERSAL.md`.
+
 ## 2026-11-11 - 0.0.0 - Decimonovena corrección (auditoría de la emisión BSP)
 
 Auditoría y corrección de `port/src/emit/emit.c` y `port/tests/test_level_emit.c`
