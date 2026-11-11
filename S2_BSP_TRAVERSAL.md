@@ -1017,7 +1017,84 @@ Con esos datos como referencia, el port reproduce:
 La regresión vive en `port/tests/test_camera.c` (cámara) y
 `port/tests/test_bsp.c` + `port/tests/ref_map7_frames.h` (recorrido).
 
-### 9.5 Lo que sigue abierto
+### 9.5 Emisión: contexto real y profundidad de referencia (2026-11-11)
+
+La emisión (`0x004269C2`) se ha validado también contra el original, con el
+mismo nivel `map7.dfx` y la cámara de referencia.
+
+**Contexto de emisión capturado** (breakpoint en `0x004269C2`):
+
+| Dato | Dirección | Valor capturado |
+|---|---|---|
+| Matriz de emisión (9 `int16` Q12) | `0x65CD60` | `[-2636,-5998,0] [-3430,1508,-5374] [3074,-1352,-2343]` |
+| Traslación (3 `int32`) | `0x65CD60+0x14` | `7467, 4494, 1345` |
+| Focal | `[0x646850]` | `320` |
+| Centro x / y | `[0x646814]` / `[0x646818]` | `256` / `192` |
+| `near_z` | `[0x6474E8]` | `160` |
+| Umbral de niebla | `[0x65BF80]` | `6299` |
+| `split` de emisor | `[0x65BF04]` | `65535` |
+| A / B de niebla | `[0x647564]` / `[0x647570]` | `-93584512` / `14848` |
+| LUT de niebla (3464 `int16`) | `[0x64FEA8]` | volcada integra |
+| Color de niebla | `[0x6474C4]` | `0,0,0` (frame 0), animado despues |
+
+La matriz de `0x65CD60` es **exactamente** la matriz `O` del port escalada
+por 1,6 en las filas 0 y 1 (`0x46DFA2`: `(v<<9)/0x140` y `(v*0x180)/0xF0`,
+despues `× cam[0x490]/4096` y `× cam[0x492]/4096`, que valen 1). Verificado
+bit a bit:
+
+```text
+O (port)      [-1648,-3749,0] [-2144,1508,-3359] [3074,-1352,-2343]
+× 1,6 (filas 0-1) = [-2636,-5998,0] [-3430,1508,-5374] [3074,-1352,-2343]
+original en 0x65CD60 =  [-2636,-5998,0] [-3430,1508,-5374] [3074,-1352,-2343]  ✔
+```
+
+**La proyección coincide bit a bit.** Las tres profundidades que el original
+deja en `[0x647430]`/`[0x64742C]`/`[0x6474A0]` (`0x426D03`) son las del port:
+los 16 primeros polígonos del frame de referencia dan exactamente los mismos
+`z` (por ejemplo `1048,1092,1043`, `1043,999,1048`, `1173,1088,905`...). Queda
+como regresión en `port/tests/test_level_emit.c` con los datos en
+`port/tests/ref_emit_frames.h`.
+
+#### 9.5.1 Defecto encontrado y corregido: la profundidad de referencia es la MÍNIMA
+
+`0x426CC1..0x426D06` calcula **min(A,B,C)** (no el máximo) de las tres
+profundidades proyectadas y deja el resultado en `-0x58(%ebp)`. Ese valor es el
+que el original usa para:
+
+| Uso | Dirección original |
+|---|---|
+| Umbral de subdivisión (`0x6A4`) | `0x426D09` |
+| Umbral de niebla (`[0x65BF80]`) | `0x426D2F` |
+| Elección de emisor (`[0x65BF04]`) | `0x426DE8` |
+| Clave de bucket (`(min>>2)+4*layer`) | `0x426303` (emisor cercano `0x426256`) |
+
+El port usaba la **máxima** de las tres profundidades (`max_depth()`), con el
+nombre `maxz` que despues se demostro incorrecto. Correccion aplicada:
+`min_depth()` en `port/src/emit/emit.c` y `gex_emit_class.maxz` renombrado a
+`zmin`. Efecto medido en el frame de referencia: los polígonos que entran en
+la rama de subdivisión pasan de **27** a **110**.
+
+#### 9.5.2 Lo que sigue sin cuadrar
+
+| Magnitud (frame de referencia) | Original | Port |
+|---|---|---|
+| Polígonos recogidos | 3429 (coincide) | 3429 |
+| Proyecciones (`0x46A1D0`) | 4260 | 3429 |
+| Llamadas al emisor cercano (`0x426256`) | 3441 | 1123 |
+| Emisor lejano (`0x426588`) | 0 | 0 |
+| Triángulos / dibujos emitidos | **1252** | **1123** |
+
+La diferencia (129 en el frame 0; 228, 225, 226, 226 y 229 en los frames
+1..5) queda **localizada en la rama de subdivisión**: el port intenta
+subdividir 110 polígonos y de ellos **no emite ni un subtriángulo** (el gate
+descarta 1115 triángulos por `det2d` y 1191 por estar fuera de pantalla), mientra
+que el original dibuja ~129 mas. El original proyecta 831 veces mas que polígonos
+tiene (4260 frente a 3429), lo que apunta a una entrada en la rama de
+subdivisión mas generosa que la del port (el port subdivide 110). La
+equivalencia exacta de esa rama (que subtriángulos se emiten y con que orden) es
+el punto pendiente de S-2.
+
+### 9.6 Lo que sigue abierto
 
 * **La emisión de geometría no se ha comparado cuantitativamente.** El original
   dibuja ~1517 polígonos por frame (breakpoint en `0x0046558A`: 219 998 draws

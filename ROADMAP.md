@@ -82,10 +82,15 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
   - **Segunda tanda (2026-11-11):** el nivel que carga el juego es
     `map7.dfx`, no `AZTEC16.DFX`; con el nivel correcto el recorrido reproduce
     **18/18 frames** con la lista de hojas visible idéntica al original.
-    Queda abierta la **comparación de la emisión** (polígonos por frame).
     **S-2 no se cierra.** Detalle en
     [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
     [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.
+  - **Tercera tanda (2026-11-11, emisión):** capturado el contexto real de
+    emisión (`0x65CD60`, proyección, niebla) y corregido un defecto
+    demostrado: la profundidad de referencia del original es la **mínima** de
+    las tres, no la máxima (`0x426CC1..0x426D06`). El port reproduce ahora la
+    proyección **bit a bit**. Queda abierta la equivalencia exacta de la rama
+    de subdivisión (1123 frente a 1252 triángulos en el frame de referencia).
  🔄 EN CURSO
 
 - [ ] S-1: Parser DFX (2026-11-07) — parser del contenedor `.DFX` **implementado y validado** en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)): contenedor, relocalización y descriptor de nivel sobre AZTEC16.DFX y GEX.DFX. La integración del primer escenario (buffers, texturas y renderer) sigue pendiente; S-1 no se declara completo.

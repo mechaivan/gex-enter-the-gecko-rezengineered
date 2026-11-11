@@ -28,6 +28,8 @@
 //                             (argumento <arg> + <ptrOff>), mas <off>
 //   dumpraw:<arg>:<off>:<len>  bytes contiguos en (argumento <arg> + <off>)
 //   dumpabsraw:<base>:<len>    bytes contiguos en la direccion <base>
+//   dumpabsind:<ptrAddr>:<len> bytes contiguos en la direccion guardada en
+//                             <ptrAddr> (puntero global)
 //   dumpstack:<off>,...        dwords en (esp + <off>) del punto de interrupcion
 //   dumpindraw:<arg>:<ptrOff>:<len>
 //                             bytes contiguos en la direccion contenida en
@@ -161,6 +163,8 @@ public static class Tracer
     static uint dumpRawLen = 0;                     // longitud de dumpraw:
     static uint dumpAbsRawBase = 0;                // base de dumpabsraw:
     static uint dumpAbsRawLen = 0;                 // longitud de dumpabsraw:
+    static uint dumpAbsIndPtrAddr = 0;             // puntero en direccion absoluta
+    static uint dumpAbsIndLen = 0;                 // longitud de dumpabsind:
     static bool wantRegs = false;
     static readonly List<uint> dumpStackOffs = new List<uint>();  // dwords en (esp+off)
     static int dumpIndRawArg = -1;                              // lectura contigua por indireccion
@@ -330,6 +334,12 @@ public static class Tracer
                 dumpStrOff = Convert.ToUInt32(parts[1], 16);
                 dumpStrMax = Convert.ToUInt32(parts[2], 16);
             }
+            else if (opt.StartsWith("dumpabsind:"))
+            {
+                string[] parts = opt.Substring(11).Split(':');
+                dumpAbsIndPtrAddr = Convert.ToUInt32(parts[0], 16);
+                dumpAbsIndLen = Convert.ToUInt32(parts[1], 16);
+            }
             else if (opt.StartsWith("dumpabsraw:"))
             {
                 string[] parts = opt.Substring(11).Split(':');
@@ -353,6 +363,7 @@ public static class Tracer
         if (dumpIndArg >= 0) Log("# dumpind arg=" + dumpIndArg + " blocks=" + dumpIndOffSets.Count);
         if (dumpRawLen > 0) Log("# dumpraw off=0x" + dumpRawBase.ToString("X8") + " len=" + dumpRawLen);
         if (dumpAbsRawLen > 0) Log("# dumpabsraw base=0x" + dumpAbsRawBase.ToString("X8") + " len=" + dumpAbsRawLen);
+        if (dumpAbsIndLen > 0) Log("# dumpabsind ptraddr=0x" + dumpAbsIndPtrAddr.ToString("X8") + " len=" + dumpAbsIndLen);
         if (wantRegs) Log("# regs");
         if (dumpStackOffs.Count > 0) Log("# dumpstack offs=" + dumpStackOffs.Count);
         if (dumpIndRawArg >= 0) Log("# dumpindraw arg=" + dumpIndRawArg + " len=" + dumpIndRawLen);
@@ -577,6 +588,18 @@ public static class Tracer
                 Log(string.Format("RAW\t{0}\t{1}\tbase=0x{2:X8}\tlen={3}\t{4}",
                     seq, clock.ElapsedMilliseconds, argp + dumpRawBase, dumpRawLen,
                     HexBlock(Block(argp + dumpRawBase, (int)dumpRawLen))));
+            }
+        }
+
+        if (dumpAbsIndLen > 0 && dumpAbsIndPtrAddr != 0)
+        {
+            uint ptr = U32((IntPtr)dumpAbsIndPtrAddr);
+            if (ptr != 0 && ptr != 0xFFFFFFFF)
+            {
+                dumpLimit--;
+                Log(string.Format("RAWABSIND\t{0}\t{1}\tptr=0x{2:X8}\tlen={3}\t{4}",
+                    seq, clock.ElapsedMilliseconds, ptr, dumpAbsIndLen,
+                    HexBlock(Block(ptr, (int)dumpAbsIndLen))));
             }
         }
 

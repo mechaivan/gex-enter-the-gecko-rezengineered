@@ -55,6 +55,60 @@ cambia de verdad y S-2 sigue abierta.
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Emision de S-2 validada contra el original: contexto real capturado y corregida la profundidad de referencia
+
+**Contexto de emision capturado** (breakpoint de hardware en `0x004269C2`, nivel
+`map7.dfx`, el mismo que carga el juego):
+
+- `0x65CD60`: 9 `int16` Q12 (matriz de emision) y `+0x14`: 3 `int32`
+  (traslacion). La matriz es **exactamente** la `O` del port escalada por 1,6
+  en las filas 0 y 1 (`0x46DFA2`: `(v<<9)/0x140` y `(v*0x180)/0xF0`, y luego
+  `x cam[0x490]/4096` y `x cam[0x492]/4096`, que valen 1).
+- Proyeccion: focal `[0x646850]` = 320, cx `[0x646814]` = 256, cy
+  `[0x646818]` = 192, `near_z` `[0x6474E8]` = 160.
+- Niebla: LUT `[0x64FEA8]` (3464 `int16`), umbral `[0x65BF80]` = 6299, split
+  `[0x65BF04]` = 0xFFFF, A `[0x647564]`, B `[0x647570]`, color `[0x6474C4]`.
+
+**Defecto encontrado y corregido.** `0x426CC1..0x426D06` calcula
+**min(A,B,C)** de las tres profundidades proyectadas, no el maximo: ese valor
+decide la subdivision (`0x426D09`, umbral `0x6A4`), la niebla (`0x426D2F`),
+la eleccion de emisor (`0x426DE8`) y la clave de bucket (`0x426303` en el
+emisor cercano `0x426256`). El port usaba el maximo (`max_depth()`), con el
+nombre `maxz` que resulto ser incorrecto. Correccion: `min_depth()` en
+`port/src/emit/emit.c` y `gex_emit_class.maxz` renombrado a `zmin`; los tests
+de emision se actualizan a la semántica real.
+
+**Resultado.** Con la correccion, la **proyeccion del port reproduce bit a
+bit** las profundidades capturadas del original (los 16 primeros poligonos del
+frame de referencia) y el contexto de emision es identico. Regresion anadida en
+`port/tests/test_level_emit.c` con los datos en
+`port/tests/ref_emit_frames.h`.
+
+**Lo que sigue abierto.** El port emite 1123 triangulos frente a los 1252
+dibujos del original en el frame de referencia (y 1128/1356, 1143/1368,
+1169/1395, 1154/1380, 1157/1386 en los cinco siguientes). La diferencia esta
+**localizada en la rama de subdivision**: el port subdivide 110 poligonos y de
+ellos no emite ningun subtriangulo (el gate los descarta: 1115 por `det2d` y
+1191 por estar fuera de pantalla), mientras el original proyecta 831 veces mas
+que poligonos tiene (4260 frente a 3429) y llama 3441 veces al emisor
+cercano (el port, 1123). La equivalencia exacta de esa rama es el punto
+pendiente de S-2: **S-2 no se declara completa**.
+
+**Trazador.** `tools/frame-trace/tracer.cs` incorpora ahora opciones de
+volcado de solo lectura (`dump:`, `dumpabs:`, `dumpind:`, `dumpraw:`,
+`dumpabsraw:`, `dumpabsind:`, `dumpstack:`, `dumpstr:`, `regs`, `dumplimit:`),
+documentadas en su README; son las que han permitido capturar el contexto de
+emision y las profundidades del original.
+
+**Documentacion.** `S2_BSP_TRAVERSAL.md` 9.5 (contexto, defecto corregido y
+diferencia pendiente), `S2_CAMERA_VISIBILITY.md` 14.7, `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` 4.1 (regla 6: comparar fases, no solo totales),
+`ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` y
+`docs/D3D11_FIRST_SCENE_PLAN.md` 4.3.
+
+Suite del port verde (20 binarios) con `build.ps1 test`, ademas de `-O0`, `-O2`,
+ASan y UBSan sobre camera, bsp y level_emit.
+
 ## 2026-11-11 - 0.0.0 - S-2 validado contra el original: el nivel `map7.dfx` y la lista de hojas idéntica
 
 **Hallazgo principal.** El ejecutable original **no** carga `AZTEC16.DFX`:

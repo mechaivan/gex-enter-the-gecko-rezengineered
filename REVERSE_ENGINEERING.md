@@ -361,6 +361,12 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    primero **localiza la etapa** divergente (con capturas del mismo
    instante), se corrige solo lo afectado y se añade una prueba de regresión
    con el vector capturado.
+6. **Comparar fases, no solo totales.** Un recuento igual no demuestra
+   equivalencia: hay que comparar los **conteos por fase** (por ejemplo
+   `0x46A1D0` = proyecciones, `0x426256` = emisor cercano, `0x46558A` =
+   dibujos) y las **magnitudes intermedias** (las tres profundidades
+   proyectadas). Asi se localizo que la profundidad de referencia del original
+   es la minima y no la maxima (`0x426CC1..0x426D06`).
 
 ## 5. Registro
 

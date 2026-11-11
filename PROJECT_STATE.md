@@ -43,11 +43,18 @@
   exactamente con el nodo raíz que el original entrega al recorrido
   (`desc[0] = B + 0x9CE94`). Regresión en `port/tests/test_bsp.c` +
   `port/tests/ref_map7_frames.h`.
-- **Lo que sigue abierto:** la comparación cuantitativa de la **emisión**
-  (conteos de polígonos/triángulos por frame): el original dibuja ~1517
-  polígonos por frame y el port emite sobre un contexto reconstruido
-  estáticamente. **S-2 no se declara completa.** Detalle en
-  [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.
+- **Emisión (2026-11-11, 3.ª tanda):** capturado el contexto real de emisión
+  del original (`0x65CD60` = la `O` escalada por 1,6, traslación en
+  `+0x14`, focal/cx/cy/near_z, LUT y umbrales de niebla) y **corregido un
+  defecto demostrado**: la profundidad de referencia del original es la
+  **mínima** de las tres (`0x426CC1..0x426D06`), no la máxima; el port usaba
+  el máximo. Con la corrección la proyección reproduce **bit a bit** las
+  profundidades capturadas.
+- **Lo que sigue abierto:** la equivalencia exacta de la **rama de
+  subdivisión**: el port emite 1123 triángulos frente a los 1252 dibujos del
+  original en el frame de referencia (el port subdivide 110 polígonos y de
+  ellos no emite ningún subtriángulo). **S-2 no se declara completa.** Detalle
+  en [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.5.
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 

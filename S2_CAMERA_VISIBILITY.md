@@ -1114,6 +1114,10 @@ A, B, `a_cam` y `b_cam` del original, y con ella el recorrido BSP reproduce
 **18/18 frames** con la lista completa de hojas idéntica (§9 de
 `S2_BSP_TRAVERSAL.md`).
 
+La validación de la emisión (2026-11-11, §9.5 de `S2_BSP_TRAVERSAL.md`) uso
+ademas la matriz de `0x65CD60`, que es la `O` de esta cámara escalada por 1,6
+en las filas 0 y 1: el port reproduce ese contexto **bit a bit**.
+
 Lo que **queda abierto** es la comparación cuantitativa de la **emisión de
 geometría** (polígonos y triángulos por frame): el port emite sobre un
 contexto de emisión reconstruido estáticamente, no sobre una captura del

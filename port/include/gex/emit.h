@@ -146,10 +146,10 @@ typedef enum {
 } gex_emit_emitter;
 
 typedef struct {
-    int32_t            maxz;       /* max(z0,z1,z2); -1 = descartado por el gate */
-    int32_t            bucket;     /* (maxz sar 2) + 4*layer; -1 si no se calculó */
-    int                subdivide;  /* maxz < 0x6A4 (tiene prioridad sobre el gate) */
-    int                fog_applies;/* maxz >= threshold (solo si no subdivide) */
+    int32_t            zmin;       /* min(z0,z1,z2) (0x426D03); -1 = descartado por el gate */
+    int32_t            bucket;     /* (zmin sar 2) + 4*layer; -1 si no se calculó */
+    int                subdivide;  /* zmin < 0x6A4 (tiene prioridad sobre el gate) */
+    int                fog_applies;/* zmin >= threshold (solo si no subdivide) */
     gex_emit_emitter   emitter;
     uint32_t           fog_color[3];/* color con niebla aplicada por vértice */
 } gex_emit_class;
@@ -192,9 +192,9 @@ gex_emit_status gex_emit_project(const gex_emit_matrix *mat,
                                  uint32_t source_poly,
                                  gex_emit_triangle *tri);
 
-/* Fase 3: clasificar. La subdivisión (maxz < 0x6A4) tiene prioridad sobre el
+/* Fase 3: clasificar. La subdivisión (zmin < 0x6A4) tiene prioridad sobre el
  * determinante 2D, el bucket y el gate de pantalla, igual que 0x4269C2 [A].
- * Si no subdivide, aplica el gate completo y devuelve maxz = -1 si se
+ * Si no subdivide, aplica el gate completo y devuelve zmin = -1 si se
  * descarta. `state_flags` es [0x647578] (solo se consulta 0x60000).
  * El gate reproduce la prueba empaquetada (y<<16)|x de 0x426256/0x426588. */
 gex_emit_status gex_emit_classify(const gex_emit_fog *fog,
@@ -218,7 +218,7 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
                                    uint32_t source_poly,
                                    gex_emit_output *out);
 
-/* Fase 5: ordenar por (maxz sar 2) + 4 * layer, descendente; LIFO dentro
+/* Fase 5: ordenar por (zmin sar 2) + 4 * layer, descendente; LIFO dentro
  * de una misma clave (el último emitido se dibuja primero). */
 gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count);
 

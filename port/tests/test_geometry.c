@@ -475,7 +475,7 @@ static void test_end_to_end_subdivide(void)
     f = fog_with_lut(400, 100);
     memset(&out, 0, sizeof(out));
     CHECK(gex_level_emit(img, sz, &desc, &r, &m, &f, 0, &out) == GEX_EMIT_OK);
-    /* maxz 400 < 0x6A4: subdivisión (4 principales, sin niebla). */
+    /* zmin 400 < 0x6A4: subdivisión (4 principales, sin niebla). */
     CHECK(out.count == 4u);
     CHECK(out.fog_pass_count == 0u);
 

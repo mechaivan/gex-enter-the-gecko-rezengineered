@@ -181,13 +181,19 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   recorrido del port reproduce **18/18 frames** con el conteo y la lista
   completa de hojas visibles idénticos al original (§ 9 de
   [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
-- **Contrato de emisión (§ 11): sigue sin validar.** El original dibuja
-  ~1517 polígonos por frame; el port emite sobre un contexto de emisión
-  reconstruido estáticamente, no sobre una captura del original. Hasta
-  comparar ese contexto, los conteos de polígonos y triángulos del port **no**
-  son comparables con los del original y este plan no puede declarar la
-  escena visualmente equivalente. Ver
-  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 9.5.
+- **Contexto de emisión (2026-11-11, 3.ª tanda):** capturado el contexto real
+  del original (`0x65CD60`: la `O` escalada por 1,6; traslación en `+0x14`;
+  focal/cx/cy/near_z; LUT y umbrales de niebla) y reproducido **bit a bit** en
+  el port, incluida la **proyección** (las profundidades capturadas en
+  `[0x647430]`/`[0x64742C]`/`[0x6474A0]`). Corregido además un defecto
+  demostrado: la profundidad de referencia es la **mínima** de las tres
+  (`0x426CC1..0x426D06`).
+- **Contrato de emisión (§ 11): sigue sin validar en su parte final.** El
+  original dibuja 1252 polígonos en el frame de referencia y el port emite
+  1123 triángulos: la diferencia está localizada en la rama de subdivisión
+  (el port subdivide 110 polígonos y no emite ningún subtriángulo). Hasta
+  cerrar esa equivalencia, este plan no puede declarar la escena visualmente
+  equivalente. Ver [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 9.5.
 
 ## 5. Arquitectura Mínima por Módulos
 
