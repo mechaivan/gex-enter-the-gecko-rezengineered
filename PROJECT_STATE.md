@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-11
+**Last updated:** 2026-11-11 (Módulo 5A)
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 
@@ -45,10 +45,33 @@
   `DrawIndexed`: **los buffers existen y son verificables, pero no hay
   renderizado visible**. Detalle en
   [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §12 y §13.
-- **Pendiente de integración:** cargador de texturas VFX (Módulo 4), shaders y
-  dibujo final en el renderer (Módulo 5). El primer escenario original todavía
-  no está renderizado. Sigue pendiente la validación dinámica de S-2 contra el
-  ejecutable original. `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+- **Módulo 5A (2026-11-11): pipeline de dibujo D3D11.** Implementado en
+  [`port/include/gex/render/d3d11_pipeline.h`](port/include/gex/render/d3d11_pipeline.h)
+  + [`port/src/render/d3d11_pipeline.c`](port/src/render/d3d11_pipeline.c)
+  (Windows-only): vertex shader y pixel shader mínimos de color por vértice
+  compilados **en ejecución** con `d3dcompiler_47.dll` (componente de Windows;
+  no hay `fxc.exe` en el entorno y no se instala nada), `ID3D11InputLayout` que
+  refleja los 28 B y los offsets publicados de `gex_vertex`, estados de
+  rasterizado/blending/profundidad, viewport, constant buffer y `DrawIndexed`.
+  El renderer R-3 acepta una geometría opcional
+  (`gex_d3d11_renderer_set_geometry`, punteros prestados) y la dibuja entre el
+  `ClearRenderTargetView` y el `Present`; sin geometría su comportamiento es
+  el de siempre. La geometría de prueba es un cubo 3D
+  ([`port/include/gex/geometry_shapes.h`](port/include/gex/geometry_shapes.h),
+  portable) que la aplicación (`gexloop`) muestra en la ventana. Pruebas:
+  `test_d3d11_pipeline` **137 comprobaciones, 0 fallos** (offscreen con WARP,
+  sin ventanas) y `test_geometry_shapes` **355 comprobaciones, 0 fallos**
+  (portable, con ASan/UBSan). Dos hallazgos documentados: el enlazador D3D11
+  exige que el pixel shader reciba la **misma estructura** que el vertex shader
+  declara como salida (con un parámetro suelto recibía SV_POSITION), y
+  `D3D11_INPUT_ELEMENT_DESC` no tiene campo `Offset` (el byte offset va en
+  `AlignedByteOffset`). Detalle en
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §14.
+- **Pendiente de integración:** cargador de texturas VFX (Módulo 4), materiales,
+  *depth buffer*, blending del original y la carga del nivel real en el bucle
+  de frames. El primer escenario original todavía no está renderizado. Sigue
+  pendiente la validación dinámica de S-2 contra el ejecutable original.
+  `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
 
@@ -62,7 +85,7 @@
   4. Texturas Cargadas - cargar .VFX y crear texturas D3D11
   5. Primer Renderizado Completo - renderizar AZTEC16 con D3D11
 - **Bloqueos reales:** Shaders (no documentados en U-1), formato NCC (conversión a D3D11), sistema de coordenadas.
-- **Estado de los hitos (2026-11-11):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural, visibilidad original de cámara y **emisión de polígonos** implementados y auditados (889 comprobaciones de cámara + 37 de BSP + 38 809 de emisión, 0 fallos); Hito 3 (buffers D3D11) **implementado**: conversión portable (`gex_geometry`) y creación real de vertex/index buffers (`gex_d3d11_mesh`) con WARP y hardware, 6 963 + 108 comprobaciones, 0 fallos. Queda la validación dinámica de S-2 contra el ejecutable original y los hitos 4 (texturas) y 5 (renderizado completo). La mecánica de carga está documentada en `U1_DFX_RELOCATION_AUDIT.md`.
+- **Estado de los hitos (2026-11-11):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural, visibilidad original de cámara y **emisión de polígonos** implementados y auditados (889 comprobaciones de cámara + 37 de BSP + 38 809 de emisión, 0 fallos); Hito 3 (buffers D3D11) **implementado**: conversión portable (`gex_geometry`) y creación real de vertex/index buffers (`gex_d3d11_mesh`) con WARP y hardware, 6 963 + 108 comprobaciones, 0 fallos; Hito 5 **parcial**: el Módulo 5A añade el pipeline de dibujo real (shaders, input layout, estados, `DrawIndexed`) y una geometría 3D de prueba visible en la ventana, 137 + 355 comprobaciones, 0 fallos. Quedan la validación dinámica de S-2 contra el ejecutable original, el Hito 4 (texturas) y el resto del Hito 5 (materiales, profundidad, carga del nivel). La mecánica de carga está documentada en `U1_DFX_RELOCATION_AUDIT.md`.
 - **Evidencia clave:** `U1_DFX_RELOCATION_AUDIT.md` (carga/relocalización verificada), `U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
 
 ### Avances recientes (U-1 - Geometría Original)
@@ -166,4 +189,4 @@
 
 ## Estado vigente del port gráfico (R-1 a R-5)
 
-R-3, R-4 y R-5 están **COMPLETADOS**: implementación básica del renderer D3D11 con device, swapchain, Present, clear y render target view. Pruebas verificadas en modo WARP con 104 checks, 0 fallos. **Geometría (Módulo 3, 2026-11-11):** existen ya vertex/index buffers reales —`gex_geometry` + `gex_d3d11_mesh`— con vértices de 28 B (posición, profundidad, color, UV, textura, capa, flags), creados con WARP y con hardware y verificados por lectura de vuelta; lo que sigue sin existir es el `ID3D11InputLayout`, los shaders y el `DrawIndexed`, así que no hay renderizado visible de geometría.
+R-3, R-4 y R-5 están **COMPLETADOS**: implementación básica del renderer D3D11 con device, swapchain, Present, clear y render target view. Pruebas verificadas en modo WARP con 104 checks, 0 fallos. **Geometría (Módulo 3, 2026-11-11):** existen ya vertex/index buffers reales —`gex_geometry` + `gex_d3d11_mesh`— con vértices de 28 B (posición, profundidad, color, UV, textura, capa, flags), creados con WARP y con hardware y verificados por lectura de vuelta. **Dibujo (Módulo 5A, 2026-11-11):** el renderer dibuja esa geometría con un vertex/pixel shader propios, `ID3D11InputLayout`, estados y `DrawIndexed`; la aplicación muestra un cubo 3D de prueba. Lo que sigue sin existir es el material de producción: texturas, *depth buffer*, blending del original y la carga del nivel real, así que **la geometría visible es de prueba, no una escena del juego**.

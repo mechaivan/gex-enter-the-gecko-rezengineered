@@ -25,6 +25,9 @@
 #include "gex/render/d3d11_device.h"
 #include "gex/render/d3d11_swapchain.h"
 #include "gex/render/d3d11_renderer.h"
+#include "gex/render/d3d11_pipeline.h"
+#include "gex/render/d3d11_mesh.h"
+#include "gex/geometry_shapes.h"
 #endif
 
 #include <mmsystem.h> /* timeBeginPeriod/timeEndPeriod (winmm) */
@@ -217,9 +220,19 @@ int main(int argc, char **argv)
     int parsed;
     int exit_code = 0;
     int timer_resolution_set = 0;
+#if defined(_WIN32)
+    /* Módulo 5A: pipeline de dibujo, malla y geometría de prueba. */
+    gex_d3d11_pipeline d3d11_pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
+    gex_d3d11_mesh d3d11_mesh = GEX_D3D11_MESH_INITIALIZER;
+    gex_emit_output cube_emit;
+    int geometry_ready = 0;
+#endif
 
     setvbuf(stdout, NULL, _IONBF, 0);
     setvbuf(stderr, NULL, _IONBF, 0);
+#if defined(_WIN32)
+    memset(&cube_emit, 0, sizeof(cube_emit));
+#endif
 
     parsed = parse_options(argc, argv, &options);
     if (parsed < 0) {
@@ -331,6 +344,45 @@ int main(int argc, char **argv)
            (unsigned)sw_cfg.width, (unsigned)sw_cfg.height, 
            (unsigned)d3d11_sw.desc.BufferCount);
     printf("clear color: RGB(%.1f, %.1f, %.1f)\n", clear_color[0], clear_color[1], clear_color[2]);
+
+    /* Módulo 5A: pipeline de dibujo y primera geometría 3D visible.
+     * Si algo falla (por ejemplo, que no haya d3dcompiler_47.dll), la
+     * aplicación sigue funcionando: el renderer solo limpia y presenta. */
+    {
+        gex_d3d11_pipeline_status pipeline_status =
+            gex_d3d11_pipeline_init(&d3d11_pipeline, &d3d11_dev);
+        gex_d3d11_mesh_status mesh_status = GEX_D3D11_MESH_BAD_ARGUMENT;
+        gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
+
+        if (pipeline_status == GEX_D3D11_PIPELINE_OK) {
+            if (gex_shape_cube(&cube_emit, 0.6f) == 0) {
+                mesh_status = gex_d3d11_mesh_create_from_emit(
+                    d3d11_dev.device, &cube_emit, &d3d11_mesh);
+                if (mesh_status == GEX_D3D11_MESH_OK) {
+                    geometry_status = gex_d3d11_renderer_set_geometry(
+                        &app.renderer.d3d11_renderer, &d3d11_pipeline,
+                        &d3d11_mesh, GEX_D3D11_REFERENCE_WIDTH,
+                        GEX_D3D11_REFERENCE_HEIGHT);
+                }
+            }
+        }
+        if (geometry_status == GEX_D3D11_RENDERER_OK) {
+            geometry_ready = 1;
+            printf("geometry: cube, %u triangles, vertex colors, no textures "
+                   "(%ux%u logical)\n",
+                   (unsigned)GEX_SHAPE_CUBE_TRIANGLES,
+                   (unsigned)GEX_D3D11_REFERENCE_WIDTH,
+                   (unsigned)GEX_D3D11_REFERENCE_HEIGHT);
+        } else {
+            printf("geometry: none (pipeline: %s, mesh: %s)\n",
+                   gex_d3d11_pipeline_status_name(pipeline_status),
+                   gex_d3d11_mesh_status_name(mesh_status));
+            if (pipeline_status != GEX_D3D11_PIPELINE_OK &&
+                d3d11_pipeline.last_error[0] != '\0') {
+                printf("shader error: %s\n", d3d11_pipeline.last_error);
+            }
+        }
+    }
 #else
     printf("renderer: null (draws nothing)\n");
 #endif
@@ -419,6 +471,15 @@ int main(int argc, char **argv)
 #if defined(_WIN32)
     /* Shutdown D3D11 resources in the correct order */
     if (gex_i4_app_is_d3d11_enabled(&app)) {
+        /* La geometría se suelta antes que el renderer: el renderer solo
+         * tiene punteros prestados a la malla y al pipeline. */
+        if (geometry_ready) {
+            gex_d3d11_renderer_set_geometry(&app.renderer.d3d11_renderer, NULL,
+                                            NULL, 0, 0);
+            gex_d3d11_mesh_destroy(&d3d11_mesh);
+            gex_d3d11_pipeline_shutdown(&d3d11_pipeline);
+            gex_emit_output_free(&cube_emit);
+        }
         gex_i4_app_disable_d3d11(&app);
         gex_d3d11_swapchain_shutdown(&d3d11_sw);
         gex_d3d11_device_shutdown(&d3d11_dev);

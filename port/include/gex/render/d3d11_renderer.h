@@ -36,6 +36,7 @@
 
 #include "gex/render/d3d11_device.h"
 #include "gex/render/d3d11_swapchain.h"
+#include "gex/render/d3d11_pipeline.h"
 #include "gex/core/frame.h"
 
 #ifdef __cplusplus
@@ -69,6 +70,16 @@ typedef struct gex_d3d11_renderer {
     int enable_debug_layer;          /* whether debug layer is enabled */
     HRESULT device_removed_reason;   /* reason for device removal, S_OK if none */
     uint64_t frame_time_us;         /* time between frames for performance monitoring */
+    /* Geometría opcional (Módulo 5A). Son punteros prestados: el renderer
+     * no los libera. Si pipeline o mesh son NULL, o la malla no está
+     * inicializada, el renderer se comporta exactamente como antes: limpia y
+     * presenta. */
+    gex_d3d11_pipeline *pipeline;    /* pipeline de dibujo (prestado) */
+    gex_d3d11_mesh *mesh;            /* malla a dibujar (prestado) */
+    UINT geometry_reference_width;   /* resolución lógica del espacio dibujado */
+    UINT geometry_reference_height;
+    uint64_t draws;                  /* llamadas a DrawIndexed */
+    uint64_t draw_errors;            /* dibujos fallidos */
 } gex_d3d11_renderer;
 
 /*
@@ -89,7 +100,10 @@ typedef struct gex_d3d11_renderer {
         .last_hresult = S_OK, .initialized = 0,                                \
         .presents = 0, .last_now_us = 0, .last_steps = 0, .last_frame_index = 0, \
         .sync_interval = 1, .enable_debug_layer = 0, .device_removed_reason = S_OK, \
-        .frame_time_us = 0 \
+        .frame_time_us = 0,                                                    \
+        .pipeline = NULL, .mesh = NULL,                                        \
+        .geometry_reference_width = 0, .geometry_reference_height = 0,         \
+        .draws = 0, .draw_errors = 0                                           \
     }
 
 /*
@@ -124,9 +138,28 @@ gex_d3d11_renderer_status gex_d3d11_renderer_resize(
 
 /*
  * Present hook compatible with gex_renderer. Clears the render target with
- * the configured color and presents the backbuffer.
+ * the configured color, draws the optional geometry (Módulo 5A) and presents
+ * the backbuffer.
  */
 int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick);
+
+/*
+ * Registra la geometría opcional que se dibuja antes de cada Present
+ * (Módulo 5A). Los punteros son **prestados**: el renderer no los libera,
+ * así que deben seguir vivos hasta que se llame otra vez con NULL o hasta
+ * cerrar el renderer.
+ *
+ *   renderer == NULL o no inicializado -> BAD_ARGUMENT / BAD_STATE
+ *   pipeline == NULL y mesh == NULL    -> quita la geometría (vuelve al
+ *                                          comportamiento de solo limpiar)
+ *   ref_width/ref_height == 0          -> usa 512x384 (el espacio lógico del
+ *                                          original)
+ */
+gex_d3d11_renderer_status gex_d3d11_renderer_set_geometry(
+    gex_d3d11_renderer *renderer,
+    gex_d3d11_pipeline *pipeline,
+    gex_d3d11_mesh *mesh,
+    UINT ref_width, UINT ref_height);
 
 /*
  * Release all resources and zero the struct. The device and swapchain are NOT

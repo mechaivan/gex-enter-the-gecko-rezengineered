@@ -213,18 +213,21 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
     de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, §6 del documento
     citado) para construir `M = *[cam+0xE8]`, las matrices A/B y la prueba de
     esfera contra seis semiplanos. Se activa pasando `cam_ctx` a `gex_bsp_walk`.
-    La integración con la emisión de polígonos sigue pendiente.
-  - Generar lista de polígonos visibles: **ruta reconstruida, no implementada**
-    ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5). La cadena original
+    La integración con la emisión de polígonos **está hecha**: `gex_level_emit`
+    consume el resultado del recorrido (§11).
+  - Generar lista de polígonos visibles: **implementada** en
+    `port/src/emit/emit.c` (`gex_level_emit`, §11), con contrato documentado en
+    [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5. La cadena original
     `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
-    `0x469836` → `0x46558A` está documentada con evidencia estática, pero en
-    `port/` no existe todavía ni lista de polígonos ni registro de comando.
-  - Requisitos que el futuro generador debe cubrir (resumen de §5.12):
+    `0x469836` → `0x46558A` está reproducida en código; lo que **no** existe
+    es la validación dinámica contra el ejecutable, así que S-2 sigue abierto.
+  - Requisitos que el generador cubre (resumen de §5.12, ya implementados
+    por `gex_level_emit` y consumidos tal cual por el Módulo 3):
     transformación con `M = *[cam+0xE0]`, *culling* 2D por determinante,
     subdivisión a cuatro triángulos si `maxz < 0x6A4`, color por vértice con
     niebla, UV de 8 bits + word de textura de 14 bits, orden por
     `(z>>2) + 4*capa` y respeto de los flags `0x8000` (oculto) y `0x0004`
-    (forzar sólido). La capacidad debe reservarse **por comando**, no por
+    (forzar sólido). La capacidad se reserva **por triángulo emitido**, no por
     polígono: el original reserva `0x34` B por polígono y puede desbordar al
     subdividir.
 - **Estructuras de datos (implementadas):**
@@ -343,31 +346,62 @@ del shader, que pertenece al Módulo 5. El layout queda descrito por
       gex_texture_table *out);
   ```
 
-#### Módulo 5: Integración con Renderer D3D11 (`gex_d3d11_scene.h/c`)
-- **Responsabilidades:**
-  - Integrar módulos anteriores con renderer existente
-  - Implementar shaders para renderizar geometría
-  - Manejar materiales y texturas
-- **Interfaz:**
-  ```c
-  typedef struct {
-      gex_mesh_buffers mesh;
-      gex_texture_table textures;
-      // ... otros recursos
-  } gex_d3d11_scene;
-  
-  gex_scene_status gex_d3d11_scene_load(
-      ID3D11Device *device,
-      const char *dfx_path,
-      const char *vfx_path,
-      gex_d3d11_scene *out);
-  
-  void gex_d3d11_scene_render(
-      gex_d3d11_renderer *renderer,
-      const gex_d3d11_scene *scene,
-      const float *view_matrix,
-      const float *proj_matrix);
-  ```
+#### Módulo 5: Integración con el renderer D3D11 — PARCIAL (5A implementado, 2026-11-11)
+
+La interfaz original de esta sección (`gex_d3d11_scene.h/c` con
+`gex_d3d11_scene_load` y `gex_d3d11_scene_render`) **no existe en el port** y
+queda sustituida por la arquitectura real: el renderer R-3 (`gex_d3d11_renderer`)
+consigue una geometría opcional y la dibuja antes de cada `Present`. No hay
+un objeto "escena" porque todavía no hay materiales ni texturas.
+
+**5A. Pipeline de dibujo — `gex/render/d3d11_pipeline.h`, `src/render/d3d11_pipeline.c`** (Windows-only)
+
+```c
+typedef struct gex_d3d11_pipeline {
+    ID3D11Device *device;              /* prestado (R-1) */
+    ID3D11DeviceContext *context;      /* prestado (R-1) */
+    ID3D11VertexShader *vertex_shader;
+    ID3D11PixelShader *pixel_shader;
+    ID3D11InputLayout *input_layout;
+    ID3D11RasterizerState *rasterizer;
+    ID3D11BlendState *blend;
+    ID3D11DepthStencilState *depth_stencil;
+    ID3D11Buffer *constant_buffer;
+    HMODULE       compiler_module;
+    HRESULT       last_hresult;
+    char          last_error[192];
+    int           initialized;
+    uint64_t      draw_calls;
+    uint64_t      triangles_drawn;
+} gex_d3d11_pipeline;
+
+gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
+                                                   const gex_d3d11_device *device);
+gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
+    gex_d3d11_pipeline *pipeline, ID3D11RenderTargetView *rtv,
+    UINT width, UINT height, UINT ref_width, UINT ref_height);
+gex_d3d11_pipeline_status gex_d3d11_pipeline_draw(gex_d3d11_pipeline *pipeline,
+                                                   const gex_d3d11_mesh *mesh);
+void gex_d3d11_pipeline_shutdown(gex_d3d11_pipeline *pipeline);
+```
+
+**5B. Integración en el renderer — `gex/render/d3d11_renderer.h`**
+
+```c
+gex_d3d11_renderer_status gex_d3d11_renderer_set_geometry(
+    gex_d3d11_renderer *renderer,
+    gex_d3d11_pipeline *pipeline,
+    gex_d3d11_mesh *mesh,
+    UINT ref_width, UINT ref_height);
+```
+
+El renderer guarda la geometría como **punteros prestados** y la dibuja entre
+el `ClearRenderTargetView` y el `Present`. Si no hay geometría, el
+comportamiento es exactamente el anterior (limpiar y presentar).
+
+**Pendiente del Módulo 5:** materiales NCC, texturas del Módulo 4, estado de
+profundidad real y el `D3D11InputLayout` definitivo cuando exista la firma del
+shader de producción.
 
 ### 5.2 Orden de Implementación
 
@@ -379,20 +413,21 @@ del shader, que pertenece al Módulo 5. El layout queda descrito por
 
 **Estado real (2026-11-11):** el parser DFX (Módulo 1) está implementado en
 `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
-estructural y la visibilidad de cámara (Módulo 2) están implementados y
-auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
+estructural, la visibilidad de cámara y la emisión de polígonos (Módulo 2)
+están implementados y auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
 [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
-de cámara + 37 de BSP, 0 fallos. La **emisión de polígonos** también está
-implementada (`gex_level_emit`, §11) y auditada con 38 809 comprobaciones, pero
-le falta la validación dinámica contra el ejecutable original, así que no se
-declara cerrada.
+de cámara + 37 de BSP + 38 809 de emisión, 0 fallos. La **emisión de polígonos**
+también está implementada (`gex_level_emit`, §11) y auditada con 38 809
+comprobaciones, pero le falta la validación dinámica contra el ejecutable
+original, así que no se declara cerrada.
 
 El **Módulo 3 está implementado en sus dos mitades**: la conversión portable
 `gex_emit_output → gex_geometry` (§12) y la creación de vertex/index buffers
-D3D11 (§13), con 6 963 y 108 comprobaciones respectivamente. Lo que **no**
-existe todavía es el `ID3D11InputLayout`, los shaders y el dibujo: el Módulo 4
-(cargador de texturas) y el Módulo 5 (integración con renderer) siguen
-pendientes. La investigación de la carga `.DFX` está cerrada
+D3D11 (§13), con 6 963 y 108 comprobaciones respectivamente. El **Módulo 5A**
+también: shaders, `ID3D11InputLayout`, estados y `DrawIndexed` (§14), con 137
+comprobaciones offscreen con WARP. Lo que **no** existe todavía es el Módulo 4
+(cargador de texturas) y el resto del Módulo 5 (materiales, profundidad real,
+texturas). La investigación de la carga `.DFX` está cerrada
 ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
@@ -435,10 +470,13 @@ variante `0x00461ECA` en §H).
   - Validación de conteos (vértices, polígonos, normales)
   - Verificación de integridad de datos
 
-- **Renderizado básico:**
-  - Dibujo de geometría sin texturas
-  - Validación visual simple (siluetas)
-  - Sin ejecución del juego, solo renderizado
+- **Renderizado básico (implementado el 2026-11-11, §14):**
+  - Dibujo de geometría sin texturas: **hecho** (color por vértice)
+  - Validación visual simple (siluetas): pendiente de una escena real; hoy se
+    comprueba **pixel a pixel** en render offscreen con WARP (posición,
+    colores e interpolación)
+  - Sin ejecución del juego, solo renderizado: las pruebas son offscreen, sin
+    ventanas ni demos interactivas
 
 ### 6.3 Herramientas de Prueba
 
@@ -524,6 +562,12 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
   - Resolución correcta de índices de 14 bits
 
 ### Hito 5: Primer Renderizado Completo
+- **Estado:** 🔄 PARCIAL (2026-11-11). El **Módulo 5A** ya tiene el pipeline de
+  dibujo completo (§14): shaders, `ID3D11InputLayout`, estados, `DrawIndexed` y
+  una geometría 3D de prueba (el cubo) visible en la ventana de la aplicación.
+  Lo que falta para cerrar el hito: **texturas** (Hito 4), *depth buffer*,
+  blending del original y la carga del nivel real (`.DFX`) en el bucle de
+  frames. **El primer escenario original no está terminado.**
 - **Objetivo:** Renderizar AZTEC16 con D3D11
 - **Criterio de éxito:**
   - Geometría renderizada (siluetas reconocibles)
@@ -596,27 +640,31 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: el Módulo 4 (carga y conversión de texturas `.VFX`) y, con
-él, la firma de shader que permite crear el `ID3D11InputLayout` del Módulo 5.**
+**Siguiente paso: el Módulo 4 (carga y conversión de texturas `.VFX`/NCC) y,
+con él, el material definitivo: shader de producción, *depth buffer* y el
+`ID3D11InputLayout` con los atributos que consuma la textura.**
 
-- **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión de
-  polígonos (Módulo 2, §11) y el Módulo 3 completo —conversión portable (§12) y
-  vertex/index buffers D3D11 (§13)—. Los buffers se crean y se verifican por
-  lectura de vuelta con WARP y con hardware.
-- **Lo que falta antes de ver píxeles:** los shaders (no documentados en U-1), la
-  carga `.VFX`/NCC, el `ID3D11InputLayout` derivado de la firma del shader, la
-  configuración del pipeline y el `DrawIndexed` en el renderer R-3.
-- **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la tabla
-  de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
+- **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión
+  de polígonos (Módulo 2, §11), el Módulo 3 completo (conversión portable §12 y
+  vertex/index buffers D3D11 §13) y el **Módulo 5A**: shaders, input layout,
+  estados y `DrawIndexed` (§14), con geometría de prueba visible en la
+  ventana de la aplicación.
+- **Lo que falta antes de ver una escena real:** las texturas del Módulo 4, el
+  blending del original, el *depth buffer*, y la carga del nivel (`.DFX`) con
+  la emisión real dentro del bucle de frames (hoy la geometría de la
+  aplicación es el cubo de prueba, no un nivel).
+- **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la
+  tabla de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
   `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
   ventanas.
 - **Sigue pendiente y no se declara cerrado:** la validación dinámica de S-2
   contra el ejecutable original. Mientras no exista, la emisión es
   «reconstruida y coherente», no «demostrada idéntica».
 
-El Módulo 3 deja la geometría lista para ese dibujo: cada vértice lleva
-posición, profundidad, color, UV, textura, capa y flags, y los índices cubren
-todos los triángulos emitidos, incluidas subdivisiones y pasadas de niebla.
+El Módulo 5A deja la geometría real dibujándose en pantalla: cada vértice
+lleva posición, profundidad, color, UV, textura, capa y flags, y los índices
+cubren todos los triángulos emitidos, incluidas subdivisiones y pasadas de
+niebla.
 
 ---
 
@@ -1087,3 +1135,204 @@ swapchain y sin demos interactivas.
   vértice, pero el `.VFX`/NCC no se carga (Módulo 4).
 - Que el *depth buffer* use `z`: la profundidad se conserva por vértice, pero su
   transformación a espacio de proyección pertenece al Módulo 5.
+
+---
+
+## 14. Módulo 5A: primer renderizado de geometría 3D (2026-11-11)
+
+Implementado en `port/include/gex/render/d3d11_pipeline.h` y
+`port/src/render/d3d11_pipeline.c` (Windows-only), con la geometría de prueba
+en `port/include/gex/geometry_shapes.h` +
+`port/src/geometry/geometry_shapes.c` (portable). Pruebas en
+`port/tests/test_d3d11_pipeline.c` y `port/tests/test_geometry_shapes.c`.
+
+### 14.1 Qué hace
+
+Cierra el camino `gex_emit_output → gex_geometry → ID3D11Buffer → DrawIndexed`:
+compila un vertex shader y un pixel shader mínimos, crea el
+`ID3D11InputLayout` que describe los 28 B reales del vértice, configura los
+estados, conecta los buffers con `IASetVertexBuffers`/`IASetIndexBuffer` y
+dibuja con `DrawIndexed`.
+
+**No hace:** texturas, materiales NCC, blending complejo, *depth buffer*, ni
+el `ID3D11InputLayout` definitivo de producción. Es color por vértice.
+
+### 14.2 Shaders y compilación
+
+**Auditoría del entorno (2026-11-11):**
+
+| Herramienta | Estado |
+|---|---|
+| `fxc.exe` (Windows SDK) | **no disponible** en el entorno |
+| `d3dcompiler.h` | disponible en el toolchain (mingw-w64) |
+| `libd3dcompiler.a` | disponible en el toolchain |
+| `d3dcompiler_47.dll` | **presente** en `C:\Windows\System32` |
+
+Decisión: **compilación HLSL en ejecución** con `d3dcompiler_47.dll`, que es un
+componente de Windows con el mismo criterio que `d3d11.dll` y `dsound.dll` ya
+usados por el port. No se instala nada ni se modifica la configuración. La DLL
+se carga bajo demanda con `LoadLibraryA`/`GetProcAddress`, de modo que la
+aplicación no tiene dependencia de arranque: si falta, el pipeline devuelve
+`GEX_D3D11_PIPELINE_NO_COMPILER` con el texto del error y el port sigue
+funcionando (limpia y presenting).
+
+El HLSL vive como cadenas C en `src/render/d3d11_pipeline.c` (`GEX_HLSL_VERTEX`
+y `GEX_HLSL_PIXEL`): no hay bytecode precompilado en el repositorio, así que
+no hay que regenerar ni versionar nada, y el fuente es legible y editable.
+
+**Hallazgo importante (comprobado con WARP).** El enlazador de Direct3D 11 no
+conecta la entrada de un pixel shader declarada como parámetro suelto con la
+salida del vertex shader: `float4 GexPS(float4 color : COLOR)` recibía el
+**registro 0** de la salida del VS (SV_POSITION, interpolada como *varying*
+normal), de modo que el color que llegaba era en realidad la posición recortada. La
+solución es que **el pixel shader reciba la misma estructura que el vertex
+shader declara como salida** (el estilo canónico de las muestras de D3D11):
+
+```hlsl
+struct VSOut {
+    float4 pos   : SV_POSITION;
+    float4 color : COLOR;
+};
+float4 GexPS(VSOut input) : SV_TARGET { return input.color; }
+```
+
+Con esa forma el color llega correcto (verificado píxel a píxel). La prueba
+`test_d3d11_pipeline` cubre el caso, de modo que una regresión en el enlazado
+se detectaría.
+
+### 14.3 Formato de entrada y orden de bytes del color
+
+El `ID3D11InputLayout` describe exactamente los 28 B de `gex_vertex`:
+
+| Semántica | Formato DXGI | Offset |
+|---|---|---:|
+| `POSITION` | `R32G32B32_FLOAT` | 0 |
+| `COLOR` | `R8G8B8A8_UNORM` | 12 |
+| `TEXCOORD` | `R32G32_FLOAT` | 16 |
+| `TEXINDEX` | `R16_UINT` | 24 |
+| `LAYER` | `R8_SINT` | 26 |
+| `FLAGS` | `R8_UINT` | 27 |
+
+Dos detalles que se comprobaron contra el SDK de Windows:
+
+1. **`D3D11_INPUT_ELEMENT_DESC` no tiene campo `Offset`.** El byte offset
+   dentro del vertex buffer va en `AlignedByteOffset` (el `Offset` de D3D10 no
+   existe aquí). Los offsets 26 y 27 son válidos: el runtime acepta el layout
+   completo.
+2. **El color es AARRGGBB en un `uint32` y D3D11 no admite
+   `B8G8R8A8_UNORM` en un vertex buffer.** Con `R8G8B8A8_UNORM` los bytes se
+   leen en orden de memoria (BB, GG, RR, AA en little-endian), así que el
+   shader recibe los canales R,G,B,A con R y B **intercambiados**. El vertex
+   shader reordena: `float4(color.b, color.g, color.r, color.a)`. La prueba
+   usa un color con R y B distintos (`0xFF3366CC`) para que un intercambio
+   sea detectable.
+
+El render target de las pruebas es `DXGI_FORMAT_R8G8B8A8_UNORM`, cuyos bytes en
+memoria son R, G, B, A.
+
+### 14.4 Estados
+
+| Estado | Valor | Motivo |
+|---|---|---|
+| Topología | `D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST` | la emisión produce triángulos |
+| Rasterizador | `FILL_SOLID`, `CULL_NONE`, `DepthClipEnable = TRUE` | la emisión ya descartó por determinante 2D; no se supone el sentido de giro |
+| Blend | desactivado, escritura de todos los canales | el color del vértice se escribe tal cual |
+| Depth/Stencil | `DepthEnable = FALSE`, escritura cero | sin depth buffer: el orden de dibujo es el de emisión (algoritmo del pintor, como el original) |
+| Viewport | el tamaño real del render target | |
+| Constant buffer | `viewport_size` (xy = píxeles, z = divisor de z) y `reference_size` (xy = resolución lógica) | dinámico, `MAP_WRITE_DISCARD` |
+
+### 14.5 Coordenadas
+
+Los vértices llevan **X/Y ya proyectadas en píxeles** del espacio lógico del
+original (512x384, centro en 256/192) y **Z como profundidad entera**. El
+vertex shader **no aplica ninguna matriz de cámara**: solo convierte píxeles
+lógicos a espacio de clip, que es lo que exige el rasterizador.
+
+```
+p        = pos.xy - reference_size.xy * 0.5      /* centrado */
+scale    = min(vp.x / ref.x, vp.y / ref.y)        /* escala uniforme */
+ndc.xy   = ( p.xy * scale * 2 ) / vp.xy, con la Y negada
+ndc.z    = pos.z / 65535                          /* profundidad -> [0,1] */
+```
+
+Con la escala uniforme la imagen lógica no se deforma al cambiar el tamaño de
+la ventana, y la profundidad entra en [0,1] para no ser recortada por el
+*depth clip* (el clip space exige 0 ≤ z ≤ w). La prueba lo comprueba: con un
+viewport de 256x192 y una referencia de 512x384, el vértice lógico (64,64)
+cae exactamente en el píxel (32,32); con un viewport de 320x240, en el (40,40).
+
+### 14.6 Integración con el renderer
+
+`gex_d3d11_renderer_set_geometry(renderer, pipeline, mesh, ref_w, ref_h)`
+registra la geometría (punteros **prestados**) y el renderer la dibuja en cada
+`gex_d3d11_renderer_present`, entre el `ClearRenderTargetView` y el `Present`.
+Si no hay pipeline o malla, el renderer se comporta exactamente como antes:
+limpia y presenta. Un fallo de dibujo se cuenta en `draw_errors`, se anota en
+`last_hresult` y la llamada devuelve error, pero el frame se presenta igualmente.
+
+En la aplicación (`src/app/i4_main_win32.c`) se crea el pipeline, el cubo de
+prueba y la malla, y se registran en el renderer. Si algo falla, la aplicación
+avisa por consola y sigue con el comportamiento anterior (solo limpiar).
+
+### 14.7 Geometría de prueba
+
+`gex_shape_cube(out, angle_radians)` (portable) emite un cubo con las
+estructuras reales de la emisión:
+
+- 6 caras x 2 triángulos = 12 triángulos, en el espacio lógico 512x384;
+- color por cara (rojo, verde, azul, amarillo, cian, magenta) sombreado por
+  su normal con una luz fija (Lambert);
+- profundidad por vértice, con las caras ordenadas de atrás hacia delante
+  (algoritmo del pintor);
+- giro alrededor de Y parametrizable e inclinación fija de 0,35 rad para que
+  se vean tres caras a la vez;
+- `flags = GEX_EMIT_F_NEAR_EMITTER`, sin niebla y sin texturas.
+
+### 14.8 Pruebas
+
+`port/tests/test_d3d11_pipeline.c` — **137 comprobaciones, 0 fallos** (Clang
+`-O0` y `-O2`), **offscreen con WARP**: sin ventanas, sin swapchain y sin
+demos interactivas. Cubre:
+
+1. nombres de estado y contrato del inicializador;
+2. el input layout frente a los offsets y formatos publicados, y que el
+   último byte describe los 28 B;
+3. init: errores (argumento nulo, dispositivo no inicializado, doble init) y
+   que tras un error no queda ningún recurso a medias;
+4. init correcto: shaders compilados, los seis recursos vivos y
+   `last_error` vacío; cierre y reutilización;
+5. dibujo: se generan píxeles distintos del color de limpieza, el color del
+   vértice llega con R y B en su sitio y el alfa intacto, y fuera del triángulo
+   sigue el color de limpieza;
+6. interpolación del color por vértice (el centroide es el promedio);
+7. resize: con otro tamaño de render target, la geometría se coloca en la
+   posición que corresponde a la nueva escala;
+8. geometría vacía, malla nula, destino nulo, tamaños 0 y estados inválidos;
+9. recursos parcialmente vivos: una malla con un índice fuera de rango no crea
+   nada y el pipeline sigue utilizable;
+10. el cubo de prueba se dibuja y cubre una parte apreciable del viewport;
+11. el contrato de `gex_d3d11_renderer_set_geometry` (argumentos nulos y
+    renderer no inicializado).
+
+`port/tests/test_geometry_shapes.c` — **355 comprobaciones, 0 fallos**
+(portable, Clang `-O0`, `-O2` y ASan/UBSan): forma de la emisión, colores,
+profundidades, orden del pintor, determinismo, efecto del giro y conversión a
+`gex_geometry`.
+
+### 14.9 Limitaciones y siguiente paso
+
+- **No hay validación dinámica contra el ejecutable original**: S-2 sigue
+  abierto y el primer escenario original **no** está terminado.
+- **No hay texturas ni materiales**: el Módulo 4 sigue entero; el índice de
+  textura viaja por vértice pero no se resuelve.
+- **No hay depth buffer**: el orden de las caras lo resuelve el algoritmo del
+  pintor, igual que el original. Con geometría que se solape de forma
+  interpenetrada haría falta un *depth buffer* real.
+- **La geometría de prueba es estática**: los buffers son inmutables, así que
+  animarla exigiría recrearlos o usar buffers dinámicos.
+- **El color se escribe sin blending**: el canal alfa del vértice se escribe en
+  el render target pero no se usa para transparency; el blending del original
+  está pendiente.
+- Siguiente paso: **Módulo 4 (carga y conversión de texturas `.VFX`/NCC)** y,
+  con él, la firma definitiva del shader de producción, el *depth buffer* y el
+  `ID3D11InputLayout` con los atributos que consuma el material.

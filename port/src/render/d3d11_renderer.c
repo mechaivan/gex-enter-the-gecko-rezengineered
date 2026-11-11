@@ -164,6 +164,7 @@ gex_d3d11_renderer_status gex_d3d11_renderer_resize(
 int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
 {
     gex_d3d11_renderer *renderer = (gex_d3d11_renderer *)ctx;
+    int draw_failed = 0;
 
     if (renderer == NULL || !renderer->initialized || tick == NULL) {
         return 1;
@@ -172,6 +173,34 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
     /* Clear the render target with the configured color */
     ID3D11DeviceContext_ClearRenderTargetView(renderer->context, renderer->rtv,
                                            renderer->clear_color);
+
+    /* Módulo 5A: dibujo opcional de la geometría, antes del Present. Si no
+     * hay pipeline o malla, el comportamiento es el de siempre: limpiar y
+     * presentar. */
+    if (renderer->pipeline != NULL && renderer->mesh != NULL &&
+        renderer->mesh->initialized) {
+        D3D11_TEXTURE2D_DESC desc;
+        gex_d3d11_pipeline_status st;
+
+        memset(&desc, 0, sizeof(desc));
+        if (renderer->backbuffer != NULL) {
+            ID3D11Texture2D_GetDesc(renderer->backbuffer, &desc);
+        }
+        st = gex_d3d11_pipeline_set_target(
+            renderer->pipeline, renderer->rtv, desc.Width, desc.Height,
+            renderer->geometry_reference_width,
+            renderer->geometry_reference_height);
+        if (st == GEX_D3D11_PIPELINE_OK) {
+            st = gex_d3d11_pipeline_draw(renderer->pipeline, renderer->mesh);
+        }
+        if (st == GEX_D3D11_PIPELINE_OK) {
+            renderer->draws++;
+        } else {
+            renderer->draw_errors++;
+            renderer->last_hresult = E_FAIL;
+            draw_failed = 1;
+        }
+    }
     
     /* Present the backbuffer with the configured sync interval */
     HRESULT hr = IDXGISwapChain_Present(renderer->swapchain, renderer->sync_interval, 0);
@@ -196,7 +225,34 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
     renderer->last_steps = tick->steps;
     renderer->last_frame_index = tick->frame_index;
     
-    return 0;
+    return draw_failed;
+}
+
+gex_d3d11_renderer_status gex_d3d11_renderer_set_geometry(
+    gex_d3d11_renderer *renderer,
+    gex_d3d11_pipeline *pipeline,
+    gex_d3d11_mesh *mesh,
+    UINT ref_width, UINT ref_height)
+{
+    if (renderer == NULL) {
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
+    }
+    if (!renderer->initialized) {
+        return GEX_D3D11_RENDERER_BAD_STATE;
+    }
+    /* Sólo una de las dos mitades: el pipeline sin malla o la malla sin
+     * pipeline no se pueden dibujar. */
+    if ((pipeline == NULL) != (mesh == NULL)) {
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
+    }
+
+    renderer->pipeline = pipeline;
+    renderer->mesh = mesh;
+    renderer->geometry_reference_width =
+        (ref_width == 0u) ? GEX_D3D11_REFERENCE_WIDTH : ref_width;
+    renderer->geometry_reference_height =
+        (ref_height == 0u) ? GEX_D3D11_REFERENCE_HEIGHT : ref_height;
+    return GEX_D3D11_RENDERER_OK;
 }
 
 void gex_d3d11_renderer_shutdown(gex_d3d11_renderer *renderer)

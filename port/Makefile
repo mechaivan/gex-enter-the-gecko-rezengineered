@@ -7,14 +7,17 @@
 #   make clean  remove build/ (only files this build produced)
 #
 # The DirectSound device backend (src/audio/backend_dsound.c, test_device.c),
-# the D3D11 device, swap chain and mesh buffers (src/render/d3d11_device.c,
-# src/render/d3d11_swapchain.c, src/render/d3d11_mesh.c, test_d3d11_device.c,
-# test_d3d11_swapchain.c, test_d3d11_mesh.c, tools/d3d11probe.c,
-# tools/swapprobe.c) and the Win32 layer (src/platform/win32_*.c,
-# test_win32_time.c, gexloop) are Windows-only and are built by build.ps1.
-# Everything else here is portable C11, including the I-4 input tables, app
-# core, clock conversion and the geometry conversion of Module 3
-# (src/geometry/geometry.c, test_geometry.c).
+# the D3D11 device, swap chain, mesh buffers and draw pipeline
+# (src/render/d3d11_device.c, src/render/d3d11_swapchain.c,
+# src/render/d3d11_mesh.c, src/render/d3d11_pipeline.c, test_d3d11_device.c,
+# test_d3d11_swapchain.c, test_d3d11_mesh.c, test_d3d11_pipeline.c,
+# tools/d3d11probe.c, tools/swapprobe.c) and the Win32 layer
+# (src/platform/win32_*.c, test_win32_time.c, gexloop) are Windows-only
+# and are built by build.ps1. Everything else here is portable C11, including
+# the I-4 input tables, app core, clock conversion, the geometry conversion
+# of Module 3 (src/geometry/geometry.c, test_geometry.c) and the test
+# shapes of Module 5A (src/geometry/geometry_shapes.c,
+# test_geometry_shapes.c).
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wpedantic -Iinclude
@@ -38,6 +41,8 @@ EMIT_SRC  := src/emit/emit.c
 EMIT_HDR  := include/gex/emit.h
 GEOMETRY_SRC := src/geometry/geometry.c
 GEOMETRY_HDR := include/gex/geometry.h
+SHAPES_SRC := src/geometry/geometry_shapes.c
+SHAPES_HDR := include/gex/geometry_shapes.h
 INPUT_SRC := src/input/key_state.c
 INPUT_HDR := include/gex/input/key_state.h
 RENDER_SRC := src/render/null_renderer.c
@@ -69,6 +74,9 @@ $(BUILD)/test_level_emit: tests/test_level_emit.c $(EMIT_SRC) $(BSP_SRC) $(CAMER
 $(BUILD)/test_geometry: tests/test_geometry.c $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(GEOMETRY_HDR) $(EMIT_HDR) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -DGEX_GEOM_TEST_FAULT_INJECT -o $@ tests/test_geometry.c $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(LDLIBS)
 
+$(BUILD)/test_geometry_shapes: tests/test_geometry_shapes.c $(SHAPES_SRC) $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SHAPES_HDR) $(GEOMETRY_HDR) $(EMIT_HDR) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_geometry_shapes.c $(SHAPES_SRC) $(GEOMETRY_SRC) $(EMIT_SRC) $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(LDLIBS)
+
 $(BUILD)/test_adpcm: tests/test_adpcm.c $(AUDIO_SRC) $(AUDIO_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_adpcm.c $(AUDIO_SRC)
 
@@ -93,12 +101,13 @@ $(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(C
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_geometry_shapes $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
 	./$(BUILD)/test_sag
 	./$(BUILD)/test_camera
 	./$(BUILD)/test_bsp
 	./$(BUILD)/test_level_emit
 	./$(BUILD)/test_geometry
+	./$(BUILD)/test_geometry_shapes
 	./$(BUILD)/test_adpcm
 	./$(BUILD)/test_audio
 	./$(BUILD)/test_frame

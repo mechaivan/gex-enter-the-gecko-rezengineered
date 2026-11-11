@@ -2,6 +2,91 @@
 
 Formato: `YYYY-MM-DD - versión - descripción`.
 
+## 2026-11-11 - 0.0.0 - Módulo 5A: primer renderizado de geometría 3D con D3D11
+
+Pipeline de dibujo D3D11 mínimo y completo: vertex shader, pixel shader,
+`ID3D11InputLayout`, estados, `IASetVertexBuffers`/`IASetIndexBuffer`,
+`DrawIndexed` e integración en el ciclo del renderer antes del `Present`. Sin
+texturas, sin materiales NCC y sin blending complejo: **color por vértice**.
+No se toca D3D11 existente (R-1…R-5), Win32, Glide, ejecutables ni assets;
+`C:\GEX_REZ` solo se lee.
+
+Archivos nuevos:
+
+- `port/include/gex/render/d3d11_pipeline.h` + `port/src/render/d3d11_pipeline.c`
+  — pipeline de dibujo (Windows-only): shaders, layout, estados, constant
+  buffer, viewport y `DrawIndexed`.
+- `port/include/gex/geometry_shapes.h` + `port/src/geometry/geometry_shapes.c`
+  — geometría de prueba reutilizable y portable (cubo 3D de 12 triángulos con
+  color por cara, sombreado y orden del pintor).
+- `port/tests/test_d3d11_pipeline.c` (137 comprobaciones, offscreen con WARP) y
+  `port/tests/test_geometry_shapes.c` (355 comprobaciones, portable).
+
+Archivos modificados:
+
+- `port/include/gex/render/d3d11_renderer.h` + `port/src/render/d3d11_renderer.c`
+  — la geometría es opcional y **prestada**: `gex_d3d11_renderer_set_geometry`
+  la registra y el renderer la dibuja entre el clear y el `Present`. Sin
+  geometría, el comportamiento es exactamente el anterior.
+- `port/src/app/i4_main_win32.c` — crea pipeline, cubo y malla, y los registra
+  en el renderer; si algo falla, avisa por consola y sigue como antes.
+- `port/Makefile` y `port/build.ps1` — nuevas pruebas y fuentes.
+- Documentación: `docs/D3D11_FIRST_SCENE_PLAN.md` (§14 nueva; §3.2, §5.1,
+  §5.2, §6.2, §7, §10 corregidos), `PROJECT_STATE.md`, `ROADMAP.md` (S-5).
+
+Decisiones y hallazgos:
+
+1. **Compilación HLSL en ejecución.** Auditoría del entorno: no hay `fxc.exe`
+   (Windows SDK), pero sí `d3dcompiler.h` y `libd3dcompiler.a` en el toolchain
+   y `d3dcompiler_47.dll` en `C:\Windows\System32`. Se compila en ejecución
+   con `LoadLibraryA`/`GetProcAddress`, de modo que la aplicación no tiene
+   dependencia de arranque y puede informar del problema. El HLSL vive como
+   cadenas C en el módulo: no hay bytecode precompilado que mantener.
+2. **Enlazador de shaders.** Con un parámetro suelto en el pixel shader
+   (`float4 GexPS(float4 color : COLOR)`) el enlazador D3D11 conecta la
+   entrada con el **registro 0** de la salida del vertex shader (SV_POSITION),
+   y el color que llegaba era en realidad la posición recortada. El pixel
+   shader recibe ahora la **misma estructura** que el vertex shader declara
+   como salida. Cubierto por la prueba.
+3. **`D3D11_INPUT_ELEMENT_DESC` no tiene campo `Offset`** (el del SDK de
+   Windows): el byte offset va en `AlignedByteOffset`. El layout describe los
+   28 B reales con los offsets publicados, incluidos 26 y 27.
+4. **Orden de bytes del color.** El vértice guarda AARRGGBB en un `uint32` y
+   D3D11 no admite `B8G8R8A8_UNORM` en un vertex buffer: con
+   `R8G8B8A8_UNORM` los bytes se leen como BB, GG, RR, AA, así que el vertex
+   shader reordena a (R,G,B,A). La prueba usa un color con R y B distintos
+   para que un intercambio sea detectable.
+5. **Coordenadas.** No se aplica ninguna matriz de cámara: el vertex shader
+   convierte los píxeles lógicos (512x384, el espacio del original) a espacio
+   de clip con escala uniforme y centrada, y escala la profundidad a [0,1] para
+   que el *depth clip* no recorte nada.
+6. **Estados.** Trianglelist, `CULL_NONE` (la emisión ya descartó por
+   determinante 2D), blending desactivado y **sin depth buffer**: el orden de
+   las caras lo resuelve el algoritmo del pintor, igual que en el original.
+
+Resultados reales de las pruebas:
+
+- `test_d3d11_pipeline`: **137 comprobaciones, 0 fallos** en Clang `-O0` y
+  `-O2`, sin warnings propios. Offscreen con WARP: sin ventanas, sin swapchain
+  y sin demos interactivas. Comprueba que se generan píxeles distintos del
+  color de limpieza, que el color llega con R y B en su sitio y el alfa
+  intacto, que el color por vértice se interpola, que la posición proyectada
+  es la esperada (resize incluido), y los estados de error, la geometría
+  vacía y la liberación repetida.
+- `test_geometry_shapes`: **355 comprobaciones, 0 fallos** en Clang `-O0`,
+  `-O2` y ASan/UBSan.
+- Suites anteriores sin regresiones: `test_sag` 69 305, `test_camera` 889,
+  `test_bsp` 37, `test_level_emit` 38 809, `test_geometry` 6 963, `test_adpcm`
+  60 052, `test_audio` 215, `test_frame` 410, `test_input` 826,
+  `test_i4_app` 117, `test_d3d11_device` 332, `test_d3d11_mesh` 108 — todas con
+  0 fallos.
+
+Lo que **no** se declara: no hay texturas, materiales, *depth buffer* ni
+blending; la geometría visible es el cubo de prueba, no una escena del juego.
+S-2 sigue sin validación dinámica contra el ejecutable y no se declara
+completo; el primer escenario original no está terminado.
+`PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+
 ## 2026-11-11 - 0.0.0 - Módulo 3: geometría portable y buffers D3D11
 
 Implementación del **Módulo 3** del plan del primer escenario, en dos módulos
