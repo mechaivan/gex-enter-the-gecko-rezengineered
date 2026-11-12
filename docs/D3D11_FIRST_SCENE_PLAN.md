@@ -789,9 +789,19 @@ carga desde un fichero. Método, tabla temporal, mecanismo
 y límites en [`S3_MENU_CAMERA_SEQUENCE.md`](../S3_MENU_CAMERA_SEQUENCE.md); las
 428 muestras en `analysis/menu_camera_map7.tsv`. Para implementarla en DX11
 falta el detalle fino: el instante de aparición de los elementos del menú, la
-decodificación del nodo de control (0x200 B), identificación del interpolador
-y si el avance es **por frame** o **por tiempo** (el port corre a 60 fps y el original, aquí, a
-~25).
+**representación** de la trayectoria dentro de la imagen del `.DFX` (los puntos
+intermedios no están como literales) e identificación del interpolador.
+
+Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.7):
+
+- **De dónde salen los datos**: `level\map7.dfx`, abierto por `0x461B90` en el
+  mismo instante en que la cámara despega; `0x461E0B` devuelve su **imagen
+  compactada**, que es la misma región que el parser del port ya extrae. El
+  encuadre final del menú `(2243, 487, 196)` es un **literal** de esa imagen
+  (offset `0xC356`) y la posición del nodo está en `+0x28`.
+- **La temporización ya está**: el avance es **por frame** (contador int16 en
+  `+0x46` del estado `0x006466D8`), así que la unidad a reproducir son los
+  **428 frames**, no los 17,1 s (a 60 fps serían ≈ 7,1 s).
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
   de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas

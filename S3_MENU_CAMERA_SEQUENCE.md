@@ -206,20 +206,94 @@ El controlador se obtiene en `0x0043B294` (dentro de la función que empieza en
 0x43B2A0  movl %eax, -0x4(%ebp)   ; controlador
 ```
 
-y `0x00461E0B` llama a `0x00461B90`, que **abre un fichero** (`fopen`, thunk
-CRT `0x00541060`; `fseek`/`ftell` en `0x00540F90`/`0x00540DE0`) y devuelve un
-**array de registros de 0x200 B** indexado por un contador enmascarado con
-`0x1FF` (`0x461E47`: `+0x200` y `and $0x1FF`).
+y `0x00461E0B` llama a `0x00461B90`, que **carga un fichero entero** en
+memoria (`fopen` `0x00541060`, `fseek` `0x00540F90`, `ftell` `0x00540DE0`,
+`malloc` `0x00464FB3`, `fread` `0x00540CA0`, `fclose` `0x00540C20`) y después
+**compacta** el `.DFX`: mueve la **imagen** (la región que sigue a la tabla de
+relocalización, en `aligned*4`, con `aligned = (count + 0x200) & ~0x1FF`) al
+principio del buffer y devuelve ese puntero. Esto **ya estaba documentado** en
+[`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) § C.6, que llama a
+ese resultado «B (imagen compactada)» y lo almacena en `level[+4]`.
 
-⟹ El material de la trayectoria vive en **datos del juego** (un fichero
-abierto por `0x461B90`), no en código ni en una constante. El nodo del
-controlador tiene la posición en `+0x28/+0x2A/+0x2C`; los campos restantes
-del nodo (0x200 B) no se han decodificado.
+> **Corrección (2026-11-13).** Lo publicado el 2026-11-12 («un array de
+> registros de **0x200 B** indexado por un contador enmascarado con `0x1FF`) era
+> **incorrecto**: `0x200` es la **alineación** de la imagen del `.DFX`, no un
+> tamaño de registro, y `0x1FF` es la máscara de esa alineación, no un índice
+> de nodo. La aritmética es exactamente la que ya usa el parser del port
+> (`GEX_DFX_ALIGN_ADD` / `GEX_DFX_ALIGN_MASK`, `port/src/asset/dfx.c`).
+
+⟹ El material de la trayectoria vive en **datos del juego** (la imagen de
+un `.DFX`), no en código ni en una constante. El nodo tiene la posición en
+`+0x28/+0x2A/+0x2C`.
 
 ⟹ La **interpolación ocurre por encima**, en el controlador: la cámara no
 interpola nada, solo copia. El port no tendrá que inventar la interpolación:
 tiene que **reproducir lo que el controlador calcula** (o usar la
 trayectoria medida como datos).
+
+### 4.5 El fichero: cuál es y cómo se localiza
+
+Medido con el trazador (breakpoint en `0x00461B90` y volcado de la cadena de
+la ruta; `dumpstr` no consume el límite de volcados, así que sale **todas** las
+rutas que abre el juego):
+
+| t (ms) | Ruta abierta | Llamante |
+|---:|---|---|
+| 1 696 | `…\GEX2\gex.dfx` | `0x00461E20` (dentro de `0x461E0B`) |
+| 25 764 | `…\GEX2\level\map7.vfx` | `0x00461C41` (dentro de `0x461C32`, la tabla de texturas) |
+| 25 766 | `…\GEX2\level\map7.dfx` | `0x00461E20` (dentro de `0x461E0B`) |
+
+⟹ **El control de cámara del menú viene de `level\map7.dfx`**: el `.DFX`
+del nivel, cargado en el **mismo instante** (25,766 s) en que la cámara empieza
+a volar (25,96 s). `gex.dfx` es el `.DFX` global (cargado al arrancar, con el
+menú) y `map7.vfx` es el contenedor de texturas del nivel (`0x461C32` construye
+con él la tabla de texturas de `0x006488F4`).
+
+⟹ Consecuencia práctica: **el material de la trayectoria es el mismo
+`.DFX` que el port ya lee** (`gex_dfx_container.image`, la región compactada
+que el parser del port ya extrae). No hace falta E/S nuevo: basta decodificar
+dentro de la imagen.
+
+### 4.6 El nodo de cámara: `+0x28` y el encuadre final del menú
+
+- El offset `+0x28` de la copia (`0x43B573`) coincide con la **primera
+  entrada** de la imagen: sus palabras `+0x28/+0x2A/+0x2C` valen
+  `(2795, 77, 268)`, que es exactamente la posición de cámara de la **primera
+  muestra** de la serie publicada (antes del vuelo).
+- El **encuadre final del menú `(2243, 487, 196)` aparece como literal en esa
+  imagen**, en el offset `0xC356` de la imagen (una sola ocurrencia).
+
+⟹ El encuadre al que llega el menú **es un dato del nivel**, no una
+constante del código. Y el nodo tiene la posición en `+0x28` (int16 ×3).
+
+**Lo que NO está en la imagen**: los puntos intermedios de la trayectoria. El
+punto medido en el frame 200, `(4498, -8346, 737)`, **no** aparece como
+tripelete de int16 en la imagen. ⟹ La representación **no** es una lista de
+posiciones muestreadas (queda por identificar si son puntos de control con
+otra codificación, o un movimiento paramétrico).
+
+### 4.7 La temporización: **por frame**, no por reloj
+
+Estado de ejecución capturado por frame (volcado del bloque global
+`0x006466D8`, el estado de la ruta 3D):
+
+| Offset | Tipo | Comportamiento medido |
+|---|---|---|
+| `+0x46` | int16 | **contador**: suma **1 en cada frame** (1 150 de 1 189 pasos consecutivos; los 39 restantes son reinicios por cambio de escena) |
+| `+0x10` / `+0x12` | int16 ×2 | par de valores que **alterna** entre dos durante el vuelo (p. ej. `-29680` y `-20080`) |
+| `+0x14` | int16 | valores del mismo orden, con variaciones pequeñas |
+| `+0x16` | int16 | constante `100` durante el vuelo |
+
+⟹ **El avance de la trayectoria es por frame**, no por un reloj: el
+contador de `+0x46` acompaña 1:1 a los frames y no hay `GetTickCount` ni un
+delta de tiempo en el avance. ⟹ **Consecuencia para el port**: los **428
+frames** del vuelo son la unidad, y a 60 fps la misma secuencia duraría ≈ 7,1 s,
+no 17,1 s. El port debe reproducir **el número de frames**, no la duración en
+segundos.
+
+El papel de `+0x10/+0x12/+0x14` (los valores que alternan) **no** está
+establecido: se han medido, pero no se ha identificado qué representan ni cómo
+participan en el cálculo.
 
 ### 4.2 La trayectoria NO es una interpolación de dos puntos
 
@@ -294,6 +368,15 @@ captura de píxeles (la ventana devuelve negro). Queda como pendiente con el
 método disponible (identificar el estado de menú en el mundo de
 `0x00648900`/el flujo de comandos, o capturar la ventana con otro método).
 
+**Búsqueda de un indicador de «menú preparado» (resultado negativo).** Se
+volcó por frame el bloque del mundo `0x00648900` (0x200 B, 925 frames) buscando
+un campo que cambiara **una sola vez** en el frame 428 (el final del vuelo) y
+se quedara fijo: los campos que varían son el estado de la cámara
+(posición, orientación, planos), la proyección y **contadores por frame**
+(p. ej. `+0x104`, que suma 1 en cada frame), y **ninguno** hace un único cambio
+en el frame 428 ⟹ el indicador del menú no está en ese bloque (o no es un
+único cambio de valor). Queda pendiente.
+
 **Hipótesis (no demostrada)**: el vuelo de cámara **es** la animación de
 entrada del menú (el juego entra en la ruta 3D, la cámara vuela hasta el
 punto de vista del menú y ahí se queda). El indicio es que el vuelo arranca
@@ -310,18 +393,26 @@ Con los datos medidos, el port necesita:
 |---|---|---|
 | Encuadre de partida | `(2341, 4071, 3074)`, Euler `(-397, 0, 2802)` | medido |
 | Encuadre final | `(2243, 487, 196)`, Euler `(-29, 0, 2842)` | medido |
-| Duración | 428 frames (≈ 17,1 s a ~25 fps) | medido |
+| Duración | **428 frames** (≈ 17,1 s a ~25 fps) | medido |
+| Unidad de avance | **frames**, no segundos (§ 4.7) | medido |
+| Origen de los datos | **la imagen de `level\map7.dfx`** (§ 4.5), que el port ya parsea | identificado |
+| Encuadre final como dato | literal en la imagen del `.DFX`, offset `0xC356` | medido |
+| Posición en el nodo | `+0x28` (int16 ×3) | medido |
 | Forma | recorrido curvo con aceleración y frenada; interpolador sin identificar | medido (trayectoria y perfil) |
 | Origen de los datos | controlador del mundo `0x006487E0` | identificado |
 
 **Lo que falta para poder implementarlo sin inventar:**
 
-1. La **estructura del controlador y sus registros** (0x200 B): volcarlos,
-   identificar campos y determinar si contienen puntos de control, muestras
-   precalculadas u otra representación.
-2. Si el avance es **por frame** o **por tiempo** (el juego corre a ~25 fps; el
-   port corre a 60 ⟹ la diferencia es visible).
-3. El **estado de menú** que dispara el vuelo y el momento exacto en que el
+1. La **representación de la trayectoria** dentro de la imagen del `.DFX`: los
+   puntos intermedios **no** están como literales (el punto medido en el frame
+   200 no aparece), así que hay que decodificar qué contiene el nodo (puntos
+   de control con otra codificación, o un movimiento paramétrico).
+2. La rutina **por frame** que escribe la posición de la cámara: la copia de
+   `0x43B56B` es la colocación **de arranque** (toma el nodo y lo copia); la
+   que actualiza cada frame no está identificada (candidata: el flujo de
+   comandos del nivel).
+3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
+4. El **estado de menú** que dispara el vuelo y el momento exacto en que el
    menú queda estable.
 
 ---

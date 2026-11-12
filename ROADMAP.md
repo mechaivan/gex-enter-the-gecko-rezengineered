@@ -153,6 +153,19 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     instante exacto de aparición de los elementos del menú, la decodificación
     del nodo de control (0x200 B) y si el avance es por frame o por tiempo.
     Documento nuevo: `S3_MENU_CAMERA_SEQUENCE.md`.
+  - **Duodécima tanda (2026-11-13, controlador de cámara del menú):** el
+    fichero de datos es **`level\map7.dfx`**, abierto por `0x461B90` en el
+    mismo instante en que la cámara empieza a volar, y `0x461E0B` devuelve su
+    **imagen compactada**, que es la región que el parser del port ya extrae
+    (no hace falta E/S nuevo). El encuadre final del menú `(2243, 487, 196)`
+    es un **literal de esa imagen** (offset `0xC356`) y la posición del nodo
+    está en `+0x28`. El avance es **por frame** (contador int16 en `+0x46` del
+    estado global `0x006466D8`): la unidad son los **428 frames**, no los
+    17,1 s, de modo que a 60 fps la secuencia duraría ≈ 7,1 s. Se **corrige**
+    lo publicado el 2026-11-12: `0x200` es la alineación de la imagen del
+    `.DFX`, no un tamaño de registro. Pendientes: la representación de la
+    trayectoria, la rutina por frame que escribe la posición, el papel de
+    `+0x10/+0x12/+0x14` y el estado de menú.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

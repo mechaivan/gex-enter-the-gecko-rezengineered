@@ -135,6 +135,24 @@ interpola nada: **copia** posicion y orientacion de un nodo de control
 (`0x461E0B -> 0x461B90`, array de registros de 0x200 B). Detalle en
 `S3_MENU_CAMERA_SEQUENCE.md`.
 
+El controlador de camara del menu se ha seguido el 2026-11-13 con el mismo
+instrumento. Resultado: (1) el fichero de datos es `level\map7.dfx`, abierto
+por `0x461B90` (fopen/fseek/ftell/malloc/fread/fclose) en el mismo instante
+en que la camara empieza a volar (25,766 s), y `0x461E0B` devuelve su
+**imagen compactada** (la region que sigue a la tabla de relocalizacion, con
+`aligned = (count + 0x200) & ~0x1FF`), que es exactamente la region que el
+parser del port ya extrae; (2) el encuadre final del menu `(2243, 487, 196)`
+aparece como **literal** en esa imagen (offset `0xC356`), y la posicion del
+nodo esta en `+0x28`; (3) el avance es **por frame**: un contador int16 en
+`+0x46` del estado global `0x006466D8` suma 1 en cada frame, asi que en el
+port la unidad son los 428 frames y no los 17,1 s; (4) se **corrige** lo
+publicado el 2026-11-12: `0x200` es la alineacion de la imagen del .DFX, no
+un tamano de registro de 0x200 B, y `0x1FF` es su mascara. Lo que **no** se
+ha identificado: la representacion de la trayectoria (los puntos intermedios no
+estan como literales en la imagen), la rutina por frame que escribe la
+posicion de la camara, el papel de los campos `+0x10/+0x12/+0x14` y el
+estado de menu.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

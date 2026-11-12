@@ -440,7 +440,16 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
     instrumentador se midio (el mismo juego, con y sin volcado por frame:
     ~25 fps en ambos casos), sin lo cual la duracion de 17,1 s no seria
     defendible.
-15. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
+15. **Un numero que parece un tamano de registro puede ser una alineacion.**
+    `0x200` y `0x1FF` aparecian en la carga del .DFX del juego y se
+    interpretaron como "registros de 0x200 B indexados con mascara 0x1FF". La
+    aritmetic real era `(count + 0x200) & ~0x1FF` sobre el **conteo** de
+    entradas: es la **alineacion** de la imagen del .DFX, y el parser del port
+    ya la implementaba igual. La leccion: antes de dar por bueno un "formato",
+    contrastar el numero con la aritmetica que ya usa el codigo propio, y
+    buscar el patron en el fichero de datos (el encuadre final del menu
+    aparecio como literal en la imagen del .DFX, una sola vez).
+16. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
    codigo en lugar de deducirlo de las plantillas.** La conclusion de que
    `(3,4,1,0,0)` no se puede interpretar sin los encabezados del SDK era
    correcta solo porque no se habia identificado la implementacion: el

@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - Controlador de camara del menu: el fichero de datos es `level\map7.dfx` y el avance es por frame (no por reloj)
+
+Segundo pase de la investigacion de la secuencia de camara al menu: se
+decodifica **de donde** salen los datos de la trayectoria y **como** avanza,
+con la misma instrumentacion (breakpoints de hardware y volcado de solo
+lectura sobre una copia de trabajo del exe intacto).
+
+**EL FICHERO.** `0x00461B90` carga un fichero entero en memoria (fopen
+`0x00541060`, fseek `0x00540F90`, ftell `0x00540DE0`, malloc `0x00464FB3`,
+fread `0x00540CA0`, fclose `0x00540C20`) y `0x00461E0B` devuelve su **imagen
+compactada**: la region que sigue a la tabla de relocalizacion, en
+`aligned*4` con `aligned = (count + 0x200) & ~0x1FF`, movida al principio del
+buffer. Con un breakpoint en `0x00461B90` y volcado de la cadena de la ruta
+(`dumpstr`, que no consume el limite de volcados) salen **todas** las rutas que
+abre el juego:
+
+| t (ms) | Ruta | Llamante |
+|---:|---|---|
+| 1 696 | `...\GEX2\gex.dfx` | `0x00461E20` (`0x461E0B`) |
+| 25 764 | `...\GEX2\level\map7.vfx` | `0x00461C41` (`0x461C32`, texturas) |
+| 25 766 | `...\GEX2\level\map7.dfx` | `0x00461E20` (`0x461E0B`) |
+
+El control de camara del menu viene, por tanto, de **`level\map7.dfx`**, el
+.DFX **del nivel**, cargado en el mismo instante (25,766 s) en que la camara
+despega (25,96 s). Y como la imagen compactada es **la misma region que el
+parser del port ya extrae** (`gex_dfx_container.image`), no hace falta E/S
+nuevo: basta decodificar dentro de la imagen.
+
+**EL NODO.** La posicion esta en `+0x28` (int16 x3): la primera entrada de la
+imagen tiene ahi `(2795, 77, 268)`, que es exactamente la posicion de camara
+de la primera muestra de la serie publicada. Y el **encuadre final del menu
+`(2243, 487, 196)` aparece como literal en la imagen** (offset `0xC356`, una
+sola ocurrencia): el encuadre del menu es **un dato del nivel**, no una
+constante del codigo.
+
+**LA TEMPORIZACION: POR FRAME.** En el estado de la ruta 3D (bloque global
+`0x006466D8`) hay un **contador int16 en `+0x46` que suma 1 en cada frame**
+(1 150 de 1 189 pasos consecutivos; el resto son reinicios por cambio de
+escena). No hay `GetTickCount` ni delta de tiempo en el avance. Por tanto la
+unidad a reproducir en el port son los **428 frames**, no los 17,1 s: a 60 fps
+la misma secuencia duraria ~7,1 s.
+
+**CORRECCION DE LO PUBLICADO EL 2026-11-12.** La idea de un "array de
+registros de **0x200 B** indexado con mascara `0x1FF`" era **incorrecta**:
+`0x200` es la **alineacion** de la imagen del .DFX y `0x1FF` su mascara
+(la misma aritmetica que ya usa `port/src/asset/dfx.c` con
+`GEX_DFX_ALIGN_ADD`/`GEX_DFX_ALIGN_MASK`). El repo ya lo documentaba en
+`U1_DFX_RELOCATION_AUDIT.md` § C.6 ("B (imagen compactada)").
+
+**LO QUE SIGUE PENDIENTE.** La representacion de la trayectoria: los puntos
+**intermedios** no estan como literales en la imagen (el punto medido en el
+frame 200 no aparece), asi que hay que decodificar que contiene el nodo. La
+rutina **por frame** que escribe la posicion de la camara (la copia de
+`0x43B56B` es la colocacion de arranque). El papel de `+0x10/+0x12/+0x14`. Y
+el estado de menu.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (§ 4.1 corregido, § 4.5-4.7
+nuevas, § 6 y § 8 actualizadas), `PROJECT_STATE.md`, `ROADMAP.md` (duodécima
+tanda), `RESEARCH.md`, `REVERSE_ENGINEERING.md` (lección 15) y este registro.
+Sin cambios de produccion: el renderer, la camara del port y el codigo de
+emision no se tocan.
+
 ## 2026-11-12 - 0.0.0 - Secuencia de camara hasta el menu principal: capturada, medida y documentada (sin implementarla en DX11 todavia)
 
 Nuevo hito de investigacion: reconstruir el comportamiento **del original**

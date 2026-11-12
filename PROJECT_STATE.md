@@ -132,6 +132,23 @@
   de 0x200 B). Lo pendiente: el instante exacto de aparición de los elementos
   del menú y si el avance es por frame o por tiempo. Detalle en
   [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
+- **Controlador de cámara del menú (2026-11-13):** el fichero de datos es
+  **`level\map7.dfx`**, abierto por `0x461B90` (fopen/fseek/ftell/malloc/fread/
+  fclose) en el **mismo instante** en que la cámara empieza a volar
+  (25,766 s); `0x461E0B` devuelve su **imagen compactada** —la región que
+  sigue a la tabla de relocalización, con `aligned = (count + 0x200) & ~0x1FF`—
+  que es exactamente la región que **el parser del port ya extrae** (`gex_
+  dfx_container.image`): no hace falta E/S nuevo para llegar a ella. El
+  **encuadre final del menú `(2243, 487, 196)` es un literal de esa imagen**
+  (offset `0xC356`, una sola ocurrencia) y la posición del nodo está en `+0x28`
+  (int16 ×3). El **avance es por frame**: un contador int16 en `+0x46` del
+  estado global `0x006466D8` suma 1 en cada frame ⟹ en el port la unidad son
+  los **428 frames**, no los 17,1 s (a 60 fps serían ≈ 7,1 s). Se **corrige**
+  lo publicado el 2026-11-12: `0x200` es la **alineación** de la imagen del
+  `.DFX`, no un tamaño de registro de 0x200 B. Pendientes: la representación
+  de la trayectoria (los puntos intermedios no están como literales), la rutina
+  por frame que escribe la posición, el papel de `+0x10/+0x12/+0x14` y el
+  estado de menú. Detalle en [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un
