@@ -4631,3 +4631,9 @@ revisado: structs, firmas con `state_flags`, flags, gate, validación),
 - Mapa inicial de problemas conocidos (todos **sin verificar**).
 - Catálogo inicial de fixes comunitarios (todos **sin analizar técnicamente**).
 - Sin modificaciones del juego (correcto según la Fase 0).
+## 2026-11-12 — Comparativa manual PS1 PAL vs PC europeo
+
+- Nuevo `docs/PS1_PC_BEHAVIOR_COMPARISON.md`: registra tres diferencias observadas por el mantenedor: attract/demo mode por inactividad en el menú PS1 (varios niveles, no en el primer nivel jugable), loop musical continuo en PS1 frente a pistas que terminan en PC, y ausencia en PS1 de la cinemática de Ubisoft presente en PC.
+- Se separan observaciones de hipótesis: no se atribuye la cinemática a una decisión de distribución; la identificación de uno de los escenarios demo como Gexzilla queda pendiente.
+- Loop musical catalogado como posible mejora/opción; antes de implementarlo investigar S-02 (`_inmm.dll`, reporte comunitario aislado) y F-10 (handler externo que declara loops, binario no inspeccionado). No se afirma que sean fixes verificados para PC EU.
+- `RESEARCH.md` y `PROJECT_STATE.md` enlazan la comparativa. PS1 permanece como referencia secundaria; el baseline de fidelidad sigue siendo PC.
