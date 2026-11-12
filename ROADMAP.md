@@ -151,33 +151,23 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     opcode; el alfa de la unidad de mezcla es 1.0. El port multiplicaba el
     alfa del texel por ese byte: **corregido**, con prueba de regresión que
     falla con el comportamiento anterior y validación con MAP7 en GPU
-    hardware (1 123 triángulos, 20 frames, 0 errores).
+    hardware (1 123 triángulos, 20 frames, 0 errores). Queda **pendiente**
+    medir si el driver compensa la escala RGB 0..2 de Glide, mientras que el
+    port normaliza a 0..1; tampoco se afirma equivalencia con el SST-1 ni
+    comparación píxel a píxel.
   - **Novena tanda (2026-11-12, ecuación de la mezcla alfa sobre el driver
-    real):** la semántica de `grAlphaCombine`, que las octava y octava
-    anteriores dejaron pendiente, **queda cerrada con evidencia**. El primer
-    paso es identificar el driver: la DLL del entorno es **nGlide 2.10**
-    (Zeus Software), una implementación *software* de Glide 2.x sobre D3D9
-    (cadena `Software\Zeus Software\nGlide2`), a la que el `glide2x.dll`
-    empaquetado reenvía sus exportaciones. El segundo paso es no leer las
-    plantillas a mano: un *harness* i686 carga la DLL, llama a
-    `grAlphaCombine` y **vuelca el programa que el driver genera**, así que
-    el barrido de los cinco parámetros es exhaustivo. Para `(3,4,1,0,0)` el
-    programa es `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 /
-    mov r9.a,r8` → **alfa de salida = alfa del texel × alfa del color de
-    vértice**. El tercer paso es descifrar `grAlphaBlendFunction`, que
-    traduce los cuatro factores a `D3DRS_SRCBLEND`/`DESTBLEND`/
-    `SRCBLENDALPHA`/`DESTBLENDALPHA` (19, 20, 207, 208), y desensamblar
-    `GEX3D.EXE` para ver que el juego empareja el caso ARGB_4444 con
-    `(1,5,4,0)` → **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`**. La
-    lectura que era hipótesis queda **confirmada**, el port hace exactamente
-    lo mismo (`color.a * t.a` y el estado global), los **32 triángulos**
-    ARGB_4444 **no requieren cambio** y **el renderer no se toca**. Se
-    registran dos pendientes nuevos con su evidencia: el **modo de mezcla
-    por comando** (el original cambia de estado entre comandos; el port usa
-    uno global) y el **significado del byte alto del color de vértice**, que
-    en los datos del juego es el byte donde se empaqueta el opcode y no un
-    alfa. La auditoría de YIQ_422 no cambia: sigue **sin** afirmarse
-    equivalencia píxel a píxel con el silicio del Voodoo.
+    real):** registro histórico de la investigación que identificó nGlide
+    2.10 y obtuvo dinámicamente el programa de
+    `grAlphaCombine(3,4,1,0,0)`. La ecuación genérica del programa es
+    `r9.a = texel.a × v0.a`, emparejada con
+    `(1,5,4,0)` → `SRC_ALPHA`/`INV_SRC_ALPHA`. La captura posterior de
+    6 000 vértices de MAP7 precisó que el vértice no aporta canal alfa y que
+    el alfa efectivo es constante 1.0; por tanto, en MAP7 la salida correcta
+    es `texel.a`, no una multiplicación por un alfa variable de vértice.
+    Esa corrección ya está aplicada y probada en la décima tanda. La novena
+    sigue siendo la evidencia de la ecuación del driver, no el estado final
+    del renderer. La limitación respecto al SST-1 y la comparación píxel a
+    píxel con el Voodoo permanece.
   - **Quinta tanda (2026-11-11, cámara real en el renderer):** integrado el
     estado de cámara original en la ruta de escena y en el renderer D3D11:
     la matriz de emisión `cam+0xE0` se reconstruye desde la cámara
