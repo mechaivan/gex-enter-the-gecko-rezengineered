@@ -8,7 +8,9 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-13 (secuencia de cámara del menú: el algoritmo de posición, cerrado y verificado **428/428** en `S3_MENU_CAMERA_SEQUENCE.md`)
+**Last updated:** 2026-11-13 (secuencia de cámara del menú: **orientación**
+también cerrada y verificada **428/428** en `S3_MENU_CAMERA_SEQUENCE.md` § 8;
+la posición ya estaba cerrada el mismo día)
 
 ### Comparativa PS1 PAL vs PC europeo (2026-11-12)
 
@@ -56,6 +58,41 @@
 - **Sigue abierto:** el criterio con que se calcularon las tangentes del
   registro, la ruta de rotación (10 B → cuaternio → Euler) y el estado de menú.
   No se ha tocado el renderer DX11 ni la cámara del port.
+
+### Secuencia de cámara del menú: la orientación, cerrada (2026-11-13)
+
+Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
+
+- **Los 428 ángulos NO salen de un cuaternio.** El controlador de cámara del
+  menú (`0x65CD80`) tiene **dos** trayectorias de **32 B** en el `.DFX`:
+  `0xC034` (posición) y `0xC39C` (mira, el actor "hermano" del slot 1), con
+  las mismas duraciones (suma 428). La orientación sale de un **look-at**
+  (`0x406515` → `0x40AE51`): `d = cam - mira`, `euler_x = -atan2(d.z, len)`,
+  `euler_y = 0`, `euler_z = atan2(d.y, d.x) + 0x400`.
+- **Aritmética exacta:** `len = (4*isqrt((d0²+d1²)<<4) + 8) >> 4`
+  (`0x40534F`, con `0x4647EB` = raíz **entera**, no la de la CRT);
+  `atan2` (`0x464181`) es el de la CRT en doble precisión, convertido a
+  `int16` en **Q12 de media vuelta** (`2048 = π`) y **truncado**
+  (`0x540950`, `fistpll` con redondeo hacia cero). Constantes medidas:
+  `0x54C178` = π, `0x54C180` = 2π. El `+0x400` son 90°.
+- **Verificación:** la fórmula reproduce los 428 ángulos publicados
+  **428/428** con enteros, desde el `.DFX`
+  (`analysis/gen_menu_camera_rotation_ref.py`), y **425/425** contra la
+  captura directa del ejecutable original
+  (`analysis/capture_menu_camera_rotation.py`, breakpoint `0x406515`).
+  Referencia: `analysis/menu_camera_rotation_map7.tsv`.
+- **La trayectoria de 10 B existe pero no es la del menú (resultado
+  negativo).** La variante 1 (`obj[+6] == 1`) está en `0xD118` / `0xD120`:
+  18 registros de 10 B = `D` (int16) + cuaternión (4 × int16, Q12), con el
+  centinela en el registro 17 y 305 frames de segmento. Se evalúa con
+  `0x53EF00` → **`0x43158D`** (SLERP entero), con `0x431430` (producto escalar
+  de 4 componentes, `sar 11`) y `0x431036` (decodificador de cuaternión
+  comprimido). En 16 289 impactos medidos sobre el menú **su array nunca se
+  evalúa**: pertenece a otro actor del nivel.
+- **Pendiente:** integrar la orientación en el port (hoy `scene_level.c`
+  fija `euler = (-397, 0, 2802)`); queda por identificar las matrices
+  `ctrl+0x4C` / `ctrl+0x26C` de `0x40A6F2` y el criterio de las tangentes del
+  exportador.
 
 ### Validación dinámica de S-2 contra el ejecutable original (2026-11-11)
 

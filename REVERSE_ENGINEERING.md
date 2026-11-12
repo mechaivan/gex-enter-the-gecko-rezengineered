@@ -542,6 +542,16 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    como pendiente. La regla: es preferible una funcion que dice "no modelado"
    a una que devuelve un numero plausible, porque el numero plausible se
    propaga al renderer sin que nadie sepa de donde salio.
+   **Actualizado (2026-11-13).** La variante de 10 B se ha **descifrado como
+   estructura** (registro `D` + cuaternion Q12, 18 registros, centinela,
+   SLERP entero `0x43158D` con `0x431430` y `0x431036`) y se ha **medido que no
+   pertenece a la camara del menu**: su array nunca se evalua en esa sesion
+   (16 289 impactos, volcando el array de registros de cada evaluador). La
+   orientacion real del menu sale de un *look-at* (`0x406515` -> `0x40AE51`)
+   entre dos trayectorias **de 32 B** (`0xC034` y `0xC39C`), reproducido
+   **428/428** con enteros (`S3_MENU_CAMERA_SEQUENCE.md` seccion 8). La regla se
+   mantiene: el modulo **rechaza** la variante de 10 B, y ahora se sabe
+   exactamente por que.
 24. **Un dato que viene de un fichero tiene que llegar por su camino, no por
    su aspecto.** Los 26 registros de la trayectoria de camara estan en el
    `.DFX` del nivel y el port los lee siguiendo la cadena de punteros real

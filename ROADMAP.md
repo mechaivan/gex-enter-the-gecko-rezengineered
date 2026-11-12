@@ -206,9 +206,11 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     comprobaciones, 0 fallos**, con las **428/428** posiciones exactas, la
     primera `(2341, 4071, 3074)`, la última `(2243, 487, 196)` y ninguna
     escritura tras el centinela; sanitizers O0/O2/asan/ubsan 24/24. La variante
-    de rotación (10 B) se **rechaza**, no se aproxima. No se declara la cámara
-    completa: faltan rotación, estado de menú y conexión al renderer D3D11.
-  - **Decimosexta tanda (2026-11-12, la trayectoria conectada al renderer
+    de rotación (10 B) se **rechaza**, no se aproxima: esa variante no es la
+    del menú (ver la decimoséptima tanda). No se declara la cámara completa:
+    faltan la integración de la orientación, el estado de menú y la
+    conexión al renderer D3D11.
+  - **Decimosexta tanda (2026-11-13, la trayectoria conectada al renderer
     D3D11):** cierra el circuito. (a) **Lectura de los registros reales**:
     `gex_dfx_load_camera_path()` recorre la cadena dentro de la imagen
     compactada del `.DFX` y **valida** (variante 0, cantidad, límites,
@@ -231,9 +233,32 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     hardware): la cámara recorre la escena durante los 428 updates (los
     triángulos visibles cambian de 1123 a 41 y a 362 según el punto de vista) y
     **termina en `(2243, 487, 196)`**. **Límites declarados:** la
-    **orientación no se interpola** (ruta de 10 B sin decodificar: solo cambia
-    la traslación de la matriz) y el atlas de texturas (64 entradas) cubre el
+    **orientación todavía no se interpola** (la ruta de 10 B del enunciado
+    resultó ser la de otros actores; la orientación real del menú es un
+    *look-at* ya decodificado en la decimoséptima tanda, pero sin integrar)
+    y el atlas de texturas (64 entradas) cubre el
     **91,3 %** de los vértices del vuelo, que tocan 166 texturas distintas.
+  - **Decimoséptima tanda (2026-11-13, la orientación del menú):** cierra la
+    pregunta de la **segunda trayectoria**. (a) **Medición**: los 428 ángulos
+    del menú **no** salen de un cuaternio sino de un *look-at* (`0x406515` →
+    `0x40AE51`) entre la **posición** de la cámara y el **punto de mira**,
+    que son dos trayectorias **de 32 B** del `.DFX`: `0xC034` (posición) y
+    `0xC39C` (mira, el actor hermano del slot 1). (b) **Aritmética
+    exacta**: `len = (4*isqrt((d0²+d1²)<<4) + 8) >> 4` (`0x40534F`, con raíz
+    **entera** `0x4647EB`) y `atan2` (`0x464181`) de la CRT en doble
+    precisión convertido a `int16` en **Q12 de media vuelta** (`2048 = π`) y
+    **truncado**; `euler = (-atan2(d.z, len), 0, atan2(d.y, d.x) + 0x400)`.
+    (c) **Verificación**: **428/428** contra la serie publicada y **425/425**
+    contra la captura directa del ejecutable original; referencias
+    `analysis/menu_camera_rotation_map7.tsv`,
+    `analysis/gen_menu_camera_rotation_ref.py` y
+    `analysis/capture_menu_camera_rotation.py`. (d) **Resultado negativo**:
+    la trayectoria de **10 B** (variante 1, `0xD118`/`0xD120`, 18 registros,
+    `D` + cuaternión Q12, SLERP `0x43158D`, `0x431430`, `0x431036`) **sí
+    existe** pero **no se evalúa** en el menú (16 289 impactos medidos): es
+    de otro actor del nivel. (e) **Pendiente**: integrar la orientación en
+    el port (hoy `scene_level.c` fija `euler = (-397, 0, 2802)`) e
+    identificar las matrices `ctrl+0x4C`/`ctrl+0x26C` de `0x40A6F2`.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

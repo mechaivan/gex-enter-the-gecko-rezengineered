@@ -1,5 +1,63 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - La orientacion de la camara del menu: el look-at del original, reproducido 428/428
+
+Cierra la segunda mitad de la secuencia de camara del menu: los **428
+angulos** que el original escribe durante el vuelo. Tanda de **investigacion y
+validacion matematica**: no se toca el renderer, las texturas, el orden de
+dibujo ni la trayectoria de posicion ya integrada.
+
+**EL RESULTADO, QUE CAMBIA LA PREGUNTA.** Los angulos del menu **no** salen de
+un cuaternion. El controlador de camara (`0x65CD80`) tiene **dos** trayectorias
+**de 32 B** en el `.DFX` de MAP7 -- `0xC034` (posicion, actor `0x95EC`) y
+`0xC39C` (punto de mira, actor hermano `0x961C`), con las mismas duraciones
+(suma 428) -- y `0x406515` -> `0x40AE51` deriva los tres angulos de un
+*look-at* entre las dos.
+
+```
+d0 = cam[0] - mira[0]        d1 = cam[2] - mira[2]        d2 = cam[4] - mira[4]
+len     = (4*isqrt((d0^2+d1^2)<<4) + 8) >> 4      ; 0x40534F (raiz entera)
+euler_x = -trunc(atan2(d2, len) * 2048/pi)      ; 0x464181 (Q12 de media vuelta)
+euler_y = 0
+euler_z =  trunc(atan2(d1, d0) * 2048/pi) + 0x400
+```
+
+La longitud **no** usa coma flotante: `0x4647EB` es una raiz cuadrada **entera**
+y el `+8 >> 4` hace el redondeo. El `atan2` si es el de la CRT en doble
+precision (`0x54C178` = pi, `0x54C180` = 2pi) y se trunca a `int16` en **Q12 de
+media vuelta** (`2048 = pi`, `0x540950` con `fistpll` al modo de cero). El
+`+0x400` son 90 grados.
+
+**VERIFICACION (sin tolerancias).**
+- **428/428** angulos contra la serie publicada, calculados **desde el `.DFX`**
+  con enteros: `analysis/gen_menu_camera_rotation_ref.py` (la comprobacion va
+  dentro del generador y aborta si no cuadra).
+- **425/425** contra la **captura directa del ejecutable original**
+  (breakpoint `0x406515`, volcado de `0x65CD80` y `0x5AC608`):
+  `analysis/capture_menu_camera_rotation.py`.
+- Referencia nueva: `analysis/menu_camera_rotation_map7.tsv` (428 filas:
+  posicion de camara, punto de mira y los tres angulos).
+
+**RESULTADO NEGATIVO, Y ES LO IMPORTANTE.** La trayectoria de **10 B** que
+motivaba la pregunta existe y es una trayectoria de orientacion de verdad
+(variante 1, `obj[+6] == 1`): objeto `0xD118`, array `0xD120`, 18 registros de
+`D` (int16) + **cuaternion** (4 x int16, Q12; el primero es la identidad con
+`w = -4096`), centinela en el registro 17 y 305 frames de segmento. Se evalua
+con `0x53EF00` -> **`0x43158D`** (SLERP entero), con `0x431430` (producto
+escalar de cuatro componentes, `sar 11`) y `0x431036` (decodificador de
+cuaternion comprimido). Pero **no pertenece a la camara del menu**: volcando el
+array de registros que ve cada evaluador (`0x53E98C` y `0x53E9C7`) en 16 289
+impactos, su array **nunca se evalua**; el menu usa dos arrays de 32 B. La
+hipotesis del enunciado era razonable y estaba mal, y lo que la resuelve es
+medir que array se evalua en la sesion que importa.
+
+**LO QUE SIGUE PENDIENTE.** Integrar la orientacion en el port (hoy
+`port/src/scene/scene_level.c` fija `euler = (-397, 0, 2802)`), identificar
+las matrices `ctrl+0x4C` / `ctrl+0x26C` de `0x40A6F2` y el criterio de las
+tangentes del exportador. La camara **sigue sin declararse completa**.
+
+Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` seccion 8.
+
 ## 2026-11-13 - 0.0.0 - La trayectoria de camara del menu llega al renderer D3D11: los registros reales del .DFX, un paso por update logico y la geometria nueva en la GPU
 
 La camara del menu deja de ser un modulo aislado: el port lee los 26

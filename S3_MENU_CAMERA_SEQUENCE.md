@@ -1015,7 +1015,186 @@ encuadre del menú.
 
 ---
 
-## 8. Siguiente tarea
+## 8. La segunda trayectoria: la orientación (el *look-at*)
+
+> Cerrado el 2026-11-13. La orientación del menú **no** sale de un cuaternio
+> ni de registros de 10 B: sale de un *look-at* entre dos trayectorias de 32 B.
+> Se reproduce **428/428** desde el `.DFX` con aritmética entera.
+
+### 8.1 Qué se preguntaba y qué se ha encontrado
+
+La pregunta de partida era descifrar una "segunda trayectoria" con registros
+de **10 bytes** que diese la orientación. La investigación medida sobre el
+ejecutable da tres respuestas, y conviene separar bien las tres:
+
+| pregunta | respuesta medida |
+|---|---|
+| ¿de dónde salen los 428 ángulos del menú? | de un **look-at** (`0x40AE51`) entre la **posición** de la cámara y el **punto de mira**, dos trayectorias **de 32 B** |
+| ¿existe una trayectoria de 10 B? | **sí**: la variante 1 (`obj[+6] == 1`), 18 registros de 10 B, con cuaternios Q12; es la trayectoria de orientación de **otros actores del nivel** |
+| ¿participa la de 10 B en la cámara del menú? | **no**: en la sesión del menú su array nunca se evalúa (medido, § 8.6) |
+
+### 8.2 Los dos arrays gemelos del controlador de cámara
+
+El controlador de cámara del menú (`0x65CD80`) tiene **dos** trayectorias, con
+el mismo formato de registro de 32 B y las **mismas duraciones**:
+
+```
+header de nivel 0x5FC : 4F/0 -> 0x95EC   4F/1 -> 0x961C   0E
+0x95EC + 0x28 -> entidad 0xC00C -> objeto 0xC02C -> array 0xC034   (POSICION)
+0x961C + 0x28 -> entidad 0xC374 -> objeto 0xC394 -> array 0xC39C   (MIRA)
+```
+
+Los dos arrays tienen 26 registros, `count = 26`, `variante = 0`, `flags = 1`,
+y duraciones `20,13,10,10,15,10,…` cuya suma es **428**. El registro 25 es el
+centinela (`D = 0`).
+
+- El array de **posición** (`0xC034`) da `ctrl+0x1AC` y, tras la transformación
+  `0x40A6F2` con la matriz `ctrl+0x4C`, `ctrl+0x1BC` → la posición de la
+  cámara (`cam+0x00`).
+- El array de **mira** (`0xC39C`) da `ctrl+0x274` y, tras `0x40A6F2` con
+  `ctrl+0x26C`, el punto de mira final.
+
+Los dos se interpolan con **la misma Hermite Q15** de `0x53DEB0` (§ 4.10), que
+ya está verificada 428/428 para la posición.
+
+### 8.3 Los tres ángulos: `0x406515` → `0x40AE51`
+
+El escritor de los ángulos es `0x40AE51`, alcanzado desde `0x406515`:
+
+```
+0x411C87  call 0x53E98C          ; evalua la trayectoria de MIRA
+          -> resultado (3 x int16) -> ctrl+0x1AC.. y ctrl+0x274..
+0x411D07  call 0x406515 (cam = mundo+0x08 = 0x65CD80, p1 = el resultado)
+0x406515  call 0x40AE51 (destino = cam+0x18, from = p1, to = cam)
+```
+
+`0x40AE51` hace, textualmente:
+
+```
+d0 = cam[0] - p1[0]            ; int16
+d1 = cam[2] - p1[2]
+d2 = cam[4] - p1[4]
+v  = (d0, d1, 0)               ; el tercer componente es 0
+len = 0x40534F(v)               ; (4*isqrt((d0^2+d1^2)<<4) + 8) >> 4
+euler_x = -0x464181(d2, len)    ; atan2 en Q12 de media vuelta, truncado
+euler_y = 0
+euler_z =  0x464181(d1, d0) + 0x400
+cam+0x18 = euler_x ; cam+0x1A = euler_y ; cam+0x1C = euler_z
+```
+
+y `0x4122E4` copia `cam+0x18..0x1C` a `cam+0x30..0x34`, que es lo que consume
+el renderer.
+
+Puntos clave de la aritmética:
+
+- **`0x40534F`** no usa coma flotante: `s = d0² + d1² + d2²`, `s <<= 4`, y
+  `0x4647EB` es una **raíz cuadrada entera** (no la de la CRT). El resultado
+  es `len = round(√(d0²+d1²))`, medido directamente en la pila: con
+  `d = (-472, 212, 361)` el original pasa `len = 517` (= `round(517.42)`).
+- **`0x464181`** es `atan2` de la CRT (doble precisión) convertido a entero:
+  el divisor es `0x54C178` = π (`3.14159274`) y el multiplicador `0x54C180` =
+  2π (`6.28318548`); el resultado final es un `int16` en **Q12 de media
+  vuelta** (`2048 = π`), truncado (`0x540950` usa `fistpll` con el modo de
+  redondeo hacia cero). Casos especiales: `x == 0` → `±1024`; `y == 0` → `0` o
+  `2048`.
+- El `+0x400` del tercer ángulo es un desplazamiento de **90°** (π/2) en
+  Q12 de media vuelta.
+
+### 8.4 Verificación
+
+La fórmula, con la Hermite Q15 y **enteros**, reproduce los 428 ángulos
+publicados:
+
+```
+py analysis/gen_menu_camera_rotation_ref.py --dfx LEVEL\MAP7.DFX
+  POSICION: actor 0x95EC -> entidad 0xC00C -> objeto 0xC02C -> array 0xC034
+  MIRA   : actor 0x961C -> entidad 0xC374 -> objeto 0xC394 -> array 0xC39C
+  coincidencias exactas con la serie publicada: 428/428
+```
+
+Y contra el **ejecutable original** (no contra el TSV): con un breakpoint en
+`0x406515` y volcado de `0x65CD80` (posición y ángulos) y `0x5AC608` (punto de
+mira), los **425** estados capturados que se pueden emparejar coinciden
+exactamente con la serie publicada (`analysis/capture_menu_camera_rotation.py`).
+
+Referencia generada: **`analysis/menu_camera_rotation_map7.tsv`** (428 filas:
+posición de cámara, punto de mira y los tres ángulos).
+
+### 8.5 Qué pasa tras el centinela
+
+El centinela es el registro 25 (`D = 0`) de cada array. En `0x53F252`, cuando
+`frac >= D` el índice avanza y la fracción se pone a 0; al llegar al registro
+25 el índice se **recorta** a 25 y la evaluación se detiene (`0x53EF00` copia
+el punto cuando `D == 0`). La trayectoria, por tanto, **no da la vuelta**: los
+últimos valores se quedan congelados en el último punto. En el menú esto no se
+aparece porque el vuelo dura exactamente los 428 frames que suman las
+duraciones.
+
+### 8.6 La trayectoria de 10 B (variante 1): estructura completa
+
+Existe en el mismo `.DFX` y **sí** es una trayectoria de orientación, pero de
+**otros actores del nivel**:
+
+```
+actor 0x98A0 + 0x14 -> entidad 0xCDBC
+entidad 0xCDBC + 0x00 -> objeto 0xCDF0   (variante 0: 25 registros de 32 B)
+entidad 0xCDBC + 0x04 -> objeto 0xD118   (variante 1: 18 registros de 10 B)
+objeto 0xD118: +0x00 = array 0xD120 (inline en obj+8)
+                +0x04 = 0x01010012 -> count = 18, variante = 1, flags = 1
+```
+
+El registro de **10 B** es `D` (int16) + **cuaternión** (4 × int16, Q12):
+
+```
+ 0: D= 12  q=(    0,    0,    0, -4096)   <- identidad (w = -4096)
+ 1: D= 21  q=(  558, -669,  149, -3999)
+ ...
+16: D= 26  q=(  789, -495, 2364, -3212)
+17: D=  0  q=( 1400,  190, 1283, -3623)   <- centinela
+```
+
+Duraciones: `12,21,26,22,9,30,17,9,4,19,42,7,15,14,2,30,26` → **305 frames**
+de segmento, con el registro 17 como centinela (`D = 0`).
+
+La **variante la decide `obj[+6]`**: `0x53EF00` y `0x53F3C2` comprueban ese
+byte y, si vale 1, indexan el array con **×10** en lugar de ×32. La
+evaluación es entonces otra ruta:
+
+- `0x53EF00` (variante 1) copia los 4 `int16` del cuaternión y llama a
+  **`0x43158D`**, que es un **SLERP entero** entre los dos cuaterniones;
+- `0x431430` es el **producto escalar de cuatro componentes** con `sar 11`
+  que usa ese SLERP;
+- `0x431036` / `0x431064` es el **decodificador de cuaternión comprimido**
+  ("smallest three", con las tablas `0x54F84C` / `0x54F854` / `0x54F85C`).
+
+El avance (`0x53F3C2`) usa el **mismo esquema de fracción de 15 bits** que la
+posición, pero indexa con ×10.
+
+**Resultado negativo medido:** durante la sesión del menú **el array de 10 B
+nunca se evalúa**. Se comprobó volcando el array de registros que ve cada
+evaluador (`0x53E98C` y `0x53E9C7`) en 16 289 impactos: aparecen tres arrays de
+32 B (`0x19419F80`, `0x1941A2E8` = posición y mira del menú, y `0x1941AD44` =
+la spline hermana de 25 registros) y **ninguno** de 10 B. La trayectoria de
+10 B pertenece a otro actor del nivel, cuya cámara no es la del menú.
+
+Por eso los 428 ángulos del menú **no** salen de un cuaternio: el original
+los deriva de un *look-at* entre dos puntos, y por eso la "segunda
+trayectoria" del controlador es el array hermano de 26 registros de 32 B.
+
+### 8.7 Lo que queda pendiente de esta parte
+
+- El criterio con que el exportador del `.DFX` calculó las tangentes de los
+  registros de 32 B (no lo mismo para posición y para mira).
+- El significado de `ctrl+0x4C` y `ctrl+0x26C` (las matrices de `0x40A6F2`):
+  la posición y el punto de mira **crudos** del `.DFX` no coinciden con los
+  que usa el *look-at* hasta pasar por ellas; el script de referencia usa los
+  valores ya transformados, medidos en ejecución.
+- El opcode `0x4F` del header y por qué el actor de la spline hermana
+  (`0xCDF0`) no está en la cabecera de nivel.
+
+---
+
+## 9. Siguiente tarea
 
 > **Superado (2026-11-13).** La conexión con el renderer está hecha (§ 6.4):
 > los registros se leen del `.DFX`, el paso va en el update lógico y la
@@ -1024,10 +1203,15 @@ encuadre del menú.
 > leído en tiempo de ejecución (1728 comprobaciones), y la ejecución real con
 > ventana y GPU hardware recorre los 428 frames y termina en
 > `(2243, 487, 196)`.
+>
+> **Superado también (2026-11-13).** La ruta de orientación está cerrada
+> (§ 8): los 428 ángulos se calculan con el *look-at* del original y se
+> reproducen 428/428 desde el `.DFX`. Queda **integrarla** en el port.
 
-1. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler) e
-   integrarla: hasta entonces la cámara del port mantiene la orientación
-   medida inicial y solo se mueve la posición.
+1. **Integrar la orientación** en el port: leer el array de mira (`0xC39C`),
+   calcular el *look-at* con la aritmética de § 8.3 y alimentar
+   `cam->euler` con los tres ángulos, en vez del valor fijo `(-397, 0, 2802)`
+   que hay hoy en `port/src/scene/scene_level.c`.
 2. Identificar el **estado de menú** que dispara el vuelo y el instante en que
    los elementos quedan visibles (ruta 2D o flujo de comandos).
 3. Establecer el **criterio de las tangentes** del exportador (sin él no se

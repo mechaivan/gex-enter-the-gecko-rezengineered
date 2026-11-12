@@ -784,9 +784,11 @@ encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 > **Estado (2026-11-13).** El **movimiento de la camara** ya esta integrado:
 > el port reproduce los 428 frames del vuelo y termina en el encuadre del
 > menu `(2243, 487, 196)` en una ventana real con GPU hardware. Lo que queda
-> del hito es la **interfaz DX11** y su navegacion, y la ruta de **rotacion**
-> (la orientacion se mantiene fija mientras la posicion sigue la trayectoria
-> medida). Detalle en `S3_MENU_CAMERA_SEQUENCE.md` 6.4.
+> del hito es la **interfaz DX11** y su navegacion, y la **integracion de la
+> orientacion** (ya descifrada: los 428 angulos salen de un *look-at* entre
+> dos trayectorias de 32 B del `.DFX`, no de un cuaternio; ver
+> `S3_MENU_CAMERA_SEQUENCE.md` 8, reproducido 428/428). Detalle en
+> `S3_MENU_CAMERA_SEQUENCE.md` 6.4.
 
 **La secuencia original ya está capturada y medida** (2026-11-12): al entrar en
 la ruta 3D la cámara **vuela sola** 428 frames (~17,1 s a ~25 fps) desde el
@@ -841,9 +843,11 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.14):
   de vértices de la GPU**), `build.ps1 test` sin fallos, `run_sanitizers.ps1`
   **32/32**. Ejecución real con ventana Win32 y GPU hardware: la cámara
   recorre la escena en los 428 updates y **termina en `(2243, 487, 196)`**.
-- **Lo que queda para el renderer**: cerrar la ruta de **rotación** (registros
-  de 10 B → cuaternio → Euler; hasta entonces la orientación se mantiene fija y
-  solo cambia la traslación de la matriz), el **estado de menú**, y ampliar el
+- **Lo que queda para el renderer**: **integrar la orientación** (los 428
+  ángulos ya están descifrados y medidos: *look-at* `0x40AE51` entre la
+  posición y el punto de mira, `atan2` en Q12 de media vuelta truncado,
+  **428/428**; hasta entonces la orientación se mantiene fija y solo cambia
+  la traslación de la matriz), el **estado de menú**, y ampliar el
   atlas de texturas (64 entradas) para cubrir las 166 texturas que toca el
   vuelo (con las 64 más usadas se cubre el 91,3 % de los vértices).
 

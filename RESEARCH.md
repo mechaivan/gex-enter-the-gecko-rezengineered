@@ -194,9 +194,33 @@ registros se reconstruyo siguiendo la **cadena real de punteros** del `.DFX`
 (header `0x5FC` -> actor `0x95EC` -> `+0x28` -> entidad `0xC00C` -> objeto
 `0xC02C` -> array `0xC034`), no buscando bytes parecidos: los 832 B del fichero
 son identicos al volcado runtime del array. La variante de **rotacion**
-(registros de 10 B) se rechaza de forma explicita en vez de aproximarla, y la
+(registros de 10 B) se rechaza de forma explicita en vez de aproximarla (se
+ha medido despues que **no es la de la camara del menu**), y la
 camara **no** se declara completa: faltan esa ruta, el estado de menu y la
 conexion al renderer D3D11.
+
+La ruta de **orientacion** se ha cerrado el mismo 2026-11-13, y el resultado
+cambia la pregunta: los 428 angulos del menu **no** salen de un cuaternion.
+El controlador de camara del menu (`0x65CD80`) tiene **dos** trayectorias
+**de 32 B** en el `.DFX` de MAP7 -- `0xC034` (posicion, actor `0x95EC`) y
+`0xC39C` (punto de mira, actor hermano `0x961C`) -- con las mismas duraciones
+(suma 428), y `0x406515` -> `0x40AE51` deriva los tres angulos de un
+*look-at* entre las dos: `d = cam - mira`,
+`euler = (-atan2(d.z, len), 0, atan2(d.y, d.x) + 0x400)`, con
+`len = (4*isqrt((d0^2+d1^2)<<4) + 8) >> 4` (`0x40534F`, raiz **entera**
+`0x4647EB`) y `atan2` de la CRT (`0x464181`) truncado a `int16` en **Q12 de
+media vuelta** (`2048 = pi`). Se reproduce **428/428** con enteros desde el
+`.DFX` y **425/425** contra la captura directa del original.
+
+El **resultado negativo** importa mas que el positivo: la variante de **10 B**
+(cuaternion Q12, SLERP entero `0x43158D`, `0x431430`, `0x431036`) existe en
+el `.DFX` (`0xD118`/`0xD120`, 18 registros, centinela en el 17, 305 frames de
+segmento) y **si** es una trayectoria de orientacion, pero **no es la de la
+camara del menu**: volcando el array de registros que ve cada evaluador
+(`0x53E98C` y `0x53E9C7`) en 16 289 impactos, su array **nunca se evalua**.
+La leccion metodologica es la de siempre: la hipotesis ("10 B -> cuaternion ->
+Euler") era razonable y estaba mal; lo que la resuelve es medir que array se
+evalua en la sesion que importa, no mirar el codigo y suponerlo.
 
 La conexion al renderer se ha cerrado tambien el 2026-11-13, con el mismo
 principio: **no duplicar** el BSP, la emision, la conversion geometrica ni el
@@ -216,8 +240,9 @@ original), y la lectura de vuelta del **buffer de vertices de la GPU** para
 comprobar que el cambio llega a lo que se dibuja. La ejecucion real con
 ventana y GPU hardware recorre los 428 frames y termina en `(2243, 487, 196)`,
 el encuadre del menu. Quedan dos limitaciones **declaradas**: la orientacion
-no se interpola (la ruta de rotacion de 10 B sigue sin decodificar, asi que la
-parte rotacional de la matriz no cambia y solo la traslacion), y el atlas de
+todavia **no se interpola** (ya esta decodificada como *look-at* del original,
+pero sin integrar: la parte rotacional de la matriz no cambia y solo la
+traslacion), y el atlas de
 texturas, limitado a 64 entradas, cubre el 91,3 % de los vertices del vuelo
 (que tocan 166 texturas distintas; con el atlas del frame 0 seria el 65,4 %).
 
