@@ -1,0 +1,344 @@
+# S3 — Secuencia de cámara hasta el menú principal (Gex: Enter the Gecko)
+
+> Ámbito: el comportamiento **del original** desde un arranque en frío hasta
+> que el menú principal queda visible y estable sobre **MAP7**, medido con
+> instrumentación de solo lectura (breakpoints de hardware + volcado de memoria
+> por `ReadProcessMemory`) sobre una **copia de trabajo** del juego.
+>
+> Fecha de la captura: **2026-11-13**. Binario: `GEX3D.EXE` EU
+> (`md5 692b12825003417cc4a5a9d4db13eebe`, el mismo de las capturas
+> anteriores). Driver: **nGlide 2.10** (software, D3D9).
+
+---
+
+## 1. Objetivo y alcance
+
+Reconstruir la secuencia de entrada al menú principal para poder reproducirla
+en el port D3D11. Este documento **no implementa** nada en DX11: describe lo
+medido, lo demuestra y lo que queda abierto.
+
+Preguntas que se responden aquí:
+
+1. ¿Qué ocurre entre el arranque en frío y el menú?
+2. ¿Cómo se mueve la cámara durante esa transición y cómo termina?
+3. ¿De dónde sale ese movimiento (rutina, secuencia predefinida, interpolación,
+   temporización, cinemática de vídeo)?
+4. ¿Qué datos hay que llevar al port?
+
+---
+
+## 2. Metodología
+
+### 2.1 Aislamiento
+
+- Copia de trabajo en `%TEMP%\opencode\gexrun` (ejecutable + `glide2x.dll` +
+  `glide2x_gex_real.dll` + `LEVEL/` + `MOVIE/` + `AUDIO/` + `FONT.3DF` +
+  `GEX.DFX`/`GEX.VFX`).
+- **`C:\GEX_REZ` no se escribe nunca**: solo se lee.
+- El ejecutable **no se modifica ni se parchea**: `md5` idéntico al original
+  antes y después de cada captura.
+
+### 2.2 Instrumentación
+
+El trazador del propio repo (`tools/frame-trace/tracer.cs`): depurador de
+Windows con **breakpoints de hardware** (`Dr0..Dr3`, sin tocar un byte del
+código) y volcado de memoria **de solo lectura** (`ReadProcessMemory`).
+
+| Opción | Uso en esta investigación |
+|---|---|
+| `hw:<dirs>` | hasta 4 direcciones de ejecución |
+| `dumpabs:<base>:<offs>` | dwords de una dirección absoluta (bloque único por impacto) |
+| `dumplimit:N` | número de bloques volcados **en total** (limitación del trazador) |
+
+**Limitaciones del trazador, relevantes aquí:**
+
+- El límite de volcados es **global**, no por impacto: con `dumplimit:N` solo
+  los `N` primeros impactos se volcan. Por eso las series largas se capturan
+  con **un solo** breakpoint (el update por frame) y el resto de direcciones
+  se mide en sesiones aparte.
+- Cada impacto cuesta una excepción de depuración + una línea de log: el juego
+  baja de ritmo. Se midió el coste (§ 3.3): con un impacto por frame la tasa
+  real se mantiene (~25 fps), con volcado por frame también.
+
+### 2.3 Qué NO se ha hecho
+
+- No se ha capturado el framebuffer del juego (la ventana devuelve negro), así
+  que **no hay verificación píxel a píxel**.
+- No se ha modificado el ejecutable, el driver ni los assets.
+
+---
+
+## 3. Lo observado
+
+### 3.1 El arranque: tres películas y luego nada (sin entrada)
+
+Sin teclas, el juego **no llega nunca** a la ruta 3D. Con breakpoints en la
+cadena S4 (cine) y en el update por frame:
+
+| t (ms) | Función | Qué es |
+|---:|---|---|
+| 3 667 | `0x00538017` | wrapper de cine (el que llama `WinMain`) |
+| 3 782 | `0x0053A5FB` | bucle de película |
+| 15 079 | `0x0053A5FB` | bucle de película |
+| 25 811 | `0x00538017` | wrapper de cine |
+| 25 826 | `0x0053A5FB` | bucle de película |
+
+En 70 s **no se ejecutan ni el update por frame (`0x0043E1BA`) ni la emisión
+de geometría (`0x004269C2`)**. El juego espera en las películas (la intro)
+hasta que el jugador pulsa algo.
+
+⟹ El arranque es: **cine (S4) → (entrada del jugador) → ruta 3D**.
+
+### 3.2 La ruta 3D empieza y la cámara sale volando
+
+Con el guion de teclas `1B,1B,1B,0D,0D` (Esc a los 8, 16 y 24 s; Enter a los
+32 y 40 s), el update por frame y la emisión de geometría arrancan a la vez
+hacia los **25,0 s**: la ruta 3D (el nivel MAP7) entra en pantalla.
+
+**Y la cámara se mueve desde el primer frame**, sin que ninguna tecla lo
+provoque: el vuelo dura **428 frames** (17,08 s medidos; § 3.3) y termina
+justo en el frame 428.
+
+### 3.3 La tasa de frames real
+
+Sesión ligera (breakpoints en el update y en la emisión, **sin** volcados):
+20,2–24,8 updates por segundo. La sesión con volcado por frame da 24,7
+muestras/s. ⟹ **el coste del trazador es despreciable** y los 428 frames del
+vuelo equivalen a **≈ 17,1 s** de reloj real.
+
+### 3.4 La serie de cámara
+
+Una muestra por frame en el update por frame, volcando el objeto de cámara
+`cam = 0x0065CD80` (posición `+0x00/+0x02/+0x04`, Euler `+0x30/+0x32/+0x34`,
+matrices A/B, planos, punteros y escalas). 1 728 muestras en 70 s.
+
+| frame | t (ms) | X | Y | Z | Euler X | Euler Z |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 2341 | 4071 | 3074 | -397 | 2802 |
+| 1 | 37 | 2365 | 4101 | 3066 | -397 | 2796 |
+| 2 | 77 | 2404 | 4149 | 3052 | -397 | 2784 |
+| 3 | 118 | 2456 | 4213 | 3033 | -396 | 2769 |
+| 4 | 158 | 2520 | 4291 | 3009 | -393 | 2750 |
+| 5 | 198 | 2595 | 4381 | 2982 | -392 | 2729 |
+| 6 | 238 | 2681 | 4482 | 2952 | -390 | 2701 |
+| 7 | 278 | 2774 | 4592 | 2918 | -387 | 2673 |
+| 8 | 319 | 2875 | 4708 | 2882 | -382 | 2642 |
+| 9 | 357 | 2982 | 4829 | 2844 | -376 | 2607 |
+| 10 | 399 | 3094 | 4953 | 2804 | -371 | 2572 |
+| 11 | 438 | 3210 | 5078 | 2764 | -364 | 2537 |
+| 20 | 799 | 4275 | 5990 | 2409 | -278 | 2253 |
+| 40 | 1 599 | 7808 | 5543 | 1267 | -99 | 1460 |
+| 80 | 3 199 | 4421 | 1831 | 462 | -10 | 1429 |
+| 120 | 4 800 | -1256 | -1218 | 1766 | -262 | 2142 |
+| 160 | 6 400 | 1153 | -4492 | 911 | -127 | 2585 |
+| 200 | 8 002 | 4498 | -8346 | 737 | -33 | 2769 |
+| 240 | 9 602 | 7761 | -5743 | -244 | 75 | 10 |
+| 280 | 11 202 | 8533 | -774 | 1174 | -21 | -72 |
+| 320 | 12 802 | 6086 | 4506 | 1276 | 5 | 877 |
+| 360 | 14 402 | 1316 | 4088 | 640 | -77 | 1310 |
+| 400 | 16 002 | -737 | 827 | 384 | -2 | 2786 |
+| 419 | 16 762 | 1782 | 556 | 229 | -18 | 2889 |
+| 420 | 16 802 | 1879 | 541 | 222 | -20 | 2881 |
+| 421 | 16 842 | 1967 | 528 | 216 | -23 | 2872 |
+| 422 | 16 882 | 2045 | 516 | 210 | -24 | 2864 |
+| 423 | 16 922 | 2113 | 506 | 205 | -25 | 2856 |
+| 424 | 16 962 | 2167 | 498 | 201 | -26 | 2851 |
+| 425 | 17 002 | 2208 | 492 | 198 | -28 | 2846 |
+| 426 | 17 042 | 2234 | 488 | 196 | -29 | 2844 |
+| **427** | **17 082** | **2243** | **487** | **196** | **-29** | **2842** |
+
+A partir del frame 428 la cámara **no vuelve a cambiar**: las 1 300 muestras
+siguientes (hasta 95 s) son idénticas.
+
+- **Punto de partida**: `(2341, 4071, 3074)`, Euler `(-397, 0, 2802)` — el
+  mismo encuadre de la ruta 3D capturado antes
+  ([`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14.2). Es el
+  **encuadre por defecto del nivel**.
+- **Punto de llegada** (estable): `(2243, 487, 196)`, Euler `(-29, 0, 2842)`,
+  `w = 384`, corte lejano `8500`. Es el **encuadre del menú**.
+- **La trayectoria** no es una línea: la cámara sube hasta `Y = 6503`, baja
+  hasta `Y = -8346` y vuelve: un **vuelo largo en bucle** sobre el nivel.
+
+### 3.5 Otros campos que cambian durante el vuelo
+
+| Campo | Durante el vuelo | Estable |
+|---|---|---|
+| `cam+0x5C` (corte lejano) | 12 000 → 8 500 | 8 500 |
+| `cam+0x48` (ancho base) | 384 | 384 |
+| `cam+0xE0/E4/E8/F0` (punteros de orientación) | fijos: `0x0065CD60`, `0x0057B508`, `0x0057B528`, `0x0057B548` | los mismos |
+| `cam+0x43C` (modo de orientación) | 0 (base identidad) | 0 |
+| `cam+0x490/492/494` (escalas) | `0x10001000`, `0x10001000`, `0x1000` | los mismos |
+| `cam+0x128/12C` (Euler de la rama alternativa) | 0 | 0 |
+| `cam+0x130/134` (copia de la posición) | siguen a la posición | los mismos |
+
+El branch de la rama alternativa (`cam+0x128`) está **a cero** durante toda la
+secuencia: el juego usa la rama normal (Euler en `cam+0x30`).
+
+---
+
+## 4. El mecanismo
+
+### 4.1 La cámara se copia de un controlador, no se calcula en el sitio
+
+El escritor de la posición de la cámara está en la función que empieza en
+`0x0043B11D` (el update del mundo):
+
+```asm
+0x43B56B  movl 0x54d054, %eax        ; eax = cámara (0x0065CD80)
+0x43B570  movl -0x4(%ebp), %ecx       ; ecx = controlador de cámara
+0x43B573  movw 0x28(%ecx), %dx       ; controlador[+0x28]
+0x43B577  movw %dx, (%eax)           ; cámara[+0x00] = posición X
+0x43B582  movw 0x2a(%ecx), %dx
+0x43B586  movw %dx, 0x2(%eax)        ; cámara[+0x02] = posición Y
+0x43B592  movw 0x2c(%ecx), %dx
+0x43B596  movw %dx, 0x4(%eax)        ; cámara[+0x04] = posición Z
+0x43B59A  ...                       ; y una segunda copia en cam+0x118/0x11A/0x11C
+0x43B5D3  calll 0x402dc0             ; reconstruye las matrices de la cámara
+```
+
+El controlador se obtiene en `0x0043B294` (dentro de la función que empieza en
+`0x0043B11D`):
+
+```asm
+0x43B294  movl 0x8(%ebp), %eax     ; el mundo/la escena
+0x43B297  pushl %eax
+0x43B298  calll 0x461e0b           ; -> puntero al nodo de cámara
+0x43B2A0  movl %eax, -0x4(%ebp)   ; controlador
+```
+
+y `0x00461E0B` llama a `0x00461B90`, que **abre un fichero** (`fopen`, thunk
+CRT `0x00541060`; `fseek`/`ftell` en `0x00540F90`/`0x00540DE0`) y devuelve un
+**array de registros de 0x200 B** indexado por un contador enmascarado con
+`0x1FF` (`0x461E47`: `+0x200` y `and $0x1FF`).
+
+⟹ El material de la trayectoria vive en **datos del juego** (un fichero
+abierto por `0x461B90`), no en código ni en una constante. El nodo del
+controlador tiene la posición en `+0x28/+0x2A/+0x2C`; los campos restantes
+del nodo (0x200 B) no se han decodificado.
+
+⟹ La **interpolación ocurre por encima**, en el controlador: la cámara no
+interpola nada, solo copia. El port no tendrá que inventar la interpolación:
+tiene que **reproducir lo que el controlador calcula** (o usar la
+trayectoria medida como datos).
+
+### 4.2 La trayectoria NO es una interpolación de dos puntos
+
+Ajuste polinomial de las 428 muestras con `t = frame/427`:
+
+| Ajuste | `X` | `Y` | `Z` | Euler X | Euler Z |
+|---|---:|---:|---:|---:|---:|
+| grado 3 | 5 929 | 7 081 | 1 495 | 234 | 2 044 |
+| grado 5 | 2 639 | 3 181 | 1 274 | 188 | 2 260 |
+| grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
+
+(residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
+15 497). Los residuos son del mismo orden que el propio recorrido ⟹ **la
+trayectoria no es un polinomio de grado bajo entre dos extremos**: es un
+**recorrido con varios puntos de control** (una spline) evaluado de forma
+continua.
+
+### 4.3 El perfil de velocidad
+
+| Tramo (frames) | `|Δ|` medio por frame |
+|---|---:|
+| 0–19 | 140,9 (arrancando desde 39,2) |
+| 20–39 | 204,0 (máximo 255,9) |
+| 40–419 | 111–181 (el recorrido curva) |
+| 420–426 | 52,7 (frenada: 89 → 41 → 26 → 9 → 0) |
+
+⟹ **aceleración inicial, velocidad cruise y frenada final hasta el alto
+total**. Es el perfil de una spline con interpolación suave (Catmull-Rom /
+equivalente), no el de una interpolación lineal entre puntos (que daría
+tramos rectos con cambios de dirección bruscos).
+
+### 4.4 Descartado: no es una cinemática de vídeo
+
+- El **S4** (cine) se ejecuta **antes** de la ruta 3D (3,7 / 15,1 / 25,8 s) y
+  es un bucle **bloqueante** con su propio `grSstWinOpen` de 640×480
+  ([`docs/SUBSYSTEM_SEGMENTS.md`](docs/SUBSYSTEM_SEGMENTS.md) § S4).
+- La cámara que se mueve es **`cam = 0x0065CD80`**, la del **nivel** (la misma
+  que consume el renderer del port y que se capturó en la ruta 3D), y se mueve
+  **dentro** de la ruta 3D, con el nivel dibujándose.
+- El movimiento ocurre en la ruta 3D (update por frame + emisión de
+  geometría activos) ⟹ **no es la reproducción de una película**.
+
+⟹ El mecanismo es: **secuencia de puntos de control (spline) evaluada por
+frame en el controlador de cámara del mundo**, reproducida mientras el menú
+se prepara sobre el nivel.
+
+---
+
+## 5. Relación con el menú
+
+Lo que **sí** queda medido:
+
+| Observación | Dato |
+|---|---|
+| La ruta 3D (el nivel MAP7) entra a la vez que empieza el vuelo | update y emisión activos desde ~25,0 s; el vuelo arranca en el frame 1 |
+| El vuelo **no** lo provoca ninguna tecla | el guion solo sirve para saltar las películas; el vuelo arranca y acaba solo |
+| El vuelo **termina** en un alto total | los últimos 7 frames frenan (89 → 41 → 26 → 9 → 0) y la cámara no vuelve a moverse en 1 300 frames siguientes |
+| El menú **no** se dibuja por las rutas 2D | 0 llamadas a `0x00432BBD` (glifo de fuente) y 0 a `0x00432DD1` (rectángulo) en los 650 frames de la ruta 3D |
+| El número de llamadas de estado **no** marca el menú | varía 317–2 353 por frame **según la visibilidad** (la cámara ve distinto nivel en cada punto del vuelo): 1 252 al entrar, ~1 700–2 100 en el centro del vuelo, ~500–700 cuando la cámara pasa por zonas con menos geometría |
+
+⟹ **Lo medido**: el menú se apoya en MAP7 como fondo y la cámara llega a su
+encuadre definitivo al final del vuelo (frame 428), donde se queda quieta.
+
+**Lo que NO se ha aislado**: el instante exacto en que los **elementos** del
+menú se hacen visibles. Las rutas 2D no se usan en la ruta 3D (0 llamadas), el
+recuento de llamadas de estado sigue a la visibilidad y no al menú, y no hay
+captura de píxeles (la ventana devuelve negro). Queda como pendiente con el
+método disponible (identificar el estado de menú en el mundo de
+`0x00648900`/el flujo de comandos, o capturar la ventana con otro método).
+
+**Hipótesis (no demostrada)**: el vuelo de cámara **es** la animación de
+entrada del menú (el juego entra en la ruta 3D, la cámara vuela hasta el
+punto de vista del menú y ahí se queda). El indicio es que el vuelo arranca
+solo en el primer frame de la ruta 3D y que su encuadre final es estable
+indefinidamente; falta identificar el estado de menú para confirmarlo.
+
+---
+
+## 6. Diseño para el port (DX11)
+
+Con los datos medidos, el port necesita:
+
+| Dato | Valor | Estado |
+|---|---|---|
+| Encuadre de partida | `(2341, 4071, 3074)`, Euler `(-397, 0, 2802)` | medido |
+| Encuadre final | `(2243, 487, 196)`, Euler `(-29, 0, 2842)` | medido |
+| Duración | 428 frames (≈ 17,1 s a ~25 fps) | medido |
+| Forma | spline de varios puntos de control, con aceleración y frenada | medido (perfil) |
+| Origen de los datos | controlador del mundo `0x006487E0` | identificado |
+
+**Lo que falta para poder implementarlo sin inventar:**
+
+1. Los **puntos de control** de la spline (el controlador los tiene; falta
+   volcarlos y entender su formato).
+2. Si el avance es **por frame** o **por tiempo** (el juego corre a ~25 fps; el
+   port corre a 60 ⟹ la diferencia es visible).
+3. El **estado de menú** que dispara el vuelo y el momento exacto en que el
+   menú queda estable.
+
+---
+
+## 7. Límites
+
+- Todo está medido sobre **nGlide 2.10** (software, D3D9): el frame rate, y
+  por tanto la duración en segundos, depende del driver. En el Voodoo real la
+  secuencia iría más rápido (más fps).
+- El tiempo del juego se ve afectado por el coste del trazador (medido: ~25
+  fps con y sin volcado ⟹ el coste es despreciable).
+- **No hay verificación píxel a píxel**: la ventana del juego devuelve negro.
+- El encuadre del menú se ha medido **con el nivel cargado**; no se ha
+  medido el menú con otro nivel.
+
+---
+
+## 8. Siguiente tarea
+
+1. Volcar el **controlador de cámara** (`0x006487E0`) por frame para
+   identificar los puntos de control y el parámetro de avance.
+2. Medir la **relación con el menú** (ruta 2D, estado de menú).
+3. Decidir si la secuencia se reproduce en el port como **datos** (la spline
+   capturada) o como **mecanismo** (el algoritmo del original, si se
+   identifica).

@@ -115,6 +115,24 @@ metodo --preguntarle al ejecutable y al driver, no deducirlo-- es el que se
 habia aplicado en la novena tanda; aqui se repite porque el dato (el vertice)
 solo se obtiene volcandolo.
 
+La secuencia de camara hasta el menu principal se ha capturado con el mismo
+instrumento y el mismo metodo (2026-11-13). La captura (copia de trabajo del
+exe, md5 verificado, breakpoints de hardware y volcado de solo lectura) da
+tres cosas nuevas: (1) sin teclas el juego **no llega nunca** a la ruta 3D
+--se queda en el bucle de cine S4, con tres peliculas--; (2) al entrar en la
+ruta 3D la camara **vuela sola** durante 428 frames (~17,1 s a ~25 fps) desde
+el encuadre por defecto del nivel `(2341,4071,3074)` hasta el encuadre del
+menu `(2243,487,196)`, en un arco largo que sube a `Y=6503` y baja a
+`Y=-8346`; (3) el vuelo **no** es una cinematica de video (la pelicula S4
+ocurre antes y en su propio bucle bloqueante) ni una interpolacion de dos
+puntos: el ajuste polinomico de grado 3 a las 428 muestras deja residuos del
+mismo orden que el recorrido, luego es una spline de varios puntos de control
+con aceleracion inicial y frenada final. El codigo muestra que la camara no
+interpola nada: **copia** posicion y orientacion de un nodo de control
+(`0x43B56B..0x43B5CC`) que el mundo carga desde un fichero
+(`0x461E0B -> 0x461B90`, array de registros de 0x200 B). Detalle en
+`S3_MENU_CAMERA_SEQUENCE.md`.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

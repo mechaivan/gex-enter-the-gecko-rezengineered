@@ -1,5 +1,73 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - Secuencia de camara hasta el menu principal: capturada, medida y documentada (sin implementarla en DX11 todavia)
+
+Nuevo hito de investigacion: reconstruir el comportamiento **del original**
+desde un arranque en frio hasta que el menu principal queda visible y
+estable sobre MAP7. Se captura y se comprende; **no se implementa** nada en
+DX11 (no se inventa ni una interpolacion ni una camara cinematografica).
+
+**METODO.** Copia de trabajo del juego fuera de `C:\GEX_REZ` (que solo se
+lee), ejecutable **intacto** (`md5 692b12825003417cc4a5a9d4db13eebe`, el
+mismo de las capturas anteriores), instrumentacion con el trazador del repo
+(`tools/frame-trace/tracer.cs`: breakpoints de hardware, sin parchear un byte,
+y volcado de memoria de solo lectura con `ReadProcessMemory`).
+
+**LO MEDIDO.**
+
+1. **Sin entrada del jugador el juego no llega a la ruta 3D**: se queda en el
+   bucle de cine S4 (`0x00538017` a los 3,67 s, `0x0053A5FB` a los 3,78,
+   15,08 y 25,83 s) y en 70 s **no** se ejecutan ni el update por frame
+   (`0x0043E1BA`) ni la emision de geometria (`0x004269C2`).
+2. **Al entrar en la ruta 3D la camara vuela sola**: arranca en el primer
+   frame de la ruta (~25,0 s) y dura **428 frames** (~17,1 s a ~25 fps, medido
+   con una sesion sin volcados: 20,2-24,8 updates/s), sin que ninguna tecla
+   lo provoque.
+3. **La trayectoria**: del encuadre por defecto del nivel `(2341, 4071, 3074)`
+   con Euler `(-397, 0, 2802)` al encuadre del menu `(2243, 487, 196)` con
+   Euler `(-29, 0, 2842)`; un arco largo (sube a `Y = 6503`, baja a
+   `Y = -8346` y vuelve) con aceleracion inicial, crucero y frenada final
+   hasta el alto total. Despus, la camara **no vuelve a moverse** en 1 300
+   frames.
+4. **El mecanismo**: la camara **no interpola, copia**. En `0x43B56B..0x43B5CC`
+   (funcion `0x0043B11D`) se copia `controlador[+0x28/+0x2A/+0x2C]` a
+   `cam[+0x00/+0x02/+0x04]` (y a `cam+0x118..`). El controlador se obtiene en
+   `0x43B294` callingando `0x461E0B` -> `0x461B90`, que **abre un fichero**
+   (`fopen`/`fseek`/`ftell`) y devuelve un array de registros de **0x200 B**
+   indexado con `and $0x1FF`: el material de la trayectoria vive en datos.
+5. **No es una cinematica de video**: el S4 corre antes y en su propio bucle
+   bloqueante; el movimiento ocurre en la ruta 3D, con el nivel dibujandose y
+   con la camara del nivel (`0x0065CD80`).
+6. **No es una interpolacion de dos puntos**: el ajuste polinomico de las 428
+   muestras (grado 3) deja residuos de 1 495-7 081 unidades sobre rangos de
+   3 361-15 497, es decir del orden del propio recorrido. Es una **spline de
+   varios puntos de control**.
+7. El menu **no se dibuja por las rutas 2D** (0 llamadas a `0x00432BBD` glifo
+   y `0x00432DD1` rectangulo en los 650 frames de la ruta 3D) y el recuento de
+   llamadas de estado por frame sigue a la **visibilidad** (317-2 353), no al
+   menu.
+
+**LO QUE QUEDA EXPRESAMENTE PENDIENTE.** El instante exacto de aparicion de
+los elementos del menu (no hay captura de pixeles: la ventana del juego
+devuelve negro, y el estado de menu no se ha aislado en el mundo de
+`0x00648900`); la decodificacion del nodo de control (0x200 B) y el origen
+concreto del fichero que abre `0x461B90`; y si el avance de la spline es
+**por frame** o **por tiempo** (relevante porque el port corre a 60 fps y el
+original aqui a ~25).
+
+**DATOS PUBLICADOS.** `analysis/menu_camera_map7.tsv` (las 428 muestras del
+vuelo + la muestra estable, sin rutas ni logs) y
+[`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) (metodo, tabla
+temporal, mecanismo, perfil, limites y diseño para DX11). Los logs crudos
+**no** se publican.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (nuevo), `PROJECT_STATE.md`,
+`ROADMAP.md` (undécima tanda), `RESEARCH.md` y `REVERSE_ENGINEERING.md`
+(lección 14). Sin cambios de producción: **el renderer no se toca**.
+
+**VALIDACIONES.** `port/build.ps1 test` (todas las suites, 0 fallos) y
+`port/run_sanitizers.ps1` (O0, O2, ASan y UBSan, 20/20 OK).
+
 ## 2026-11-12 - 0.0.0 - Modos de mezcla por comando y byte alto del color de vértice: medidos en el juego original y corregido el alfa del port
 
 Cierra los dos puntos que la ronda anterior dejó abiertos en la auditoría de

@@ -427,7 +427,19 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    eso, la correccion del shader (el alfa de salida es el del texel) queda
    justificada por evidencia y con prueba de regresion que falla con el
    comportamiento anterior.
-14. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
+14. **Para reconstruir una secuencia, capturar el estado por frame y no solo
+    el principio y el final.** La pregunta "como llega el juego al menu" se
+    respondio con 428 muestras consecutivas de la camara (posicion, Euler,
+    matrices, planos) tomadas en el update por frame: con el par de extremos
+    no se distingue una interpolacion de dos puntos de una spline con diez, y
+    con un solo volcado no se ve el perfil de velocidad (aceleracion,
+    crucero, frenada). El ajuste polinomico de la serie completa fue lo que
+    **descarto** la lectura easy "va de A a B": el residuo del ajuste de grado
+    3 es del mismo orden que el propio recorrido. Y el coste del
+    instrumentador se midio (el mismo juego, con y sin volcado por frame:
+    ~25 fps en ambos casos), sin lo cual la duracion de 17,1 s no seria
+    defendible.
+15. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
    codigo en lugar de deducirlo de las plantillas.** La conclusion de que
    `(3,4,1,0,0)` no se puede interpretar sin los encabezados del SDK era
    correcta solo porque no se habia identificado la implementacion: el

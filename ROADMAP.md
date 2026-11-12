@@ -135,6 +135,23 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     obtiene los índices de textura realmente usados por la geometría de MAP7
     (62) y exige que el subconjunto ARGB_4444 sea exactamente el de la
     referencia, en los dos sentidos.
+  - **Undécima tanda (2026-11-13, secuencia de cámara hasta el menú):** con
+    el mismo trazador de breakpoints de hardware y una copia de trabajo del
+    exe (md5 verificado, sin parcheos) se ha reconstruido la secuencia de
+    entrada al menú: sin teclas el juego se queda en el bucle de cine S4 (tres
+    películas) y no entra en la ruta 3D; al entrar, la cámara **vuela sola**
+    428 frames (~17,1 s a ~25 fps) desde el encuadre por defecto del nivel
+    `(2341,4071,3074)` hasta el del menú `(2243,487,196)`, con aceleración
+    inicial, crucero y frenada final. Se ha **descartado** que sea una
+    cinemática de vídeo (el S4 va antes y en su propio bucle) y que sea una
+    interpolación de dos puntos (el ajuste polinomico de grado 3 sobre las 428
+    muestras deja residuos del orden del recorrido: es una spline de varios
+    puntos de control). El código demuestra que la cámara solo **copia** la
+    posición y la orientación de un nodo de control (`0x43B56B..0x43B5CC`)
+    cargado desde un fichero (`0x461E0B` → `0x461B90`). Quedan pendientes el
+    instante exacto de aparición de los elementos del menú, la decodificación
+    del nodo de control (0x200 B) y si el avance es por frame o por tiempo.
+    Documento nuevo: `S3_MENU_CAMERA_SEQUENCE.md`.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con
