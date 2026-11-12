@@ -779,17 +779,18 @@ El trabajo inmediato deja de ser «conseguir dibujar un nivel» y pasa a reconst
 la experiencia de entrada: movimiento y temporización de la cámara original,
 encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 
-**La secuencia original ya está capturada y medida** (2026-11-13): al entrar en
+**La secuencia original ya está capturada y medida** (2026-11-12): al entrar en
 la ruta 3D la cámara **vuela sola** 428 frames (~17,1 s a ~25 fps) desde el
 encuadre por defecto del nivel `(2341, 4071, 3074)` hasta el encuadre del menú
-`(2243, 487, 196)`, y se queda allí. La trayectoria no es una interpolación de
-dos puntos sino una spline de varios puntos de control, evaluada en un nodo de
-control que el mundo carga desde un fichero. Método, tabla temporal, mecanismo
+`(2243, 487, 196)`, y se queda allí. La trayectoria es curva y no queda descrita por un polinomio de grado bajo;
+los datos disponibles todavía no identifican el interpolador ni demuestran que
+sea una spline. La cámara copia el estado de un nodo de control que el mundo
+carga desde un fichero. Método, tabla temporal, mecanismo
 y límites en [`S3_MENU_CAMERA_SEQUENCE.md`](../S3_MENU_CAMERA_SEQUENCE.md); las
 428 muestras en `analysis/menu_camera_map7.tsv`. Para implementarla en DX11
 falta el detalle fino: el instante de aparición de los elementos del menú, la
-decodificación del nodo de control (0x200 B) y si el avance de la spline es
-**por frame** o **por tiempo** (el port corre a 60 fps y el original, aquí, a
+decodificación del nodo de control (0x200 B), identificación del interpolador
+y si el avance es **por frame** o **por tiempo** (el port corre a 60 fps y el original, aquí, a
 ~25).
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
