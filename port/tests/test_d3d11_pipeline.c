@@ -923,7 +923,11 @@ static void test_texture_set(gex_d3d11_device *device)
             tris->x[1] = 256; tris->y[1] = 0; tris->z[1] = 0x1000;
             tris->x[2] = 0; tris->y[2] = 192; tris->z[2] = 0x1000;
             for (c = 0; c < 3; c++) {
-                tris->color[c] = 0xFFFFFFFFu;
+                /* Color blanco con alfa 0x40: el alfa del vertice NO debe
+                 * llegar al resultado (el original no lo tiene: su vertice
+                 * solo lleva B, G y R, § 19.11 del plan). Con el alfa del
+                 * texel (255) el resultado debe ser opaco. */
+                tris->color[c] = 0x40FFFFFFu;
                 tris->u[c] = 32;
                 tris->v[c] = 32;
             }
@@ -957,6 +961,10 @@ static void test_texture_set(gex_d3d11_device *device)
                     CHECK(pixels[at + 0] == 136u);
                     CHECK(pixels[at + 1] == 136u);
                     CHECK(pixels[at + 2] == 255u);
+                    /* El alfa de salida es el del TEXEL (255), no el del
+                     * vertice (0x40): el original no tiene alfa por
+                     * vertice (§ 19.11 del plan). */
+                    CHECK(pixels[at + 3] == 255u);
                 }
                 free(pixels);
             }

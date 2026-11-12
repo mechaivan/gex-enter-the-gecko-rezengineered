@@ -496,6 +496,26 @@ Con la tabla de factores del driver (§ 8.2) el caso ARGB_4444 queda
 `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`. Detalle en
 `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.8.
 
+**Medición en ejecución (2026-11-12).** Con el trazador del repo
+(`tools/frame-trace/tracer.cs`, breakpoints de hardware sobre los thunks
+`0x54052C` = `grAlphaBlendFunction@16` y `0x540532` = `grAlphaCombine@20`, sin
+parchear el ejecutable, sobre una copia de trabajo con el exe intacto) se
+capturaron 160 086 llamadas. En el frame de nivel (1 261 llamadas) los modos
+de mezcla que el original usa son **tres**:
+
+| `grAlphaBlendFunction` | Llamadas | A qué |
+|---|---|---|
+| `(1,5,4,0)` | 1 116 | toda la geometría del nivel (opaca y ARGB_4444) |
+| `(1,4,4,0)` | **6** | los triángulos de la textura 370 (opcode `0xB6`, opacos) |
+| `(4,0,0,0)` | 127 | las primitivas 2D (opcode `0x28`) |
+
+Los modos **aditivo** `(4,4,0,0)` y **de borrado** `(0,0,6,0)` **no aparecen
+nunca**. En la misma sesión se volcaron 6 000 **vértices** en el punto de la
+llamada a `grDrawTriangle`: el color viaja en tres flotantes (B, G, R) y **sin
+canal alfa**, de modo que el byte alto del color del comando es el opcode y
+nunca llega a la GPU. Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.10 y
+§ 19.11.
+
 ---
 
 ## 9. Construcción de la tabla `0x006488F4` desde `.VFX`

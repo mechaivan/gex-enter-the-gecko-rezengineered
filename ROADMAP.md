@@ -135,6 +135,23 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     obtiene los índices de textura realmente usados por la geometría de MAP7
     (62) y exige que el subconjunto ARGB_4444 sea exactamente el de la
     referencia, en los dos sentidos.
+  - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
+    color de vértice):** los dos puntos que la novena dejó abiertos se
+    **cierran con captura dinámica** del juego en ejecución (trazador con
+    breakpoints de hardware sobre una copia de trabajo del exe; 160 086
+    llamadas capturadas). (1) **Modos de mezcla**: MAP7 usa solo tres modos
+    —`(1,5,4,0)` en la geometría del nivel, `(1,4,4,0)` en 6 triángulos (la
+    textura 370) y `(4,0,0,0)` en las 128 primitivas 2D— y **nunca** los
+    aditivos ni el de borrado; el estado global del port es correcto salvo en
+    esos 6 triángulos, para los que queda **diseñada** la corrección (modo por
+    triángulo y tramos de índices, sin tocar cámara, profundidad, orden de
+    dibujo ni niebla) sin aplicarla en esta ronda. (2) **Byte alto del color
+    de vértice**: el vértice real del juego (6 000 volcados) lleva el color en
+    tres flotantes y **sin alfa**, y el byte alto del color del comando es el
+    opcode; el alfa de la unidad de mezcla es 1.0. El port multiplicaba el
+    alfa del texel por ese byte: **corregido**, con prueba de regresión que
+    falla con el comportamiento anterior y validación con MAP7 en GPU
+    hardware (1 123 triángulos, 20 frames, 0 errores).
   - **Novena tanda (2026-11-12, ecuación de la mezcla alfa sobre el driver
     real):** la semántica de `grAlphaCombine`, que las octava y octava
     anteriores dejaron pendiente, **queda cerrada con evidencia**. El primer

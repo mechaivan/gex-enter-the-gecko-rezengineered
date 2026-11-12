@@ -150,7 +150,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Opcodes:** Handlers demostrados para 0x20, 0x24, 0x28, 0x30, 0x34, 0x40/0x48/0x4C, 0xB4, 0xF0
 - **Tabla de texturas:** Índice de 14 bits → .VFX
 
-### 4.2 Necesitan Validación (estado a 2026-11-11)
+### 4.2 Necesitan Validación (estado a 2026-11-12)
 
 - **Shaders:** **resuelto.** Los escriben los módulos 5A y 4C: vertex/pixel
   shader propios, compilados en ejecución con `d3dcompiler_47.dll`, con
@@ -733,7 +733,7 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 3. **AZTEC16 como nivel de prueba:** Completo y bien documentado
 4. **Integración con renderer existente:** Reutilizar componentes R-1 a R-4
 
-### 9.2 Pendientes Expresos (estado a 2026-11-11)
+### 9.2 Pendientes Expresos (estado a 2026-11-12)
 
 1. ~~**Shaders:** Necesarios pero fuera del alcance de U-1~~ → **hecho**
    (Módulo 5A: vertex/pixel shader con `d3dcompiler_47.dll`; Módulo 4C: además
@@ -745,13 +745,14 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
    `0x401C00` ya está implementado en
    [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
-4. **Alpha blending:** está **demostrado** que el original lo activa por
-   polígono según el formato de la textura y cuáles son los argumentos
-   exactos de `grAlphaCombine` (`(3,4,1,0,0)` para ARGB_4444 y
-   `(1,0,0,2,0)` para las opacas), pero **no** la aritmética exacta de esos
-   argumentos (§19.8). El port resuelve el caso opaco sin depender de ella
-   (alfa de salida 1) y aplica la mezcla alfa habitual a las 32 texturas
-   ARGB_4444 del frame 0.
+4. **Alpha blending:** **resuelto** (2026-11-12). La aritmética exacta está
+   **demostrada** sobre el driver real (§19.8): `grAlphaCombine(3,4,1,0,0)`
+   genera `alfa de salida = alfa del texel × alfa del vértice`, y el juego lo
+   empareja con `grAlphaBlendFunction(1,5,4,0)` = `SRC_ALPHA`/`INV_SRC_ALPHA`
+   con alfa `ONE`/`ZERO`: lo que el port ya hace. Quedan dos puntos abiertos,
+   ambos con su evidencia y su método: el **modo de mezcla por comando**
+   (§19.10) y el **byte alto del color de vértice** (§19.11), que el port usa
+   como alfa y que el original **no** entrega a Glide.
 5. **Materiales de producción, *depth buffer* y niebla después de la
    textura:** el recorrido, la visibilidad y la emisión de nivel ya están
    validados contra el ejecutable original (§ 4.3 y § 18.8) y la **cámara real
@@ -785,6 +786,12 @@ añadir el *depth buffer* y el blending por polígono del original.
   polígono, el *depth buffer*, y la carga del nivel con el `.DFX` y
   la emisión real dentro del bucle de frames (hoy la geometría de la
   aplicación es el cubo de prueba, no un nivel).
+  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el blending por polígono
+  está **resuelto** (§19.8: la aritmética de `grAlphaCombine` está
+  demostrada sobre el driver real y el port la reproduce) y el nivel **ya se
+  carga y se dibuja** en el bucle de frames (§ 4.3). Quedan por cerrar dos
+  puntos de ese bloque: el **modo de mezcla por comando** (§19.10) y el
+  **byte alto del color de vértice** (§19.11).
 - **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la
   tabla de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
   `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
@@ -1473,6 +1480,10 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
 - **El color se escribe sin blending**: el canal alfa del vértice se escribe en
   el render target pero no se usa para transparency; el blending del original
   está pendiente.
+  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el blending del original
+  ya no está pendiente en su forma básica: su aritmética está **demostrada**
+  (§19.8) y el port la aplica. Lo pendiente es el **modo de mezcla por
+  comando** (§19.10) y el **alfa de vértice** (§19.11).
 - Siguiente paso: **Módulo 4C (carga de texturas `.VFX` en D3D11; el Módulo 4B
   ya decodifica el píxel y las dimensiones)** y, con él, la firma definitiva del
   shader de producción, el *depth buffer* y el `ID3D11InputLayout` con los
@@ -1846,6 +1857,10 @@ evidencia local y **no se publica** en el repositorio.
   §18) ya están implementados: el nivel sale texturizado. Siguen pendientes
   los **materiales de producción**, el ***depth buffer***, el **blending por
   polígono** y la **niebla aplicada después de la textura** (§18.8).
+  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el *blending por
+  polígono* está **resuelto** en su aritmética (§19.8) y aplicado por el port;
+  lo que queda de ese bloque es el **modo de mezcla por comando** (§19.10) y
+  el **alfa de vértice** (§19.11).
 - **Cámara real**: el estado de cámara del juego ya está capturado y validado; la vista sigue siendo diagnóstica en cuanto a la
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
@@ -1983,10 +1998,12 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
   tres vértices de un triángulo llevan el mismo valor (viene del polígono) y el
   rasterizador no lo interpola ✓.
 - El **blending alfa** se activa con `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`, que
-  es la **hipótesis** de lectura de `grAlphaCombine(3,4,1,0,0)` (§19.8); con
-  alfa 255 (el cubo de prueba y las texturas `YIQ_422`) el resultado es
-  idéntico al de no mezclar, y en el modo de cámara las texturas opacas
-  devuelven alfa 1 y substituyen el destino.
+  ya no es una **hipótesis** sino la lectura **demostrada** de
+  `grAlphaCombine(3,4,1,0,0)` en el driver real (§19.8). Con alfa 255 (el cubo
+  de prueba y las texturas `YIQ_422`) el resultado es idéntico al de no
+  mezclar, y en el modo de cámara las texturas opacas devuelven alfa 1 y
+  substituyen el destino. Queda pendiente el matiz del alfa de vértice
+  (§19.11) y el modo de mezcla por comando (§19.10).
 
 ### 18.6 Pruebas
 
@@ -2083,7 +2100,7 @@ no del primero (`+2`).
 | Formato en tiempo de ejecución | `grAlphaCombine` | `grAlphaBlendFunction` | Efecto |
 |---|---|---|---|
 | `0x0C` (ARGB_4444: trae alfa) | `(3, 4, 1, 0, 0)` | `(1, 5, 4, 0)` | **MEZCLA** con alfa: `src·a + dst·(1-a)` |
-| `0x00` (opaco de 8 bits) | `(1, 0, 0, 2, 0)` | `(4, 0, 0, 0)` | **opaco**: substituye el destino |
+| `0x00` (opaco de 8 bits) | `(1, 0, 0, 2, 0)` | `(1, 5, 4, 0)` | **opaco**: con alfa de salida 1 substituye el destino |
 | otros (ni alfa ni opaco) | no llama | no llama | el estado anterior persiste |
 
 Evidencia dinámica (MAP7, frame 0, 1123 comandos de nivel):
@@ -2360,19 +2377,17 @@ ningún cambio**.
 - La equivalencia **píxel a píxel** con el Voodoo original: la captura de
   ventana del `glide2x` original devuelve negro, así que no hay framebuffer con
   el que comparar; la comparación es a nivel de **ecuación**.
-- **Qué es exactamente `v0.a`.** En nGlide es el byte alto del color de vértice
-  interpolado. En los datos del juego ese byte **no es un alfa**: es donde el
-  emisor empaqueta el opcode (`0xB4 | ((color0 >> 24) & 3)`, § 8 de
-  `S2_BSP_TRAVERSAL.md`), y su valor en MAP7 es `0x34`, `0xB4`, `0x36` o
-  `0xB6`. Si el hardware 3dfx lo ignorase (y el juego usase siempre
-  `r9.a = texel.a`), el port y nGlide serían **igualmente** incorrectos. No se
-  cambia el renderer: haría falta el byte alto de la paleta de vértices
-  (`0x555158`) en ejecución o un framebuffer del juego.
-- **Los modos de mezcla por comando.** El original cambia de estado de mezcla
-  según el comando (seis cuádruplas distintas, tabla de arriba); el port usa un
-  único estado global. Para el caso auditado coinciden; para los modos
-  aditivos (`(4,4,0,0)`) no está establecido a qué geometría de MAP7
-  corresponden. Se registra como pendiente, no se toca el renderer (§ 19.10).
+- **Qué es exactamente `v0.a`.** **Resuelto (2026-11-12, § 19.11):** el
+  vértice que el juego entrega a Glide **no tiene canal alfa** (el color
+  viaja en tres flotantes B, G, R); el byte alto del color del comando es el
+  **opcode**, no un alfa. El alfa de la unidad de mezcla es una constante
+  1.0, y el port ya no multiplica por ese byte.
+- **Los modos de mezcla por comando.** **Medidos (2026-11-12, § 19.10):** MAP7
+  usa solo tres modos — `(1,5,4,0)` para la geometría del nivel, `(1,4,4,0)`
+  para **6** triángulos (la textura 370) y `(4,0,0,0)` para las 128 primitivas
+  2D. Los modos aditivos y de borrado **no aparecen**. El estado global del
+  port coincide en todo salvo esos 6 triángulos; el diseño de la corrección
+  queda cerrado en § 19.10.
 
 ### 19.9 Auditoría de YIQ_422
 
@@ -2425,7 +2440,7 @@ con la **referencia software del SDK**, más el contraste empírico de la
 documentación (imagen coherente, saturación del 0,2 % con croma con signo
 frente al 66 % sin signo).
 
-### 19.10 Modos de mezcla por comando: pendiente, con la evidencia a mano
+### 19.10 Modos de mezcla por comando: qué usa MAP7 de verdad (2026-11-12)
 
 El original **cambia el estado de mezcla según el comando**, no por polígono de
 forma global. La selección ocurre en `0x46558A` y depende de:
@@ -2441,18 +2456,131 @@ De ahí salen las seis cuádruplas de `grAlphaBlendFunction` de § 19.8: `ONE/ZE
 (substituye), `ONE/ONE` (aditivo), `ZERO/ZERO` (borra), `(1,1,4,0)`,
 `(1,4,4,0)` y `(1,5,4,0)` (mezcla alfa clásica).
 
-**El port usa un único estado global** (`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa
-`ONE`/`ZERO`). Eso reproduce **exactamente**:
+**Captura dinámica (2026-11-12).** Con el trazador del repo
+(`tools/frame-trace/tracer.cs`, breakpoints de hardware, **sin tocar un byte**
+del ejecutable) sobre una **copia de trabajo** del juego (`md5` del exe
+`692b12825003417cc4a5a9d4db13eebe`, idéntico al original) y dos thunks:
 
-- el caso opaco (alfa de salida 1 → `src·1 + dst·0 = src`, el destino se
-  substituye), y
-- el caso ARGB_4444 auditado (§ 19.8).
+| Thunk | Dirección | Qué captura |
+|---|---|---|
+| `grAlphaBlendFunction@16` | `0x54052C` | la cuádrupla vigente |
+| `grAlphaCombine@20` | `0x540532` | la llamada de mezcla alfa |
 
-Lo que **no** está establecido es a qué geometría de MAP7 corresponden los modos
-aditivo (`(4,4,0,0)`) y de borrado (`(0,0,6,0)`). Por eso **no se toca el
-renderer**: haría falta capturar, en ejecución, las nueve llamadas con el
-comando que las origina (el mismo procedimiento que la captura de materiales
-del § 19.1) y, solo si aparecen sobre geometría real, implementar estados de
-mezcla por dibujo en D3D11 — un cambio de producción que no se hace sin
-evidencia.
+160 086 impactos en 45 s. El frame de nivel (1 261 llamadas) da:
+
+| `grAlphaCombine` | Llamadas | `grAlphaBlendFunction` | Llamadas |
+|---|---|---|---|
+| `(1,0,0,2,0)` (opaco) | 1 090 | `(1,5,4,0)` | 1 116 |
+| `(1,0,1,2,0)` (primitivas 2D) | 128 | `(1,4,4,0)` | **6** |
+| `(3,4,1,0,0)` (ARGB_4444) | 32 | `(4,0,0,0)` | 127 |
+
+**Conclusiones:**
+
+1. Los modos **aditivo** `(4,4,0,0)` y **de borrado** `(0,0,6,0)` **no aparecen
+   nunca** en MAP7: 0 ocurrencias en 160 086 llamadas. Las otras dos ramas de
+   `grAlphaBlendFunction` (`0x465831`/`0x465881` y `0x465859`/`0x4659CA`) solo
+   se alcanzan con el «modo de iluminación» 1, 2 o 3, y en MAP7 el modo es 0
+   (los índices de textura son < 16384).
+2. El `(4,0,0,0)` (substituye) se aplica a las **128 primitivas 2D** (opcode
+   `0x28`), no a la geometría del nivel.
+3. La geometría del nivel se dibuja con **`(1,5,4,0)`** (mezcla alfa clásica) y
+   **6 triángulos** con **`(1,4,4,0)`** (`SRC_ALPHA`/`ONE`: el destino **no** se
+   atenúa, se suma).
+
+**Qué geometría es esa.** Los 6 comandos con `(1,4,4,0)` son los del opcode
+`0xB6` (el «modo de textura 1»: `word[+0x1E] & 0x4000`) cuya textura **no** es
+ARGB_4444. En la referencia del port (`port/tests/ref_material.h`, opcode
+deducido como `0xB4 | ((color0 >> 24) & 3)`) son exactamente los **6
+triángulos con la textura 370**; los otros 12 con opcode `0xB6` usan texturas
+ARGB_4444 (185, 234, 241) y por tanto van a `(1,5,4,0)`. La correspondencia
+cuadra uno a uno.
+
+**Contraste con el port.** El port usa un **único** estado global
+(`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`):
+
+| Grupo | Original | Port | ¿Coincide? |
+|---|---|---|---|
+| 1 116 comandos (nivel opaco + ARGB_4444) | `(1,5,4,0)` | `(1,5,4,0)` | ✔ (con alfa 1: `src·1 + dst·0 = src`) |
+| 6 triángulos (textura 370) | `(1,4,4,0)` | `(1,5,4,0)` | ✘ (el original **suma** al destino) |
+| 128 primitivas 2D | `(4,0,0,0)` | `(1,5,4,0)` | ✔ con alfa 1 |
+
+**La diferencia de los 6 triángulos está demostrada, pero no se corrige en esta
+ronda.** Reproducirla exige representar el modo **por triángulo**, y el modo
+depende de dos cosas que hoy no viajan en la emisión: el opcode (bit 1 del byte
+alto del color, que el port sí tiene) y el **formato** de la textura (solo el
+ARGB_4444 cambia de modo), que vive en la tabla de texturas del renderer.
+El cambio mínimo diseñado es:
+
+1. en la emisión, marcar el triángulo (un bit más en `GEX_EMIT_F_*`, que ya
+   viaja por vértice) cuando su opcode es `0xB6`;
+2. en el renderer, resolver el formato por índice de textura (la tabla de
+   texturas ya lo sabe) y **agrupar los índices en tramos contiguos** con el
+   mismo modo, emitiendo un `DrawIndexed` por tramo con el estado de mezcla
+   correspondiente (dos estados: `SRC_ALPHA`/`INV_SRC_ALPHA` y
+   `SRC_ALPHA`/`ONE`);
+3. **sin tocar** la cámara, la profundidad, el orden de dibujo (los tramos se
+   emiten en el mismo orden) ni la niebla.
+
+Afecta a **6 de 1 123 triángulos** (0,5 %): el cambio se difiere por su coste
+relativo y porque el resto del modelo de mezcla ya está verificado. Se deja
+como paso siguiente con el diseño cerrado.
+
+### 19.11 El byte alto del color de vértice (2026-11-12)
+
+Hay que distinguir **dos** cosas que se confunden:
+
+| Dónde | Qué es el byte alto |
+|---|---|
+| **Flujo de comandos** (el registro de 0x34 B) | el **opcode**: `0xB4 | ((color0 >> 24) & 3)`. El emisor lo escribe **después** del color (`0x426530`, `0x4268EC`), así que el byte alto del color del comando **es** el opcode (§ 8 de `S2_BSP_TRAVERSAL.md`) |
+| **Vértice que se entrega a Glide** | **no existe**: el color viaja en **tres** flotantes |
+
+**El vértice real, capturado en ejecución.** El trazador volcó 6 000 vértices
+en el punto de la llamada a `grDrawTriangle` (`0x54051A`, argumento 0). El
+vértice son 0x40 B y su contenido es:
+
+| Offset | Contenido | Valor observado (MAP7) |
+|---|---|---|
+| `+0x00` / `+0x04` | x, y en píxeles | 379.0, 16.0 … |
+| `+0x08` | — | 0.0 en los 6 000 |
+| `+0x0C` / `+0x10` / `+0x14` | **B, G, R** en el espacio 0..2 de Glide | 40.0, 40.0, 180.0 (= 2 × 20, 20, 90) |
+| `+0x18` | — | 0.0 en los 6 000 |
+| `+0x1C` | — | 255.0 en los 6 000 |
+| `+0x20` | 1/z | 0.0001 … |
+| `+0x24` / `+0x28` | u, v en unidades 1/16 | 0 … 15.9375 |
+
+Los tres flotantes del color coinciden **exactamente** con los tres canales RGB
+del color del port (0x…5A1414 → 2 × 20, 20, 90) ✓, y **no hay ningún canal
+alfa**: los dos huecos son constantes (0.0 y 255.0) en las 6 000 muestras.
+
+⟹ **El byte alto del color del comando (0x34/0xB4/0x36/0xB6) nunca llega a
+la GPU**: es información del flujo de comandos (el opcode), no del material.
+
+**Qué alfa usa entonces la unidad de mezcla.** En nGlide el alfa del vértice
+(`v0.a` del programa generado, § 19.8) es una **constante 1.0**:
+
+- el vértice no tiene alfa que propagar, y
+- el juego **habilita el *alpha test*** para las texturas opacas
+  (`grAlphaTest(1)`, `0x46578A`): con el valor por defecto (función
+  «mayor que», referencia 0) un alfa 0 **descartaría toda la geometría** del
+  nivel, que se ve; y
+- con el estado `(1,5,4,0)` (`src·a + dst·(1-a)`) un alfa distinto de 1
+  haría **translúcida** la escena entera.
+
+**Consecuencia: el port multiplicaba mal el alfa.** El *pixel shader* hacía
+`color.a = color.a * t.a`, es decir el alfa del texel **por el byte alto del
+color por vértice** (0xB4 → 0,706; 0x34 → 0,204). Ese byte no es un alfa: es
+el opcode. Corregido el 2026-11-12: el alfa de salida es **el alfa del texel**
+(y 1.0 si la textura no trae canal alfa o si no hay textura), nunca el byte
+alto del color por vértice (`port/src/render/d3d11_pipeline.c`).
+
+El caso opaco no cambia (ya devolvía alfa 1, que es lo que hace el original) y
+los **32 triángulos** ARGB_4444 ahora se mezclan con el alfa real de la
+textura en lugar de attenuated por un byte sin sentido gráfico.
+
+**Límites.** Todo lo anterior está medido sobre **nGlide 2.10**, el driver que
+el proyecto usa de verdad; el comportamiento del **SST-1 de 3dfx** no es
+observable aquí (y su formato de vértice tampoco: el juego entrega vértices con
+flotantes, que no es el `GrVertex` clásico). La captura de ventana del juego
+devuelve negro, así que no hay verificación píxel a píxel: la comparación es a
+nivel de **ecuación y de estado de mezcla**.
 

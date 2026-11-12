@@ -415,7 +415,19 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    fue dinamica: de 55 poligonos con profundidad *minima* menor que `0x6A4`,
    el original subdivide exactamente los 27 con profundidad *maxima* menor que
    `0x6A4`, y el orden de dibujo solo coincide (1123/1123) usando el maximo.
-13. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
+13. **No confundir el significado de un campo en el flujo de comandos con su
+   significado despues de construir el vertex.** El byte alto del color del
+   comando es el **opcode** (`0xB4 | ((color0 >> 24) & 3)`), y el port lo
+   usaba como **alfa del vertex**; el vertex que el juego entrega a Glide
+   lleva el color en tres flotantes (B, G, R) y **sin canal alfa**, asi que
+   ese byte nunca llega a la GPU. Lo que si es cierto --que el port y el
+   originalCoinciden en el resto-- no basta: hay que **volcar el vertex en
+   ejecucion** (6 000 muestras: los dos huecos son constantes 0.0 y 255.0) para
+   saber que el alfa es una **constante 1.0** y no un valor por vertice. Con
+   eso, la correccion del shader (el alfa de salida es el del texel) queda
+   justificada por evidencia y con prueba de regresion que falla con el
+   comportamiento anterior.
+14. **Identificar el driver antes de interpretar sus cadenas, y ejecutar el
    codigo en lugar de deducirlo de las plantillas.** La conclusion de que
    `(3,4,1,0,0)` no se puede interpretar sin los encabezados del SDK era
    correcta solo porque no se habia identificado la implementacion: el

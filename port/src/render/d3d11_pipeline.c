@@ -107,8 +107,20 @@ static const char GEX_HLSL_VERTEX[] =
  * shader devuelve el color por vértice tal cual, sin tocar nada.
  *
  * La modulación es la del original: el color final es
- * `textura * color por vertice` (modulate), y el alfa es el producto de los
- * dos alfas.
+ * `textura * color por vertice` (modulate).
+ *
+ * EL ALFA NO VIENE DEL VÉRTICE (docs/D3D11_FIRST_SCENE_PLAN.md § 19.11). El
+ * vértice que el juego entrega a Glide lleva el color en **tres** flotantes
+ * (B, G, R) y ningún canal alfa: el byte alto del color del comando
+ * (`0x34`/`0xB4`/`0x36`/`0xB6`) es donde el emisor empaqueta el opcode
+ * (`0xB4 | ((color0 >> 24) & 3)`), y ese byte nunca llega a la GPU. En el
+ * driver real (nGlide 2.10) el alfa de la unidad de mezcla es una
+ * **constante 1.0**: con el *alpha test* activo (el juego lo habilita para las
+ * texturas opacas) un alfa 0 descartaría toda la geometría, y con el estado
+ * `SRC_ALPHA`/`INV_SRC_ALPHA` un alfa distinto de 1 haría translúcida toda la
+ * escena. Por tanto el alfa de salida es **el alfa del texel** (y 1.0 cuando
+ * la textura no tiene canal alfa o cuando no hay textura), nunca el byte alto
+ * del color por vértice.
  */
 static const char GEX_HLSL_PIXEL[] =
     "struct VSOut {\n"
@@ -129,6 +141,7 @@ static const char GEX_HLSL_PIXEL[] =
     "float4 GexPS(VSOut input) : SV_TARGET\n"
     "{\n"
     "    float4 color = input.color;\n"
+    "    color.a = 1.0;\n"
     "    int count = (int)gex_tex_header.x;\n"
     "    float atlas_w = gex_tex_header.y;\n"
     "    float atlas_h = gex_tex_header.z;\n"
@@ -157,14 +170,15 @@ static const char GEX_HLSL_PIXEL[] =
     "                             float2(atlas_w, atlas_h);\n"
     "            float4 t = gex_tex_atlas.SampleLevel(gex_tex_sampler,\n"
     "                                                atlas_uv, 0);\n"
-    "            color = float4(color.rgb * t.rgb, color.a * t.a);\n"
+    "            color = float4(color.rgb * t.rgb, t.a);\n"
     "            /* Modo de mezcla por poligono (0x46558A en el original):\n"
     "             * con canal alfa (ARGB_4444) el triangulo se MEZCLA con el\n"
-    "             * destino usando el alfa de la textura y el del vertice;\n"
-    "             * sin canal alfa el triangulo es OPACO y substituye el\n"
-    "             * destino. Con el estado de mezcla global\n"
-    "             * SRC_ALPHA/INV_SRC_ALPHA, la opacidad se consigue con un\n"
-    "             * alfa de salida 1 (src*1 + dst*0 = src). */\n"
+    "             * destino usando el alfa de la textura; sin canal alfa el\n"
+    "             * triangulo es OPACO y substituye el destino. Con el\n"
+    "             * estado de mezcla global SRC_ALPHA/INV_SRC_ALPHA la\n"
+    "             * opacidad se consigue con un alfa de salida 1\n"
+    "             * (src*1 + dst*0 = src). El alfa de salida NO incluye el\n"
+    "             * byte alto del color por vertice (plan 19.11). */\n"
     "            if (b.y < 0.5) {\n"
     "                color.a = 1.0;\n"
     "            }\n"

@@ -101,6 +101,20 @@ en los limites: lo demostrado es la semantica de **nGlide 2.10**, no la del
 SDK 3dfx (cuyos encabezados no existen en el entorno), y no se afirma
 equivalencia pixel a pixel porque no hay framebuffer del juego.
 
+Los dos puntos que quedaban abiertos de esa linea se cerraron el 2026-11-12 con
+captura dinamica del juego en ejecucion, usando el trazador del propio repo
+(`tools/frame-trace/tracer.cs`: breakpoints de hardware, sin parchear un byte
+del ejecutable) sobre una **copia de trabajo** del juego con el exe intacto
+(md5 `692b12825003417cc4a5a9d4db13eebe`) y volcando, en el punto de la
+llamada, tanto los argumentos de `grAlphaCombine`/`grAlphaBlendFunction` como
+los bytes del vertice que se entrega a Glide. Resultado: MAP7 usa tres modos
+de mezcla y ninguno aditivo; y el vertice real no tiene canal alfa (el byte
+alto del color del comando es el opcode, no un alfa), por lo que el port
+multiplicaba el alfa del texel por un byte sin sentido grafico. El mismo
+metodo --preguntarle al ejecutable y al driver, no deducirlo-- es el que se
+habia aplicado en la novena tanda; aqui se repite porque el dato (el vertice)
+solo se obtiene volcandolo.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

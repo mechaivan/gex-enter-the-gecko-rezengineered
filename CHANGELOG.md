@@ -1,5 +1,73 @@
 # CHANGELOG
 
+## 2026-11-12 - 0.0.0 - Modos de mezcla por comando y byte alto del color de vértice: medidos en el juego original y corregido el alfa del port
+
+Cierra los dos puntos que la ronda anterior dejó abiertos en la auditoría de
+materiales. Ambos se resuelven **midiendo**, no deduciendo: con el trazador
+del propio repo (`tools/frame-trace/tracer.cs`, breakpoints de hardware, **sin
+parchear un byte**) sobre una **copia de trabajo** del juego (exe con md5
+`692b12825003417cc4a5a9d4db13eebe`, idéntico al original).
+
+**1. MODOS DE MEZCLA POR COMANDO.** El original cambia de estado de mezcla
+según el comando (la selección está en `0x46558A` y depende de las banderas
+`0x04`/`0x02` del byte de comando y del «modo de iluminación» en
+`[0x57B8EC]`). Con 160 086 llamadas capturadas en MAP7:
+
+| `grAlphaBlendFunction` | Dónde | Cuándo en MAP7 |
+|---|---|---|
+| `(1,5,4,0)` | `0x465A3D` | 1 116 comandos: toda la geometría del nivel |
+| `(1,4,4,0)` | `0x465A14` | **6** comandos (los triángulos de la textura 370) |
+| `(4,0,0,0)` | `0x4657BC` | 128 primitivas 2D (opcode `0x28`) |
+| `(4,4,0,0)` (aditivo) | `0x465831`/`0x465881` | **0 apariciones** |
+| `(0,0,6,0)` (borra) | `0x465859`/`0x4659CA` | **0 apariciones** |
+| `(1,1,4,0)` | `0x4658A3`/`0x4659F2` | **0 apariciones** |
+
+Los 6 comandos con `(1,4,4,0)` son los del opcode `0xB6` cuya textura no es
+ARGB_4444, y en la referencia del port corresponden **uno a uno** a los 6
+triángulos con la textura 370.
+
+**2. EL BYTE ALTO DEL COLOR DE VÉRTICE.** El vértice que el juego entrega a
+Glide se capturó en ejecución (6 000 volcados de 0x40 B): el color viaja en
+**tres flotantes** (B, G, R, en el espacio 0..2 de Glide) y **no hay canal
+alfa** (los dos huecos son constantes 0.0 y 255.0). El byte alto del color del
+comando (`0x34`/`0xB4`/`0x36`/`0xB6`) es el **opcode**
+(`0xB4 | ((color0 >> 24) & 3)`), no un alfa: nunca llega a la GPU. El alfa de
+la unidad de mezcla es una **constante 1.0** (con alfa 0 el *alpha test* que el
+juego habilita descartaría toda la geometría; con alfa ≠ 1 la escena entera
+sería translúcida).
+
+**3. CORRECCIÓN EN EL RENDERER (mínima).** El *pixel shader* hacía
+`color.a = color.a * t.a`: el alfa del texel **por el byte alto del color por
+vértice**, un byte que en los datos del juego es el opcode (0xB4 → 0,706;
+0x34 → 0,204). Ahora el alfa de salida es **el del texel** (y 1.0 si la
+textura no trae canal alfa o si no hay textura). Afecta a los **32
+triángulos** ARGB_4444 del frame 0 de MAP7; el caso opaco no cambia (ya
+devolvía alfa 1, como el original). Prueba de regresión en
+`port/tests/test_d3d11_pipeline.c`: un triángulo con color de vértice
+`0x40FFFFFF` (alfa 0x40) y textura ARGB_4444 debe salir **opaco**; con el
+comportamiento anterior la prueba **falla** (comprobado).
+
+**4. LO QUE NO SE CORRIGE Y POR QUÉ.** Los 6 triángulos con `(1,4,4,0)`
+necesitan el estado `SRC_ALPHA`/`ONE` (el original **suma** al destino) y el
+port usa un único estado global. El diseño de la corrección queda cerrado
+(marca de opcode en la emisión, resolución del formato por índice de textura
+en el renderer, agrupación de los índices en tramos contiguos con un
+`DrawIndexed` por tramo, **sin tocar cámara, profundidad, orden de dibujo ni
+niebla**), pero **no se aplica en esta ronda**: afecta al 0,5 % de la escena y
+exige tocar la ruta de emisión y el dibujo.
+
+**5. DOCUMENTACIÓN.** `docs/D3D11_FIRST_SCENE_PLAN.md` (§4.2, §9.2, §10, §14.9,
+§16.9, §18.5, §19.3 y §19.8 revisadas; §19.10 y §19.11 nuevas),
+`PROJECT_STATE.md`, `ROADMAP.md` (décima tanda), `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` (lección 13 nueva), `U1F_RESULTADOS.md` (§8.4) y
+este registro.
+
+**6. PRUEBAS.** `port/build.ps1 test`: todas las suites, **0 fallos**
+(`test_d3d11_pipeline` pasa de 324 a 325 comprobaciones con la nueva).
+`port/run_sanitizers.ps1`: **20/20 OK** (O0, O2, ASan y UBSan × 5 binarios).
+Ejecución real con **GPU hardware** y MAP7: 1 123 triángulos emitidos, 62
+texturas, 20 frames, 0 errores de frame, salida limpia.
+
 ## 2026-11-12 - 0.0.0 - La ecuación de la mezcla alfa de Glide, cerrada sobre el driver real: `grAlphaCombine(3,4,1,0,0)` = alfa del texel × alfa del vértice, con `SRC_ALPHA`/`INV_SRC_ALPHA`
 
 Cierre de la auditoría de materiales: la semántica de `grAlphaCombine` que las
