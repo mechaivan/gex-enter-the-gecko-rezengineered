@@ -8,7 +8,7 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-13 (secuencia de cámara hasta el menú principal: capturada y documentada en `S3_MENU_CAMERA_SEQUENCE.md`)
+**Last updated:** 2026-11-12 (secuencia de cámara hasta el menú principal: capturada y documentada en `S3_MENU_CAMERA_SEQUENCE.md`)
 
 ### Validación dinámica de S-2 contra el ejecutable original (2026-11-11)
 
@@ -124,8 +124,9 @@
   arco largo (sube a `Y=6503`, baja a `Y=-8346`) y frena hasta el alto
   total. **No** es una cinemática de vídeo (el S4 corre antes, en su propio
   bucle bloqueante) ni una interpolación de dos puntos (el ajuste polinomico
-  de grado 3 deja residuos del orden del recorrido: es una spline de varios
-  puntos de control). El código muestra que la cámara no interpola: **copia**
+  de grado 3 deja residuos del orden del recorrido: no es un polinomio de bajo
+  grado, pero eso no demuestra por sí solo una spline ni identifica sus puntos
+  de control; el interpolador sigue pendiente de decodificar el nodo). El código muestra que la cámara no interpola: **copia**
   posición y orientación de un nodo de control (`0x43B56B..0x43B5CC`) que el
   mundo carga desde un fichero (`0x461E0B` → `0x461B90`, array de registros
   de 0x200 B). Lo pendiente: el instante exacto de aparición de los elementos
