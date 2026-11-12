@@ -161,18 +161,17 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
 - **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
   explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
-- **Alpha blending:** **resuelto** (2026-11-12). Lo **demostrado** es que el
-  original activa la mezcla **por polígono** según el formato de la textura
-  (`0x46558A` compara el campo `+0x0C` del registro de textura en tiempo de
-  ejecución con `0x0C` = ARGB_4444) y que llama a `grAlphaCombine` con
-  `(3,4,1,0,0)` para esas texturas y con `(1,0,0,2,0)` para las opacas. La
-  **aritmética** queda cerrada sobre el driver real (nGlide 2.10): el programa
-  que genera es `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 /
-  mov r9.a,r8`, o sea `alfa de salida = alfa del texel × alfa del vértice`, y el
-  juego lo empareja con `grAlphaBlendFunction(1,5,4,0)`, que en ese driver es
-  `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`: exactamente lo que hace el
-  port (§19.8). Quedan pendientes solo el **modo de mezcla por comando**
-  (§19.10) y el significado del byte alto del color de vértice (§19.8).
+- **Alpha blending:** la ecuación básica está **resuelta y corregida** (2026-11-12).
+  Para ARGB_4444, nGlide genera el programa `r9.a = texel.a × v0.a`, pero la
+  captura de 6 000 vértices demuestra que el vértice de MAP7 no lleva canal alfa:
+  el color llega en tres flotantes B/G/R y el alfa efectivo de la unidad de mezcla
+  es constante `1.0`. Por tanto, en esta ruta la salida es `texel.a`; el port
+  ya no multiplica el alfa del texel por el byte alto del opcode y la regresión
+  correspondiente falla con el comportamiento anterior (§19.8 y §19.11).
+  El modo `(1,5,4,0)` queda reproducido para la geometría ordinaria. Sigue
+  pendiente la mezcla `(1,4,4,0)` de los seis triángulos de textura 370
+  (§19.10), además de la escala RGB 0..2 frente a la normalización 0..1
+  (§19.11).
 
 ---
 
@@ -745,14 +744,14 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
    `0x401C00` ya está implementado en
    [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
-4. **Alpha blending:** **resuelto** (2026-11-12). La aritmética exacta está
-   **demostrada** sobre el driver real (§19.8): `grAlphaCombine(3,4,1,0,0)`
-   genera `alfa de salida = alfa del texel × alfa del vértice`, y el juego lo
-   empareja con `grAlphaBlendFunction(1,5,4,0)` = `SRC_ALPHA`/`INV_SRC_ALPHA`
-   con alfa `ONE`/`ZERO`: lo que el port ya hace. Quedan dos puntos abiertos,
-   ambos con su evidencia y su método: el **modo de mezcla por comando**
-   (§19.10) y el **byte alto del color de vértice** (§19.11), que el port usa
-   como alfa y que el original **no** entrega a Glide.
+4. **Alpha blending:** la ecuación básica está **resuelta y corregida**
+   (2026-11-12). En MAP7, el vértice entregado a Glide contiene tres flotantes
+   B/G/R, sin canal alfa; el alfa efectivo es constante 1.0. Para ARGB_4444,
+   la salida es por tanto el alfa del texel. El port ya no utiliza el byte alto
+   del comando como alfa y la prueba de regresión detecta el comportamiento
+   anterior (§19.8 y §19.11). Quedan pendientes la mezcla por comando de los
+   seis triángulos de textura 370 (§19.10) y la escala del color RGB 0..2
+   frente a la normalización 0..1 del port (§19.11).
 5. **Materiales de producción, *depth buffer* y niebla después de la
    textura:** el recorrido, la visibilidad y la emisión de nivel ya están
    validados contra el ejecutable original (§ 4.3 y § 18.8) y la **cámara real
@@ -771,41 +770,38 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
 
 ## 10. Siguiente Hito Concreto
 
-**Siguiente paso: el contexto de emisión real del juego (S-2) y el *depth buffer*.** El
-Módulo 4C ya sube las texturas del `.VFX` a D3D11 (§18): el nivel de AZTEC16
-sale texturizado en ejecución real. Lo que falta para acercarse al original es
-validar la cámara del juego contra el ejecutable (S-2, sigue abierto) y
-añadir el *depth buffer* y el blending por polígono del original.
+**Siguiente hito: construir la primera secuencia completa de entrada al menú
+principal en DX11**, usando MAP7 como escenario de referencia. La infraestructura
+ya carga el nivel real, reproduce la cámara estática medida, emite la geometría
+en el orden original y presenta la escena en una ventana Win32 con GPU hardware.
+El trabajo inmediato deja de ser «conseguir dibujar un nivel» y pasa a reconstruir
+la experiencia de entrada: movimiento y temporización de la cámara original,
+encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 
-- **Ya hecho:** parser DFX (Módulo 1), recorrido BSP + visibilidad + emisión
-  de polígonos (Módulo 2, §11), el Módulo 3 completo (conversión portable §12 y
-  vertex/index buffers D3D11 §13) y el **Módulo 5A**: shaders, input layout,
-  estados y `DrawIndexed` (§14), con geometría de prueba visible en la
-  ventana de la aplicación.
-- **Lo que falta antes de ver una escena real:** el blending del original por
-  polígono, el *depth buffer*, y la carga del nivel con el `.DFX` y
-  la emisión real dentro del bucle de frames (hoy la geometría de la
-  aplicación es el cubo de prueba, no un nivel).
-  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el blending por polígono
-  está **resuelto** (§19.8: la aritmética de `grAlphaCombine` está
-  demostrada sobre el driver real y el port la reproduce) y el nivel **ya se
-  carga y se dibuja** en el bucle de frames (§ 4.3). Quedan por cerrar dos
-  puntos de ese bloque: el **modo de mezcla por comando** (§19.10) y el
-  **byte alto del color de vértice** (§19.11).
-- **Criterio de éxito del siguiente hito:** `gex_texture_load` construye la
-  tabla de texturas desde `GEX.VFX`, resuelve índices de 14 bits y crea
-  `ID3D11ShaderResourceView`; las pruebas se ejecutan con WARP sin abrir
-  ventanas.
-- **Ya no sigue pendiente:** la emisión de S-2 está validada contra el
-  ejecutable original para la ruta de MAP7 (mismas hojas visibles, misma
-  matriz de emisión bit a bit y los mismos 1123 triángulos en el mismo orden
-  de dibujo; § 18.8). Quedan abiertos el emisor lejano, la LUT de niebla por
-  vértice y los materiales.
+- **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
+  de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas
+  de GPU hardware y suites automatizadas. La geometría del escenario se reutiliza:
+  los demás niveles no requieren rehacer el renderer desde cero, aunque sí
+  deberán cargarse y validarse y podrán revelar formatos o sistemas específicos.
+- **Pendientes de fidelidad del renderer que siguen acotados:** implementar el
+  estado aditivo `(1,4,4,0)` para los seis triángulos de la textura 370 mediante
+  tramos de índices (§19.10); medir la escala de los tres canales RGB de entrada
+  (0..2 de Glide frente a 0..1 del port; §19.11); y corregir la niebla para que
+  se componga después de la textura (§18.5). La equivalencia píxel a píxel con
+  el SST-1/Voodoo no está demostrada.
+- **No confundir con bloqueos del primer recorrido visible:** el emisor lejano
+  no se ejercita en MAP7; el *depth buffer* y las ramas alternativas requieren
+  evaluación según el comportamiento que se quiera reproducir. No se deben
+  convertir en prerrequisitos automáticos de la secuencia del menú.
+- **Criterio de éxito:** arranque DX11 desde cero, cámara animada hasta el
+  encuadre del menú principal, escenario y elementos reconocibles con materiales
+  aplicados, interfaz del menú visible y selección de opciones operativa. La
+  ejecución debe ser real en ventana y GPU hardware, no solo una prueba WARP
+  u *offscreen*.
 
-El Módulo 5A deja la geometría real dibujándose en pantalla: cada vértice
-lleva posición, profundidad, color, UV, textura, capa y flags, y los índices
-cubren todos los triángulos emitidos, incluidas subdivisiones y pasadas de
-niebla.
+El renderer y la ruta de escena son infraestructura común. Cada nivel posterior
+deberá pasar por carga y validación, pero no exige reconstruir manualmente la
+cámara, el BSP, las texturas o el pipeline para cada escenario.
 
 ---
 
@@ -1984,9 +1980,12 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
 
 ### 18.5 Composición en el shader
 
-- El **color por vértice** se conserva (sigue siendo `AARRG8B8` leído como
-  `R8G8B8A8` y reordenado en el vertex shader) y se **modula** con el texel:
-  `color = textura * color` en RGB y `alfa = alfa_textura * alfa_vértice`.
+- El **color RGB por vértice** se conserva y se **modula** con el texel.
+  La captura de MAP7 demuestra que Glide recibe tres flotantes B/G/R, sin canal
+  alfa; el alfa efectivo usado por la mezcla es constante 1.0. Para ARGB_4444,
+  el alfa de salida es por tanto el del texel (no el byte alto del opcode).
+  La escala de los canales RGB sigue pendiente: Glide recibe valores 0..2
+  y el port los normaliza a 0..1 (§19.11).
 - La **niebla** sigue viajando dentro del color por vértice (así lo emite el
   módulo 2). **Diferencia con el original:** el original aplica la niebla
   **después** de multiplicar por la textura (la niebla de Glide actúa en el
@@ -1997,13 +1996,13 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
 - El **índice de textura** viaja como atributo `nointerpolation uint`: los
   tres vértices de un triángulo llevan el mismo valor (viene del polígono) y el
   rasterizador no lo interpola ✓.
-- El **blending alfa** se activa con `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA`, que
-  ya no es una **hipótesis** sino la lectura **demostrada** de
-  `grAlphaCombine(3,4,1,0,0)` en el driver real (§19.8). Con alfa 255 (el cubo
-  de prueba y las texturas `YIQ_422`) el resultado es idéntico al de no
-  mezclar, y en el modo de cámara las texturas opacas devuelven alfa 1 y
-  substituyen el destino. Queda pendiente el matiz del alfa de vértice
-  (§19.11) y el modo de mezcla por comando (§19.10).
+- El **blending alfa** usa `SRC_ALPHA` / `ONE_MINUS_SRC_ALPHA` para el modo
+  principal de MAP7. La ecuación de nGlide produce `texel.a × v0.a`, pero el
+  vértice real no aporta canal alfa y el valor efectivo es 1.0: el alfa de salida
+  es el del texel. El port ya corrigió la multiplicación indebida por el byte
+  alto del opcode y tiene una regresión específica (§19.8 y §19.11). Queda
+  pendiente el modo `SRC_ALPHA` / `ONE` para seis triángulos de textura 370
+  (§19.10).
 
 ### 18.6 Pruebas
 
@@ -2217,11 +2216,11 @@ bit de alfa, YIQ_422 sin alfa) y el modo de mezcla por polígono.
 - La equivalencia **a nivel de píxel** de la expansión YIQ_422 del port con la
   del hardware original: verificada contra la referencia del SDK, no contra el
   framebuffer del juego.
-- La semántica exacta de los argumentos de `grAlphaCombine`: el port usa la
-  mezcla alfa habitual (`SRC_ALPHA`/`INV_SRC_ALPHA`), que es la lectura
-  habitual de `grAlphaCombine(3,4,1,0,0)`; los encabezados del SDK Glide 2.x
-  no están en el repo, así que la aritmética exacta de la llamada queda sin
-  verificar (afecta a 32 de los 1123 triángulos del frame 0).
+- La equivalencia de la ecuación con el **SST-1/Voodoo original**: la
+  aritmética está demostrada sobre nGlide 2.10, no sobre el hardware 3dfx.
+  Tampoco hay comparación píxel a píxel porque la captura de ventana original
+  devuelve negro. Para MAP7, el vértice no aporta alfa y el alfa efectivo es
+  1.0; el port devuelve el alfa del texel.
 - El emisor lejano y su segunda pasada de niebla: implementados en el port
   pero sin validación dinámica (MAP7 no los usa).
 - La tabla NCC y los modos de filtrado: el port usa el atlas con filtrado
@@ -2268,26 +2267,36 @@ Los registros del driver (deducidos de las plantillas del propio binario):
 |---|---|
 | `r0` / `r1` | texel de `t0` / `t1` (`texld r0, t0, s0`) |
 | `r4` | **texel efectivo** (el de la unidad activa: `mov r4, r1` / `mov r4, r0`) |
-| `v0` | **color de vértice interpolado** (`dcl v0`) |
+| `v0` | **color de vértice interpolado** (`dcl v0`); en MAP7 aporta RGB, sin canal alfa |
 | `v1` | factor de niebla (`dcl v1`; `lrp r10.rgb, v1.a, r9, c7`) |
 | `c0` | color constante de `grConstantColorValue4` |
 | `c5` / `c6` | `0.0` / `1.0` (`def c5, 0.0…`, `def c6, 1.0…`) |
 | `r9` | color calculado (RGB y alfa) |
 | `r10` | color tras la niebla; `mov oC0, r10` es la salida |
 
-**Ecuación del caso ARGB_4444:**
+**Ecuación del programa y valor efectivo en MAP7.** El programa genérico
+generado por nGlide contiene:
 
 ```text
-r9.a = r4.a × v0.a          (alfa del texel × alfa del color de vértice)
+r9.a = r4.a × v0.a
+```
+
+Pero el vértice real que MAP7 entrega a Glide no contiene canal alfa: el
+color viaja en tres flotantes B/G/R. El alfa efectivo que llega a la unidad
+de mezcla es constante **1.0** (coherente con el alpha test habilitado y con
+la escena opaca observada). Por tanto, para la geometría MAP7:
+
+```text
+r9.a = texel.a × 1.0 = texel.a
 ```
 
 Los otros programas que el juego usa:
 
 | Llamada | Programa | Resultado |
 |---|---|---|
-| `(3,4,1,0,0)` | `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 / mov r9.a,r8` | `r9.a = texel.a × v0.a` |
+| `(3,4,1,0,0)` | `mov r5,c0 / mov r6,v0 / mov r7,r4.a / mul r8,r7,r6 / mov r9.a,r8` | `r9.a = texel.a × v0.a`; en MAP7, `v0.a` efectivo = 1.0, así que sale `texel.a` |
 | `(3,4,1,2,0)` | `mov r5,c0 / mov r6,c0 / mov r7,r4.a / mul r8,r7,r6 / mov r9.a,r8` | `r9.a = texel.a × c0.a` (segunda ruta texturizada) |
-| `(1,0,0,2,0)` | `mov r5,v0 / mov r6,c0 / mov r7,c5 / mov r8,r5 / mov r9.a,r8` | `r9.a = v0.a` (opaco) |
+| `(1,0,0,2,0)` | `mov r5,v0 / mov r6,c0 / mov r7,c5 / mov r8,r5 / mov r9.a,r8` | `r9.a = v0.a = 1.0` en MAP7 (opaco) |
 | `(1,0,1,2,0)` | `mov r5,c0 / mov r6,c0 / mov r7,c5 / mov r8,r5 / mov r9.a,r8` | `r9.a = c0.a` = 1.0 (el juego pone el alfa del color constante a `0x437F0000`) |
 
 **`grAlphaBlendFunction` también está descifrado, y es la otra mitad de la
@@ -2347,26 +2356,27 @@ campo `+0x0C` (el **formato**) con `0x0C`; si es ARGB_4444 marca
 misma pasada, `grAlphaBlendFunction(1,5,4,0)` (`0x465A3D`: camino
 `[ebp-8] != 0` → `0x4658B7` → `[ebp-0x28] == 0` → `0x465A25`).
 
-**La ecuación completa del caso auditado** (con `a = texel.a × v0.a`):
+**La ecuación efectiva del caso ARGB_4444 en MAP7** (con `v0.a = 1.0`):
 
 ```text
 rgb            = v0.rgb × texel.rgb
-alfa de salida = texel.a × v0.a
+alfa de salida = texel.a × 1.0 = texel.a
 framebuffer    = src.rgb·a + dst.rgb·(1-a)      (canal alfa: src·a)
 ```
 
-**Contraste con el port: coincide. No se cambia el renderer.**
+**Contraste con el port: la corrección ya está aplicada.**
 
-| Elemento | Original (nGlide 2.10) | Port |
+| Elemento | Original (nGlide 2.10, ruta MAP7) | Port |
 |---|---|---|
-| Mezcla del alfa | `r9.a = texel.a × v0.a` | `color = float4(color.rgb·t.rgb, color.a·t.a)` (`port/src/render/d3d11_pipeline.c:160`) ✔ |
+| Mezcla del alfa | `texel.a × 1.0 = texel.a` | el *pixel shader* devuelve el alfa del texel, sin multiplicarlo por el byte alto del opcode; regresión específica en `test_d3d11_pipeline.c` ✔ |
 | Estado de mezcla | `SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO` | `D3D11_BLEND_SRC_ALPHA`/`INV_SRC_ALPHA`, `ONE`/`ZERO` (`d3d11_pipeline.c:558-561`) ✔ |
 | Caso opaco | `r9.a = 1.0` con `ONE/ZERO` → substituye | alfa 1 con el mismo estado → substituye ✔ |
 | RGB | `v0.rgb × texel.rgb` (modo `6`) | `color.rgb × t.rgb` ✔ |
 
 La lectura `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` de `(3,4,1,0,0)` queda
-**confirmada con evidencia**, y los **32 triángulos** ARGB_4444 **no necesitan
-ningún cambio**.
+**confirmada con evidencia**. Los **32 triángulos** ARGB_4444 ya reciben el
+alfa correcto del texel tras la corrección del shader; no necesitan otra
+modificación por este motivo. La escala RGB sigue sin cerrarse (§19.11).
 
 **Lo que sigue sin poder afirmarse.**
 
@@ -2377,11 +2387,11 @@ ningún cambio**.
 - La equivalencia **píxel a píxel** con el Voodoo original: la captura de
   ventana del `glide2x` original devuelve negro, así que no hay framebuffer con
   el que comparar; la comparación es a nivel de **ecuación**.
-- **Qué es exactamente `v0.a`.** **Resuelto (2026-11-12, § 19.11):** el
-  vértice que el juego entrega a Glide **no tiene canal alfa** (el color
-  viaja en tres flotantes B, G, R); el byte alto del color del comando es el
-  **opcode**, no un alfa. El alfa de la unidad de mezcla es una constante
-  1.0, y el port ya no multiplica por ese byte.
+- **Qué es exactamente `v0.a`.** **Resuelto para MAP7 (2026-11-12,
+  § 19.11):** el vértice que el juego entrega a Glide **no tiene canal alfa**
+  (el color viaja en tres flotantes B, G, R); el byte alto del color del
+  comando es el **opcode**, no un alfa. El alfa efectivo de la unidad de
+  mezcla es constante 1.0 y el port ya no multiplica por ese byte.
 - **Los modos de mezcla por comando.** **Medidos (2026-11-12, § 19.10):** MAP7
   usa solo tres modos — `(1,5,4,0)` para la geometría del nivel, `(1,4,4,0)`
   para **6** triángulos (la textura 370) y `(4,0,0,0)` para las 128 primitivas
