@@ -129,10 +129,9 @@ puntos: el ajuste polinomico de grado 3 a las 428 muestras deja residuos del
 mismo orden que el recorrido, lo que descarta un polinomio de bajo grado como
 descripcion, pero no demuestra por si solo una spline ni identifica el
 interpolador. La aceleracion inicial y la frenada final estan medidas; la
-representacion de la trayectoria sigue pendiente de decodificar. El codigo muestra que la camara no
-interpola nada: **copia** posicion y orientacion de un nodo de control
-(`0x43B56B..0x43B5CC`) que el mundo carga desde un fichero
-(`0x461E0B -> 0x461B90`, array de registros de 0x200 B). Detalle en
+representacion de la trayectoria sigue pendiente de decodificar. El bloque `0x43B56B..0x43B5CC` copia posicion y orientacion para la
+**colocacion inicial**; no es la rutina que actualiza la camara durante los
+428 frames. El mecanismo de esa actualizacion sigue sin identificar. Detalle en
 `S3_MENU_CAMERA_SEQUENCE.md`.
 
 El controlador de camara del menu se ha seguido el 2026-11-13 con el mismo
