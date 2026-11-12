@@ -440,7 +440,13 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    de programa), con lo que el barrido de los cinco parametros es exhaustivo
    y no interpretativo. La misma disciplina con el ejecutable: los argumentos
    que el juego pasa a `grAlphaBlendFunction` se leen desensamblando el
-   `push` de cada llamada, no deducidos del SDK.
+   `push` de cada llamada, no deducidos del SDK. **Precisión posterior
+   para MAP7:** aunque el programa generado contiene el operando `v0.a`,
+   el vértice real no aporta alfa; el valor efectivo es constante 1.0.
+   Así, la salida ARGB_4444 es `texel.a`, y el port debe devolver ese alfa
+   sin multiplicarlo por el byte alto del opcode. La escala RGB 0..2 de
+   Glide frente a la normalización 0..1 del port sigue pendiente de medir
+   (plan DX11 §19.11).
 
 ## 5. Registro
 
