@@ -1733,14 +1733,13 @@ determinista**, con estos parámetros:
 proyección (`xs = cam0*focal/cam2 + cx`), así que recentrar el nivel no altera
 la perspectiva.
 
-Esto **no** es la cámara del juego: el original usa la matriz `cam+0xE0` con
-la orientación real de la cámara, y el port todavía no tiene ese estado. La
-visibilidad del BSP es además «todas las hojas», porque la prueba de esfera de
-`gex_camera` necesita el estado de cámara del juego, ya capturado y validado (§ 4.3). **La comparación
-de la cámara, del recorrido BSP y de la emisión contra el ejecutable ya está
-hecha** (§ 4.3 y § 18.8) y la cámara real está integrada en el renderer
-(§ 15 de `S2_CAMERA_VISIBILITY.md`); esta vista sintética se conserva como
-opción de diagnóstico y no sustituye a la original.
+Esta función **sí** es sintética por diseño y solo sirve para la vista de
+diagnóstico y encuadre automático. No debe confundirse con la ruta de escena
+real: al cargar MAP7 mediante `gex_scene_level_load_camera`, el port usa el
+estado de cámara reconstruido, la matriz de emisión `cam+0xE0` y la visibilidad
+BSP por esfera. Esa cámara está validada contra el ejecutable original (§ 4.3,
+§ 18.8 y § 15 de `S2_CAMERA_VISIBILITY.md`). La vista sintética se conserva
+como herramienta de diagnóstico, no como sustituto de la cámara original.
 
 ### 16.3 Encuadre automático
 
