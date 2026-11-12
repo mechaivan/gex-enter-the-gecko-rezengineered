@@ -126,11 +126,11 @@
   bucle bloqueante) ni una interpolación de dos puntos (el ajuste polinomico
   de grado 3 deja residuos del orden del recorrido: no es un polinomio de bajo
   grado, pero eso no demuestra por sí solo una spline ni identifica sus puntos
-  de control; el interpolador sigue pendiente de decodificar el nodo). El código muestra que la cámara no interpola: **copia**
-  posición y orientación de un nodo de control (`0x43B56B..0x43B5CC`) que el
-  mundo carga desde un fichero (`0x461E0B` → `0x461B90`, array de registros
-  de 0x200 B). Lo pendiente: el instante exacto de aparición de los elementos
-  del menú y si el avance es por frame o por tiempo. Detalle en
+  de control; el interpolador sigue pendiente de decodificar el nodo). El bloque `0x43B56B..0x43B5CC` realiza la **colocación inicial** copiando
+  posición y orientación desde el nodo; no es la rutina de actualización de
+  los 428 frames. El fichero y la representación de los datos se precisan en
+  el apartado siguiente. En ese momento seguían pendientes el instante exacto
+  de aparición de los elementos del menú y la temporización. Detalle en
   [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
 - **Controlador de cámara del menú (2026-11-13):** el fichero de datos es
   **`level\map7.dfx`**, abierto por `0x461B90` (fopen/fseek/ftell/malloc/fread/
