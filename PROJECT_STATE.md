@@ -72,40 +72,23 @@
   port reproduce los **1123 colores por vértice** del original de
   forma **exacta** (la prueba exige la coincidencia exacta, no una
   coincidencia parcial).
-- **Cierre de auditoría de materiales (2026-11-11, superado el 2026-11-12):**
-  la semántica exacta de `grAlphaCombine` **sigue pendiente**: no hay encabezados del SDK de
-  Glide 2.x en el repo ni en el entorno, y la DLL real disponible
-  (`C:\GEX_REZ\SMOKE_H4A\glide2x_gex_real.dll`) es una **implementación
-  software** que genera un programa para la unidad de mezcla (plantillas
-  legibles `mov/mul/add/sub/lrp` y tablas por valor de parámetro en
-  `0x1013D2xx`): es el material que permitiría cerrar la ecuación, pero
-  la derivación no está hecha. Lo **demostrado** es que el original
-  mezcla **por polígono** según el formato y cuáles son los argumentos
-  exactos; lo **hipotético** es que `(3,4,1,0,0)` equivalga a
-  `SRC_ALPHA`/`INV_SRC_ALPHA`. El caso opaco se reproduce con independencia de
-  esa aritmética (alfa de salida 1) y el impacto posible se limita a los 32
-  triángulos con ARGB_4444 del frame 0 (2,8 %). **No se cambia el renderer.**
-- **Ecuación de la mezcla alfa, cerrada sobre el driver real (2026-11-12):** la
-  DLL de Glide del entorno es **nGlide 2.10** (Zeus Software), una
-  implementación *software* de Glide 2.x sobre D3D9 (cadena
-  `Software\Zeus Software\nGlide2` en `0x1013CA58`); el `glide2x.dll`
-  empaquetado le reenvía las exportaciones. Un *harness* i686 que carga la
-  DLL y llama a `grAlphaCombine` **obtiene dinámicamente** el programa que el
-  driver genera: para `(3,4,1,0,0)` es `mov r5,c0 / mov r6,v0 / mov r7,r4.a /
-  mul r8,r7,r6 / mov r9.a,r8`, o sea **alfa de salida = alfa del texel ×
-  alfa del color de vértice**. `grAlphaBlendFunction` se descifra igual
-  (`SetRenderState` a `D3DRS_SRCBLEND`/`DESTBLEND`/`SRCBLENDALPHA`/
-  `DESTBLENDALPHA`, con las constantes `D3DBLEND` verificadas en
-  `d3d9types.h`) y el juego empareja el caso ARGB_4444 con `(1,5,4,0)` →
-  **`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`**. La lectura que era
-  hipótesis queda **confirmada con evidencia**, y el port hace **exactamente**
-  eso (`color.a * t.a` en el *pixel shader* y el estado global), de modo que
-  los **32 triángulos** ARGB_4444 **no requieren ningún cambio** y **el
-  renderer no se toca**. Quedan pendientes y **documentados**: el modo de
-  mezcla **por comando** (§ 19.10 del plan) y el significado del byte alto del
-  color de vértice (que en los datos del juego es el byte donde se empaqueta el
-  opcode, no un alfa). Detalle en
-  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) § 19.8.
+- **Cierre de auditoría de materiales (2026-11-11, registro histórico superado
+  el 2026-11-12):** la conclusión de que la ecuación seguía pendiente era
+  correcta en esa fecha, pero quedó sustituida por la medición dinámica de
+  nGlide 2.10 descrita a continuación. No debe leerse como estado actual.
+- **Ecuación de mezcla alfa en nGlide 2.10 (2026-11-12):** el *harness* i686
+  obtiene dinámicamente el programa de `grAlphaCombine(3,4,1,0,0)`:
+  `r9.a = texel.a × v0.a`. La captura posterior de 6 000 vértices de MAP7
+  demuestra que el vértice entregado a Glide lleva solo tres flotantes B/G/R,
+  sin canal alfa; el alfa efectivo de la unidad de mezcla es constante 1.0.
+  Por tanto, en MAP7 la salida es **`texel.a × 1.0 = texel.a`**. El juego
+  empareja ARGB_4444 con `(1,5,4,0)` → **`SRC_ALPHA`/`INV_SRC_ALPHA`,
+  alfa `ONE`/`ZERO`**. El renderer fue corregido para devolver el alfa del
+  texel, sin multiplicarlo por el byte alto del opcode; la regresión añadida
+  falla con el comportamiento anterior. No se afirma que nGlide sea el
+  hardware SST-1 ni equivalencia píxel a píxel. Detalle en
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) § 19.8
+  y § 19.11.
 - **Modos de mezcla por comando y byte alto del color de vértice (2026-11-12):**
   dos puntos que quedaban abiertos de la auditoría de materiales, **cerrados
   con captura dinámica** del juego original en ejecución (trazador del repo con
@@ -127,10 +110,10 @@
     alfa del texel por ese byte (0xB4 → 0,706): **corregido** (el alfa de
     salida es el del texel), con prueba de regresión que falla con el
     comportamiento anterior. Detalle en § 19.11.
-  Queda **pendiente** la **escala del color**: los tres flotantes del
-  vertice estan en el espacio 0..2 de Glide (2 x el byte) y el port
-  normaliza a 0..1; no se ha medido si el driver compensa esa escala
-  al final (docs/D3D11_FIRST_SCENE_PLAN.md 19.11).
+  Queda **pendiente** la **escala del color RGB**: los tres flotantes del
+  vértice están en el espacio 0..2 de Glide (2 × el byte) y el port normaliza
+  a 0..1; no se ha medido si el driver compensa esa escala al final
+  (docs/D3D11_FIRST_SCENE_PLAN.md §19.11).
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un
