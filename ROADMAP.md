@@ -147,11 +147,10 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     polinomio de grado bajo como descripción de la trayectoria (el ajuste
     polinómico de grado 3 deja residuos del orden del recorrido); esto no
     demuestra por sí solo una spline ni identifica el interpolador o el número
-    de puntos de control, que siguen pendientes de decodificar. El código demuestra que la cámara solo **copia** la
-    posición y la orientación de un nodo de control (`0x43B56B..0x43B5CC`)
-    cargado desde un fichero (`0x461E0B` → `0x461B90`). Quedan pendientes el
-    instante exacto de aparición de los elementos del menú, la decodificación
-    del nodo de control (0x200 B) y si el avance es por frame o por tiempo.
+    de puntos de control, que siguen pendientes de decodificar. El bloque `0x43B56B..0x43B5CC` copia posición y orientación para la
+    **colocación inicial**; no es la rutina que actualiza la cámara durante los
+    428 frames. Quedaban pendientes el instante exacto de aparición de los
+    elementos del menú y el mecanismo de la trayectoria.
     Documento nuevo: `S3_MENU_CAMERA_SEQUENCE.md`.
   - **Duodécima tanda (2026-11-13, controlador de cámara del menú):** el
     fichero de datos es **`level\map7.dfx`**, abierto por `0x461B90` en el
