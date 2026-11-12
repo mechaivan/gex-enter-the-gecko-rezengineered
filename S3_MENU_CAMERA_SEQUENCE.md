@@ -263,20 +263,15 @@ Ajuste polinomial de las 428 muestras con `t = frame/427`:
 | grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
 
 (residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
-15 497). Los residuos son del mismo orden que el propio recorrido: esto
-permite descartar un polinomio de grado bajo como descripción de la trayectoria,
-pero **no identifica por sí solo el interpolador ni demuestra una spline**.
-El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
-la hipótesis de varios puntos de control es compatible con esa estructura, pero
-queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
-si usa Catmull-Rom, otra spline o una secuencia de muestras.
+15 497). Los residuos permiten descartar un polinomio global de grado bajo,
+pero este ajuste por sí solo no identificaba el interpolador.
 
-> **Superado (2026-11-13).** Aquí se decía «registros de 0x200 B»: `0x200` es
-> la **alineación** de la imagen del `.DFX`, no el tamaño de un registro (§ 4.5).
-> El interpolador ya está identificado: registros de **32 B** y **Hermite
-> cúbica** en Q15 (§ 4.10), verificado contra las 428 muestras (§ 4.13). No se
-> etiqueta como Catmull-Rom porque el criterio de las tangentes no se ha
-> establecido.
+> **Conclusión actualizada (2026-11-13).** La evidencia posterior cerró esa
+> incógnita: el recorrido usa registros de **32 B** y una **Hermite cúbica en
+> Q15**, verificada con coincidencia exacta en las 428 muestras (§ 4.10-4.13).
+> Este ajuste polinómico se conserva únicamente como evidencia exploratoria
+> histórica; no describe el algoritmo real. El criterio con que se calcularon
+> las tangentes almacenadas sigue sin identificarse.
 
 ### 4.3 El perfil de velocidad
 
@@ -398,20 +393,14 @@ registra la **instrucción que escribe** (EIP), el valor anterior y el nuevo, lo
 registros y la dirección de retorno. Es una opción aditiva: el comportamiento
 anterior (breakpoints de ejecución, volcados, guiones de teclas) no cambia.
 
-(residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
-15 497). Los residuos son del mismo orden que el propio recorrido: esto
-permite descartar un polinomio de grado bajo como descripción de la trayectoria,
-pero **no identifica por sí solo el interpolador ni demuestra una spline**.
-El controlador obtiene los datos de la imagen compactada de `level\\map7.dfx`.
-El valor `0x200` describe la alineación de esa imagen en el contenedor, no el
-tamaño de un registro. La representación de la trayectoria sigue pendiente de
-decodificación; no sabemos todavía si contiene puntos de control, coeficientes,
-una secuencia transformada u otra estructura.
+El controlador consume los datos de trayectoria a través del objeto
+del mundo. El valor `0x200` describe la alineación de la imagen del `.DFX`
+en el contenedor, no el tamaño de un registro.
 
-> **Superado (2026-11-13).** La representación **sí** está decodificada: son
-> **registros de 32 B** (punto, dos tangentes y la duración `D`) incrustados en
-> el objeto del mundo, y la interpolación es una **Hermite cúbica** en Q15
-> (§ 4.10).
+> **Conclusión actualizada (2026-11-13).** La representación está decodificada:
+> registros de **32 B** (punto, dos tangentes y duración `D`) incrustados en
+> el objeto del mundo; el interpolador es una **Hermite cúbica en Q15**,
+> verificada contra las 428 muestras (§ 4.10-4.13).
 **Qué escribe la cámara durante el vuelo.** Con `watch:` sobre
 `cam+0x00/+0x04/+0x30/+0x34` (posición X/Y, Z y Euler X/Y, Z) en una sesión
 completa de MAP7:
@@ -760,12 +749,15 @@ Con los datos medidos, el port necesita:
 
 **Lo que el port necesita para reproducirlo** (ya sin inventar nada):
 
-1. Localizar en la imagen del `.DFX` el **array de registros de 32 B** (26
-   registros para MAP7, con `D` y las tangentes). El original lo construye en el
-   objeto del mundo (`obj+8`); el port lo leería al cargar el nivel.
-2. Reproducir el avance **por frame** (`+1` de fracción) y la fórmula de § 4.10
-   con **enteros**, no con coma flotante: el truncado a `int16` forma parte del
-   resultado (verificado bit a bit).
+1. Reconstruir en el cargador del port la **estructura de 26 registros
+   de 32 B** que el original deja incrustada en el objeto del mundo (`obj+8`).
+   No asumir que el array es un bloque contiguo de registros directamente
+   localizable por escaneo en la imagen compactada: seguir y reproducir la
+   construcción del objeto a partir de los datos del nivel.
+2. Reproducir el avance **por frame** (incremento de la fracción y transición
+   de índice al alcanzar `D`) y la fórmula de § 4.10 con **enteros**, no con
+   coma flotante: el truncado a `int16` forma parte del resultado (verificado
+   bit a bit).
 3. La **rotación** va por otra ruta (registros de 10 B y cuaternios,
    `0x43158D`); para el encuadre del menú basta con los valores medidos de Euler
    (tabla de arriba) hasta que se cierre esa ruta.
