@@ -226,10 +226,12 @@ ese resultado «B (imagen compactada)» y lo almacena en `level[+4]`.
 un `.DFX`), no en código ni en una constante. El nodo tiene la posición en
 `+0x28/+0x2A/+0x2C`.
 
-⟹ La **interpolación ocurre por encima**, en el controlador: la cámara no
-interpola nada, solo copia. El port no tendrá que inventar la interpolación:
-tiene que **reproducir lo que el controlador calcula** (o usar la
-trayectoria medida como datos).
+⟹ Solo está demostrada la copia de posición y orientación en la **colocación
+inicial** (`0x43B56B..0x43B5CC`). No es la rutina que actualiza la cámara durante
+los 428 frames. La representación de los datos y la rutina de actualización
+siguen sin identificar; no podemos afirmar todavía dónde ni cómo se interpola.
+El port ya dispone de la imagen compactada de `level\\map7.dfx`, así que no
+necesita implementar E/S nueva para investigar esos datos.
 
 ### 4.5 El fichero: cuál es y cómo se localiza
 
