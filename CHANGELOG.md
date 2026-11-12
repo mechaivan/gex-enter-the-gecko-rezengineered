@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2026-11-13 - 0.0.0 - Secuencia de camara hasta el menu principal: capturada, medida y documentada (sin implementarla en DX11 todavia)
+## 2026-11-12 - 0.0.0 - Secuencia de camara hasta el menu principal: capturada, medida y documentada (sin implementarla en DX11 todavia)
 
 Nuevo hito de investigacion: reconstruir el comportamiento **del original**
 desde un arranque en frio hasta que el menu principal queda visible y
@@ -38,10 +38,10 @@ y volcado de memoria de solo lectura con `ReadProcessMemory`).
 5. **No es una cinematica de video**: el S4 corre antes y en su propio bucle
    bloqueante; el movimiento ocurre en la ruta 3D, con el nivel dibujandose y
    con la camara del nivel (`0x0065CD80`).
-6. **No es una interpolacion de dos puntos**: el ajuste polinomico de las 428
-   muestras (grado 3) deja residuos de 1 495-7 081 unidades sobre rangos de
-   3 361-15 497, es decir del orden del propio recorrido. Es una **spline de
-   varios puntos de control**.
+6. El ajuste polinomico de grado 3 deja residuos de 1 495-7 081 unidades
+   sobre rangos de 3 361-15 497, del orden del propio recorrido: un polinomio
+   de bajo grado no describe la trayectoria. Esto **no demuestra por si solo**
+   una spline ni identifica el interpolador o el numero de puntos de control.
 7. El menu **no se dibuja por las rutas 2D** (0 llamadas a `0x00432BBD` glifo
    y `0x00432DD1` rectangulo en los 650 frames de la ruta 3D) y el recuento de
    llamadas de estado por frame sigue a la **visibilidad** (317-2 353), no al
@@ -51,8 +51,7 @@ y volcado de memoria de solo lectura con `ReadProcessMemory`).
 los elementos del menu (no hay captura de pixeles: la ventana del juego
 devuelve negro, y el estado de menu no se ha aislado en el mundo de
 `0x00648900`); la decodificacion del nodo de control (0x200 B) y el origen
-concreto del fichero que abre `0x461B90`; y si el avance de la spline es
-**por frame** o **por tiempo** (relevante porque el port corre a 60 fps y el
+concreto del fichero que abre `0x461B90`; y si el avance del controlador es **por frame** o **por tiempo** (relevante porque el port corre a 60 fps y el
 original aqui a ~25).
 
 **DATOS PUBLICADOS.** `analysis/menu_camera_map7.tsv` (las 428 muestras del
