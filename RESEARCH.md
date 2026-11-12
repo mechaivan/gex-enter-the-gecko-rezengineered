@@ -471,6 +471,14 @@ referencias ya capturadas del original, no contra un total.
 - Utilidad secundaria: entender mecánicas originales vs particularidades PC.
 - Estado: pendiente de lectura detallada.
 
+
+## Comparativa manual PS1 PAL vs PC europeo (2026-11-12)
+
+- Nuevas observaciones del mantenedor: attract/demo mode al dejar inactivo el menú PS1; repetición musical sin corte perceptible en PS1 frente a pistas que terminan en PC; ausencia de la cinemática de Ubisoft en PS1 frente a PC.
+- Registro detallado, límites y tareas: [docs/PS1_PC_BEHAVIOR_COMPARISON.md](docs/PS1_PC_BEHAVIOR_COMPARISON.md).
+- Para el loop musical ya existen pistas no verificadas: S-02 (`_inmm.dll`, un reporte comunitario) y F-10 (handler externo D3D/3DFX que declara loop). No asumir que son un fix aplicable a PC EU Glide.
+- PS1 sigue siendo referencia secundaria; el baseline de fidelidad continúa siendo PC. El loop PS1 se registra como posible mejora/opción, no como comportamiento original PC demostrado.
+
 ## S-16 — DxWrapper (elishacloud) — herramienta de referencia (open source)
 
 - URL: <https://github.com/elishacloud/dxwrapper>
