@@ -111,6 +111,31 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create_from_emit(ID3D11Device *device,
                                                       const gex_emit_output *emit,
                                                       gex_d3d11_mesh *mesh);
 
+/*
+ * Sustituye el contenido de los buffers por el de una geometría nueva.
+ *
+ * Es lo que necesita la secuencia de cámara del menú: la cámara se mueve en
+ * cada update lógico, el BSP se vuelve a recorrer y la emisión cambia, así
+ * que los buffers de vértices e índices tienen que reflejar la imagen nueva.
+ *
+ * Los buffers se **vuelven a crear** (el juego no reutiliza el contenido de
+ * un buffer inmutable): el puntero al buffer cambia y el renderer, que
+ * guarda el puntero a la malla, toma el nuevo en el siguiente dibujo. Los
+ * conteos, el formato de índice y los tamaños se actualizan igual que en
+ * `gex_d3d11_mesh_create`.
+ *
+ *   mesh == NULL / device == NULL / geom == NULL -> BAD_ARGUMENT
+ *   mesh->initialized == 0                        -> BAD_STATE (no se toca)
+ *   geometría inválida (mismos casos que create)  -> BAD_GEOMETRY
+ *   CreateBuffer falla                            -> BUFFER_FAILED
+ *
+ * Si la creación del buffer de vértices falla, el de índices se libera y la
+ * malla queda sin inicializar (nada vivo a medias).
+ */
+gex_d3d11_mesh_status gex_d3d11_mesh_update(ID3D11Device *device,
+                                            const gex_geometry *geom,
+                                            gex_d3d11_mesh *mesh);
+
 /* Libera ambos buffers y deja la estructura a cero. Idempotente. */
 void gex_d3d11_mesh_destroy(gex_d3d11_mesh *mesh);
 

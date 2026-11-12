@@ -176,6 +176,41 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create_from_emit(ID3D11Device *device,
     return st;
 }
 
+gex_d3d11_mesh_status gex_d3d11_mesh_update(ID3D11Device *device,
+                                            const gex_geometry *geom,
+                                            gex_d3d11_mesh *mesh)
+{
+    gex_d3d11_mesh_status st;
+
+    if (device == NULL || geom == NULL || mesh == NULL) {
+        return GEX_D3D11_MESH_BAD_ARGUMENT;
+    }
+    /* Una malla no viva no se toca: el llamador debe crear una antes. */
+    if (mesh->initialized == 0) {
+        return GEX_D3D11_MESH_BAD_STATE;
+    }
+
+    /* Se liberan los buffers antiguos y se crean los nuevos con el mismo
+     * camino que `gex_d3d11_mesh_create`. La malla conserva su identidad
+     * (el renderer guarda el puntero a esta estructura, no a los buffers),
+     * de modo que el siguiente dibujo usa los buffers nuevos. */
+    if (mesh->index_buffer != NULL) {
+        ID3D11Buffer_Release(mesh->index_buffer);
+        mesh->index_buffer = NULL;
+    }
+    if (mesh->vertex_buffer != NULL) {
+        ID3D11Buffer_Release(mesh->vertex_buffer);
+        mesh->vertex_buffer = NULL;
+    }
+    mesh->initialized = 0;
+
+    st = gex_d3d11_mesh_create(device, geom, mesh);
+    if (st != GEX_D3D11_MESH_OK) {
+        return st;
+    }
+    return GEX_D3D11_MESH_OK;
+}
+
 void gex_d3d11_mesh_destroy(gex_d3d11_mesh *mesh)
 {
     if (mesh == NULL) {

@@ -31,7 +31,24 @@ static int app_update(void *ctx, const gex_frame_tick *tick)
 
     (void)tick;
     app->updates++;
-    return 0; /* no simulation in I-4 */
+    /* Trabajo de juego opcional (S-3: la secuencia de camara). Se invoca una
+     * vez por update logico, en el mismo punto del bucle que el update del
+     * original. Un valor distinto de 0 aborta el frame. */
+    if (app->update_callback != NULL) {
+        return app->update_callback(app->update_ctx);
+    }
+    return 0; /* sin simulacion en I-4 */
+}
+
+void gex_i4_app_set_update_callback(gex_i4_app *app,
+                                    gex_i4_update_callback callback,
+                                    void *ctx)
+{
+    if (app == NULL) {
+        return;
+    }
+    app->update_callback = callback;
+    app->update_ctx = ctx;
 }
 
 static int app_present(void *ctx, const gex_frame_tick *tick)

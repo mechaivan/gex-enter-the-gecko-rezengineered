@@ -36,6 +36,29 @@ typedef union {
     gex_d3d11_renderer d3d11_renderer;
 } gex_renderer_union;
 
+/*
+ * Callback opcional de trabajo de juego, invocado **una vez por update
+ * lógico** (0x0043E1BA), en el mismo sitio y con la misma cadencia que el
+ * update del original.
+ *
+ * Lo usa la secuencia de cámara del menú (S-3): un paso de trayectoria por
+ * update lógico, como hace el juego original (0x411B94 -> 0x53E98C avanza el
+ * nodo una vez por update).
+ *
+ * Devuelve 0 para seguir; un valor distinto de 0 aborta el frame (la misma
+ * política que los demas hooks del bucle).
+ */
+typedef int (*gex_i4_update_callback)(void *ctx);
+
+struct gex_i4_app;
+
+/*
+ * Registra el callback de update. NULL lo quita. No es_threadsafe ni
+ * reentrante: se llama desde el bucle, en el hilo que lo ejecuta.
+ */
+void gex_i4_app_set_update_callback(struct gex_i4_app *app,
+                                    gex_i4_update_callback callback,
+                                    void *ctx);
 typedef struct gex_i4_app {
     gex_frame frame;
     gex_input input;
@@ -47,6 +70,9 @@ typedef struct gex_i4_app {
 #if defined(_WIN32)
     int d3d11_enabled;  /* whether D3D11 renderer is active */
 #endif
+    /* Callback opcional de trabajo de juego por update lógico (S-3). */
+    gex_i4_update_callback update_callback;
+    void *update_ctx;
 } gex_i4_app;
 
 /* Validates the frame config through gex_frame_init; audio is not attached. */

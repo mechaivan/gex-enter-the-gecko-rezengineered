@@ -854,6 +854,19 @@ Resultados: `port/build.ps1 test` → **1437 comprobaciones, 0 fallos** (y el
 resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsan,
 24/24 OK**.
 
+**Validación de la integración (2026-11-13).** Tres suites nuevas, todas
+exactas y sin tolerancias:
+
+| Suite | Comprobaciones | Qué cubre |
+|---|---:|---|
+| `test_camera_path_scene` | 2567 | La cadena de punteros del `.DFX` (offsets, cantidad, variante, flags, centinela) y los **26 registros** comparados con la referencia; las **428 posiciones** producidas por la escena; el comportamiento tras el centinela; el rechazo de niveles sin trayectoria (AZTEC16) |
+| `test_camera_path_tsv` | 1728 | Las **428 posiciones contra `analysis/menu_camera_map7.tsv` leído en tiempo de ejecución** (no contra el header generado), más la primera y la última |
+| `test_camera_path_render` | 25 | Que la cámara llega a la **GPU**: la traslación de la matriz y los triángulos cambian, y el **buffer de vértices leído de vuelta de la GPU es distinto** antes y después de avanzar |
+
+`port/build.ps1 test` → las tres suites más el resto, **0 fallos**;
+`port/run_sanitizers.ps1` → **32/32 OK** (O0/O2/asan/ubsan sobre las ocho
+suites portables).
+
 > **Comportamiento medido que no hay que «arreglar».** Con los flags de *wrap*
 > activos, el frame que alcanza el centinela **reinicia el índice a 0 en el
 > mismo frame**, de modo que ese frame copia el registro 0 y no el centinela.
@@ -863,13 +876,114 @@ resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsa
 
 1. **No parsea el `.DFX`**: recibe los registros validados. Leerlos del
    contenedor en el runtime es una decisión de integración, no del módulo.
+   (La lectura desde el contenedor sí existe, pero vive en el módulo del
+   `.DFX`: § 6.4.)
 2. **No modela la rotación**: la variante de 10 B / cuaternio / Euler sigue
    pendiente (§ 8).
 3. **No conoce el estado de menú** ni cuándo aparecen sus elementos (§ 5).
 4. **No toca el renderer**: ni emisión, ni texturas, ni orden de dibujo, ni la
    cámara estática ya integrada. La conexión es la tarea siguiente.
 
-**Lo que sigue pendiente (no bloquea el módulo):**
+### 6.4 Integración en el port (2026-11-13)
+
+Lo que falta para que la trayectoria llegue a la pantalla está hecho, en tres
+piezas que **no duplican** nada de lo que ya había.
+
+**1. Lectura de los registros reales desde el `.DFX`.**
+`gex_dfx_load_camera_path()` (`port/include/gex/asset/dfx.h`,
+`port/src/asset/dfx.c`) recorre la cadena de punteros documentada en § 4.5
+**dentro de la imagen compactada** (la misma región que
+`gex_dfx_container.image`; los offsets son de imagen, no direcciones de
+runtime):
+
+```
+cabecera de nivel 0x5FC  ->  slot 0 (opcode 0x4F) -> registro de actor
+actor 0x95EC + 0x28      ->  entidad 0xC00C
+entidad 0xC00C + 0x00    ->  objeto 0xC02C
+objeto 0xC02C + 0x00     ->  array de 26 registros de 32 B en 0xC034
+objeto 0xC02C + 0x04     ->  cantidad (uint16)
+objeto 0xC02C + 0x06     ->  variante (uint8)
+objeto 0xC02C + 0x07     ->  flags (uint8)
+```
+
+Verificado sobre el `.DFX` real: `actor=0x95EC`, `entity=0xC00C`,
+`object=0xC02C`, `keys=0xC034`, 26 registros, variante 0, flags 1, y los 832 B
+idénticos al volcado runtime en `0x193E6F80`.
+
+El cargador **valida** y **rechaza** (no adivina): variante distinta de 0,
+cantidad menor de 2, array fuera de la imagen, duración negativa o centinela
+ausente (último `D != 0`) devuelven `GEX_DFX_ERR_PATH`. Comprobado con otros
+niveles reales: **AZTEC16.DFX** y **CIRCUIT0.DFX** se rechazan con
+`camera path not found or invalid`, es decir, la estructura del header de
+MAP7 no se aplica por el mismo camino a otros niveles.
+
+**2. Escena con trayectoria.**
+`gex_scene_level_load_camera_path()` (`gex/scene_level.h`) carga el nivel
+igual que `gex_scene_level_load_camera()` **y además** lee la trayectoria del
+propio `.DFX`, dejando el nodo en el estado original (índice 0, fracción 0).
+`gex_scene_level_camera_path_step()` hace, por cada llamada, exactamente lo
+que hace el original por frame:
+
+1. un paso de `gex_camera_path` (avance + evaluación);
+2. si hubo muestra, escribe **solo la posición** en la cámara y recalcula las
+   matrices derivadas (`gex_cam_update`: marco local, O, M, A/B, a_cam/b_cam);
+3. vuelve a emitir el nivel con la cámara nueva: se recorre el BSP otra vez
+   (la visibilidad depende de la cámara) y se rehacen emisión y geometría.
+
+La re-emisión es **la misma** que la de la carga (mismo `gex_bsp_walk`,
+mismo `gex_level_emit`, mismo `gex_geometry_build`): no hay una segunda
+implementación. Coste medido con MAP7: **0,50 ms por frame** (215 ms los 428
+frames), de los que ~3 ms son la carga inicial completa.
+
+Tras el centinela el paso devuelve 0 y **no escribe nada**: la última posición
+se conserva (el original tampoco escribía después de terminar el vuelo).
+
+**3. Renderer.**
+`gex_d3d11_mesh_update()` (`gex/render/d3d11_mesh.h`) sustituye el contenido
+de los buffers de vértices e índices por el de la geometría nueva. Los buffers
+se vuelven a crear (el juego no reutiliza un buffer inmutable) y el renderer,
+que guarda el puntero a la *malla* y no a los buffers, toma los nuevos en el
+dibujo siguiente. **No se toca** el pipeline, los shaders, el atlas, el
+*blending*, la niebla ni el orden de dibujo.
+
+La aplicación engancha la secuencia al **update lógico** del bucle (un paso
+por update, como el original: `0x411B94` avanza el nodo una vez por update),
+con la opción `--camera-path`:
+
+```
+gexloop.exe --level C:\GEX_REZ\GEX2\level\map7.dfx --camera-path
+```
+
+**Lo que se ve en la ejecución real** (ventana Win32, GPU hardware,
+2026-11-13):
+
+```
+textures: 166 distinctas en el vuelo, se piden las 64 mas usadas (limite del atlas)
+textures: 64 decodificadas de 'map7.vfx' (atlas 2824 x 130), 0 fallidas
+camera path: 26 records of 32 B, variant 0, flags 1
+camera path: playing (26 records, one step per logical update)
+stats: camera path: samples=110 finished=0 error=0 pos=(377, -313, 903) triangles=219
+stats: camera path: samples=208 finished=0 error=0 pos=(5542, -8782, 752) triangles=41
+stats: camera path: samples=328 finished=0 error=0 pos=(5027, 4718, 1385) triangles=365
+stats: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
+exit: clean, frame errors=0, clock warnings=0
+```
+
+La cámara recorre la escena (el número de triángulos visibles cambia de 1123
+a 41 y a 362 según el punto de vista) y **termina en `(2243, 487, 196)`**, el
+encuadre del menú.
+
+> **Limitación de las texturas (medida, no inventada).** El atlas tiene un
+> máximo de 64 entradas y el vuelo toca **166** texturas distintas (el frame 0
+> solo 62). Para no tocar el módulo de texturas ni el shader, la aplicación
+> recorre la trayectoria una vez y pide al banco del `.VFX` las **64 más
+> usadas**, que cubren el **91,3 %** de los vértices del vuelo; el 8,7 %
+> restante sale con el color del vértice (la búsqueda en la tabla no encuentra
+> la entrada). Con el atlas del frame 0 la cobertura sería del 65,4 %.
+> Ampliar el atlas (o la tabla del *constant buffer*) es una tarea aparte.
+
+**Lo que sigue pendiente (no bloquea la integración):**
 
 1. El **criterio de las tangentes**: se leen tal cual del registro; cómo las
    calculó el exportador no se ha establecido (no se etiqueta la curva como
@@ -879,7 +993,12 @@ resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsa
 3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
 4. El **estado de menú** que dispara el vuelo y el momento exacto en que el
    menú queda estable.
-5. La ruta de **rotación** (registros de 10 B) y su conversión a Euler.
+5. La ruta de **rotación** (registros de 10 B) y su conversión a Euler. La
+   cámara del port **mantiene la orientación medida inicial** durante el vuelo:
+   la parte rotacional de la matriz de emisión no cambia, solo la
+   traslación. Es una diferencia **conocida y declarada** respecto del
+   original (que sí rotaba durante el vuelo: Euler de `(-397, 0, 2802)` a
+   `(-29, 0, 2842)`).
 
 ---
 
@@ -898,19 +1017,22 @@ resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsa
 
 ## 8. Siguiente tarea
 
-1. **Conectar el módulo al renderer D3D11** (tanda siguiente): llamar a
-   `gex_camera_path_step` una vez por frame desde el update de la escena y
-   escribir la posición en el nodo de cámara que ya consume la matriz `cam+0xE0`,
-   sin tocar emisión, texturas ni orden de dibujo. Comprobar que la escena
-   avanza 428 frames y que el encuadre final coincide con el ya integrado.
-2. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler).
-3. Identificar el **estado de menú** que dispara el vuelo y el instante en que
-   los elementos quedan visibles (ruta 2D o flujo de comandos).
-4. Establecer el **criterio de las tangentes** del exportador (sin él no se
-   etiqueta la curva).
-5. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
-   `0xC394`.
+> **Superado (2026-11-13).** La conexión con el renderer está hecha (§ 6.4):
+> los registros se leen del `.DFX`, el paso va en el update lógico y la
+> geometría llega a los buffers de D3D11. La comparación frame a frame contra
+> `analysis/menu_camera_map7.tsv` está cerrada **en el port**, contra el TSV
+> leído en tiempo de ejecución (1728 comprobaciones), y la ejecución real con
+> ventana y GPU hardware recorre los 428 frames y termina en
+> `(2243, 487, 196)`.
 
-La comparación frame a frame contra `analysis/menu_camera_map7.tsv` ya está
-cerrada en el módulo (428/428); lo que falta es la comparación **contra el
-renderer**, que depende del punto 1.
+1. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler) e
+   integrarla: hasta entonces la cámara del port mantiene la orientación
+   medida inicial y solo se mueve la posición.
+2. Identificar el **estado de menú** que dispara el vuelo y el instante en que
+   los elementos quedan visibles (ruta 2D o flujo de comandos).
+3. Establecer el **criterio de las tangentes** del exportador (sin él no se
+   etiqueta la curva).
+4. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
+   `0xC394`.
+5. Ampliar el atlas de texturas (64 entradas) o su tabla de búsqueda para
+   cubrir el 100 % de las 166 texturas del vuelo (§ 6.4).

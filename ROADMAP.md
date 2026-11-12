@@ -208,6 +208,32 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     escritura tras el centinela; sanitizers O0/O2/asan/ubsan 24/24. La variante
     de rotación (10 B) se **rechaza**, no se aproxima. No se declara la cámara
     completa: faltan rotación, estado de menú y conexión al renderer D3D11.
+  - **Decimosexta tanda (2026-11-13, la trayectoria conectada al renderer
+    D3D11):** cierra el circuito. (a) **Lectura de los registros reales**:
+    `gex_dfx_load_camera_path()` recorre la cadena dentro de la imagen
+    compactada del `.DFX` y **valida** (variante 0, cantidad, límites,
+    centinela); los niveles sin esa estructura (AZTEC16, CIRCUIT0) se
+    **rechazan** con `GEX_DFX_ERR_PATH`, no se inventa una trayectoria.
+    (b) **Escena**: `gex_scene_level_load_camera_path()` deja el nodo en el
+    estado original y `gex_scene_level_camera_path_step()` hace por frame el
+    paso, escribe **solo la posición** y **re-emite** el nivel con la cámara
+    nueva (mismo BSP, misma emisión, misma geometría; 0,50 ms por frame
+    medido). (c) **Renderer**: `gex_d3d11_mesh_update()` sustituye el
+    contenido de los buffers, y la app engancha el paso al **update lógico**
+    (`--camera-path`) sin tocar pipeline, shaders, atlas, blending, niebla ni
+    orden de dibujo. **Validación:** tres suites nuevas y exactas —
+    `test_camera_path_scene` (2567: cadena, 26 registros, 428 posiciones,
+    centinela, niveles ajenos), `test_camera_path_tsv` (1728: las 428
+    posiciones contra el **TSV leído en tiempo de ejecución**) y
+    `test_camera_path_render` (25: el buffer de vértices leído de vuelta de
+    la **GPU** cambia al mover la cámara); `build.ps1 test` sin fallos y
+    `run_sanitizers.ps1` **32/32**. **Ejecución real** (ventana Win32, GPU
+    hardware): la cámara recorre la escena durante los 428 updates (los
+    triángulos visibles cambian de 1123 a 41 y a 362 según el punto de vista) y
+    **termina en `(2243, 487, 196)`**. **Límites declarados:** la
+    **orientación no se interpola** (ruta de 10 B sin decodificar: solo cambia
+    la traslación de la matriz) y el atlas de texturas (64 entradas) cubre el
+    **91,3 %** de los vértices del vuelo, que tocan 166 texturas distintas.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

@@ -110,11 +110,14 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera.c') 'test_camera.exe' ($cameraSrc + $bspSrc) @('-lm')) 'camera orientation + visibility checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera_path.c') 'test_camera_path.exe' $cameraPathSrc) 'camera path (S-3) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera_path_scene.c') 'test_camera_path_scene.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc) @('-lm', ('-I' + (Join-Path $PSScriptRoot 'tests')))) 'camera path scene integration (S-3) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera_path_tsv.c') 'test_camera_path_tsv.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc) @('-lm', ('-I' + (Join-Path $PSScriptRoot 'tests')))) 'camera path against the measured TSV (S-3) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera_path_render.c') 'test_camera_path_render.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc + $d3d11Src + $d3d11MeshSrc) @('-ld3d11', '-lm')) 'camera path reaches the D3D11 buffers (S-3) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_bsp.c') 'test_bsp.exe' ($bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_BSP_TEST_FAULT_INJECT', '-lm')) 'BSP traversal checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_level_emit.c') 'test_level_emit.exe' ($dfxBspSrc + $bspSrc + $cameraSrc + $emitSrc) @('-lm')) 'level emit (S-2) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry.c') 'test_geometry.exe' ($geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_GEOM_TEST_FAULT_INJECT', '-lm')) 'geometry conversion (Module 3) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry_shapes.c') 'test_geometry_shapes.exe' ($shapesSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'test shapes (Module 5A) checks'
-    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_scene_level.c') 'test_scene_level.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'level loader (Module 5B) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_scene_level.c') 'test_scene_level.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc) @('-lm')) 'level loader (Module 5B) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_vfx.c') 'test_vfx.exe' ($vfxSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'VFX texture container (Module 4A) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
@@ -131,7 +134,7 @@ if ($Target -in @('test', 'all')) {
 }
 
 if ($Target -in @('loop', 'all')) {
-    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $d3d11TextureSrc + $d3d11MeshSrc + $vfxSrc + $geometrySrc + $shapesSrc + $sceneSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')
+    $exe = Build-Exe (Join-Path $PSScriptRoot 'src/app/i4_main_win32.c') 'gexloop.exe' ($appSrc + $inputSrc + $renderSrc + $coreSrc + $audioSrc + $clockSrc + $win32TimeSrc + $win32WindowSrc + $d3d11Src + $d3d11SwapSrc + $d3d11RenderSrc + $d3d11PipelineSrc + $d3d11TextureSrc + $d3d11MeshSrc + $vfxSrc + $geometrySrc + $shapesSrc + $sceneSrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc) @('-ld3d11', '-luuid', '-luser32', '-lgdi32', '-lwinmm')
     Write-Host "built $exe (run it from a console; Escape or close the window)"
 }
 

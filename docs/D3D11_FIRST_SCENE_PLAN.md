@@ -779,6 +779,13 @@ El trabajo inmediato deja de ser «conseguir dibujar un nivel» y pasa a reconst
 la experiencia de entrada: movimiento y temporización de la cámara original,
 encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 
+> **Estado (2026-11-13).** El **movimiento de la camara** ya esta integrado:
+> el port reproduce los 428 frames del vuelo y termina en el encuadre del
+> menu `(2243, 487, 196)` en una ventana real con GPU hardware. Lo que queda
+> del hito es la **interfaz DX11** y su navegacion, y la ruta de **rotacion**
+> (la orientacion se mantiene fija mientras la posicion sigue la trayectoria
+> medida). Detalle en `S3_MENU_CAMERA_SEQUENCE.md` 6.4.
+
 **La secuencia original ya está capturada y medida** (2026-11-12): al entrar en
 la ruta 3D la cámara **vuela sola** 428 frames (~17,1 s a ~25 fps) desde el
 encuadre por defecto del nivel `(2341, 4071, 3074)` hasta el encuadre del menú
@@ -817,11 +824,26 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.14):
   del `.DFX` (header `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` →
   objeto `0xC02C` → array `0xC034`); el módulo **recibe los registros ya
   validados** y no parsea el contenedor.
-- **Lo que queda para el renderer**: conectar `gex_camera_path_step` al update
-  por frame de la escena (una llamada por frame, escribiendo la posición en el
-  nodo de cámara que ya alimenta la matriz `cam+0xE0`), cerrar la ruta de
-  **rotación** (registros de 10 B → cuaternio → Euler) y el **estado de menú**,
-  que sigue sin aislar.
+- **La trayectoria llega al renderer** (2026-11-13): `gex_dfx_load_camera_path()`
+  lee los registros reales del `.DFX` (y **rechaza** los niveles sin esa
+  estructura); `gex_scene_level_load_camera_path()` +
+  `gex_scene_level_camera_path_step()` hacen un paso de trayectoria por update
+  lógico, escriben **solo la posición** y **re-emiten** el nivel con la cámara
+  nueva reutilizando el BSP, la emisión y la geometría existentes (0,50 ms por
+  frame medido); `gex_d3d11_mesh_update()` sustituye el contenido de los
+  buffers. La app lo engancha con `--camera-path`. **Sin tocar** pipeline,
+  shaders, atlas, *blending*, niebla ni orden de dibujo. Validación: **4320
+  comprobaciones** en tres suites nuevas (`test_camera_path_scene` 2567,
+  `test_camera_path_tsv` 1728 contra el **TSV crudo leído en tiempo de
+  ejecución**, `test_camera_path_render` 25 con lectura de vuelta del **buffer
+  de vértices de la GPU**), `build.ps1 test` sin fallos, `run_sanitizers.ps1`
+  **32/32**. Ejecución real con ventana Win32 y GPU hardware: la cámara
+  recorre la escena en los 428 updates y **termina en `(2243, 487, 196)`**.
+- **Lo que queda para el renderer**: cerrar la ruta de **rotación** (registros
+  de 10 B → cuaternio → Euler; hasta entonces la orientación se mantiene fija y
+  solo cambia la traslación de la matriz), el **estado de menú**, y ampliar el
+  atlas de texturas (64 entradas) para cubrir las 166 texturas que toca el
+  vuelo (con las 64 más usadas se cubre el 91,3 % de los vértices).
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
   de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas

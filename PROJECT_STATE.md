@@ -224,6 +224,34 @@
   10 B / cuaternio / Euler), el estado de menú y la conexión al renderer D3D11
   (tanda siguiente). Detalle en
   [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.5, § 6 y § 8.
+- **Trayectoria del menú conectada al renderer D3D11 (2026-11-13):** la
+  integración cierra el circuito completo. (a) **Lectura de los registros
+  reales**: `gex_dfx_load_camera_path()` recorre la cadena de punteros dentro de
+  la imagen compactada del `.DFX` (mismos offsets que la cadena documentada) y
+  **valida** (variante, cantidad, límites, centinela); AZTEC16 y CIRCUIT0 se
+  rechazan, no se falsea una trayectoria. (b) **Escena**:
+  `gex_scene_level_load_camera_path()` deja el nodo en el estado original y
+  `gex_scene_level_camera_path_step()` hace por frame el paso de trayectoria,
+  escribe **solo la posición** y **re-emite** el nivel con la cámara nueva
+  (mismo BSP, misma emisión, misma geometría: 0,50 ms por frame medido).
+  (c) **Renderer**: `gex_d3d11_mesh_update()` sustituye el contenido de los
+  buffers; la app engancha el paso al **update lógico** (`--camera-path`) sin
+  tocar pipeline, shaders, atlas, *blending*, niebla ni orden de dibujo.
+  **Validación:** tres suites nuevas y exactas — `test_camera_path_scene`
+  (2567 comprobaciones: cadena, 26 registros, 428 posiciones, centinela,
+  niveles ajenos), `test_camera_path_tsv` (1728: las 428 posiciones contra el
+  **TSV leído en tiempo de ejecución**) y `test_camera_path_render` (25: el
+  **buffer de vértices leído de vuelta de la GPU cambia** al mover la cámara) —
+  `build.ps1 test` sin fallos y `run_sanitizers.ps1` **32/32**. **Ejecución
+  real** (ventana Win32, GPU hardware): la cámara recorre la escena durante los
+  428 updates (los triángulos visibles cambian de 1123 a 41 y a 362 según el
+  punto de vista) y **termina en `(2243, 487, 196)`**, el encuadre del menú.
+  **Límites declarados:** la **orientación no se interpola** (la ruta de
+  rotación de 10 B sigue sin decodificar, así que la parte rotacional de la
+  matriz no cambia: solo la traslación), y el atlas de texturas (64 entradas)
+  cubre el **91,3 %** de los vértices del vuelo, que tocan 166 texturas
+  distintas (con el atlas del frame 0 sería el 65,4 %). Detalle en
+  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 6.4.
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un

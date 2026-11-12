@@ -198,6 +198,29 @@ son identicos al volcado runtime del array. La variante de **rotacion**
 camara **no** se declara completa: faltan esa ruta, el estado de menu y la
 conexion al renderer D3D11.
 
+La conexion al renderer se ha cerrado tambien el 2026-11-13, con el mismo
+principio: **no duplicar** el BSP, la emision, la conversion geometrica ni el
+pipeline. La lectura de los registros reales la hace el propio modulo del
+`.DFX` (`gex_dfx_load_camera_path`), que ademas **valida** y **rechaza** los
+niveles que no tienen esa estructura (comprobado con AZTEC16 y CIRCUIT0: los
+rechaza en vez de inventar una trayectoria). La escena repite el paso de la
+trayectoria y vuelve a emitir con la camara nueva, reutilizando el mismo
+`gex_bsp_walk`, `gex_level_emit` y `gex_geometry_build` de la carga: el coste
+medido es de 0,50 ms por frame. El renderer recibe la geometria nueva
+sustituyendo el contenido de los buffers, sin tocar shaders, atlas, blending,
+niebla ni orden de dibujo. La validacion es triple y sin tolerancias: la
+cadena de punteros y las 428 posiciones contra la referencia, las 428
+posiciones contra el **TSV crudo leido en tiempo de ejecucion** (para que un
+error en el generador del header no pueda esconder una diferencia con el
+original), y la lectura de vuelta del **buffer de vertices de la GPU** para
+comprobar que el cambio llega a lo que se dibuja. La ejecucion real con
+ventana y GPU hardware recorre los 428 frames y termina en `(2243, 487, 196)`,
+el encuadre del menu. Quedan dos limitaciones **declaradas**: la orientacion
+no se interpola (la ruta de rotacion de 10 B sigue sin decodificar, asi que la
+parte rotacional de la matriz no cambia y solo la traslacion), y el atlas de
+texturas, limitado a 64 entradas, cubre el 91,3 % de los vertices del vuelo
+(que tocan 166 texturas distintas; con el atlas del frame 0 seria el 65,4 %).
+
 
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del

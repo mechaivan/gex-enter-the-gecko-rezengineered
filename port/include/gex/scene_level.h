@@ -24,6 +24,7 @@
 
 #include "gex/asset/dfx.h"
 #include "gex/camera.h"
+#include "gex/camera_path.h"
 #include "gex/bsp.h"
 #include "gex/emit.h"
 #include "gex/geometry.h"
@@ -65,6 +66,7 @@ typedef enum gex_scene_status {
     GEX_SCENE_ERR_BSP,         /* falló el recorrido del BSP */
     GEX_SCENE_ERR_EMIT,        /* falló la emisión de polígonos */
     GEX_SCENE_ERR_GEOMETRY,    /* falló la conversión a geometría */
+    GEX_SCENE_ERR_PATH,        /* el nivel no tiene trayectoria de cámara */
     GEX_SCENE_ERR_NOMEM        /* falta memoria */
 } gex_scene_status;
 
@@ -84,6 +86,12 @@ typedef struct gex_scene_level {
     int emit_loaded;
     gex_geometry geometry;
     int geometry_loaded;
+    /* Trayectoria de camara del nivel (S-3), si la tiene. */
+    gex_dfx_camera_path dfx_path;
+    int path_loaded;
+    gex_camera_path_node path_node;
+    uint32_t path_frames;   /* muestras producidas hasta ahora */
+    int path_finished;      /* el centinela ya se alcanzo */
     gex_scene_stats stats;
     int loaded;
 } gex_scene_level;
@@ -129,17 +137,74 @@ void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog);
 gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path);
 
 /*
- * Carga un nivel con la cámara original del juego:
- *   .DFX -> descriptor -> BSP con la prueba de esfera de la cámara ->
- *   emisión con la matriz de emisión de `cam+0xE0` -> geometría.
+ * Carga un nivel con la camara original del juego:
+ *   .DFX -> descriptor -> BSP con la prueba de esfera de la camara ->
+ *   emision con la matriz de emision de `cam+0xE0` -> geometria.
  *
- * No hay matriz sintética ni encuadre automático: la geometría queda donde
- * la deja el original, con la misma proyección (focal, centro y plano
+ * No hay matriz sintetica ni encuadre automatico: la geometria queda donde
+ * la deja el original, con la misma proyeccion (focal, centro y plano
  * cercano) y el mismo split de emisor.
  */
 gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
                                              const char *path,
                                              const gex_camera *cam);
+
+/*
+ * Carga un nivel con la camara original **y la trayectoria de posicion** que
+ * el propio nivel trae en su `.DFX` (MAP7: 26 registros de 32 B).
+ *
+ * La trayectoria se lee del contenedor con `gex_dfx_load_camera_path`, que
+ * sigue la cadena de punteros documentada (S3_MENU_CAMERA_SEQUENCE.md 4.5).
+ * Los registros quedan en la escena (`scene->dfx_path`) y el nodo se inicializa
+ * en el estado original (indice 0, fraccion 0).
+ *
+ * Si el nivel no tiene esa estructura, devuelve GEX_SCENE_ERR_PATH: no se
+ * inventa una trayectoria.
+ */
+gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
+                                                  const char *path,
+                                                  const gex_camera *cam);
+
+/*
+ * Avanza la trayectoria **un frame logico** y actualiza la camara.
+ *
+ * Hace exactamente lo que hace el original por frame:
+ *   1. un paso de `gex_camera_path` (avance + evaluacion);
+ *   2. si produjo muestra, escribe **solo la posicion** en `cam` y recalcula
+ *      las matrices derivadas (A/B, a_cam/b_cam) con `gex_cam_update`;
+ *   3. vuelve a emitir el nivel con la nueva camara (BSP + emision +
+ *      geometria), de modo que la imagen refleje el movimiento.
+ *
+ * La orientacion se conserva: la ruta de rotacion (registros de 10 B) sigue
+ * sin estar decodificada, asi que la camara mantiene los angulos medidos.
+ *
+ * Devuelve 1 si hubo muestra nueva, 0 si la trayectoria ya termino (el
+ * centinela) y -1 si fallo la re-emision. Tras el centinela no se escribe
+ * nada mas: la ultima posicion se conserva.
+ */
+int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam);
+
+/*
+ * Recorre **toda** la trayectoria en una escena propia y cuenta quantas
+ * veces aparece cada indice de textura (14 bits) en la geometria emitida.
+ *
+ * Motivo: el atlas de texturas tiene un maximo de entradas
+ * (`GEX_D3D11_TEXTURE_MAX_ENTRIES`) y el vuelo de MAP7 toca mas texturas
+ * distintas que las que caben. Esta funcion permite elegir las mas usadas
+ * **sin tocar el modulo de texturas ni el shader**: el llamador decide que
+ * indices pide al banco del `.VFX`.
+ *
+ * `counts` recibe un contador por indice de 14 bits (`counts_len` entradas,
+ * 16384 para el rango completo). Devuelve el numero de indices distintos
+ * vistos, o 0 si no se pudo recorrer la trayectoria.
+ *
+ * No toca la escena del llamante: usa la suya propia y la libera.
+ */
+gex_scene_status gex_scene_camera_path_texture_usage(const char *level_path,
+                                                     const gex_camera *cam,
+                                                     uint32_t *counts,
+                                                     size_t counts_len,
+                                                     size_t *distinct);
 
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);

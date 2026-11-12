@@ -1,5 +1,109 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - La trayectoria de camara del menu llega al renderer D3D11: los registros reales del .DFX, un paso por update logico y la geometria nueva en la GPU
+
+La camara del menu deja de ser un modulo aislado: el port lee los 26
+registros del propio `.DFX` del nivel, avanza la trayectoria **una vez por
+update logico** (como el original) y vuelve a emitir la escena para que el
+movimiento se vea en la imagen. Sin tocar el pipeline, los shaders, el atlas
+de texturas, el *blending*, la niebla ni el orden de dibujo.
+
+**LECTURA DE LOS REGISTROS REALES (nuevo).**
+`gex_dfx_load_camera_path()` (`port/include/gex/asset/dfx.h`,
+`port/src/asset/dfx.c`) recorre la cadena de punteros documentada en
+`S3_MENU_CAMERA_SEQUENCE.md` 4.5 **dentro de la imagen compactada** del
+`.DFX` (offsets de imagen, no direcciones de runtime):
+
+```
+cabecera de nivel 0x5FC -> slot 0 (opcode 0x4F) -> actor
+actor 0x95EC + 0x28     -> entidad 0xC00C
+entidad 0xC00C + 0x00   -> objeto 0xC02C
+objeto 0xC02C + 0x00    -> 26 registros de 32 B en 0xC034
+objeto 0xC02C + 0x04    -> cantidad (uint16)
+objeto 0xC02C + 0x06    -> variante (uint8)
+objeto 0xC02C + 0x07    -> flags (uint8)
+```
+
+Verificado sobre el `.DFX` real: `actor=0x95EC`, `entity=0xC00C`,
+`object=0xC02C`, `keys=0xC034`, 26 registros, variante 0, flags 1; los 832 B
+identicos al volcado runtime en `0x193E6F80`. El cargador **valida y
+rechaza** (no adivina): variante distinta de 0, cantidad menor de 2, array
+fuera de la imagen, duracion negativa o centinela ausente devuelven
+`GEX_DFX_ERR_PATH`. Comprobado con otros niveles reales: **AZTEC16.DFX** y
+**CIRCUIT0.DFX** se rechazan con `camera path not found or invalid`.
+
+**ESCENA (nuevo).** `gex_scene_level_load_camera_path()` carga el nivel
+igual que `gex_scene_level_load_camera()` y ademas lee la trayectoria del
+propio `.DFX`, dejando el nodo en el estado original (indice 0, fraccion 0).
+`gex_scene_level_camera_path_step()` hace por frame lo que hace el original:
+un paso de `gex_camera_path`; si hubo muestra, escribe **solo la posicion** y
+recalcula las matrices derivadas (`gex_cam_update`); y **re-emite** el nivel
+con la camara nueva. La re-emision **es la misma** de la carga (mismo
+`gex_bsp_walk`, mismo `gex_level_emit`, mismo `gex_geometry_build`): no hay una
+segunda implementacion. Coste medido con MAP7: **0,50 ms por frame** (215 ms
+los 428 frames). Tras el centinela devuelve 0 y **no escribe nada**.
+
+**RENDERER.** `gex_d3d11_mesh_update()` (`gex/render/d3d11_mesh.h`) sustituye
+el contenido de los buffers de vertices e indices por el de la geometria
+nueva; los buffers se vuelven a crear y el renderer, que guarda el puntero a
+la malla, toma los nuevos en el dibujo siguiente. La app engancha la secuencia
+al **update logico** del bucle con la opcion `--camera-path` (un paso por
+update, como `0x411B94` avanza el nodo una vez por update en el original).
+
+**PRUEBAS (nuevo).** Tres suites exactas, sin tolerancias:
+
+| Suite | Comprobaciones | Que cubre |
+|---|---:|---|
+| `test_camera_path_scene` | 2567 | La cadena de punteros (offsets, cantidad, variante, flags, centinela), los **26 registros** frente a la referencia, las **428 posiciones**, el comportamiento tras el centinela y el rechazo de niveles ajenos |
+| `test_camera_path_tsv` | 1728 | Las **428 posiciones contra `analysis/menu_camera_map7.tsv` leido en tiempo de ejecucion** (no contra el header generado), primera `(2341, 4071, 3074)` y ultima `(2243, 487, 196)` |
+| `test_camera_path_render` | 25 | Que la camara llega a la **GPU**: cambian la traslacion de la matriz y los triangulos, y el **buffer de vertices leido de vuelta de la GPU** es distinto antes y despues |
+
+`port/build.ps1 test` -> exit 0, las tres suites nuevas mas el resto sin
+regresion; `port/run_sanitizers.ps1` -> **32/32 OK** (O0/O2/asan/ubsan).
+
+**EJECUCION REAL (ventana Win32, GPU hardware).**
+`gexloop.exe --level C:\GEX_REZ\GEX2\level\map7.dfx --camera-path`:
+
+```
+textures: 166 distinctas en el vuelo, se piden las 64 mas usadas (limite del atlas)
+textures: 64 decodificadas de 'map7.vfx' (atlas 2824 x 130), 0 fallidas
+camera path: 26 records of 32 B, variant 0, flags 1
+camera path: playing (26 records, one step per logical update)
+stats: camera path: samples=110 finished=0 error=0 pos=(377, -313, 903) triangles=219
+stats: camera path: samples=208 finished=0 error=0 pos=(5542, -8782, 752) triangles=41
+stats: camera path: samples=328 finished=0 error=0 pos=(5027, 4718, 1385) triangles=365
+stats: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
+exit: clean, frame errors=0, clock warnings=0
+```
+
+La camara recorre la escena (los triangulos visibles cambian de 1123 a 41 y
+a 362 segun el punto de vista) y **termina en `(2243, 487, 196)`**, el
+encuadre del menu.
+
+**NEGATIVOS Y LIMITES (no se ocultan).**
+
+- La **orientacion no se interpola**: la ruta de rotacion (registros de 10 B,
+  `0x43158D` / `0x431036`) sigue sin decodificar, asi que la camara mantiene
+  los angulos medidos iniciales y **solo cambia la traslacion** de la matriz
+  de emision. El original si rotaba durante el vuelo (Euler de
+  `(-397, 0, 2802)` a `(-29, 0, 2842)`). Es una diferencia declarada.
+- El **atlas de texturas tiene 64 entradas** y el vuelo toca **166** texturas
+  distintas (el frame 0 solo 62). Para no tocar el modulo de texturas ni el
+  shader, la app recorre la trayectoria una vez y pide las **64 mas usadas**,
+  que cubren el **91,3 %** de los vertices del vuelo (con el atlas del frame 0
+  seria el 65,4 %). El 8,7 % restante sale con el color del vertice.
+- El **estado de menu** (cuando aparecen sus elementos) no esta aislado.
+- El opcode `0x4F` del header y el papel de la spline hermana de `0xC394`
+  siguen sin identificar.
+- **No se declara la camara completa**: esta tanda cierra la integracion de
+  la trayectoria de **posicion** con el renderer.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (6.4 nueva, 6.2 con la
+validacion, 6.3 y 8 actualizados), `PROJECT_STATE.md`, `ROADMAP.md`
+(decimosexta tanda), `RESEARCH.md`, `REVERSE_ENGINEERING.md` (lecciones 24-26)
+y `docs/D3D11_FIRST_SCENE_PLAN.md` (10) actualizados.
+
 ## 2026-11-13 - 0.0.0 - La trayectoria del menu entra en el port: modulo portable con la aritmetica entera del original, validado 428/428
 
 La camara del menu deja de ser un pendiente de investigacion y pasa a ser un

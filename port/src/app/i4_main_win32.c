@@ -49,18 +49,21 @@ typedef struct i4_options {
     uint64_t second_limit; /* 0 = unlimited */
     const char *level_path; /* .DFX to load, or NULL for the test cube */
     int diagnostic_view; /* 1 = vista sintetica + encuadre automatico */
+    int camera_path; /* 1 = reproduce la trayectoria de camara del nivel */
 } i4_options;
 
 static void usage(const char *exe)
 {
     printf("usage: %s [--frames N] [--seconds N] [--level PATH] "
-           "[--diagnostic-view]\n", exe);
+           "[--diagnostic-view] [--camera-path]\n", exe);
     printf("  --frames N   exit after N presented frames\n");
     printf("  --seconds N  exit after N seconds\n");
     printf("  --level PATH load a .DFX level with the ORIGINAL game camera "
            "(the reference MAP7 camera state)\n");
     printf("  --diagnostic-view  use the synthetic matrix and the automatic "
            "framing instead of the game camera\n");
+    printf("  --camera-path  play the camera path stored in the level itself "
+           "(MAP7: 428 frames of the menu fly-through)\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -100,6 +103,67 @@ static int vfx_path_for(const char *dfx_path, char *dst, size_t dst_size)
 }
 #endif
 
+#if defined(_WIN32)
+/*
+ * Estado de la secuencia de camara del menu (S-3) en la aplicacion.
+ *
+ * La ruta (los 26 registros de 32 B) se lee del propio `.DFX` del nivel, con
+ * la cadena de punteros documentada. Un update logico avanza la trayectoria
+ * **un frame** (como el original: 0x411B94 -> 0x53E98C avanza el nodo una vez
+ * por update) y la escena se vuelve a emitir con la camara nueva.
+ *
+ * La geometria resultante se sube a la malla D3D11 para que el dibujo
+ * refleje el movimiento.
+ */
+typedef struct i4_camera_path {
+    gex_scene_level *scene;
+    gex_camera *cam;
+    ID3D11Device *device;
+    gex_d3d11_mesh *mesh;
+    uint32_t samples;   /* muestras producidas */
+    int finished;       /* el centinela ya se alcanzo */
+    int error;          /* fallo de la re-emision */
+} i4_camera_path;
+
+/*
+ * Un update logico: un paso de trayectoria, la re-emision con la camara
+ * nueva y la subida de la geometria a la GPU.
+ */
+static int i4_camera_path_update(void *ctx)
+{
+    i4_camera_path *state = (i4_camera_path *)ctx;
+    int step;
+
+    if (state->finished || state->error) {
+        return 0;
+    }
+
+    step = gex_scene_level_camera_path_step(state->scene, state->cam);
+    if (step < 0) {
+        fprintf(stderr, "error: camera path step failed\n");
+        state->error = 1;
+        return 1;
+    }
+    if (step == 0) {
+        /* Fin de la trayectoria: la ultima posicion se conserva y no se
+         * escribe nada mas (como en el original). */
+        state->finished = 1;
+        return 0;
+    }
+    state->samples++;
+
+    /* La geometria cambio: se sube a la malla D3D11. */
+    if (gex_d3d11_mesh_update(state->device, &state->scene->geometry,
+                               state->mesh) != GEX_D3D11_MESH_OK) {
+        fprintf(stderr, "error: mesh update failed at frame %u\n",
+                (unsigned)state->samples);
+        state->error = 1;
+        return 1;
+    }
+    return 0;
+}
+#endif
+
 static int parse_u64(const char *text, uint64_t *out)
 {
     char *end = NULL;
@@ -124,6 +188,7 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->second_limit = 0;
     options->level_path = NULL;
     options->diagnostic_view = 0;
+    options->camera_path = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -140,6 +205,8 @@ static int parse_options(int argc, char **argv, i4_options *options)
             }
         } else if (strcmp(argv[i], "--diagnostic-view") == 0) {
             options->diagnostic_view = 1;
+        } else if (strcmp(argv[i], "--camera-path") == 0) {
+            options->camera_path = 1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
             options->level_path = argv[++i];
             if (options->level_path[0] == '\0') {
@@ -227,6 +294,11 @@ static void log_input(const gex_input *input, uint64_t *focus_losses_seen)
     }
 }
 
+#if defined(_WIN32)
+/* Estado de la secuencia de camara en curso (para el informe de stats). */
+static i4_camera_path *g_camera_path_state = NULL;
+#endif
+
 static void print_stats(const char *prefix, const gex_i4_app *app,
                         uint64_t now_us, uint64_t start_us)
 {
@@ -254,6 +326,18 @@ static void print_stats(const char *prefix, const gex_i4_app *app,
            frame->last_steps, frame->core.acc_us,
            frame->core.discards_total, frame->aborted, frame->clock_backwards,
            app->pre_calls, app->updates);
+#if defined(_WIN32)
+    if (g_camera_path_state != NULL) {
+        const i4_camera_path *p = g_camera_path_state;
+        printf("%s camera path: samples=%u finished=%d error=%d "
+               "pos=(%d, %d, %d) triangles=%zu\n", prefix,
+               (unsigned)p->samples, p->finished, p->error,
+               p->cam != NULL ? p->cam->pos[0] : 0,
+               p->cam != NULL ? p->cam->pos[1] : 0,
+               p->cam != NULL ? p->cam->pos[2] : 0,
+               p->scene != NULL ? p->scene->stats.triangles : 0);
+    }
+#endif
 }
 
 int main(int argc, char **argv)
@@ -286,6 +370,11 @@ int main(int argc, char **argv)
     /* Módulo 4C: texturas del `.VFX` del nivel. */
     gex_vfx_texture_bank texture_bank;
     gex_d3d11_texture_set d3d11_textures = GEX_D3D11_TEXTURE_SET_INITIALIZER;
+    /* S-3: camara de la secuencia de trayectoria y su estado. */
+    gex_camera path_cam;
+    i4_camera_path path_state;
+    gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
+    gex_scene_status scene_status = GEX_SCENE_OK;
 #endif
 
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -417,8 +506,6 @@ int main(int argc, char **argv)
         gex_d3d11_pipeline_status pipeline_status =
             gex_d3d11_pipeline_init(&d3d11_pipeline, &d3d11_dev);
         gex_d3d11_mesh_status mesh_status = GEX_D3D11_MESH_BAD_ARGUMENT;
-        gex_d3d11_renderer_status geometry_status = GEX_D3D11_RENDERER_BAD_STATE;
-        gex_scene_status scene_status = GEX_SCENE_OK;
         gex_d3d11_texture_status texture_status = GEX_D3D11_TEXTURE_BAD_ARGUMENT;
         int shape_status = -1; /* -1 = no se intentó */
 
@@ -434,6 +521,14 @@ int main(int argc, char **argv)
                 if (options.diagnostic_view) {
                     scene_status = gex_scene_level_load(&scene,
                                                         options.level_path);
+                } else if (options.camera_path) {
+                    /* Camara original + la trayectoria de posicion que el
+                     * nivel trae en su .DFX (MAP7). La camara vive en
+                     * `path_cam` para que el callback de update la pueda
+                     * mover. */
+                    gex_scene_reference_camera(&path_cam);
+                    scene_status = gex_scene_level_load_camera_path(
+                        &scene, options.level_path, &path_cam);
                 } else {
                     gex_camera cam;
                     gex_scene_reference_camera(&cam);
@@ -481,25 +576,79 @@ int main(int argc, char **argv)
 
             if (vfx_path_for(options.level_path, vfx_path,
                              sizeof(vfx_path)) == 0) {
-                /* Índices de textura que usa de verdad la geometría. */
-                used_count = 0;
-                used = (uint32_t *)calloc(scene.geometry.vertex_count + 1u,
-                                         sizeof(uint32_t));
-                if (used != NULL) {
-                    for (vi = 0; vi < scene.geometry.vertex_count; vi++) {
-                        uint32_t idx = scene.geometry.vertices[vi].texture &
-                                       0x3FFFu;
-                        uint32_t k;
-                        int seen = 0;
-                        for (k = 0; k < used_count; k++) {
-                            if (used[k] == idx) {
-                                seen = 1;
-                                break;
+                /* Indices de textura que usa de verdad la geometria.
+                 *
+                 * Con la secuencia de camara la geometria cambia en cada
+                 * frame: las texturas que se ven NO son solo las del
+                 * frame 0, sino las de todo el vuelo (166 en MAP7, mas que
+                 * las 64 que caben en el atlas). Para no tocar el modulo de
+                 * texturas ni el shader, se recorre la trayectoria una vez
+                 * y se piden las texturas MAS USADAS, que cubren el 91 % de
+                 * los vertices del vuelo. */
+                if (options.camera_path && scene.path_loaded) {
+                    uint32_t *counts = (uint32_t *)calloc(16384u,
+                                                          sizeof(uint32_t));
+                    size_t distinct = 0;
+                    if (counts != NULL &&
+                        gex_scene_camera_path_texture_usage(
+                            options.level_path, &path_cam, counts, 16384u,
+                            &distinct) == GEX_SCENE_OK) {
+                        uint32_t *idxs = (uint32_t *)malloc(16384u *
+                                                             sizeof(uint32_t));
+                        if (idxs != NULL) {
+                            uint32_t n = 0;
+                            uint32_t i;
+                            for (i = 0; i < 16384u; i++) {
+                                if (counts[i] != 0u) {
+                                    idxs[n++] = i;
+                                }
                             }
+                            /* Orden por uso descendente. */
+                            {
+                                uint32_t a, b;
+                                for (a = 0; a + 1u < n; a++) {
+                                    for (b = 0; b + 1u < n - a; b++) {
+                                        if (counts[idxs[b + 1u]] >
+                                            counts[idxs[b]]) {
+                                            uint32_t tmp = idxs[b];
+                                            idxs[b] = idxs[b + 1u];
+                                            idxs[b + 1u] = tmp;
+                                        }
+                                    }
+                                }
+                            }
+                            used_count =
+                                (n > (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES)
+                                ? (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES : n;
+                            used = idxs;
+                            printf("textures: %u distinctas en el vuelo, "
+                                   "se piden las %u mas usadas (limite del "
+                                   "atlas)\n", (unsigned)distinct,
+                                   (unsigned)used_count);
                         }
-                        if (!seen && used_count <
-                            scene.geometry.vertex_count) {
-                            used[used_count++] = idx;
+                    }
+                    free(counts);
+                }
+                if (used == NULL) {
+                    used_count = 0;
+                    used = (uint32_t *)calloc(scene.geometry.vertex_count + 1u,
+                                             sizeof(uint32_t));
+                    if (used != NULL) {
+                        for (vi = 0; vi < scene.geometry.vertex_count; vi++) {
+                            uint32_t idx = scene.geometry.vertices[vi].texture &
+                                           0x3FFFu;
+                            uint32_t k;
+                            int seen = 0;
+                            for (k = 0; k < used_count; k++) {
+                                if (used[k] == idx) {
+                                    seen = 1;
+                                    break;
+                                }
+                            }
+                            if (!seen && used_count <
+                                scene.geometry.vertex_count) {
+                                used[used_count++] = idx;
+                            }
                         }
                     }
                 }
@@ -557,8 +706,14 @@ int main(int argc, char **argv)
                     printf("    projection: focal=%d cx=%d cy=%d near_z=%d\n",
                            s->proj_focal, s->view_cx, s->view_cy,
                            s->proj_near_z);
-                } else {
-                    printf("  view: DIAGNOSTIC (synthetic matrix + automatic "
+                    if (scene.path_loaded) {
+                        printf("    camera path: %d records of 32 B, "
+                               "variant %u, flags %u\n",
+                               (int)scene.dfx_path.path.count,
+                               (unsigned)scene.dfx_path.path.variant,
+                               (unsigned)scene.dfx_path.path.flags);
+                    }
+                } else {                    printf("  view: DIAGNOSTIC (synthetic matrix + automatic "
                            "framing): scale=0x%X cx=%d cy=%d\n",
                            (unsigned)s->view_scale, s->view_cx, s->view_cy);
                 }
@@ -590,6 +745,26 @@ int main(int argc, char **argv)
     
     printf("audio: none attached\n");
     printf("controls: Escape or close the window to exit\n");
+
+#if defined(_WIN32)
+    /* Secuencia de camara del menu (S-3): se engancha al update logico del
+     * bucle, de modo que hay un paso de trayectoria por update (como en el
+     * original: 0x411B94 avanza el nodo una vez por update). */
+    if (options.camera_path && scene_status == GEX_SCENE_OK &&
+        scene.path_loaded && geometry_status == GEX_D3D11_RENDERER_OK) {
+        path_state.scene = &scene;
+        path_state.cam = &path_cam;
+        path_state.device = d3d11_dev.device;
+        path_state.mesh = &d3d11_mesh;
+        path_state.samples = 0;
+        path_state.finished = 0;
+        path_state.error = 0;
+        gex_i4_app_set_update_callback(&app, i4_camera_path_update, &path_state);
+        g_camera_path_state = &path_state;
+        printf("camera path: playing (%d records, one step per logical "
+               "update)\n", (int)scene.dfx_path.path.count);
+    }
+#endif
 
     last_error = GEX_FRAME_OK;
     last_stats_us = start_us;

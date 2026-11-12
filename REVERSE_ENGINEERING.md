@@ -542,6 +542,36 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    como pendiente. La regla: es preferible una funcion que dice "no modelado"
    a una que devuelve un numero plausible, porque el numero plausible se
    propaga al renderer sin que nadie sepa de donde salio.
+24. **Un dato que viene de un fichero tiene que llegar por su camino, no por
+   su aspecto.** Los 26 registros de la trayectoria de camara estan en el
+   `.DFX` del nivel y el port los lee siguiendo la cadena de punteros real
+   (header -> actor -> entidad -> objeto -> array) dentro de la imagen
+   compactada. La tentacion era buscar en la imagen un bloque de 26 bytes
+   que "pareciera" la tabla; el camino real es el unico que explica por que
+   los 832 B son identicos al volcado en memoria. Y el cargador **rechaza**
+   los niveles que no tienen esa estructura (AZTEC16, CIRCUIT0) en vez de
+   devolver una tabla vacia o inventada. La regla: un lector de datos de
+   juego valida la estructura que espera y falla de forma explicita; el
+   llamador decide que hacer con un nivel que no encaja.
+25. **La cadena mas fuerte es la que cierra el circuito entero.** La
+   validacion de la trayectoria no se quedo en "la camara produce las mismas
+   posiciones": ademas de comparar las 428 muestras contra el TSV crudo
+   leido en tiempo de ejecucion (para que un error en el generador del
+   header de referencia no pudiera esconder una diferencia con el original),
+   se leyo de vuelta el **buffer de vertices de la GPU** antes y despues de
+   mover la camara y se comprobo que es distinto. Y se ejecuto la aplicacion
+   real con ventana y GPU hardware: la camara recorre la escena y termina en
+   el encuadre del menu. La regla: una integracion no esta cerrada hasta que
+   el dato llega a lo que se dibuja y se ha visto funcionar.
+26. **Un limite del modulo de arriba puede pasar al de abajo sin que nadie
+   lo note.** El atlas de texturas caben 64 entradas y el vuelo de MAP7 toca
+   166 texturas distintas: en el frame 0 solo se veian 62, asi que el limite
+   no se veia hasta que la camara se movio. La solucion aplicada fue elegir
+   las texturas mas usadas (91,3 % de cobertura) **sin tocar** el modulo de
+   texturas ni el shader, y **declarar** el 8,7 % restante. La regla: al
+   integrar, comprobar que los limites del sistema receptor siguen valiendo
+   en el caso nuevo, y si no, decirlo con numeros en vez de dejarlo
+   implicito.
 
 
 ## 5. Registro

@@ -335,15 +335,90 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
     return GEX_SCENE_OK;
 }
 
-gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
-                                             const char *path,
-                                             const gex_camera *cam) {
+/*
+ * Emision con la camara del juego: una pasada, sin encuadre automatico.
+ *
+ * `scene_camera_view` deja la matriz de emision de `cam+0xE0` y la niebla. El
+ * BSP se recorre con la camara (prueba de esfera de los seis semiplanos de
+ * A/B) y la emision usa esa matriz. No hay matrices sinteticas ni encuadre.
+ *
+ * Los bloques de la escena se liberan antes de volver a llenarlos: la
+ * escena se puede re-emitir tantas veces como frames haga falta (es lo que
+ * hace el juego en cada frame del vuelo).
+ */
+static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
+                                               const gex_camera *cam)
+{
     gex_emit_matrix mat;
     gex_emit_fog fog;
-    gex_dfx_status dst;
     gex_bsp_status bst;
     gex_emit_status est;
     gex_geom_status gst;
+
+    /* 2. Recorrido del BSP con la camara original: la prueba de esfera
+     *    contra los seis semiplanos de A/B (0x00401C00) y el orden de
+     *    apilado por plano. */
+    if (scene->leaves_loaded) {
+        gex_bsp_walk_free(&scene->leaves);
+        scene->leaves_loaded = 0;
+    }
+    bst = gex_bsp_walk(scene->container.image, scene->container.image_size,
+                       scene->level.descriptor.root_bsp, scene_visible_all,
+                       NULL, cam, &scene->leaves);
+    if (bst != GEX_BSP_OK) {
+        return GEX_SCENE_ERR_BSP;
+    }
+    scene->leaves_loaded = 1;
+    scene->stats.leaf_count = (uint32_t)scene->leaves.count;
+
+    /* 3. Emision con la matriz de la camara. */
+    if (scene->emit_loaded) {
+        gex_emit_output_free(&scene->emit);
+        scene->emit_loaded = 0;
+    }
+    scene_camera_view(cam, &mat, &fog);
+    est = gex_level_emit(scene->container.image, scene->container.image_size,
+                         &scene->level.descriptor, &scene->leaves, &mat, &fog,
+                         0, &scene->emit);
+    if (est != GEX_EMIT_OK) {
+        return GEX_SCENE_ERR_EMIT;
+    }
+    scene->emit_loaded = 1;
+    scene->stats.triangles = scene->emit.count;
+    scene->stats.fog_triangles = scene->emit.fog_pass_count;
+    scene->stats.view_cx = mat.cx;
+    scene->stats.view_cy = mat.cy;
+    scene->stats.view_scale = mat.m[0];
+    scene->stats.camera_mode = 1;
+    memcpy(scene->stats.emit_m, mat.m, sizeof(mat.m));
+    scene->stats.emit_t[0] = mat.t[0];
+    scene->stats.emit_t[1] = mat.t[1];
+    scene->stats.emit_t[2] = mat.t[2];
+    scene->stats.proj_focal = mat.focal;
+    scene->stats.proj_near_z = mat.near_z;
+
+    /* 4. Conversion a vertices e indices. */
+    if (scene->geometry_loaded) {
+        gex_geometry_free(&scene->geometry);
+        scene->geometry_loaded = 0;
+    }
+    gst = gex_geometry_build(&scene->emit, &scene->geometry);
+    if (gst != GEX_GEOM_OK) {
+        return GEX_SCENE_ERR_GEOMETRY;
+    }
+    scene->geometry_loaded = 1;
+    scene->stats.vertices = scene->geometry.vertex_count;
+    scene->stats.indices = scene->geometry.index_count;
+    scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
+
+    return GEX_SCENE_OK;
+}
+
+gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
+                                             const char *path,
+                                             const gex_camera *cam) {
+    gex_dfx_status dst;
+    gex_scene_status st;
 
     if (scene == NULL || path == NULL || path[0] == '\0' || cam == NULL) {
         return GEX_SCENE_ERR_ARG;
@@ -369,53 +444,166 @@ gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
     scene->stats.descriptor_vertices = scene->level.descriptor.vertex_count;
     scene->stats.descriptor_polygons = scene->level.descriptor.polygon_count;
 
-    /* 2. Recorrido del BSP con la camara original: la prueba de esfera
-     *    contra los seis semiplanos de A/B (0x00401C00) y el orden de
-     *    apilado por plano. */
-    bst = gex_bsp_walk(scene->container.image, scene->container.image_size,
-                       scene->level.descriptor.root_bsp, scene_visible_all,
-                       NULL, cam, &scene->leaves);
-    if (bst != GEX_BSP_OK) {
-        return GEX_SCENE_ERR_BSP;
+    st = scene_emit_with_camera(scene, cam);
+    if (st != GEX_SCENE_OK) {
+        return st;
     }
-    scene->leaves_loaded = 1;
-    scene->stats.leaf_count = (uint32_t)scene->leaves.count;
-
-    /* 3. Emision con la matriz de la camara: una sola pasada, sin encuadre
-     *    automatico. */
-    scene_camera_view(cam, &mat, &fog);
-    est = gex_level_emit(scene->container.image, scene->container.image_size,
-                         &scene->level.descriptor, &scene->leaves, &mat, &fog,
-                         0, &scene->emit);
-    if (est != GEX_EMIT_OK) {
-        return GEX_SCENE_ERR_EMIT;
-    }
-    scene->emit_loaded = 1;
-    scene->stats.triangles = scene->emit.count;
-    scene->stats.fog_triangles = scene->emit.fog_pass_count;
-    scene->stats.view_cx = mat.cx;
-    scene->stats.view_cy = mat.cy;
-    scene->stats.view_scale = mat.m[0];
-    scene->stats.camera_mode = 1;
-    memcpy(scene->stats.emit_m, mat.m, sizeof(mat.m));
-    scene->stats.emit_t[0] = mat.t[0];
-    scene->stats.emit_t[1] = mat.t[1];
-    scene->stats.emit_t[2] = mat.t[2];
-    scene->stats.proj_focal = mat.focal;
-    scene->stats.proj_near_z = mat.near_z;
-
-    /* 4. Conversion a vertices e indices. */
-    gst = gex_geometry_build(&scene->emit, &scene->geometry);
-    if (gst != GEX_GEOM_OK) {
-        return GEX_SCENE_ERR_GEOMETRY;
-    }
-    scene->geometry_loaded = 1;
-    scene->stats.vertices = scene->geometry.vertex_count;
-    scene->stats.indices = scene->geometry.index_count;
-    scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
 
     scene->loaded = 1;
     return GEX_SCENE_OK;
+}
+
+gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
+                                                  const char *path,
+                                                  const gex_camera *cam) {
+    gex_dfx_status dst;
+    gex_scene_status st;
+
+    if (scene == NULL || path == NULL || path[0] == '\0' || cam == NULL) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (scene->loaded) {
+        return GEX_SCENE_ERR_ARG;
+    }
+
+    /* 1. Contenedor .DFX y descriptor del nivel. */
+    dst = gex_dfx_load(path, &scene->container);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_LOAD;
+    }
+    scene->container_loaded = 1;
+    scene->stats.container_entries = scene->container.count;
+
+    dst = gex_dfx_load_level(&scene->container, &scene->level);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_LEVEL;
+    }
+    scene->level_loaded = 1;
+    scene->stats.descriptor_vertices = scene->level.descriptor.vertex_count;
+    scene->stats.descriptor_polygons = scene->level.descriptor.polygon_count;
+
+    /* 2. Trayectoria de camara del propio nivel: la cadena de punteros
+     *    documentada (0x5FC -> actor -> entidad -> objeto -> registros). */
+    dst = gex_dfx_load_camera_path(&scene->container, &scene->dfx_path);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_PATH;
+    }
+    scene->path_loaded = 1;
+    /* Nodo en el estado original: indice 0, fraccion 0. */
+    gex_camera_path_init_node(&scene->path_node);
+    scene->path_frames = 0;
+    scene->path_finished = 0;
+
+    /* 3. Emision inicial con la camara de referencia. */
+    st = scene_emit_with_camera(scene, cam);
+    if (st != GEX_SCENE_OK) {
+        return st;
+    }
+
+    scene->loaded = 1;
+    return GEX_SCENE_OK;
+}
+
+gex_scene_status gex_scene_camera_path_texture_usage(const char *level_path,
+                                                     const gex_camera *cam,
+                                                     uint32_t *counts,
+                                                     size_t counts_len,
+                                                     size_t *distinct)
+{
+    gex_scene_level scan;
+    gex_camera cam_local;
+    size_t seen = 0;
+    int frames = 0;
+
+    if (level_path == NULL || counts == NULL || counts_len == 0u) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    memset(counts, 0, counts_len * sizeof(uint32_t));
+    if (distinct != NULL) {
+        *distinct = 0;
+    }
+
+    /* Escena propia: la del llamante no se toca. */
+    memset(&scan, 0, sizeof(scan));
+    if (cam != NULL) {
+        cam_local = *cam;
+    } else {
+        gex_scene_reference_camera(&cam_local);
+    }
+    if (gex_scene_level_load_camera_path(&scan, level_path, &cam_local) !=
+        GEX_SCENE_OK) {
+        gex_scene_level_free(&scan);
+        return GEX_SCENE_ERR_PATH;
+    }
+
+    /* Se recorre el vuelo entero. El limite de 428 frames es el de la
+     * trayectoria medida; si el nivel tuviera otra, el centinela la corta. */
+    for (frames = 0; frames < 4096; frames++) {
+        size_t v;
+        int step = gex_scene_level_camera_path_step(&scan, &cam_local);
+        if (step <= 0) {
+            break;
+        }
+        for (v = 0; v < scan.geometry.vertex_count; v++) {
+            uint32_t idx = scan.geometry.vertices[v].texture & 0x3FFFu;
+            if ((size_t)idx >= counts_len) {
+                continue;
+            }
+            if (counts[idx] == 0u) {
+                seen++;
+            }
+            counts[idx]++;
+        }
+    }
+    gex_scene_level_free(&scan);
+
+    if (distinct != NULL) {
+        *distinct = seen;
+    }
+    return GEX_SCENE_OK;
+}
+
+int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam) {
+    int16_t sample[3];
+    gex_scene_status st;
+
+    if (scene == NULL || cam == NULL) {
+        return -1;
+    }
+    if (!scene->path_loaded || !scene->loaded) {
+        return -1;
+    }
+    if (scene->path_finished) {
+        /* Tras el centinela no se escribe nada mas. */
+        return 0;
+    }
+
+    /* 1. Un paso de la trayectoria (avance + evaluacion). */
+    if (gex_camera_path_step(&scene->dfx_path.path, &scene->path_node,
+                             sample) == 0) {
+        scene->path_finished = 1;
+        return 0;
+    }
+
+    /* 2. Solo la posicion: la ruta de rotacion (10 B) no esta decodificada y
+     *    la orientacion medida se conserva. */
+    cam->pos[0] = sample[0];
+    cam->pos[1] = sample[1];
+    cam->pos[2] = sample[2];
+    /* Las matrices A/B y a_cam/b_cam dependen de la posicion: se recalculan
+     *    (mismo camino que el original tras escribir la camara). */
+    gex_cam_update(cam);
+
+    /* 3. Re-emision con la nueva camara: el BSP se vuelve a recorrer (la
+     *    visibilidad depende de la camara) y la emision se rehace con la
+     *    matriz nueva. */
+    st = scene_emit_with_camera(scene, cam);
+    if (st != GEX_SCENE_OK) {
+        return -1;
+    }
+
+    scene->path_frames++;
+    return 1;
 }
 
 void gex_scene_level_free(gex_scene_level *scene)
@@ -434,6 +622,10 @@ void gex_scene_level_free(gex_scene_level *scene)
     if (scene->leaves_loaded) {
         gex_bsp_walk_free(&scene->leaves);
         scene->leaves_loaded = 0;
+    }
+    if (scene->path_loaded) {
+        gex_dfx_release_camera_path(&scene->dfx_path);
+        scene->path_loaded = 0;
     }
     if (scene->level_loaded) {
         gex_dfx_release_level(&scene->level);
@@ -464,6 +656,8 @@ const char *gex_scene_status_name(gex_scene_status status)
         return "polygon emission failed";
     case GEX_SCENE_ERR_GEOMETRY:
         return "geometry conversion failed";
+    case GEX_SCENE_ERR_PATH:
+        return "level has no camera path";
     case GEX_SCENE_ERR_NOMEM:
         return "out of memory";
     }
