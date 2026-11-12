@@ -2577,6 +2577,17 @@ El caso opaco no cambia (ya devolvía alfa 1, que es lo que hace el original) y
 los **32 triángulos** ARGB_4444 ahora se mezclan con el alfa real de la
 textura en lugar de attenuated por un byte sin sentido gráfico.
 
+**La escala del color (pendiente).** Los tres flotantes del color están en el
+espacio **0..2** de Glide (2 × el byte), no en 0..1: el byte 0x14 se ve como
+40.0 y el byte 0x5A como 180.0. El port normaliza a 0..1 (el color se sube
+como `R8G8B8A8_UNORM`). Si el driver no compensa esa escala al final, la
+escena del original sería el doble de brillante que la del port. **No se ha
+cerrado**: el *pixel shader* capturado en runtime era el de la ruta 2D con
+*cromakey*, no el de modulated con niebla del nivel, y no se ha medido el
+resultado final (la ventana del juego devuelve negro). Queda como pregunta
+abierta, con el método ya disponible (volcar el shader ensamblado y leer el
+factor que aplique).
+
 **Límites.** Todo lo anterior está medido sobre **nGlide 2.10**, el driver que
 el proyecto usa de verdad; el comportamiento del **SST-1 de 3dfx** no es
 observable aquí (y su formato de vértice tampoco: el juego entrega vértices con
