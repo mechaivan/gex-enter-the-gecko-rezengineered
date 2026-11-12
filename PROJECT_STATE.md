@@ -162,10 +162,10 @@
   `(2341, 4071, 3074)` hasta el encuadre del menú `(2243, 487, 196)`, en un
   arco largo (sube a `Y=6503`, baja a `Y=-8346`) y frena hasta el alto
   total. **No** es una cinemática de vídeo (el S4 corre antes, en su propio
-  bucle bloqueante) ni una interpolación de dos puntos (el ajuste polinomico
-  de grado 3 deja residuos del orden del recorrido: no es un polinomio de bajo
-  grado, pero eso no demuestra por sí solo una spline ni identifica sus puntos
-  de control; el interpolador sigue pendiente de decodificar el nodo). El bloque `0x43B56B..0x43B5CC` realiza la **colocación inicial** copiando
+  bucle bloqueante) ni una interpolación de dos puntos (el ajuste polinómico
+  de grado 3 descarta un polinomio de bajo grado como descripción; la
+  representación real se cerró después: **26 registros de control de 32 B** y
+  **Hermite en Q15**, ver la entrada del 2026-11-13). El bloque `0x43B56B..0x43B5CC` realiza la **colocación inicial** copiando
   posición y orientación desde el nodo; no es la rutina de actualización de
   los 428 frames. El fichero y la representación de los datos se precisan en
   el apartado siguiente. En ese momento seguían pendientes el instante exacto
@@ -184,10 +184,11 @@
   estado global `0x006466D8` suma 1 en cada frame ⟹ en el port la unidad son
   los **428 frames**, no los 17,1 s (a 60 fps serían ≈ 7,1 s). Se **corrige**
   lo publicado el 2026-11-12: `0x200` es la **alineación** de la imagen del
-  `.DFX`, no un tamaño de registro de 0x200 B. Pendientes: la representación
-  de la trayectoria (los puntos intermedios no están como literales), la rutina
-  por frame que escribe la posición, el papel de `+0x10/+0x12/+0x14` y el
-  estado de menú. Detalle en [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
+  `.DFX`, no un tamaño de registro de 0x200 B. Quedaban pendientes entonces la
+  representación de la trayectoria y la rutina por frame que escribe la
+  posición; ambas se cerraron en las dos entradas siguientes. Siguen pendientes
+  el papel de `+0x10/+0x12/+0x14` y el estado de menú. Detalle en
+  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
 - **Escritor de la cámara del menú (2026-11-13):** con **breakpoints de
   escritura** (watchpoints de 4 B, nueva opción `watch:<addr>` del trazador del
   repo) sobre `cam+0x00/+0x04/+0x30/+0x34` se identifica **qué instrucción
@@ -200,9 +201,29 @@
   `0x5AC608`. `0x53EF00` navega un **array de registros** (dentro de la imagen
   del `.DFX`) indexado por un **nodo** con el índice (`int16`) y la fracción de
   interpolación (15 bits), e interpola entre el registro actual y el
-  siguiente. Queda pendiente: quién avanza el nodo, la curva exacta de la
-  interpolación y si el contador de `+0x46` gobierna la selección. Detalle en
+  siguiente. Quedaba pendiente quién avanza el nodo y la curva exacta; se
+  cerraron en la entrada siguiente, y el contador de `+0x46` **no** gobierna la
+  selección. Detalle en
   [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.8-4.10.
+- **Trayectoria del menú implementada y validada en el port (2026-11-13):**
+  las tres rutinas medidas (`0x53F252` avance, `0x53EF00` evaluación, `0x53DEB0`
+  Hermite Q15) están reproducidas con **aritmética entera** en
+  `port/include/gex/camera_path.h` + `port/src/camera/camera_path.c`, sin coma
+  flotante en ninguna parte. El módulo recibe los **26 registros ya validados**
+  (32 B: `D`, punto y tangentes) y reproduce el avance `+1` de la fracción de
+  15 bits, el cambio de segmento al llegar a `D`, el centinela y el truncado a
+  `int16`. El origen de los registros se reconstruyó siguiendo la **cadena real
+  de punteros** del `.DFX` (header `0x5FC` → actor `0x95EC` → `+0x28` →
+  entidad `0xC00C` → objeto `0xC02C` → array `0xC034`), no por escaneo de
+  bytes; los 832 B coinciden con el volcado runtime en `0x193E6F80`.
+  **Validación exacta:** `port/tests/test_camera_path.c` → **1437
+  comprobaciones, 0 fallos**, con las **428/428** posiciones medidas, la
+  primera `(2341, 4071, 3074)`, la última `(2243, 487, 196)` y ninguna
+  escritura posterior al centinela; `run_sanitizers.ps1` → O0/O2/asan/ubsan
+  24/24. **No** se declara la cámara completa: faltan la rotación (registros de
+  10 B / cuaternio / Euler), el estado de menú y la conexión al renderer D3D11
+  (tanda siguiente). Detalle en
+  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.5, § 6 y § 8.
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un

@@ -514,6 +514,34 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    (el `ret` real aparece en `a0`). Con esa lectura mal hecha, dos nodos de
    camara parecian uno solo. Si el breakpoint es interno, usar `dumpstack:` con
    el offset correcto o comprobar la coherencia con la funcion.
+21. **Para localizar un bloque de datos dentro de un fichero de recursos, hay
+   que seguir la cadena de punteros; no basta con buscar bytes parecidos.** Los
+   26 registros de 32 B de la camara del menu se localizaron siguiendo la
+   cadena real del contenedor compactado (header de nivel `0x5FC` -> registro de
+   actor `0x95EC` -> `+0x28` -> entidad `0xC00C` -> `+0x00` -> objeto `0xC02C`
+   -> `+0x00` -> array `0xC034`), y los 832 B resultantes son **identicos**
+   al volcado runtime del array en memoria. Un escaneo de bytes habria dado
+   candidatos ambiguos: la **spline hermana** de 26 registros con el mismo
+   patron de duraciones (`0xC394`), y una **ruta de 29 registros** casi igual
+   (`0xA5EC`), cuyo registro final difiere. La regla: un dato localizado por
+   coincidencia de bytes no es una ubicacion; tiene que haber una cadena que
+   lo explique, y el resultado se contrasta contra el volcado en memoria.
+22. **Una rama medida que parece un error se reproduce igual, y la prueba se
+   escribe contra la medida.** Con los flags `0x02`/`0x04` del objeto, el frame
+   que alcanza el centinela **reinicia el indice a 0 en ese mismo frame**, de
+   modo que copia el registro 0 y no el centinela; la primera version del modulo
+   y de la prueba asumia el comportamiento "razonable" (reiniciar despues) y
+   fallo contra la medida. La regla: el port reproduce la conducta observada,
+   la prueba se escribe contra la observacion y no contra la intuicion, y si el
+   comportamiento sigue sin explicacion se documenta como pendiente en lugar de
+   racionalizarlo.
+23. **Lo que no se puede reconstruir con evidencia se documenta y se para.** La
+   variante de **rotacion** (registros de 10 B, `0x43158D` / `0x431036`) no se
+   ha podido decodificar; en vez de aproximarla con una spline cualquiera, el
+   modulo **rechaza** esa variante de forma explicita y la ruta queda listada
+   como pendiente. La regla: es preferible una funcion que dice "no modelado"
+   a una que devuelve un numero plausible, porque el numero plausible se
+   propaga al renderer sin que nadie sepa de donde salio.
 
 
 ## 5. Registro

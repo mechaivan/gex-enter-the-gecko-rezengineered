@@ -263,15 +263,20 @@ Ajuste polinomial de las 428 muestras con `t = frame/427`:
 | grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
 
 (residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
-15 497). Los residuos permiten descartar un polinomio global de grado bajo,
-pero este ajuste por sí solo no identificaba el interpolador.
+15 497). Los residuos son del mismo orden que el propio recorrido: esto
+permite descartar un polinomio de grado bajo como descripción de la trayectoria,
+pero **no identifica por sí solo el interpolador ni demuestra una spline**.
+El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
+la hipótesis de varios puntos de control es compatible con esa estructura, pero
+queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
+si usa Catmull-Rom, otra spline o una secuencia de muestras.
 
-> **Conclusión actualizada (2026-11-13).** La evidencia posterior cerró esa
-> incógnita: el recorrido usa registros de **32 B** y una **Hermite cúbica en
-> Q15**, verificada con coincidencia exacta en las 428 muestras (§ 4.10-4.13).
-> Este ajuste polinómico se conserva únicamente como evidencia exploratoria
-> histórica; no describe el algoritmo real. El criterio con que se calcularon
-> las tangentes almacenadas sigue sin identificarse.
+> **Superado (2026-11-13).** Aquí se decía «registros de 0x200 B»: `0x200` es
+> la **alineación** de la imagen del `.DFX`, no el tamaño de un registro (§ 4.5).
+> El interpolador ya está identificado: registros de **32 B** y **Hermite
+> cúbica** en Q15 (§ 4.10), verificado contra las 428 muestras (§ 4.13). No se
+> etiqueta como Catmull-Rom porque el criterio de las tangentes no se ha
+> establecido.
 
 ### 4.3 El perfil de velocidad
 
@@ -350,6 +355,38 @@ tripelete de int16 en la imagen. ⟹ La representación **no** es una lista de
 posiciones muestreadas (queda por identificar si son puntos de control con
 otra codificación, o un movimiento paramétrico).
 
+> **Superado (2026-11-13).** Los puntos intermedios **sí** están en la imagen,
+> pero como **registros de control de 32 B**, no como posiciones muestreadas:
+> el frame 200 es una interpolación entre dos de esos registros, de modo que su
+> tripelete no tiene por qué aparecer literal. La ubicación se obtuvo siguiendo
+> la **cadena real de punteros** del contenedor, no por búsqueda de bytes
+> (siguiente apartado).
+
+**La cadena que lleva a los 26 registros (medida, no escaneada).** La imagen
+compactada de `level\map7.dfx` (con `image_offset = 0x19800`, calculado como
+`((count + 0x200) & ~0x1FF) * 4`) contiene la cadena:
+
+| Paso | Offset en la imagen | Contenido | Resultado |
+|---|---:|---|---|
+| Header de nivel | `0x5FC` | `4F 0 → 0x95EC`, `4F 1 → 0x961C`, `0E` | dos referencias de actor |
+| Actor (slot 0) | `0x95EC` | `+0x28` | entidad `0xC00C` |
+| Entidad | `0xC00C` | `+0x00` → objeto; `+0x10` → nodo (ceros en fichero) | objeto `0xC02C` |
+| Objeto | `0xC02C` | `+0x00` → registros; `+0x04` = 26; `+0x06` = 0; `+0x07` = 1 | array `0xC034` |
+| Array | `0xC034` | 26 × 32 B = 832 B | 25 segmentos + centinela |
+
+Los 832 B son **idénticos byte a byte** al volcado runtime del array en
+`0x193E6F80` (capturado con el juego en marcha): el fichero contiene el array
+ya construido, sin transformación. La ruta de 29 registros de la imagen
+`0xA5EC` (cabecera `0xA5CC`) coincide en los registros 0..23, pero su registro
+24 final difiere (`D=18`, tangentes `(1822, -299, -117)` frente al centinela);
+no es la ruta que usa la cámara de MAP7.
+
+> **Límite.** El significado del opcode `0x4F` del header y el criterio que
+> hace que el slot 0 sea la cámara (y el slot 1, una spline hermana de 26
+> registros en `0xC394`) **no** están identificados. Lo que está demostrado es
+> la ubicación determinista por la cadena y que sus 832 B son los del array en
+> memoria.
+
 ### 4.7 La temporización: **por frame**, no por reloj
 
 
@@ -393,14 +430,20 @@ registra la **instrucción que escribe** (EIP), el valor anterior y el nuevo, lo
 registros y la dirección de retorno. Es una opción aditiva: el comportamiento
 anterior (breakpoints de ejecución, volcados, guiones de teclas) no cambia.
 
-El controlador consume los datos de trayectoria a través del objeto
-del mundo. El valor `0x200` describe la alineación de la imagen del `.DFX`
-en el contenedor, no el tamaño de un registro.
+(residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
+15 497). Los residuos son del mismo orden que el propio recorrido: esto
+permite descartar un polinomio de grado bajo como descripción de la trayectoria,
+pero **no identifica por sí solo el interpolador ni demuestra una spline**.
+El controlador obtiene los datos de la imagen compactada de `level\\map7.dfx`.
+El valor `0x200` describe la alineación de esa imagen en el contenedor, no el
+tamaño de un registro. La representación de la trayectoria sigue pendiente de
+decodificación; no sabemos todavía si contiene puntos de control, coeficientes,
+una secuencia transformada u otra estructura.
 
-> **Conclusión actualizada (2026-11-13).** La representación está decodificada:
-> registros de **32 B** (punto, dos tangentes y duración `D`) incrustados en
-> el objeto del mundo; el interpolador es una **Hermite cúbica en Q15**,
-> verificada contra las 428 muestras (§ 4.10-4.13).
+> **Superado (2026-11-13).** La representación **sí** está decodificada: son
+> **registros de 32 B** (punto, dos tangentes y la duración `D`) incrustados en
+> el objeto del mundo, y la interpolación es una **Hermite cúbica** en Q15
+> (§ 4.10).
 **Qué escribe la cámara durante el vuelo.** Con `watch:` sobre
 `cam+0x00/+0x04/+0x30/+0x34` (posición X/Y, Z y Euler X/Y, Z) en una sesión
 completa de MAP7:
@@ -689,6 +732,8 @@ python analysis/verify_menu_camera_interp.py <trace_arr.log> --ptr 0x<array>
 | ¿El contador de `0x0064711E` gobierna la selección? | **no**: no coincide con la fracción ni con el índice, y no participa en el avance | medido (negativo) |
 | ¿Qué es `obj[+6]`? | la variante del registro: `1` → 10 B (rotación), otro → 32 B (posición) | medido |
 | ¿Cómo se calculan las tangentes del registro? | **sin identificar** (se leen tal cual del array) | pendiente |
+| ¿Dónde están los 26 registros en el `.DFX`? | cadena header `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` → objeto `0xC02C` → array `0xC034` (§ 4.5) | medido |
+| ¿Está reproducido en el port? | **sí**: módulo `gex/camera_path.h`, aritmética entera, 428/428 exactos (§ 6) | implementado |
 
 
 ## 5. Relación con el menú
@@ -732,7 +777,9 @@ indefinidamente; falta identificar el estado de menú para confirmarlo.
 
 ## 6. Diseño para el port (DX11)
 
-Con los datos medidos, el port necesita:
+La trayectoria ya **no** es un objetivo de investigación: es un dato validado y
+un módulo portable probado. Lo que queda es **conectarlo** al renderer D3D11,
+que es una tanda aparte.
 
 | Dato | Valor | Estado |
 |---|---|---|
@@ -740,37 +787,99 @@ Con los datos medidos, el port necesita:
 | Encuadre final | `(2243, 487, 196)`, Euler `(-29, 0, 2842)` | medido |
 | Duración | **428 frames** (≈ 17,1 s a ~25 fps) | medido |
 | Unidad de avance | **frames**, no segundos (§ 4.7) | medido |
-| Origen de los datos | **la imagen de `level\map7.dfx`** (§ 4.5), que el port ya parsea | identificado |
-| Encuadre final como dato | literal en la imagen del `.DFX`, offset `0xC356` | medido |
-| Posición en el nodo | `+0x28` (int16 ×3) | medido |
+| Origen de los datos | imagen de `level\map7.dfx`, cadena header `0x5FC` → actor `0x95EC` → entidad `0xC00C` → objeto `0xC02C` → array `0xC034` (§ 4.5) | identificado |
+| Encuadre final como dato | literal en la imagen del `.DFX`, offset `0xC356` (§ 4.6) | medido |
+| Posición en el nodo | `+0x28` (int16 ×3) (§ 4.6) | medido |
 | Forma | **Hermite cúbica en Q15** sobre registros de 32 B, 25 segmentos de `D` frames (§ 4.10) | medido y verificado 428/428 |
 | Avance | `+1` en la fracción de 15 bits por frame; `idx++` al llegar a `D` (§ 4.11) | medido |
-| Origen de los datos | controlador del mundo `0x006487E0`; array de registros en la imagen de `level\map7.dfx` | identificado |
+| Estado en el port | módulo `gex/camera_path.h` + pruebas exactas | implementado |
 
-**Lo que el port necesita para reproducirlo** (ya sin inventar nada):
+### 6.1 El módulo portable
 
-1. Reconstruir en el cargador del port la **estructura de 26 registros
-   de 32 B** que el original deja incrustada en el objeto del mundo (`obj+8`).
-   No asumir que el array es un bloque contiguo de registros directamente
-   localizable por escaneo en la imagen compactada: seguir y reproducir la
-   construcción del objeto a partir de los datos del nivel.
-2. Reproducir el avance **por frame** (incremento de la fracción y transición
-   de índice al alcanzar `D`) y la fórmula de § 4.10 con **enteros**, no con
-   coma flotante: el truncado a `int16` forma parte del resultado (verificado
-   bit a bit).
-3. La **rotación** va por otra ruta (registros de 10 B y cuaternios,
-   `0x43158D`); para el encuadre del menú basta con los valores medidos de Euler
-   (tabla de arriba) hasta que se cierre esa ruta.
+| Fichero | Papel |
+|---|---|
+| `port/include/gex/camera_path.h` | API: `gex_camera_path_key`, `gex_camera_path`, `gex_camera_path_node` |
+| `port/src/camera/camera_path.c` | implementación entera de las tres rutinas |
+| `port/tests/test_camera_path.c` | 1437 comprobaciones exactas |
+| `port/tests/ref_menu_camera_path.h` | 26 registros + 428 posiciones (generado) |
+| `analysis/gen_menu_camera_path_ref.py` | genera la referencia siguiendo la cadena del DFX |
 
-**Lo que sigue pendiente (no bloquea el port):**
+El contrato es explícito: el módulo **recibe registros ya validados** (no
+parsea el `.DFX`). La cadena de § 4.5 se usa en el generador de la referencia,
+no en el runtime del port; así el módulo no depende del formato del contenedor.
+
+```c
+gex_camera_path_key keys[26];      /* D, punto, tangente de salida y de entrada */
+gex_camera_path path = { keys, 26, 0, 1 };
+gex_camera_path_node node;
+
+gex_camera_path_init_node(&node);  /* index = 0, fracción = 0 */
+for (frame = 0; frame < 428; frame++) {
+    int16_t position[3];
+    if (gex_camera_path_step(&path, &node, position))
+        camera_set_position(position);   /* conexión pendiente (tanda siguiente) */
+}
+```
+
+- `gex_camera_path_advance` reproduce `0x53F252`: suma 1 a la fracción de 15
+  bits (preservando el bit de modo 0), cambia de segmento al llegar a `D`, y
+  devuelve 0 al alcanzar el centinela.
+- `gex_camera_path_eval` reproduce `0x53EF00`: copia directa si `D == 0` o
+  `frac == 0`; si no, `t = (frac << 15) / D` con **división con signo** y llama
+  a la Hermite.
+- La Hermite (`0x53DEB0`) usa **solo enteros**: productos de 32 bits con
+  *wrap*, `sar 15`, y truncado final a `int16`. **No hay coma flotante en
+  ninguna parte del módulo** (la coincidencia exacta de los 428 frames es la
+  prueba).
+- `gex_camera_path_validate` fija el contrato de los registros: al menos dos,
+  variante 0, duraciones no negativas y centinela (`D == 0`) al final.
+- La **variante 1** (registros de 10 B, rotación) se **rechaza** en lugar de
+  aproximarla; el último registro con `D > 0` también se rechaza para no leer
+  fuera del array.
+
+### 6.2 Validación (sin tolerancias)
+
+`port/tests/test_camera_path.c` compara **valor a valor**, eje por eje:
+
+- 26 registros; 25 duraciones que suman **428**; centinela con `D = 0`.
+- Las **428 posiciones** medidas del original, frame a frame: **428/428**.
+- Primera muestra `(2341, 4071, 3074)`; última `(2243, 487, 196)`.
+- Tras el centinela **no** se produce muestra ni se vuelve a escribir la
+  posición (se comprueba con un valor centinela en el destino).
+- Fronteras de segmento (los frames 19/20 y 32), bit de modo con `frac = 16384`
+  (media Hermite calculada a mano), flags de *wrap* `0x02`/`0x04`, argumentos
+  inválidos, índices fuera de rango y variante 1.
+
+Resultados: `port/build.ps1 test` → **1437 comprobaciones, 0 fallos** (y el
+resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsan,
+24/24 OK**.
+
+> **Comportamiento medido que no hay que «arreglar».** Con los flags de *wrap*
+> activos, el frame que alcanza el centinela **reinicia el índice a 0 en el
+> mismo frame**, de modo que ese frame copia el registro 0 y no el centinela.
+> El módulo lo reproduce; el significado de esos bits no está establecido.
+
+### 6.3 Lo que el módulo NO hace
+
+1. **No parsea el `.DFX`**: recibe los registros validados. Leerlos del
+   contenedor en el runtime es una decisión de integración, no del módulo.
+2. **No modela la rotación**: la variante de 10 B / cuaternio / Euler sigue
+   pendiente (§ 8).
+3. **No conoce el estado de menú** ni cuándo aparecen sus elementos (§ 5).
+4. **No toca el renderer**: ni emisión, ni texturas, ni orden de dibujo, ni la
+   cámara estática ya integrada. La conexión es la tarea siguiente.
+
+**Lo que sigue pendiente (no bloquea el módulo):**
 
 1. El **criterio de las tangentes**: se leen tal cual del registro; cómo las
    calculó el exportador no se ha establecido (no se etiqueta la curva como
    Catmull-Rom ni Bézier).
-2. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
-3. El **estado de menú** que dispara el vuelo y el momento exacto en que el
+2. El significado del opcode `0x4F` del header y el criterio de selección del
+   slot 0 como cámara (y el papel de la spline hermana de `0xC394`).
+3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
+4. El **estado de menú** que dispara el vuelo y el momento exacto en que el
    menú queda estable.
-4. La ruta de **rotación** (registros de 10 B) y su conversión a Euler.
+5. La ruta de **rotación** (registros de 10 B) y su conversión a Euler.
 
 ---
 
@@ -789,10 +898,19 @@ Con los datos medidos, el port necesita:
 
 ## 8. Siguiente tarea
 
-1. Reconstruir en el cargador del port la construcción del objeto que
-   contiene el array de 26 registros de 32 B (`obj+8`), siguiendo su origen
-   en los datos de MAP7.
-2. Medir la **relación con el menú** (ruta 2D, estado de menú).
-3. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler).
-4. Integrar la traslación en el port con aritmética entera y comparar frame a
-   frame contra `analysis/menu_camera_map7.tsv` y, después, contra el renderer.
+1. **Conectar el módulo al renderer D3D11** (tanda siguiente): llamar a
+   `gex_camera_path_step` una vez por frame desde el update de la escena y
+   escribir la posición en el nodo de cámara que ya consume la matriz `cam+0xE0`,
+   sin tocar emisión, texturas ni orden de dibujo. Comprobar que la escena
+   avanza 428 frames y que el encuadre final coincide con el ya integrado.
+2. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler).
+3. Identificar el **estado de menú** que dispara el vuelo y el instante en que
+   los elementos quedan visibles (ruta 2D o flujo de comandos).
+4. Establecer el **criterio de las tangentes** del exportador (sin él no se
+   etiqueta la curva).
+5. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
+   `0xC394`.
+
+La comparación frame a frame contra `analysis/menu_camera_map7.tsv` ya está
+cerrada en el módulo (428/428); lo que falta es la comparación **contra el
+renderer**, que depende del punto 1.

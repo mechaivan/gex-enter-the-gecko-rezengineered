@@ -129,9 +129,10 @@ puntos: el ajuste polinomico de grado 3 a las 428 muestras deja residuos del
 mismo orden que el recorrido, lo que descarta un polinomio de bajo grado como
 descripcion, pero no demuestra por si solo una spline ni identifica el
 interpolador. La aceleracion inicial y la frenada final estan medidas; la
-representacion de la trayectoria sigue pendiente de decodificar. El bloque `0x43B56B..0x43B5CC` copia posicion y orientacion para la
+representacion de la trayectoria se cerro despues (26 registros de control de
+32 B y Hermite en Q15, ver mas abajo). El bloque `0x43B56B..0x43B5CC` copia posicion y orientacion para la
 **colocacion inicial**; no es la rutina que actualiza la camara durante los
-428 frames. El mecanismo de esa actualizacion sigue sin identificar. Detalle en
+428 frames, que se identifico despues (`0x53E98C`). Detalle en
 `S3_MENU_CAMERA_SEQUENCE.md`.
 
 El controlador de camara del menu se ha seguido el 2026-11-13 con el mismo
@@ -147,10 +148,10 @@ nodo esta en `+0x28`; (3) el avance es **por frame**: un contador int16 en
 port la unidad son los 428 frames y no los 17,1 s; (4) se **corrige** lo
 publicado el 2026-11-12: `0x200` es la alineacion de la imagen del .DFX, no
 un tamano de registro de 0x200 B, y `0x1FF` es su mascara. Lo que **no** se
-ha identificado: la representacion de la trayectoria (los puntos intermedios no
-estan como literales en la imagen), la rutina por frame que escribe la
-posicion de la camara, el papel de los campos `+0x10/+0x12/+0x14` y el
-estado de menu.
+habia identificado entonces: la representacion de la trayectoria y la rutina
+por frame que escribe la posicion de la camara; ambas se cerraron despues.
+Siguen abiertos el papel de los campos `+0x10/+0x12/+0x14` y el estado de
+menu.
 
 El escritor de la camara del menu se ha localizado el 2026-11-13 con
 watchpoints de escritura: el trazador del repo (`tools/frame-trace/tracer.cs`)
@@ -163,8 +164,8 @@ por frame, y paran al final del vuelo) y la orientacion `0x4122E8`/`0x4122F6`/
 desde un puntero que devuelve `0x53E98C`, que a su vez llama a `0x53EF00`:
 esta recorre un array de registros de la imagen del .DFX e **interpola entre el
 registro actual y el siguiente** con una fraccion de 15 bits que lleva el nodo
-(indice int16 + flags). La forma exacta de la curva y quien avanza el nodo
-quedan pendientes.
+(indice int16 + flags). La forma exacta de la curva y quien avanza el nodo se
+cerraron en la tanda siguiente.
 
 El algoritmo de la trayectoria se ha cerrado el 2026-11-13, y el metodo es el
 mismo que en el resto del proyecto: **no deducir, medir y luego comprobar la
@@ -182,6 +183,20 @@ de 20 B sino de **32 B**, y el contador `0x0064711E` (el antiguo
 `0x006466D8+0x46`) **no** gobierna el nodo --coincide con la fraccion en 4 de
 607 escrituras--, aunque sigue sumando 1 por frame, que es lo unico que de el se
 afirmaba antes y lo unico que se sostiene.
+
+La trayectoria se ha llevado al port el 2026-11-13, y el criterio ha sido el
+mismo: no sustituir la aritmetica original por una aproximacion. El modulo
+`gex/camera_path.h` reproduce las tres rutinas con enteros (productos de 32
+bits con wrap, `sar 15`, division con signo y truncado a `int16`) y **no usa
+coma flotante en ninguna parte**; la prueba es que las **428/428** posiciones
+medidas coinciden exactamente, no dentro de una tolerancia. El origen de los 26
+registros se reconstruyo siguiendo la **cadena real de punteros** del `.DFX`
+(header `0x5FC` -> actor `0x95EC` -> `+0x28` -> entidad `0xC00C` -> objeto
+`0xC02C` -> array `0xC034`), no buscando bytes parecidos: los 832 B del fichero
+son identicos al volcado runtime del array. La variante de **rotacion**
+(registros de 10 B) se rechaza de forma explicita en vez de aproximarla, y la
+camara **no** se declara completa: faltan esa ruta, el estado de menu y la
+conexion al renderer D3D11.
 
 
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la

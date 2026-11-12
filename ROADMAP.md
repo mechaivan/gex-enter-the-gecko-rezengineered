@@ -162,9 +162,9 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     estado global `0x006466D8`): la unidad son los **428 frames**, no los
     17,1 s, de modo que a 60 fps la secuencia duraría ≈ 7,1 s. Se **corrige**
     lo publicado el 2026-11-12: `0x200` es la alineación de la imagen del
-    `.DFX`, no un tamaño de registro. Pendientes: la representación de la
-    trayectoria, la rutina por frame que escribe la posición, el papel de
-    `+0x10/+0x12/+0x14` y el estado de menú.
+    `.DFX`, no un tamaño de registro. Quedaban pendientes la representación de
+    la trayectoria y la rutina por frame (cerradas en las tandas 13.ª y 14.ª);
+    siguen abiertos el papel de `+0x10/+0x12/+0x14` y el estado de menú.
   - **Decimotercera tanda (2026-11-13, el escritor de la cámara del menú):**
     con **watchpoints de escritura** (nueva opción `watch:<addr>` del trazador
     del repo) se identifica la instrucción que escribe cada campo de la
@@ -175,8 +175,9 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     cadena `0x53E98C` → `0x53EF00` → `0x53DEB0` (buffer global `0x5AC608`):
     `0x53EF00` recorre un **array de registros de la imagen del `.DFX`** y
     **interpola entre el registro actual y el siguiente** con una fracción de
-    15 bits guardada en el nodo. Pendientes: quién avanza el nodo, la curva
-    exacta y la relación del contador de `+0x46` con la selección de datos.
+    15 bits guardada en el nodo. Quedaban pendientes quién avanza el nodo y la
+    curva exacta; ambas se cerraron en la tanda siguiente (y el contador de
+    `+0x46` no gobierna la selección).
   - **Decimocuarta tanda (2026-11-13, el algoritmo de la trayectoria, cerrado):**
     los tres pendientes anteriores quedan resueltos con medida. (a) **Quién
     avanza:** `0x53E98C` llama a `0x53F252` en `0x53E997` y a `0x53EF00` en
@@ -192,6 +193,21 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     (coincide con la fracción en 4 de 607 escrituras). Trazador ampliado de
     forma aditiva (`watchdyn:`, `probe:`, `dumpindraw:`). Detalle en
     `S3_MENU_CAMERA_SEQUENCE.md` § 4.9-4.14.
+  - **Decimoquinta tanda (2026-11-13, la trayectoria del menú en el port):**
+    las tres rutinas se reproducen con **aritmética entera** en un módulo
+    portable (`port/include/gex/camera_path.h`,
+    `port/src/camera/camera_path.c`): avance `+1` de la fracción de 15 bits,
+    cambio de segmento al llegar a `D`, centinela, evaluación Hermite Q15 y
+    truncado a `int16`, sin coma flotante. El origen de los **26 registros** se
+    reconstruye siguiendo la **cadena real de punteros** del `.DFX` (header
+    `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` → objeto `0xC02C` →
+    array `0xC034`); los 832 B coinciden con el volcado runtime. La referencia
+    se genera con `analysis/gen_menu_camera_path_ref.py`. **1437
+    comprobaciones, 0 fallos**, con las **428/428** posiciones exactas, la
+    primera `(2341, 4071, 3074)`, la última `(2243, 487, 196)` y ninguna
+    escritura tras el centinela; sanitizers O0/O2/asan/ubsan 24/24. La variante
+    de rotación (10 B) se **rechaza**, no se aproxima. No se declara la cámara
+    completa: faltan rotación, estado de menú y conexión al renderer D3D11.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

@@ -3,6 +3,7 @@ Set-Location -LiteralPath $root
 $OUTDIR = 'C:\Users\mechaivan\AppData\Local\Temp\opencode'
 $Compiler = 'clang'
 $cameraSrc = @((Join-Path $root 'src/camera/camera.c'))
+$cameraPathSrc = @((Join-Path $root 'src/camera/camera_path.c'))
 $bspSrc = @((Join-Path $root 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $root 'src/asset/dfx.c'))
 $vfxSrc = @((Join-Path $root 'src/asset/vfx.c'))
@@ -23,6 +24,7 @@ $fail = @()
 foreach ($v in $variants) {
   foreach ($t in @(
       @{ s = 'tests/test_camera.c';      n = 'test_camera';      x = @($cameraSrc + $bspSrc); f = @() },
+      @{ s = 'tests/test_camera_path.c'; n = 'test_camera_path'; x = @($cameraPathSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_bsp.c';         n = 'test_bsp';         x = @($bspSrc + $cameraSrc + $dfxBspSrc); f = @('-DGEX_BSP_TEST_FAULT_INJECT', '-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_level_emit.c';  n = 'test_level_emit';  x = @($dfxBspSrc + $bspSrc + $cameraSrc + $emitSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_scene_level.c'; n = 'test_scene_level'; x = @($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc); f = @('-I' + (Join-Path $root 'tests')) },

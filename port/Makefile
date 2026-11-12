@@ -34,6 +34,8 @@ CORE_SRC  := src/core/loop_core.c src/core/frame.c
 CORE_HDR  := include/gex/core/loop_core.h include/gex/core/frame.h
 CAMERA_SRC := src/camera/camera.c
 CAMERA_HDR := include/gex/camera.h
+CAMERA_PATH_SRC := src/camera/camera_path.c
+CAMERA_PATH_HDR := include/gex/camera_path.h
 BSP_SRC   := src/bsp/bsp.c
 BSP_HDR   := include/gex/bsp.h
 DFX_SRC   := src/asset/dfx.c
@@ -69,6 +71,9 @@ $(BUILD)/test_sag: tests/test_sag.c $(SAG_SRC) $(SAG_HDR) | $(BUILD)
 
 $(BUILD)/test_camera: tests/test_camera.c $(CAMERA_SRC) $(BSP_SRC) $(CAMERA_HDR) $(BSP_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tests/test_camera.c $(CAMERA_SRC) $(BSP_SRC) $(LDLIBS)
+
+$(BUILD)/test_camera_path: tests/test_camera_path.c $(CAMERA_PATH_SRC) $(CAMERA_PATH_HDR) tests/ref_menu_camera_path.h | $(BUILD)
+	$(CC) $(CFLAGS) -o $@ tests/test_camera_path.c $(CAMERA_PATH_SRC)
 
 $(BUILD)/test_bsp: tests/test_bsp.c $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SAG_SRC) $(BSP_HDR) $(CAMERA_HDR) $(DFX_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -DGEX_BSP_TEST_FAULT_INJECT -o $@ tests/test_bsp.c $(BSP_SRC) $(CAMERA_SRC) $(DFX_SRC) $(SAG_SRC) $(LDLIBS)
@@ -112,9 +117,10 @@ $(BUILD)/test_i4_app: tests/test_app.c $(APP_SRC) $(INPUT_SRC) $(RENDER_SRC) $(C
 $(BUILD)/sagplay: tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(AUDIO_HDR) $(SAG_HDR) | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ tools/sagplay.c $(AUDIO_SRC) $(SAG_SRC) $(LDLIBS)
 
-test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_geometry_shapes $(BUILD)/test_scene_level $(BUILD)/test_vfx $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
+test: $(BUILD)/test_sag $(BUILD)/test_camera $(BUILD)/test_camera_path $(BUILD)/test_bsp $(BUILD)/test_level_emit $(BUILD)/test_geometry $(BUILD)/test_geometry_shapes $(BUILD)/test_scene_level $(BUILD)/test_vfx $(BUILD)/test_adpcm $(BUILD)/test_audio $(BUILD)/test_frame $(BUILD)/test_input $(BUILD)/test_i4_app
 	./$(BUILD)/test_sag
 	./$(BUILD)/test_camera
+	./$(BUILD)/test_camera_path
 	./$(BUILD)/test_bsp
 	./$(BUILD)/test_level_emit
 	./$(BUILD)/test_geometry

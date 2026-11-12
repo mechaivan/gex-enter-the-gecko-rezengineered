@@ -807,10 +807,21 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.14):
   (`t = (frac15 << 15) / D`, aritmética entera, truncado a `int16`). El array
   está **incrustado en el objeto** del mundo (`obj+8`). Reimplementado y
   comparado con las 428 muestras publicadas: **428/428 exactas**.
-- **Lo que queda para el renderer**: leer ese array de 32 B de la imagen del
-  `.DFX` con el parser del port, reproducir el avance por frame con enteros, y
-  cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler). El
-  **estado de menú** sigue sin aislar.
+- **El módulo ya está en el port** (2026-11-13): `port/include/gex/camera_path.h`
+  + `port/src/camera/camera_path.c` reproducen las tres rutinas con **aritmética
+  entera** (sin coma flotante), y `port/tests/test_camera_path.c` las valida
+  **sin tolerancia** contra las 428 muestras medidas: **428/428**, primera
+  `(2341, 4071, 3074)`, última `(2243, 487, 196)`, sin escritura tras el
+  centinela; **1437 comprobaciones, 0 fallos** y sanitizers O0/O2/asan/ubsan
+  24/24. Los 26 registros se localizan siguiendo la **cadena real de punteros**
+  del `.DFX` (header `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` →
+  objeto `0xC02C` → array `0xC034`); el módulo **recibe los registros ya
+  validados** y no parsea el contenedor.
+- **Lo que queda para el renderer**: conectar `gex_camera_path_step` al update
+  por frame de la escena (una llamada por frame, escribiendo la posición en el
+  nodo de cámara que ya alimenta la matriz `cam+0xE0`), cerrar la ruta de
+  **rotación** (registros de 10 B → cuaternio → Euler) y el **estado de menú**,
+  que sigue sin aislar.
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
   de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas

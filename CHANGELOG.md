@@ -1,5 +1,86 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - La trayectoria del menu entra en el port: modulo portable con la aritmetica entera del original, validado 428/428
+
+La camara del menu deja de ser un pendiente de investigacion y pasa a ser un
+modulo del port, con la aritmetica **exacta** del ejecutable original. Sin
+cambios de produccion: **no** se toca el renderer DX11, ni la emision, ni las
+texturas, ni el orden de dibujo, ni la camara estatica ya integrada. La
+conexion con el renderer es la tanda siguiente.
+
+**MODULO (nuevo).** `port/include/gex/camera_path.h` y
+`port/src/camera/camera_path.c` reproducen las tres rutinas medidas:
+
+- `gex_camera_path_advance` (`0x53F252`): `frac = ((nodo[2]>>1)&0x7FFF) + 1`;
+  si `frac >= D` (el `int16` de `array[idx*32]`, duracion en frames), `idx++` y
+  `frac = 0`; el bit 0 de la palabra cruda (bit de modo) se preserva; al
+  alcanzar el centinela devuelve 0 y no se escribe nada mas.
+- `gex_camera_path_eval` (`0x53EF00`): copia directa del punto si `D == 0` o
+  `frac == 0`; si no, `t = (frac << 15) / D` con **division con signo** y
+  llamada a la Hermite.
+- Hermite (`0x53DEB0`) en **Q15 y solo enteros**: `t2 = (t*t)>>15`,
+  `t3 = (t2*t)>>15`, `h00 = 2t^3 - 3t^2 + 32768`, `h01 = 3t^2 - 2t^3`,
+  `h10 = t^3 - 2t^2 + t`, `h11 = t^3 - t^2`; suma con **wrap de 32 bits**,
+  `sar 15` y truncado final a `int16`.
+
+**SIN COMA FLOTANTE.** No hay ninguna operacion en punto flotante en el
+modulo: la coincidencia exacta de los 428 frames es la prueba de que la
+aritmetica es la del original, no una aproximacion.
+
+**ORIGEN DE LOS 26 REGISTROS (cadena real, no escaneo).** En la imagen
+compactada de `level\map7.dfx` (`image_offset = 0x19800`): header de nivel
+`0x5FC` (`4F/0 -> 0x95EC`, `4F/1 -> 0x961C`) -> actor `0x95EC` `+0x28` ->
+entidad `0xC00C` -> `+0x00` -> objeto `0xC02C` (`+0x04` = 26, `+0x06` = 0
+variante, `+0x07` = 1 flags) -> `+0x00` -> **26 registros de 32 B** en
+`0xC034`. Los 832 B son **identicos byte a byte** al volcado runtime del array
+en `0x193E6F80`. La cadena se usa en el **generador de la referencia**, no en
+el runtime del port: el modulo **recibe los registros ya validados** y no
+parsea el contenedor.
+
+**PRUEBAS (nuevo).** `port/tests/test_camera_path.c` y la referencia generada
+`port/tests/ref_menu_camera_path.h` (por `analysis/gen_menu_camera_path_ref.py`):
+**1437 comprobaciones, 0 fallos**, sin tolerancias:
+
+- 26 registros; 25 duraciones que suman **exactamente 428**; centinela con
+  `D = 0` al final.
+- las **428/428** posiciones medidas del original, eje por eje; primera
+  `(2341, 4071, 3074)`, ultima `(2243, 487, 196)`.
+- tras el centinela **no** se produce muestra ni se vuelve a escribir la
+  posicion (comprobado con un valor centinela en el destino).
+- fronteras de segmento (frames 19/20 y 32), bit de modo con `frac = 16384`
+  (media Hermite calculada a mano), flags `0x02`/`0x04`, argumentos invalidos,
+  indices fuera de rango y variante no modelada.
+
+`port/build.ps1 test` -> suites OK (camera path 1437 checks, 0 fallos) sin
+regresion en las demas; `port/run_sanitizers.ps1` -> **O0/O2/asan/ubsan,
+24/24 OK**. Registrado tambien en `port/Makefile` (objetivo `test_camera_path`).
+
+**NEGATIVOS Y LIMITES (no se ocultan).**
+
+- La **variante de rotacion** (registros de 10 B, `0x43158D` / `0x431036`,
+  cuaternio y Euler) **no** se ha podido decodificar: el modulo la **rechaza**
+  de forma explicita en vez de aproximarla. Sigue pendiente.
+- El **estado de menu** (cuando aparecen sus elementos) **no** esta aislado.
+- El opcode `0x4F` del header de nivel y el criterio que selecciona el slot 0
+  como camara **no** estan identificados; tampoco el papel de la spline
+  hermana de 26 registros en `0xC394`.
+- El **criterio de las tangentes** del exportador sigue sin establecer (no se
+  etiqueta la curva como Catmull-Rom ni Bezier).
+- Con los flags `0x02`/`0x04` el frame del centinela **reinicia el indice en el
+  mismo frame** (copia el registro 0, no el centinela): es la conducta medida y
+  se reproduce tal cual; su significado no esta establecido.
+- **No se declara la camara completa**: falta la rotacion, el estado de menu y
+  la conexion al renderer.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (§ 4.5 con la cadena, § 6
+rehecha con el modulo, API y validacion, § 8 con la tarea siguiente),
+`PROJECT_STATE.md`, `ROADMAP.md` (decimoquinta tanda), `RESEARCH.md` y
+`docs/D3D11_FIRST_SCENE_PLAN.md` (§ 10) actualizados para que ya no digan que
+el escritor, el avance del nodo o la formula estan pendientes.
+`REVERSE_ENGINEERING.md` suma tres lecciones: 21 (localizar datos por cadena
+de punteros, no por bytes), 22 (reproducir la conducta medida aunque parezca un
+error) y 23 (documentar y parar lo que no se puede reconstruir con evidencia).
+
 ## 2026-11-13 - 0.0.0 - El algoritmo de la trayectoria de la camara, cerrado: `0x53F252` avanza el nodo, Hermite en Q15 y verificacion 428/428
 
 Se cierra la investigacion del interpolador. Sin cambios de produccion en el

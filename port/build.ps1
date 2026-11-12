@@ -62,6 +62,7 @@ $coreSrc = @(
     (Join-Path $PSScriptRoot 'src/core/frame.c')
 )
 $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
+$cameraPathSrc = @((Join-Path $PSScriptRoot 'src/camera/camera_path.c'))
 $bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
 $vfxSrc = @((Join-Path $PSScriptRoot 'src/asset/vfx.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_decode.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_texture.c'))
@@ -108,6 +109,7 @@ New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_sag.c') 'test_sag.exe') 'SLAG container checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera.c') 'test_camera.exe' ($cameraSrc + $bspSrc) @('-lm')) 'camera orientation + visibility checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_camera_path.c') 'test_camera_path.exe' $cameraPathSrc) 'camera path (S-3) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_bsp.c') 'test_bsp.exe' ($bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_BSP_TEST_FAULT_INJECT', '-lm')) 'BSP traversal checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_level_emit.c') 'test_level_emit.exe' ($dfxBspSrc + $bspSrc + $cameraSrc + $emitSrc) @('-lm')) 'level emit (S-2) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry.c') 'test_geometry.exe' ($geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-DGEX_GEOM_TEST_FAULT_INJECT', '-lm')) 'geometry conversion (Module 3) checks'
