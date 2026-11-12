@@ -673,14 +673,16 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
   - Resolución correcta de índices de 14 bits
 
 ### Hito 5: Primer Renderizado Completo
-- **Estado:** 🔄 PARCIAL (2026-11-11). El **Módulo 5A** ya tiene el pipeline de
-  dibujo completo (§14): shaders, `ID3D11InputLayout`, estados, `DrawIndexed` y
-  una geometría 3D de prueba (el cubo) visible en la ventana de la aplicación.
-  Lo que falta para cerrar el hito: los **materiales NCC con iluminación** y el
-*depth buffer* (las **texturas** del Hito 4 están hechas en el Módulo 4C,
-§18; el *depth buffer* y la cámara original siguen pendientes),
-  blending del original y la carga del nivel real (`.DFX`) en el bucle de
-  frames. **El primer escenario original no está terminado.**
+- **Estado:** 🔄 PARCIAL (actualizado 2026-11-12). El **Módulo 5A** ya tiene el pipeline de
+  dibujo completo (§14): shaders, `ID3D11InputLayout`, estados, `DrawIndexed`.
+  El **Módulo 5B** carga geometría real de niveles y el Módulo 4C aporta las
+  texturas. Además, MAP7 ya se ejecuta en la ventana Win32 con GPU hardware:
+  la trayectoria real de posición avanza durante 428 updates, re-emite la
+  escena y actualiza los buffers D3D11, terminando en el encuadre del menú.
+  **No es todavía la secuencia original completa**: falta interpolar la
+  orientación y aislar el estado que activa los elementos del menú. También
+  faltan materiales NCC con iluminación, *depth buffer*, blending por
+  polígono del original, niebla después de la textura y `WM_SIZE`.
 - **Objetivo:** Renderizar AZTEC16 con D3D11
 - **Criterio de éxito:**
   - Geometría renderizada (siluetas reconocibles)
