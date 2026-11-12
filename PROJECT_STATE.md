@@ -10,6 +10,14 @@
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
 **Last updated:** 2026-11-13 (secuencia de cámara del menú: el algoritmo de posición, cerrado y verificado **428/428** en `S3_MENU_CAMERA_SEQUENCE.md`)
 
+### Comparativa PS1 PAL vs PC europeo (2026-11-12)
+
+- Observaciones manuales registradas en `docs/PS1_PC_BEHAVIOR_COMPARISON.md`: attract/demo mode por inactividad solo observado en el menú principal PS1; loop musical continuo en PS1 frente a pistas que terminan en PC; PS1 omite la cinemática de Ubisoft que sí aparece en PC.
+- Son diferencias observadas, no causas técnicas demostradas. La lista exacta de demos y el origen de la diferencia de cinemáticas siguen pendientes.
+- Investigación de loop pendiente antes de implementar. S-02 (`_inmm.dll`) y F-10 (handler musical externo) son pistas comunitarias/documentales, no fixes verificados para PC EU.
+- PS1 continúa como referencia secundaria. No cambiar el baseline PC silenciosamente; el loop estilo PS1 debe evaluarse como opción/mejora explícita.
+
+
 ### Secuencia de cámara del menú: el algoritmo de posición, cerrado (2026-11-13)
 
 - **Quién avanza el nodo (medido):** `0x53E98C` llama a `0x53F252` en
