@@ -789,11 +789,10 @@ Con los datos medidos, el port necesita:
 
 ## 8. Siguiente tarea
 
-1. Localizar el **array de 32 B** dentro de la imagen de `level\map7.dfx` y
-   leerlo con el parser del port (`port/src/asset/dfx.c`), para tener la
-   trayectoria como dato y no como muestras.
+1. Reconstruir en el cargador del port la construcción del objeto que
+   contiene el array de 26 registros de 32 B (`obj+8`), siguiendo su origen
+   en los datos de MAP7.
 2. Medir la **relación con el menú** (ruta 2D, estado de menú).
 3. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler).
-4. Implementar la secuencia en el port con la fórmula de § 4.10 y comparar
-   frame a frame contra `analysis/menu_camera_map7.tsv` (la comparación ya
-   existe: 428/428 con la fórmula, falta contra el renderer).
+4. Integrar la traslación en el port con aritmética entera y comparar frame a
+   frame contra `analysis/menu_camera_map7.tsv` y, después, contra el renderer.
