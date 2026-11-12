@@ -127,6 +127,10 @@
     alfa del texel por ese byte (0xB4 → 0,706): **corregido** (el alfa de
     salida es el del texel), con prueba de regresión que falla con el
     comportamiento anterior. Detalle en § 19.11.
+  Queda **pendiente** la **escala del color**: los tres flotantes del
+  vertice estan en el espacio 0..2 de Glide (2 x el byte) y el port
+  normaliza a 0..1; no se ha medido si el driver compensa esa escala
+  al final (docs/D3D11_FIRST_SCENE_PLAN.md 19.11).
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un
