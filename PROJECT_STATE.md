@@ -114,7 +114,7 @@
   vertice estan en el espacio 0..2 de Glide (2 x el byte) y el port
   normaliza a 0..1; no se ha medido si el driver compensa esa escala
   al final (docs/D3D11_FIRST_SCENE_PLAN.md 19.11).
-- **Secuencia de cámara hasta el menú (2026-11-13):** investigada con
+- **Secuencia de cámara hasta el menú (2026-11-12):** investigada con
   captura dinámica del original (copia de trabajo, exe intacto, breakpoints de
   hardware y volcado de solo lectura). Resultado: sin teclas el juego **no
   llega nunca** a la ruta 3D (se queda en el bucle de cine S4, tres
