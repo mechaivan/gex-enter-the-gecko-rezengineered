@@ -438,7 +438,8 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
   constante que traduce el índice del `.VFX` en posición y tamaño.
 - **Shader**: el vertex shader pasa la UV y el índice de textura
   (`nointerpolation uint`) y el pixel shader muestrea el atlas y modula el
-  color por vértice con el texel (`textura * color`, alfa incluido).
+  RGB por vértice con el texel. En MAP7 el vértice no aporta alfa: el alfa
+  de salida procede del texel (1.0 para texturas opacas), según §19.8 y §19.11.
 - **Aplicación**: con `--level` se deduce el `.VFX` del `.DFX`, se carga, se
   crea el atlas y se enlaza al pipeline. Sin `--level` (el cubo de prueba) no
   se toca nada.
@@ -1473,13 +1474,13 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
   interpenetrada haría falta un *depth buffer* real.
 - **La geometría de prueba es estática**: los buffers son inmutables, así que
   animarla exigiría recrearlos o usar buffers dinámicos.
-- **El color se escribe sin blending**: el canal alfa del vértice se escribe en
-  el render target pero no se usa para transparency; el blending del original
-  está pendiente.
-  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el blending del original
-  ya no está pendiente en su forma básica: su aritmética está **demostrada**
-  (§19.8) y el port la aplica. Lo pendiente es el **modo de mezcla por
-  comando** (§19.10) y el **alfa de vértice** (§19.11).
+- **Alfa del pipeline de prueba**: las pruebas sintéticas conservan el canal
+  alfa que les proporciona su vértice de entrada; eso no describe el formato
+  real del vértice de MAP7. ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:**
+  la captura de MAP7 demuestra que Glide recibe solo RGB y que el alfa efectivo
+  es constante 1.0. El port ya devuelve el alfa del texel, sin usar el byte alto
+  del opcode. Quedan el modo de mezcla por comando (§19.10) y la escala RGB
+  (§19.11).
 - Siguiente paso: **Módulo 4C (carga de texturas `.VFX` en D3D11; el Módulo 4B
   ya decodifica el píxel y las dimensiones)** y, con él, la firma definitiva del
   shader de producción, el *depth buffer* y el `ID3D11InputLayout` con los
@@ -1853,10 +1854,10 @@ evidencia local y **no se publica** en el repositorio.
   §18) ya están implementados: el nivel sale texturizado. Siguen pendientes
   los **materiales de producción**, el ***depth buffer***, el **blending por
   polígono** y la **niebla aplicada después de la textura** (§18.8).
-  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el *blending por
-  polígono* está **resuelto** en su aritmética (§19.8) y aplicado por el port;
-  lo que queda de ese bloque es el **modo de mezcla por comando** (§19.10) y
-  el **alfa de vértice** (§19.11).
+  ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el modo principal de
+  mezcla está reproducido y el alfa de MAP7 corregido (§19.8 y §19.11).
+  Quedan el **modo de mezcla por comando** de seis triángulos (§19.10) y la
+  **escala RGB** de Glide frente a la del port (§19.11).
 - **Cámara real**: el estado de cámara del juego ya está capturado y validado; la vista sigue siendo diagnóstica en cuanto a la
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
@@ -2073,10 +2074,11 @@ El comando de 0x34 B que escribe `0x426256` lleva por polígono:
 | `+0x2C/+0x2E/+0x30` | `z0`, `z1`, `z2` |
 | `+0x0B` | opcode `0xB4 \| ((color0>>24)&3)` |
 
-**El byte de alfa de `color0` es el opcode**: el opcode se escribe en `+0x0B`,
-que es exactamente el byte de alfa de `color0`, y lo hace **después** del
-payload. Por eso el color del comando del original siempre muestra `0xB4` en
-esa posición aunque el color del vértice tuviera otro alfa.
+**El byte alto de `color0` en el flujo de comandos es el opcode**: el opcode
+se escribe en `+0x0B`, que coincide con la posición del byte alto de
+`color0`, y lo hace **después** del payload. Por eso el registro del comando
+puede mostrar `0xB4` en esa posición. No es un canal alfa del vértice que se
+entrega a Glide: ese vértice real contiene solo tres flotantes B/G/R (§19.11).
 
 ### 19.2 El índice de textura: el segundo dword del registro UV
 
@@ -2122,11 +2124,13 @@ Con el estado de mezcla global `SRC_ALPHA/INV_SRC_ALPHA` eso equivale a
 substituir el destino (`src*1 + dst*0`), de modo que **el orden de dibujo no
 cambia** y no hace falta un *depth buffer* ni agrupar por modo.
 
-La aritmética está **confirmada contra el driver real** (§19.8): para el caso
-ARGB_4444 el original usa `alfa de salida = alfa del texel × alfa del vértice`
-y el estado `SRC_ALPHA`/`INV_SRC_ALPHA` con alfa `ONE`/`ZERO`, que es
-exactamente lo que hace el *pixel shader* (`color.a * t.a`) y el estado global
-del port.
+La aritmética está **confirmada contra nGlide 2.10** (§19.8): el programa
+genérico expresa `alfa de salida = alfa del texel × v0.a`, pero la captura
+del vértice real de MAP7 demuestra que no hay canal alfa y que el valor efectivo
+es constante 1.0. La salida efectiva es, por tanto, el alfa del texel. El port
+ya fue corregido para devolver ese alfa, sin multiplicarlo por el byte alto
+del opcode. El estado global reproduce el modo principal; los seis triángulos
+con mezcla `SRC_ALPHA`/`ONE` siguen pendientes (§19.10).
 
 ### 19.4 La niebla, antes que la textura
 
