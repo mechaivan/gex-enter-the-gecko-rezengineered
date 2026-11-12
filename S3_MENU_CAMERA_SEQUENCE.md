@@ -530,28 +530,29 @@ Con los datos medidos, el port necesita:
 | Origen de los datos | **la imagen de `level\map7.dfx`** (§ 4.5), que el port ya parsea | identificado |
 | Encuadre final como dato | literal en la imagen del `.DFX`, offset `0xC356` | medido |
 | Posición en el nodo | `+0x28` (int16 ×3) | medido |
-| Forma | recorrido curvo con aceleración y frenada; interpolador sin identificar | medido (trayectoria y perfil) |
-| Origen de los datos | controlador del mundo `0x006487E0` | identificado |
+| Forma | recorrido curvo; el navegador selecciona registros y el interpolador combina el actual y el siguiente mediante una fracción de 15 bits | mecanismo identificado; curva exacta pendiente |
+| Origen de los datos | controlador del mundo `0x006487E0` y array de registros en la imagen de `level\\map7.dfx` | identificado |
 
-**Lo que falta para poder implementarlo sin inventar:**
+**Lo que falta para poder implementarlo fielmente:**
 
-1. La **representación de la trayectoria** dentro de la imagen del `.DFX`: los
-   puntos intermedios **no** están como literales (el punto medido en el frame
-   200 no aparece), así que hay que decodificar qué contiene el nodo (puntos
-   de control con otra codificación, o un movimiento paramétrico).
-2. La rutina **por frame** que escribe la posición de la cámara: la copia de
-   `0x43B56B` es la colocación **de arranque** (toma el nodo y lo copia); la
-   que actualiza cada frame no está identificada (candidata: el flujo de
-   comandos del nivel).
-3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
-4. **Quién avanza el nodo** de la trayectoria (vive en el heap; se puede
-   capturar con `watch:` si se localiza su dirección en la misma sesión que
-   el watchpoint, o añadiendo al trazador la resolución dinámica de un
-   puntero) y **la curva exacta** de la interpolación (`0x53DEB0`).
-5. Si el contador de `0x006466D8+0x46` gobierna la **selección** de datos o
-   solo acompaña al avance.
-6. El **estado de menú** que dispara el vuelo y el momento exacto en que el
-   menú queda estable.
+1. **Quién avanza el nodo** de la trayectoria (el nodo vive en el heap; todavía
+   no se ha capturado la instrucción que modifica su índice/fracción).
+2. La **curva exacta** de `0x53DEB0`: se ha confirmado la interpolación entre
+   registros y el uso de una fracción de 15 bits, pero falta completar el
+   desensamblado y verificar la fórmula de los tres pesos polinómicos.
+3. Si el contador de `0x006466D8+0x46` gobierna la **selección** de registros
+   o solo acompaña al avance del nodo.
+4. El significado de los campos `+0x10/+0x12/+0x14` del estado en
+   `0x006466D8`.
+5. El **estado de menú** que dispara el vuelo y el momento exacto en que sus
+   elementos quedan visibles/preparados.
+
+La rutina que copia la posición durante el vuelo **ya está localizada**:
+`0x411BBB` / `0x411BCC` / `0x411BDD` escriben X/Y/Z, y la cadena
+`0x53E98C → 0x53EF00 → 0x53DEB0` produce los tres valores. Por tanto, no
+queda pendiente localizar el escritor de cámara ni sustituirlo por una
+aproximación: queda reconstruir el avance del nodo y la matemática exacta
+del interpolador.
 
 ---
 
@@ -570,8 +571,13 @@ Con los datos medidos, el port necesita:
 
 ## 8. Siguiente tarea
 
-1. Volcar el **controlador de cámara** (`0x006487E0`) por frame para
-   identificar los puntos de control y el parámetro de avance.
-2. Medir la **relación con el menú** (ruta 2D, estado de menú).
-3. Decidir si el port reproduce la trayectoria como **muestras medidas** o
-   implementa el **algoritmo original**, una vez identificado con evidencia.
+1. Capturar quién **modifica el nodo del heap** (índice y fracción) y
+   relacionar esa escritura con el update de cada frame y con
+   `0x006466D8+0x46`.
+2. Completar el desensamblado de `0x53DEB0` y verificar la fórmula exacta de
+   los tres pesos polinómicos para la variante de registros de 10 `int16`.
+3. Identificar el estado que hace visibles/preparados los elementos del menú
+   al terminar el vuelo.
+4. Con esos datos, implementar el algoritmo original en DX11 y validarlo
+   frente a la secuencia medida de 428 frames; no sustituirlo por una curva
+   aproximada ni por muestras inventadas.
