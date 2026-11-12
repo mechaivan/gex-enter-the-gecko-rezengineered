@@ -178,7 +178,8 @@ secuencia: el juego usa la rama normal (Euler en `cam+0x30`).
 
 ## 4. El mecanismo
 
-### 4.1 La cámara se copia de un controlador, no se calcula en el sitio
+### 4.1 La cámara copia: no calcula la trayectoria (§ 4.8-4.10)
+
 
 El escritor de la posición de la cámara está en la función que empieza en
 `0x0043B11D` (el update del mundo):
@@ -233,7 +234,62 @@ siguen sin identificar; no podemos afirmar todavía dónde ni cómo se interpola
 El port ya dispone de la imagen compactada de `level\\map7.dfx`, así que no
 necesita implementar E/S nueva para investigar esos datos.
 
+### 4.2 La trayectoria NO es una interpolación de dos puntos
+
+
+Ajuste polinomial de las 428 muestras con `t = frame/427`:
+
+| Ajuste | `X` | `Y` | `Z` | Euler X | Euler Z |
+|---|---:|---:|---:|---:|---:|
+| grado 3 | 5 929 | 7 081 | 1 495 | 234 | 2 044 |
+| grado 5 | 2 639 | 3 181 | 1 274 | 188 | 2 260 |
+| grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
+
+(residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
+15 497). Los residuos son del mismo orden que el propio recorrido: esto
+permite descartar un polinomio de grado bajo como descripción de la trayectoria,
+pero **no identifica por sí solo el interpolador ni demuestra una spline**.
+El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
+la hipótesis de varios puntos de control es compatible con esa estructura, pero
+queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
+si usa Catmull-Rom, otra spline o una secuencia de muestras.
+
+### 4.3 El perfil de velocidad
+
+
+| Tramo (frames) | `|Δ|` medio por frame |
+|---|---:|
+| 0–19 | 140,9 (arrancando desde 39,2) |
+| 20–39 | 204,0 (máximo 255,9) |
+| 40–419 | 111–181 (el recorrido curva) |
+| 420–426 | 52,7 (frenada: 89 → 41 → 26 → 9 → 0) |
+
+⟹ **aceleración inicial, crucero y frenada final hasta el alto total**.
+El perfil es compatible con una interpolación suave (por ejemplo, Catmull-Rom
+o equivalente), pero la velocidad observada no basta para identificar el
+algoritmo ni el número de puntos de control.
+
+### 4.4 Descartado: no es una cinemática de vídeo
+
+
+- El **S4** (cine) se ejecuta **antes** de la ruta 3D (3,7 / 15,1 / 25,8 s) y
+  es un bucle **bloqueante** con su propio `grSstWinOpen` de 640×480
+  ([`docs/SUBSYSTEM_SEGMENTS.md`](docs/SUBSYSTEM_SEGMENTS.md) § S4).
+- La cámara que se mueve es **`cam = 0x0065CD80`**, la del **nivel** (la misma
+  que consume el renderer del port y que se capturó en la ruta 3D), y se mueve
+  **dentro** de la ruta 3D, con el nivel dibujándose.
+- El movimiento ocurre en la ruta 3D (update por frame + emisión de
+  geometría activos) ⟹ **no es la reproducción de una película**.
+
+⟹ El mecanismo demostrado es: **un controlador de cámara del mundo alimenta
+la posición y orientación que la cámara copia por frame**, usando datos
+procedentes de un fichero. La estructura exacta de esos datos y el algoritmo
+que genera cada estado siguen pendientes de decodificación.
+
+---
+
 ### 4.5 El fichero: cuál es y cómo se localiza
+
 
 Medido con el trazador (breakpoint en `0x00461B90` y volcado de la cadena de
 la ruta; `dumpstr` no consume el límite de volcados, así que sale **todas** las
@@ -258,6 +314,7 @@ dentro de la imagen.
 
 ### 4.6 El nodo de cámara: `+0x28` y el encuadre final del menú
 
+
 - El offset `+0x28` de la copia (`0x43B573`) coincide con la **primera
   entrada** de la imagen: sus palabras `+0x28/+0x2A/+0x2C` valen
   `(2795, 77, 268)`, que es exactamente la posición de cámara de la **primera
@@ -275,6 +332,7 @@ posiciones muestreadas (queda por identificar si son puntos de control con
 otra codificación, o un movimiento paramétrico).
 
 ### 4.7 La temporización: **por frame**, no por reloj
+
 
 Estado de ejecución capturado por frame (volcado del bloque global
 `0x006466D8`, el estado de la ruta 3D):
@@ -297,15 +355,16 @@ El papel de `+0x10/+0x12/+0x14` (los valores que alternan) **no** está
 establecido: se han medido, pero no se ha identificado qué representan ni cómo
 participan en el cálculo.
 
-### 4.2 La trayectoria NO es una interpolación de dos puntos
+### 4.8 El escritor de la cámara, localizado con watchpoints de escritura
 
-Ajuste polinomial de las 428 muestras con `t = frame/427`:
 
-| Ajuste | `X` | `Y` | `Z` | Euler X | Euler Z |
-|---|---:|---:|---:|---:|---:|
-| grado 3 | 5 929 | 7 081 | 1 495 | 234 | 2 044 |
-| grado 5 | 2 639 | 3 181 | 1 274 | 188 | 2 260 |
-| grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
+**Extensión del trazador (2026-11-13).** `tools/frame-trace/tracer.cs` solo
+sabía poner breakpoints de **ejecución**. Se le ha añadido una opción
+**`watch:<addr>`**: un breakpoint de **escritura** de 4 bytes en una dirección
+absoluta (registro de depuración con `R/W=01`, `LEN=11`). Al dispararse,
+registra la **instrucción que escribe** (EIP), el valor anterior y el nuevo, los
+registros y la dirección de retorno. Es una opción aditiva: el comportamiento
+anterior (breakpoints de ejecución, volcados, guiones de teclas) no cambia.
 
 (residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
 15 497). Los residuos son del mismo orden que el propio recorrido: esto
@@ -316,39 +375,108 @@ El valor `0x200` describe la alineación de esa imagen en el contenedor, no el
 tamaño de un registro. La representación de la trayectoria sigue pendiente de
 decodificación; no sabemos todavía si contiene puntos de control, coeficientes,
 una secuencia transformada u otra estructura.
+**Qué escribe la cámara durante el vuelo.** Con `watch:` sobre
+`cam+0x00/+0x04/+0x30/+0x34` (posición X/Y, Z y Euler X/Y, Z) en una sesión
+completa de MAP7:
 
-### 4.3 El perfil de velocidad
+| Escritor (EIP) | Campo | Veces | Ventana |
+|---|---|---:|---|
+| `0x00411BBB` | posición X (`cam+0x00`) | **427** | 26 417 – 43 483 ms |
+| `0x00411BCC` | posición Y (`cam+0x02`) | **427** | ídem |
+| `0x00411BDD` | posición Z (`cam+0x04`) | **427** | ídem |
+| `0x004122E8` | Euler X (`cam+0x30`) | 563 | 25 950 – 48 888 ms |
+| `0x004122F6` | Euler Y (`cam+0x32`) | 563 | ídem |
+| `0x00412304` | Euler Z (`cam+0x34`) | 563 | ídem |
 
-| Tramo (frames) | `|Δ|` medio por frame |
-|---|---:|
-| 0–19 | 140,9 (arrancando desde 39,2) |
-| 20–39 | 204,0 (máximo 255,9) |
-| 40–419 | 111–181 (el recorrido curva) |
-| 420–426 | 52,7 (frenada: 89 → 41 → 26 → 9 → 0) |
+⟹ **La posición se escribe 427 veces: una por frame, del frame 1 al 428**, y
+**deja de escribirse** al terminar el vuelo (la cámara queda fija en su
+encuadre final). La orientación se escribe **una vez por frame durante toda la
+sesión** (563 escrituras), incluso después del vuelo.
 
-⟹ **aceleración inicial, crucero y frenada final hasta el alto total**.
-El perfil es compatible con una interpolación suave (por ejemplo, Catmull-Rom
-o equivalente), pero la velocidad observada no basta para identificar el
-algoritmo ni el número de puntos de control.
+**El bloque que copia la posición** (`0x411B55..0x411BD9`, dentro de la función
+que empieza en `0x00411B00`):
 
-### 4.4 Descartado: no es una cinemática de vídeo
+```asm
+0x411BAC  movl 0x8(%ebp), %ecx        ; el objeto del mundo
+0x411BAF  movl 0x8(%ecx), %edx        ; edx = &cam[+0x00]  (0x0065CD80)
+0x411BB2  movl -0xc(%ebp), %eax       ; eax = puntero devuelto por 0x53E98C
+0x411BB5  movw (%eax), %cx            ; lee p[0]
+0x411BB8  movw %cx, (%edx)            ; cam.pos.x = p[0]      <-- escritura
+0x411BC4  movw 0x2(%ecx), %dx         ; p[1]
+0x411BC8  movw %dx, 0x2(%eax)         ; cam.pos.y = p[1]
+0x411BD5  movw 0x4(%edx), %ax
+0x411BD9  movw %ax, 0x4(%ecx)         ; cam.pos.z = p[2]
+```
 
-- El **S4** (cine) se ejecuta **antes** de la ruta 3D (3,7 / 15,1 / 25,8 s) y
-  es un bucle **bloqueante** con su propio `grSstWinOpen` de 640×480
-  ([`docs/SUBSYSTEM_SEGMENTS.md`](docs/SUBSYSTEM_SEGMENTS.md) § S4).
-- La cámara que se mueve es **`cam = 0x0065CD80`**, la del **nivel** (la misma
-  que consume el renderer del port y que se capturó en la ruta 3D), y se mueve
-  **dentro** de la ruta 3D, con el nivel dibujándose.
-- El movimiento ocurre en la ruta 3D (update por frame + emisión de
-  geometría activos) ⟹ **no es la reproducción de una película**.
+Es decir: **la cámara no calcula nada, copia tres `int16` de un puntero**.
 
-⟹ El mecanismo demostrado es más limitado: el mundo carga un controlador
-asociado a `level\\map7.dfx`, y el bloque `0x43B56B..0x43B5CC` copia desde él
-la posición y orientación de **colocación inicial**. La rutina que actualiza la
-cámara durante los 428 frames aún no está identificada; tampoco la estructura
-de trayectoria ni el algoritmo que genera los estados intermedios.
+> **Actualizado (2026-11-13).** El párrafo anterior decía que la rutina
+> que actualiza la cámara durante los 428 frames no estaba identificada: **esa
+> limitación queda superada** por lo medido con breakpoints de escritura
+> (§ 4.8-4.10). Lo que **sigue** sin identificar es quién avanza el nodo de la
+> trayectoria, la curva exacta de la interpolación y si el contador de
+> `0x006466D8+0x46` gobierna la selección de datos.
 
----
+### 4.9 La cadena que produce ese puntero
+
+
+```
+0x411B94  calll 0x53e98c          ; -> puntero a la posición actual
+0x53E98C  calll 0x53f252         ; comprobación previa
+0x53E9B0  calll 0x53ef00         ; rellena el buffer global 0x5AC608
+0x53E9BC  movl $0x5ac608, %eax   ; y lo devuelve
+```
+
+- El **buffer global `0x005AC608`** es la posición del frame (tres `int16`).
+  Capturado con watchpoint: lo escribe `0x0053DF72` / `0x0053DFB1` (y la
+  tercera palabra), que están dentro de **`0x0053DEB0`**: la función de
+  interpolación.
+- `0x53EF00` es el **navegador de la trayectoria**:
+
+```asm
+0x53EF41  movswl 0x4(%ecx), %edx      ; obj[+4] = número de registros
+0x53EF48  cmpl %edx, %eax             ; ¿índice >= número?
+0x53EF65  movw 0x2(%edx), %ax         ; nodo[+2] = flags | fracción
+0x53EF6C  andw $0x1, %ax             ; bit 0 = "valor directo"
+0x53EF89  imull $0xa, %ecx, %ecx      ; índice * 10
+0x53EF94  movswl (%eax,%ecx), %ecx    ; array[índice * 10]
+0x53EFA3  shll $0x5, %eax            ; índice * 32  (la otra variante)
+```
+
+⟹ La estructura que consulta es:
+
+| Elemento | Contenido |
+|---|---|
+| `obj[+0]` | puntero al **array de registros** (dentro de la imagen del `.DFX`) |
+| `obj[+4]` | número de registros (`int16`) |
+| `obj[+6]` | bandera de variante: `0` → registros de **32 `int16` (64 B)**, `1` → registros de **10 `int16` (20 B)** |
+| nodo `+0` | **índice** del registro actual (`int16`) |
+| nodo `+2` | bit 0 = «usar el valor directo»; bits 1-15 = **fracción** de interpolación |
+
+Y la interpolación (`0x53DEB0`, la variante de 20 B, que es la que usa este
+juego) calcula **tres pesos polinómicos** a partir de la fracción `t` (con el
+desplazamiento en punto fijo leído de `[0x0054C1B0]`) y los aplica a los
+registros actual y siguiente. La forma cerrada exacta de esos pesos **no está
+verificada** (lectura parcial del desensamblado): queda pendiente.
+
+En runtime (sesión de captura): `obj = 0x193C5F78` y el nodo en `0x193C5F68`.
+Son direcciones del **heap** y **cambian entre ejecuciones**, así que no se
+pueden fijar a priori; por eso el nodo se localizó con un breakpoint de
+ejecución en `0x53E98C` (que registra sus argumentos) y no con un watchpoint
+directo.
+
+### 4.10 Resumen del mecanismo (lo que se sabe y lo que no)
+
+
+| Pregunta | Respuesta | Estado |
+|---|---|---|
+| ¿Quién escribe la posición? | `0x411BBB` / `0x411BCC` / `0x411BDD` | medido |
+| ¿Quién escribe la orientación? | `0x004122E8` / `0x4122F6` / `0x00412304` | medido |
+| ¿Cada cuánto? | posición: 1 por frame durante el vuelo (427 escrituras = frames 1..428); orientación: 1 por frame siempre | medido |
+| ¿De dónde salen los valores? | de un **array de registros** en la imagen del `.DFX`, indexado por el nodo | medido |
+| ¿Cómo se combinan? | interpolación entre el registro actual y el siguiente, con una fracción de 15 bits en el nodo | medido (mecánica); **la curva exacta no** |
+| ¿Quién avanza el nodo? | **no identificado** (el nodo está en el heap y su escritor no se ha capturado) | pendiente |
+| ¿El contador de `0x006466D8+0x46` gobierna la selección? | no demostrado: acompaña 1:1 a los frames, pero no se ha capturado el nodo en el mismo instante | pendiente |
 
 ## 5. Relación con el menú
 
@@ -416,7 +544,13 @@ Con los datos medidos, el port necesita:
    que actualiza cada frame no está identificada (candidata: el flujo de
    comandos del nivel).
 3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
-4. El **estado de menú** que dispara el vuelo y el momento exacto en que el
+4. **Quién avanza el nodo** de la trayectoria (vive en el heap; se puede
+   capturar con `watch:` si se localiza su dirección en la misma sesión que
+   el watchpoint, o añadiendo al trazador la resolución dinámica de un
+   puntero) y **la curva exacta** de la interpolación (`0x53DEB0`).
+5. Si el contador de `0x006466D8+0x46` gobierna la **selección** de datos o
+   solo acompaña al avance.
+6. El **estado de menú** que dispara el vuelo y el momento exacto en que el
    menú queda estable.
 
 ---

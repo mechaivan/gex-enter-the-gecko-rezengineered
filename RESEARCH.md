@@ -152,6 +152,20 @@ estan como literales en la imagen), la rutina por frame que escribe la
 posicion de la camara, el papel de los campos `+0x10/+0x12/+0x14` y el
 estado de menu.
 
+El escritor de la camara del menu se ha localizado el 2026-13 con
+watchpoints de escritura: el trazador del repo (`tools/frame-trace/tracer.cs`)
+solo sabia poner breakpoints de ejecucion, asi que se le ha anadido la opcion
+`watch:<addr>` (breakpoint de escritura de 4 bytes, con la instruccion que
+escribe, el valor anterior y el nuevo y los registros). Con ella se vio que la
+posicion la escriben `0x411BBB`/`0x411BCC`/`0x411BDD` (427 escrituras, una
+por frame, y paran al final del vuelo) y la orientacion `0x4122E8`/`0x4122F6`/
+`0x412304` (563, una por frame siempre). La camara solo **copia** tres int16
+desde un puntero que devuelve `0x53E98C`, que a su vez llama a `0x53EF00`:
+esta recorre un array de registros de la imagen del .DFX e **interpola entre el
+registro actual y el siguiente** con una fraccion de 15 bits que lleva el nodo
+(indice int16 + flags). La forma exacta de la curva y quien avanza el nodo
+quedan pendientes.
+
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del
 nombre de los campos ni de una aproximacion, sino de las instrucciones

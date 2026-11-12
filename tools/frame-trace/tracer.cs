@@ -153,6 +153,8 @@ public static class Tracer
     static readonly List<uint> dumpOffs = new List<uint>();
     static readonly List<int> dumpArgs = new List<int>();      // un bloque por opcion dump:
     static readonly List<uint[]> dumpOffSets = new List<uint[]>();
+    static readonly List<uint> watchAddrs = new List<uint>();   // watch:<addr> (escritura, 4 B)
+    static readonly Dictionary<uint, uint> watchPrev = new Dictionary<uint, uint>();
     static readonly List<uint> dumpAbsBases = new List<uint>();
     static readonly List<uint[]> dumpAbsOffSets = new List<uint[]>();
     static int dumpIndArg = -1;
@@ -210,17 +212,30 @@ public static class Tracer
 
     static void ApplyHw(IntPtr hThread)
     {
-        if (hwAddrs.Length == 0) return;
+        if (hwAddrs.Length == 0 && watchAddrs.Count == 0) return;
         var ctx = new WOW64_CONTEXT();
         ctx.ContextFlags = CONTEXT_FLAGS;
         ctx.ExtendedRegisters = new byte[512];
         if (!Wow64GetThreadContext(hThread, ref ctx)) return;
-        ctx.Dr0 = hwAddrs.Length > 0 ? hwAddrs[0] : 0;
-        ctx.Dr1 = hwAddrs.Length > 1 ? hwAddrs[1] : 0;
-        ctx.Dr2 = hwAddrs.Length > 2 ? hwAddrs[2] : 0;
-        ctx.Dr3 = hwAddrs.Length > 3 ? hwAddrs[3] : 0;
+        // Los registros de depuracion se reparten: primero los breakpoints de
+        // ejecucion y despues los watchpoints de escritura (4 bytes, RW=01).
+        var dr = new uint[4];
+        for (int i = 0; i < Math.Min(4, hwAddrs.Length); i++) dr[i] = hwAddrs[i];
+        for (int i = 0; i < watchAddrs.Count && hwAddrs.Length + i < 4; i++)
+            dr[hwAddrs.Length + i] = watchAddrs[i];
+        ctx.Dr0 = dr[0];
+        ctx.Dr1 = dr[1];
+        ctx.Dr2 = dr[2];
+        ctx.Dr3 = dr[3];
         uint dr7 = 0;
         for (int i = 0; i < Math.Min(4, hwAddrs.Length); i++) dr7 |= 1u << (2 * i); // local enable, execute, 1 byte
+        for (int i = 0; i < watchAddrs.Count && hwAddrs.Length + i < 4; i++)
+        {
+            int k = hwAddrs.Length + i;
+            dr7 |= 1u << (2 * k);          // enable local (bit 2k)
+            dr7 |= 0x1u << (16 + 4 * k);   // R/W = 01 (solo escritura) en los bits 16+4k
+            dr7 |= 0x3u << (18 + 4 * k);   // LEN = 11 (4 bytes) en los bits 18+4k
+        }
         ctx.Dr7 = dr7;
         ctx.Dr6 = 0;
         Wow64SetThreadContext(hThread, ref ctx);
@@ -274,6 +289,11 @@ public static class Tracer
         {
             string opt = args[i];
             if (opt == "regs") { wantRegs = true; continue; }
+            if (opt.StartsWith("watch:"))
+            {
+                watchAddrs.Add(Convert.ToUInt32(opt.Substring(6), 16));
+                continue;
+            }
             if (opt.StartsWith("dumplimit:"))
             {
                 dumpLimit = int.Parse(opt.Substring(10));
@@ -440,7 +460,28 @@ public static class Tracer
                     if (Wow64GetThreadContext(hThread, ref ctx))
                     {
                         uint at = ctx.Eip;
-                        if (hitCount.ContainsKey(at))
+                        // Un watchpoint de escritura dispara como SINGLE_STEP con
+                        // el bit correspondiente de DR6 puesto: EIP es la
+                        // instruccion que ha escrito.
+                        uint dr6 = ctx.Dr6;
+                        int wb = -1;
+                        for (int i = 0; i < 4; i++) { if ((dr6 & (1u << i)) != 0) { wb = i; break; } }
+                        int wi = wb - hwAddrs.Length;
+                        if (wb >= 0 && wi >= 0 && wi < watchAddrs.Count)
+                        {
+                            uint wa = watchAddrs[wi];
+                            uint wval = U32((IntPtr)wa);
+                            uint prev = watchPrev.ContainsKey(wa) ? watchPrev[wa] : 0xFFFFFFFFu;
+                            watchPrev[wa] = wval;
+                            seq++;
+                            Log(string.Format("WATCH\t{0}\t{1}\t{2}\taddr=0x{3:X8}\teip=0x{4:X8}\told=0x{5:X8}\tnew=0x{6:X8}\teax=0x{7:X8}\tecx=0x{8:X8}\tedx=0x{9:X8}\tesi=0x{10:X8}\tedi=0x{11:X8}\tebp=0x{12:X8}\tesp=0x{13:X8}\tret=0x{14:X8}",
+                                seq, clock.ElapsedMilliseconds, evTid, wa, at, prev, wval,
+                                ctx.Eax, ctx.Ecx, ctx.Edx, ctx.Esi, ctx.Edi, ctx.Ebp, ctx.Esp,
+                                U32((IntPtr)ctx.Esp)));
+                            ctx.Dr6 = 0;
+                            Wow64SetThreadContext(hThread, ref ctx);
+                        }
+                        else if (hitCount.ContainsKey(at))
                         {
                             hitCount[at]++;
                             lastCtx = ctx;

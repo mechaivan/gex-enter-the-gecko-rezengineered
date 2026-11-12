@@ -57,6 +57,7 @@ usa `ReadProcessMemory`. Se añaden como argumentos opcionales detrás de
 | `dumpabs:<base>:<off>,...` | dwords en la dirección absoluta `<base>`. Varios bloques separados por `;` |
 | `dumpind:<arg>:<ptrOff>:<off>,...` | dwords en la dirección contenida en `(argumento <arg> + <ptrOff>)`, más `<off>` |
 | `dumpraw:<arg>:<off>:<len>` | bytes contiguos en `(argumento <arg> + <off>)` |
+| `watch:<addr>` | **breakpoint de escritura** de 4 bytes en una dirección absoluta. Registra la **instrucción que escribe** (EIP), el valor anterior y el nuevo, los registros y la dirección de retorno. Ocupa un registro de depuración (como `hw:`), así que `hw:` + `watch:` no pueden pasar de 4 en total |
 | `dumpabsraw:<base>:<len>` | bytes contiguos en la dirección absoluta `<base>` |
 | `dumpabsind:<ptrAddr>:<len>` | bytes contiguos en la dirección guardada en el puntero global `<ptrAddr>` (por ejemplo la LUT de niebla en `0x64FEA8`) |
 | `dumpstack:<off>,...` | dwords en `(esp + <off>)` del punto de interrupción (para argumentos por debajo de `a2`) |

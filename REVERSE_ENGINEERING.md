@@ -440,7 +440,19 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
     instrumentador se midio (el mismo juego, con y sin volcado por frame:
     ~25 fps en ambos casos), sin lo cual la duracion de 17,1 s no seria
     defendible.
-15. **Un numero que parece un tamano de registro puede ser una alineacion.**
+15. **Para encontrar QUIEN escribe un dato, un breakpoint de ejecucion no
+    sirve: hace falta un breakpoint de escritura.** El trazador del repo solo
+    colocaba breakpoints de ejecucion, asi que la pregunta "que rutina mueve
+    la camara durante el vuelo" no tenia respuesta directa. Al anadir la
+    opcion `watch:<addr>` (breakpoint de escritura de 4 bytes, con la
+    instruccion que escribe, el valor anterior/nuevo y los registros) la
+    respuesta fue inmediata: la posicion la escriben tres instrucciones
+    consecutivas (`0x411BBB`/`0x411BCC`/`0x411BDD`) y se ve ademas **cuando**
+    dejan de escribirse (427 escrituras = una por frame, y paran al final del
+    vuelo). El mismo instrumentador permitio después seguir la cadena de
+    llamadas (`0x53E98C` -> `0x53EF00` -> `0x53DEB0`) leyendo los argumentos
+    que el trazador ya registra en cada impacto.
+16. **Un numero que parece un tamano de registro puede ser una alineacion.**
     `0x200` y `0x1FF` aparecian en la carga del .DFX del juego y se
     interpretaron como "registros de 0x200 B indexados con mascara 0x1FF". La
     aritmetic real era `(count + 0x200) & ~0x1FF` sobre el **conteo** de

@@ -149,6 +149,21 @@
   de la trayectoria (los puntos intermedios no están como literales), la rutina
   por frame que escribe la posición, el papel de `+0x10/+0x12/+0x14` y el
   estado de menú. Detalle en [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
+- **Escritor de la cámara del menú (2026-11-13):** con **breakpoints de
+  escritura** (watchpoints de 4 B, nueva opción `watch:<addr>` del trazador del
+  repo) sobre `cam+0x00/+0x04/+0x30/+0x34` se identifica **qué instrucción
+  escribe** cada campo durante el vuelo: la **posición** la escriben
+  `0x411BBB`/`0x411BCC`/`0x411BDD` (427 escrituras = **una por frame**, del
+  frame 1 al 428, y **dejan de escribirse** al terminar el vuelo) y la
+  **orientación** `0x4122E8`/`0x4122F6`/`0x412304` (563 = una por frame
+  siempre). El bloque de la posición **copia tres `int16`** desde un puntero que
+  devuelve `0x53E98C` → `0x53EF00` → `0x53DEB0`, que rellena el buffer global
+  `0x5AC608`. `0x53EF00` navega un **array de registros** (dentro de la imagen
+  del `.DFX`) indexado por un **nodo** con el índice (`int16`) y la fracción de
+  interpolación (15 bits), e interpola entre el registro actual y el
+  siguiente. Queda pendiente: quién avanza el nodo, la curva exacta de la
+  interpolación y si el contador de `+0x46` gobierna la selección. Detalle en
+  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.8-4.10.
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un

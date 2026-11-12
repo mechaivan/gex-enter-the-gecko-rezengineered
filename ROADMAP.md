@@ -165,6 +165,18 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     `.DFX`, no un tamaño de registro. Pendientes: la representación de la
     trayectoria, la rutina por frame que escribe la posición, el papel de
     `+0x10/+0x12/+0x14` y el estado de menú.
+  - **Decimotercera tanda (2026-11-13, el escritor de la cámara del menú):**
+    con **watchpoints de escritura** (nueva opción `watch:<addr>` del trazador
+    del repo) se identifica la instrucción que escribe cada campo de la
+    cámara: la posición en `0x411BBB`/`0x411BCC`/`0x411BDD` (427 escrituras =
+    una por frame del frame 1 al 428, y **paran** al final del vuelo) y la
+    orientación en `0x4122E8`/`0x4122F6`/`0x412304` (563 = una por frame
+    siempre). La cámara **copia** tres `int16` desde un puntero que produce la
+    cadena `0x53E98C` → `0x53EF00` → `0x53DEB0` (buffer global `0x5AC608`):
+    `0x53EF00` recorre un **array de registros de la imagen del `.DFX`** y
+    **interpola entre el registro actual y el siguiente** con una fracción de
+    15 bits guardada en el nodo. Pendientes: quién avanza el nodo, la curva
+    exacta y la relación del contador de `+0x46` con la selección de datos.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

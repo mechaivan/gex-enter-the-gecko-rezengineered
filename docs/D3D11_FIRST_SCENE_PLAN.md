@@ -802,6 +802,15 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.7):
 - **La temporización ya está**: el avance es **por frame** (contador int16 en
   `+0x46` del estado `0x006466D8`), así que la unidad a reproducir son los
   **428 frames**, no los 17,1 s (a 60 fps serían ≈ 7,1 s).
+- **El escritor de la cámara, localizado** (2026-11-13) con breakpoints de
+  escritura: la posición la escriben `0x411BBB`/`0x411BCC`/`0x411BDD` (427
+  escrituras, una por frame, que **paran** al final del vuelo) y la orientación
+  `0x4122E8`/`0x4122F6`/`0x412304` (563, una por frame siempre). La cámara
+  **copia** tres `int16` desde un puntero producido por la cadena
+  `0x53E98C` → `0x53EF00` → `0x53DEB0`, que recorre un array de registros de
+  la imagen del `.DFX` e **interpola entre el registro actual y el siguiente**
+  (fracción de 15 bits en el nodo). Pendientes: quién avanza el nodo y la curva
+  exacta de la interpolación (`S3_MENU_CAMERA_SEQUENCE.md` § 4.8-4.10).
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
   de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas

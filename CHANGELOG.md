@@ -1,5 +1,48 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - El escritor de la camara del menu, localizado con watchpoints de escritura: 0x411BBB/0x411BCC/0x411BDD (posicion) y 0x4122E8/0x4122F6/0x412304 (orientacion)
+
+Cierre de la investigacion del controlador de camara: se identifica **que
+instruccion escribe** cada campo de la camara durante el vuelo y **de donde**
+salen los valores. Sin cambios de produccion en el port.
+
+**INSTRUMENTACION (aditiva).** `tools/frame-trace/tracer.cs` solo colocaba
+breakpoints de EJECUCION; se le anade la opcion `watch:<addr>`: breakpoint de
+ESCRITURA de 4 bytes en una direccion absoluta, que registra la instruccion
+que escribe (EIP), el valor anterior y el nuevo, los registros y la
+direccion de retorno. El comportamiento anterior no cambia y la opcion queda
+documentada en `tools/frame-trace/README.md`.
+
+**LO MEDIDO.** Con watchpoints sobre `cam+0x00/+0x04/+0x30/+0x34`:
+
+| Escritor | Campo | Veces | Ventana |
+|---|---|---:|---|
+| `0x411BBB`/`0x411BCC`/`0x411BDD` | posicion X/Y/Z | **427** | 26,4-43,5 s |
+| `0x4122E8`/`0x4122F6`/`0x412304` | Euler X/Y/Z | 563 | 25,9-48,9 s |
+
+La posicion se escribe **una vez por frame, del frame 1 al 428**, y **deja de
+escribirse** al terminar el vuelo (la camara queda fija). La orientacion se
+escribe una vez por frame durante toda la sesion.
+
+**LA COPIA.** `0x411B55..0x411BD9` copia tres `int16` desde un puntero
+devuelto por `0x53E98C`; ese puntero es el buffer global `0x005AC608`, que
+rellena `0x53EF00` mediante la interpolacion `0x53DEB0`. `0x53EF00` recorre
+un **array de registros** (dentro de la imagen del `.DFX`) indexado por un
+**nodo** con el indice (`int16`) y la fraccion de interpolacion (15 bits), e
+interpola entre el registro actual y el siguiente. En runtime: `obj =
+0x193C5F78`, nodo en `0x193C5F68` (heap, cambian entre ejecuciones).
+
+**LO QUE QUEDA PENDIENTE.** Quien avanza el nodo (no capturado: vive en el
+heap), la curva exacta de la interpolacion (lectura parcial del desensamblado)
+y si el contador de `0x006466D8+0x46` gobierna la seleccion de datos o solo
+acompana al avance.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (§ 4.8-4.10 nuevas),
+`PROJECT_STATE.md`, `ROADMAP.md` (decimotercera tanda), `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` (leccion 15), `docs/D3D11_FIRST_SCENE_PLAN.md` (§ 10) y
+`tools/frame-trace/README.md`. Sin cambios de produccion: el renderer, la
+camara del port y el codigo de emision no se tocan.
+
 ## 2026-11-13 - 0.0.0 - Controlador de camara del menu: el fichero de datos es `level\map7.dfx` y el avance es por frame (no por reloj)
 
 Segundo pase de la investigacion de la secuencia de camara al menu: se
