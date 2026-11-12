@@ -221,8 +221,8 @@
   primera `(2341, 4071, 3074)`, la última `(2243, 487, 196)` y ninguna
   escritura posterior al centinela; `run_sanitizers.ps1` → O0/O2/asan/ubsan
   24/24. **No** se declara la cámara completa: faltan la rotación (registros de
-  10 B / cuaternio / Euler), el estado de menú y la conexión al renderer D3D11
-  (tanda siguiente). Detalle en
+  10 B / cuaternio / Euler) y el estado de menú. La conexión de la trayectoria
+  de posición al renderer se cerró en la tanda siguiente. Detalle en
   [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.5, § 6 y § 8.
 - **Trayectoria del menú conectada al renderer D3D11 (2026-11-13):** la
   integración cierra el circuito completo. (a) **Lectura de los registros
@@ -467,11 +467,13 @@
   NCC con iluminación), el ***depth buffer***, el **blending por polígono**
   del original, la **niebla aplicada después de la textura** (ahora se
   aplica antes, dentro del color por vértice), la **cámara real del juego**,
-  el *resize* de la ventana y la animación. El primer escenario original ya
-  se renderiza **con las texturas del `.VFX`**, pero **todavía no con la
-  cámara real**: el encuadre sigue siendo el diagnóstico del port. Sigue
-  pendiente la validación dinámica de S-2 contra el ejecutable original.
-  `PROJECT_STATUS.svg` no cambia (MAIN 40 %).
+  el *resize* de la ventana y la animación. MAP7 ya se renderiza con la
+  trayectoria de posición real conectada al renderer D3D11: 428 updates,
+  re-emisión de la escena y buffers GPU actualizados, con ejecución Win32
+  verificada. La orientación todavía no se interpola y el estado del menú
+  sigue sin aislarse. También sigue pendiente la validación dinámica completa
+  de S-2 contra el ejecutable original. `PROJECT_STATUS.svg` no cambia
+  (MAIN 40 %).
 
 ### Planificación: Primer Escenario Original en Direct3D 11 (2026-11-07)
 
