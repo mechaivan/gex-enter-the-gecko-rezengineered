@@ -5,7 +5,7 @@
 > instrumentación de solo lectura (breakpoints de hardware + volcado de memoria
 > por `ReadProcessMemory`) sobre una **copia de trabajo** del juego.
 >
-> Fecha de la captura: **2026-11-13**. Binario: `GEX3D.EXE` EU
+> Fecha de la captura: **2026-11-12**. Binario: `GEX3D.EXE` EU
 > (`md5 692b12825003417cc4a5a9d4db13eebe`, el mismo de las capturas
 > anteriores). Driver: **nGlide 2.10** (software, D3D9).
 
@@ -232,10 +232,13 @@ Ajuste polinomial de las 428 muestras con `t = frame/427`:
 | grado 7 | 2 848 | 1 816 | 1 010 | 162 | 2 231 |
 
 (residuo máximo en unidades del juego; el rango de cada eje es de 3 361 a
-15 497). Los residuos son del mismo orden que el propio recorrido ⟹ **la
-trayectoria no es un polinomio de grado bajo entre dos extremos**: es un
-**recorrido con varios puntos de control** (una spline) evaluado de forma
-continua.
+15 497). Los residuos son del mismo orden que el propio recorrido: esto
+permite descartar un polinomio de grado bajo como descripción de la trayectoria,
+pero **no identifica por sí solo el interpolador ni demuestra una spline**.
+El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
+la hipótesis de varios puntos de control es compatible con esa estructura, pero
+queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
+si usa Catmull-Rom, otra spline o una secuencia de muestras.
 
 ### 4.3 El perfil de velocidad
 
@@ -246,10 +249,10 @@ continua.
 | 40–419 | 111–181 (el recorrido curva) |
 | 420–426 | 52,7 (frenada: 89 → 41 → 26 → 9 → 0) |
 
-⟹ **aceleración inicial, velocidad cruise y frenada final hasta el alto
-total**. Es el perfil de una spline con interpolación suave (Catmull-Rom /
-equivalente), no el de una interpolación lineal entre puntos (que daría
-tramos rectos con cambios de dirección bruscos).
+⟹ **aceleración inicial, crucero y frenada final hasta el alto total**.
+El perfil es compatible con una interpolación suave (por ejemplo, Catmull-Rom
+o equivalente), pero la velocidad observada no basta para identificar el
+algoritmo ni el número de puntos de control.
 
 ### 4.4 Descartado: no es una cinemática de vídeo
 
@@ -262,9 +265,10 @@ tramos rectos con cambios de dirección bruscos).
 - El movimiento ocurre en la ruta 3D (update por frame + emisión de
   geometría activos) ⟹ **no es la reproducción de una película**.
 
-⟹ El mecanismo es: **secuencia de puntos de control (spline) evaluada por
-frame en el controlador de cámara del mundo**, reproducida mientras el menú
-se prepara sobre el nivel.
+⟹ El mecanismo demostrado es: **un controlador de cámara del mundo alimenta
+la posición y orientación que la cámara copia por frame**, usando datos
+procedentes de un fichero. La estructura exacta de esos datos y el algoritmo
+que genera cada estado siguen pendientes de decodificación.
 
 ---
 
@@ -307,13 +311,14 @@ Con los datos medidos, el port necesita:
 | Encuadre de partida | `(2341, 4071, 3074)`, Euler `(-397, 0, 2802)` | medido |
 | Encuadre final | `(2243, 487, 196)`, Euler `(-29, 0, 2842)` | medido |
 | Duración | 428 frames (≈ 17,1 s a ~25 fps) | medido |
-| Forma | spline de varios puntos de control, con aceleración y frenada | medido (perfil) |
+| Forma | recorrido curvo con aceleración y frenada; interpolador sin identificar | medido (trayectoria y perfil) |
 | Origen de los datos | controlador del mundo `0x006487E0` | identificado |
 
 **Lo que falta para poder implementarlo sin inventar:**
 
-1. Los **puntos de control** de la spline (el controlador los tiene; falta
-   volcarlos y entender su formato).
+1. La **estructura del controlador y sus registros** (0x200 B): volcarlos,
+   identificar campos y determinar si contienen puntos de control, muestras
+   precalculadas u otra representación.
 2. Si el avance es **por frame** o **por tiempo** (el juego corre a ~25 fps; el
    port corre a 60 ⟹ la diferencia es visible).
 3. El **estado de menú** que dispara el vuelo y el momento exacto en que el
@@ -339,6 +344,5 @@ Con los datos medidos, el port necesita:
 1. Volcar el **controlador de cámara** (`0x006487E0`) por frame para
    identificar los puntos de control y el parámetro de avance.
 2. Medir la **relación con el menú** (ruta 2D, estado de menú).
-3. Decidir si la secuencia se reproduce en el port como **datos** (la spline
-   capturada) o como **mecanismo** (el algoritmo del original, si se
-   identifica).
+3. Decidir si el port reproduce la trayectoria como **muestras medidas** o
+   implementa el **algoritmo original**, una vez identificado con evidencia.
