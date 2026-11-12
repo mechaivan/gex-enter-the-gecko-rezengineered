@@ -8,7 +8,46 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-12 (secuencia de cámara hasta el menú principal: capturada y documentada en `S3_MENU_CAMERA_SEQUENCE.md`)
+**Last updated:** 2026-11-13 (secuencia de cámara del menú: el algoritmo de posición, cerrado y verificado **428/428** en `S3_MENU_CAMERA_SEQUENCE.md`)
+
+### Secuencia de cámara del menú: el algoritmo de posición, cerrado (2026-11-13)
+
+- **Quién avanza el nodo (medido):** `0x53E98C` llama a `0x53F252` en
+  `0x53E997` (**avanza**) y a `0x53EF00` en `0x53E9B0` (**evalúa** en
+  `0x005AC608`). `0x53E98C` se ejecuta **una vez por frame** desde
+  `0x411B94` (bloque `0x411B8F` del update de cámara): 607 llamadas, 607 desde
+  `0x411B94`; **428** llegan a evaluar = los 428 frames del vuelo.
+- **El avance:** `frac = ((nodo[2]>>1)&0x7FFF) + 1` por llamada; si
+  `frac >= D`, `nodo[0]++` y `frac = 0`. `D` es el `int16` de
+  `array[idx*32 + 0]`: la **duración en frames** del segmento. Duraciones
+  medidas: `20,13,10,10,15,10,15,14,25,39,24,26,23,17,15,18,14,13,14,15,15,
+  15,15,15,18` → **suma exacta 428**.
+- **El registro es de 32 B** (corrección: la interpretación anterior decía
+  20 B): `+0` `D`; `+2/+4/+6` punto (int16); `+8/+0xC/+0x10` tangente de salida
+  (int32); `+0x14/+0x18/+0x1C` tangente de entrada (int32). El array está
+  **incrustado en el objeto** (`obj[+0]` → `obj+8`). `obj[+6] == 1` selecciona
+  la otra variante, de 10 B (rotación, cuaternios).
+- **La fórmula (verificada):** `t = (frac15 << 15) / D` (Q15) y
+  **Hermite cúbica** con aritmética entera: `h00 = 2t³-3t²+32768`,
+  `h01 = 3t²-2t³`, `h10 = t³-2t²+t`, `h11 = t³-t²` (en Q15), y
+  `out[k] = (int16)((P_a·h00 + P_b·h01 + T_a·h10 + T_b·h11) >> 15)`.
+  `S = [0x0054C1B0] = 15`, medido en runtime.
+- **Verificación:** reimplementada en Python con enteros exactos y comparada
+  con las 428 muestras de `analysis/menu_camera_map7.tsv`: **428/428
+  coincidencias exactas** en los tres ejes. También coincide la primera
+  muestra viva de `0x005AC608` (`(2341, 4071, 3074)` = frame 0).
+- **Resultado negativo medido:** el contador `0x0064711E`
+  (`0x006466D8+0x46`) **no** gobierna el nodo: coincide con la fracción en
+  **4 de 607** escrituras, no coincide nunca con el índice, llega a 50 y se
+  reinicia de forma irregular.
+- **Trazador (aditivo):** nuevas opciones `watchdyn:` (watchpoint en un
+  puntero del heap resuelto en el primer impacto), `probe:` (dword por
+  impacto, para correlacionar) y `dumpindraw:` (bloque tras desreferenciar un
+  argumento). Corregido el ruido de `SIN REGISTRO LIBRE` (una sola línea por
+  dirección). Los breakpoints y opciones existentes no cambian.
+- **Sigue abierto:** el criterio con que se calcularon las tangentes del
+  registro, la ruta de rotación (10 B → cuaternio → Euler) y el estado de menú.
+  No se ha tocado el renderer DX11 ni la cámara del port.
 
 ### Validación dinámica de S-2 contra el ejecutable original (2026-11-11)
 

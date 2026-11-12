@@ -152,7 +152,7 @@ estan como literales en la imagen), la rutina por frame que escribe la
 posicion de la camara, el papel de los campos `+0x10/+0x12/+0x14` y el
 estado de menu.
 
-El escritor de la camara del menu se ha localizado el 2026-13 con
+El escritor de la camara del menu se ha localizado el 2026-11-13 con
 watchpoints de escritura: el trazador del repo (`tools/frame-trace/tracer.cs`)
 solo sabia poner breakpoints de ejecucion, asi que se le ha anadido la opcion
 `watch:<addr>` (breakpoint de escritura de 4 bytes, con la instruccion que
@@ -165,6 +165,24 @@ esta recorre un array de registros de la imagen del .DFX e **interpola entre el
 registro actual y el siguiente** con una fraccion de 15 bits que lleva el nodo
 (indice int16 + flags). La forma exacta de la curva y quien avanza el nodo
 quedan pendientes.
+
+El algoritmo de la trayectoria se ha cerrado el 2026-11-13, y el metodo es el
+mismo que en el resto del proyecto: **no deducir, medir y luego comprobar la
+medida contra el ejecutable**. Tres pasos. (1) El nodo vive en el **heap**, asi
+que su direccion cambia entre ejecuciones: en vez de fijarla, se anadio al
+trazador `watchdyn:<func>:<arg>:<off>[:<len>]`, que **resuelve el puntero en el
+primer impacto** de una funcion y pone ahi el watchpoint de escritura (con 2 B
+por campo, para cubrir indice y fraccion por separado). (2) Con eso se vio que
+`0x53E98C` **avanza** el nodo (`0x53F252` en `0x53E997`, +1 a la fraccion de 15
+bits por llamada) y despues **evalua** (`0x53EF00` en `0x53E9B0`), y que se
+ejecuta **una vez por frame** desde `0x411B94`. (3) La formula se reimplemento
+en Python con aritmetica entera y se comparo con las 428 muestras publicadas:
+**428/428 exactas**. Dos correcciones salen de ahi: la variante activa **no** es
+de 20 B sino de **32 B**, y el contador `0x0064711E` (el antiguo
+`0x006466D8+0x46`) **no** gobierna el nodo --coincide con la fraccion en 4 de
+607 escrituras--, aunque sigue sumando 1 por frame, que es lo unico que de el se
+afirmaba antes y lo unico que se sostiene.
+
 
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
 misma disciplina: la matriz de emision que el port usa no se deduce del

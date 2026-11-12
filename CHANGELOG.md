@@ -1,5 +1,74 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - El algoritmo de la trayectoria de la camara, cerrado: `0x53F252` avanza el nodo, Hermite en Q15 y verificacion 428/428
+
+Se cierra la investigacion del interpolador. Sin cambios de produccion en el
+port: no se toca el renderer DX11, ni la camara del port, ni la emision.
+
+**INSTRUMENTACION (aditiva).** `tools/frame-trace/tracer.cs` gana tres
+opciones, todas opcionales y sin alterar las existentes: `watchdyn:<func>:<arg>:
+<off>[:<len>]` (watchpoint de ESCRITURA en un puntero del **heap** resuelto en
+el primer impacto de `<func>`), `probe:<addr>` (dword leido en cada impacto de
+watchpoint, para **correlacionar** valores) y `dumpindraw:<arg>:<ptrOff>:<len>`
+(bloque contiguo tras desreferenciar un argumento). Los volcados admiten
+argumentos `0..4`. Se corrige el ruido de `# watchdyn SIN REGISTRO LIBRE`: una
+direccion que no puede instalarse ya no se reintenta ni se registra en cada
+impacto. Documentado en `tools/frame-trace/README.md`, incluidos dos detalles
+que cambian la lectura de los logs: el EIP de un watchpoint de escritura es la
+instruccion **siguiente**, y en un breakpoint a mitad de funcion los campos de
+la pila quedan **desplazados uno**.
+
+**QUIEN AVANZA EL NODO (medido).** `0x53E98C` llama a `0x53F252` en `0x53E997`
+(**avanza**) y a `0x53EF00` en `0x53E9B0` (**evalua** en `0x005AC608`). Se
+ejecuta **una vez por frame** desde `0x411B94` (bloque `0x411B8F` del update de
+camara): 607 llamadas con el nodo de la camara, 607 desde `0x411B94`; **428**
+llegan a evaluar = los 428 frames del vuelo (las 179 restantes son frames
+posteriores al final, donde `0x53EF00` devuelve 0).
+
+**EL AVANCE.** `frac = ((nodo[2]>>1)&0x7FFF) + 1` por llamada; si `frac >= D`,
+`nodo[0]++` y `frac = 0`. `D` es el `int16` de `array[idx*32]`: la **duracion
+en frames** del segmento. Las 25 duraciones medidas
+(`20,13,10,10,15,10,15,14,25,39,24,26,23,17,15,18,14,13,14,15,15,15,15,15,18`)
+suman **exactamente 428**, igual que los frames medidos por el otro camino.
+
+**EL REGISTRO Y LA CURVA.** Correccion: la variante activa **no** es de 20 B
+sino de **32 B** (16 int16), con `D` en `+0`, punto en `+2/+4/+6`, tangente de
+salida en `+8/+0xC/+0x10` y tangente de entrada en `+0x14/+0x18/+0x1C`; el array
+esta **incrustado en el objeto** (`obj[+0]` -> `obj+8`). Con
+`S = [0x0054C1B0] = 15` (medido en runtime), `t = (frac15 << 15) / D` (Q15) y
+
+```
+h00 = 2t^3 - 3t^2 + 32768     h01 = 3t^2 - 2t^3
+h10 = t^3 - 2t^2 + t          h11 = t^3 - t^2
+out[k] = (int16)((P_a[k]*h00 + P_b[k]*h01 + T_a[k]*h10 + T_b[k]*h11) >> 15)
+```
+
+es decir **Hermite cubica** con aritmetica entera. No se etiqueta como
+Catmull-Rom ni Bezier: el criterio con que se calcularon las tangentes guardadas
+no se ha establecido.
+
+**VERIFICACION.** Reimplementada en Python con enteros exactos
+(`analysis/verify_menu_camera_interp.py`, sin datos del juego incrustados) y
+comparada con las 428 muestras publicadas de `analysis/menu_camera_map7.tsv`,
+partiendo solo del array capturado del proceso: **428/428 coincidencias
+exactas** en los tres ejes, sin tolerancia. La primera muestra viva de
+`0x005AC608` (`0x0FE70925 / 0x0C020FE7 / 0x00000C02` = `(2341, 4071, 3074)`)
+es exactamente el frame 0 calculado. El **registro 25 es un centinela**
+(`D = 0`, punto = encuadre final): con el, la secuencia termina sola y la
+camara se queda en `(2243, 487, 196)`.
+
+**RESULTADO NEGATIVO.** El contador `0x0064711E` (`0x006466D8+0x46`) **no**
+gobierna el nodo: coincide con la fraccion en **4 de 607** escrituras, no
+coincide nunca con el indice, llega a 50 y se reinicia de forma irregular. Lo
+unico que se sostiene de lo publicado antes es que suma 1 por frame.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (§ 4.7 corregido, § 4.9-4.14
+nuevas: registro, interpolador, avance, contador, verificacion y resumen),
+`PROJECT_STATE.md`, `ROADMAP.md` (decimocuarta tanda), `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` (lecciones 17-20), `docs/D3D11_FIRST_SCENE_PLAN.md`
+(§ 10), `tools/frame-trace/README.md` y el verificador reproducible
+`analysis/verify_menu_camera_interp.py`.
+
 ## 2026-11-13 - 0.0.0 - El escritor de la camara del menu, localizado con watchpoints de escritura: 0x411BBB/0x411BCC/0x411BDD (posicion) y 0x4122E8/0x4122F6/0x412304 (orientacion)
 
 Cierre de la investigacion del controlador de camara: se identifica **que

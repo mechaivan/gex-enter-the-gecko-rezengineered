@@ -481,6 +481,40 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    sin multiplicarlo por el byte alto del opcode. La escala RGB 0..2 de
    Glide frente a la normalización 0..1 del port sigue pendiente de medir
    (plan DX11 §19.11).
+17. **Un puntero del heap no se fija: se resuelve en ejecucion.** El nodo de la
+   trayectoria de la camara cambia de direccion entre ejecuciones, asi que un
+   `watch:<addr>` con una direccion capturada antes no sirve. Se anadio
+   `watchdyn:<func>:<arg>:<off>[:<len>]`, que toma el argumento `<arg>` de
+   `<func>` en su **primer impacto** y pone el watchpoint de escritura ahi.
+   Dos detalles que costaron una sesion: (a) el watchpoint va por **campo**
+   (2 B sobre `nodo+0` y `nodo+2`), no de 4 B sobre el nodo entero, para no
+   perder el indice ni la fraccion por solapamiento; (b) el EIP que registra un
+   watchpoint de escritura es la instruccion **siguiente** a la que escribe
+   (dispara como `SINGLE_STEP` con el bit de `DR6`), asi que al buscar la
+   instruccion hay que restar el tamano de la anterior.
+18. **Una coincidencia "casi exacta" no cierra una formula: hay que reproducirla
+   con la aritmetica del original.** La interpolacion de la camara daba valores
+   a ~1 unidad de las muestras leyendo el desensamblado "a ojo"; al reimplementar
+   la formula en Python con enteros (`imull`, `sarl`, `idivl` y el truncado a
+   `int16`), las 428 muestras coincidieron **exactamente**. El error de 1
+   unidad venia de usar coma flotante donde el original trunca. La regla: si el
+   algoritmo se puede reimplementar, se reimplementa y se compara **sin
+   tolerancia** antes de darlo por cerrado; y si no coincide, el fallo esta en
+   una operacion concreta (redondeo, signo, saturacion), no en "la curva".
+19. **Un contador que avanza al mismo ritmo no es la causa.** El contador de
+   `0x0064711E` suma 1 por frame igual que el vuelo, y se le atribuyo el avance
+   durante dos tandas. Medido contra el nodo, **coincide con la fraccion en 4 de
+   607 escrituras** y nunca con el indice. La regla: para atribuir una causa hay
+   que **correlacionar los valores**, no el ritmo; y una correlacion parcial
+   (4/607) es un resultado negativo, no una confirmacion.
+20. **En un breakpoint a mitad de funcion, los campos de la pila estan
+   desplazados.** El trazador lee `ret`/`a0`/`a1`/`a2` suponiendo que `esp`
+   apunta a la direccion de retorno; en un breakpoint que no esta en la primera
+   instruccion, `esp` apunta al `ebp` guardado y todo queda **uno por debajo**
+   (el `ret` real aparece en `a0`). Con esa lectura mal hecha, dos nodos de
+   camara parecian uno solo. Si el breakpoint es interno, usar `dumpstack:` con
+   el offset correcto o comprobar la coherencia con la funcion.
+
 
 ## 5. Registro
 

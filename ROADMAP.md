@@ -177,6 +177,21 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     **interpola entre el registro actual y el siguiente** con una fracción de
     15 bits guardada en el nodo. Pendientes: quién avanza el nodo, la curva
     exacta y la relación del contador de `+0x46` con la selección de datos.
+  - **Decimocuarta tanda (2026-11-13, el algoritmo de la trayectoria, cerrado):**
+    los tres pendientes anteriores quedan resueltos con medida. (a) **Quién
+    avanza:** `0x53E98C` llama a `0x53F252` en `0x53E997` y a `0x53EF00` en
+    `0x53E9B0`; se ejecuta **una vez por frame** desde `0x411B94` (607 llamadas,
+    607 desde ahí; **428** llegan a evaluar = los 428 frames). (b) **Cuánto:**
+    `+1` en la fracción de 15 bits por llamada; al llegar a `D` (el `int16` de
+    `array[idx*32]`, duración en frames) hace `idx++` y `frac = 0`. Las 25
+    duraciones suman **exactamente 428**. (c) **La curva:** el registro es de
+    **32 B** (corrección: no 20 B) con punto y dos tangentes; `t = (frac15<<15)/D`
+    y **Hermite cúbica** con aritmética entera (`>>15`, truncado a `int16`).
+    Reimplementada en Python y comparada con las 428 muestras publicadas:
+    **428/428 exactas**. Además, el contador `0x0064711E` **no** gobierna el nodo
+    (coincide con la fracción en 4 de 607 escrituras). Trazador ampliado de
+    forma aditiva (`watchdyn:`, `probe:`, `dumpindraw:`). Detalle en
+    `S3_MENU_CAMERA_SEQUENCE.md` § 4.9-4.14.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con

@@ -15,10 +15,11 @@
 //   tracer.exe <exe> <workdir> <log> <timeoutMs> hw:<addr,...> <keyScript|none>
 //              [dump:<arg>:<off>,...] [dumpabs:<base>:<off>,...]
 //              [dumpind:<arg>:<ptrOff>:<off>,...] [dumpraw:<arg>:<off>:<len>]
-//              [dumpabsraw:<base>:<len>] [regs]
+//              [dumpabsraw:<base>:<len>] [regs] [watch:<addr>]
+//              [watchdyn:<func>:<arg>:<off>[:<len>]] [probe:<addr>]
 //
 // Opciones de volcado (solo lectura, nunca se escribe en el proceso):
-//   dump:<arg>:<off>,...      dwords en (argumento <arg> + <off>); <arg> 0..2
+//   dump:<arg>:<off>,...      dwords en (argumento <arg> + <off>); <arg> 0..4
 //                             son a0, a1 y a2 (las tres primeras palabras de
 //                             la pila en el punto de interrupcion)
 //   dumpabs:<base>:<off>,...  dwords en la direccion absoluta <base>; se puede
@@ -149,12 +150,23 @@ public static class Tracer
     static IntPtr gameWindow = IntPtr.Zero;
 
     // --- extensiones de volcado (solo lectura) ---
-    static int dumpArg = -1;                        // 0..2 -> a0, a1, a2
+    static int dumpArg = -1;                        // 0..4 -> a0..a4
     static readonly List<uint> dumpOffs = new List<uint>();
     static readonly List<int> dumpArgs = new List<int>();      // un bloque por opcion dump:
     static readonly List<uint[]> dumpOffSets = new List<uint[]>();
     static readonly List<uint> watchAddrs = new List<uint>();   // watch:<addr> (escritura, 4 B)
     static readonly Dictionary<uint, uint> watchPrev = new Dictionary<uint, uint>();
+
+    // --- watchpoints dinamicos (la direccion no se conoce hasta ejecutar) ---
+    // watchdyn:<func>:<arg>:<off>[:<len>] instala, en el primer impacto del
+    // breakpoint de ejecucion <func>, un breakpoint de ESCRITURA en
+    // [<arg> + <off>] con longitud <len> (1, 2 o 4 bytes; 4 por defecto).
+    struct DynSpec { public uint func; public int arg; public int off; public int len; }
+    struct WatchEntry { public uint addr; public int len; }
+    static readonly List<DynSpec> dynSpecs = new List<DynSpec>();
+    static readonly List<WatchEntry> dynWatch = new List<WatchEntry>();
+    static readonly HashSet<uint> dynTried = new HashSet<uint>();  // direcciones ya intentadas (no repetir avisos)
+    static readonly List<uint> probes = new List<uint>();       // probe:<addr> en cada WATCH
     static readonly List<uint> dumpAbsBases = new List<uint>();
     static readonly List<uint[]> dumpAbsOffSets = new List<uint[]>();
     static int dumpIndArg = -1;
@@ -198,6 +210,9 @@ public static class Tracer
         return b;
     }
 
+    // Valor del argumento <i> (0 = primero) en el punto de interrupcion.
+    static uint ArgVal(uint esp, int i) { return U32((IntPtr)(esp + 4 + 4 * i)); }
+
     static string HexBlock(byte[] b)
     {
         if (b == null) return "<ilegible>";
@@ -210,34 +225,42 @@ public static class Tracer
         return sb.ToString();
     }
 
-    static void ApplyHw(IntPtr hThread)
+    // Reparte los cuatro registros de depuracion: primero los breakpoints de
+    // ejecucion, despues los watchpoints estaticos y por ultimo los dinamicos.
+    // len = 0 significa breakpoint de ejecucion; 1, 2 o 4 bytes, escritura.
+    static void FillDr(ref WOW64_CONTEXT ctx)
     {
-        if (hwAddrs.Length == 0 && watchAddrs.Count == 0) return;
-        var ctx = new WOW64_CONTEXT();
-        ctx.ContextFlags = CONTEXT_FLAGS;
-        ctx.ExtendedRegisters = new byte[512];
-        if (!Wow64GetThreadContext(hThread, ref ctx)) return;
-        // Los registros de depuracion se reparten: primero los breakpoints de
-        // ejecucion y despues los watchpoints de escritura (4 bytes, RW=01).
         var dr = new uint[4];
-        for (int i = 0; i < Math.Min(4, hwAddrs.Length); i++) dr[i] = hwAddrs[i];
-        for (int i = 0; i < watchAddrs.Count && hwAddrs.Length + i < 4; i++)
-            dr[hwAddrs.Length + i] = watchAddrs[i];
+        var lens = new int[4];
+        int n = 0;
+        for (int i = 0; i < hwAddrs.Length && n < 4; i++, n++) { dr[n] = hwAddrs[i]; lens[n] = 0; }
+        for (int i = 0; i < watchAddrs.Count && n < 4; i++, n++) { dr[n] = watchAddrs[i]; lens[n] = 4; }
+        for (int i = 0; i < dynWatch.Count && n < 4; i++, n++) { dr[n] = dynWatch[i].addr; lens[n] = dynWatch[i].len; }
         ctx.Dr0 = dr[0];
         ctx.Dr1 = dr[1];
         ctx.Dr2 = dr[2];
         ctx.Dr3 = dr[3];
         uint dr7 = 0;
-        for (int i = 0; i < Math.Min(4, hwAddrs.Length); i++) dr7 |= 1u << (2 * i); // local enable, execute, 1 byte
-        for (int i = 0; i < watchAddrs.Count && hwAddrs.Length + i < 4; i++)
+        for (int k = 0; k < n; k++)
         {
-            int k = hwAddrs.Length + i;
             dr7 |= 1u << (2 * k);          // enable local (bit 2k)
+            if (lens[k] == 0) continue;    // ejecucion: R/W=00, LEN=00
             dr7 |= 0x1u << (16 + 4 * k);   // R/W = 01 (solo escritura) en los bits 16+4k
-            dr7 |= 0x3u << (18 + 4 * k);   // LEN = 11 (4 bytes) en los bits 18+4k
+            uint lenbits = lens[k] == 1 ? 0u : (lens[k] == 2 ? 1u : 3u);
+            dr7 |= lenbits << (18 + 4 * k); // LEN en los bits 18+4k
         }
         ctx.Dr7 = dr7;
         ctx.Dr6 = 0;
+    }
+
+    static void ApplyHw(IntPtr hThread)
+    {
+        if (hwAddrs.Length == 0 && watchAddrs.Count == 0 && dynWatch.Count == 0) return;
+        var ctx = new WOW64_CONTEXT();
+        ctx.ContextFlags = CONTEXT_FLAGS;
+        ctx.ExtendedRegisters = new byte[512];
+        if (!Wow64GetThreadContext(hThread, ref ctx)) return;
+        FillDr(ref ctx);
         Wow64SetThreadContext(hThread, ref ctx);
     }
 
@@ -292,6 +315,27 @@ public static class Tracer
             if (opt.StartsWith("watch:"))
             {
                 watchAddrs.Add(Convert.ToUInt32(opt.Substring(6), 16));
+                continue;
+            }
+            if (opt.StartsWith("watchdyn:"))
+            {
+                string[] parts = opt.Substring(9).Split(':');
+                var sp = new DynSpec();
+                sp.func = Convert.ToUInt32(parts[0], 16);
+                sp.arg = int.Parse(parts[1]);
+                sp.off = (int)Convert.ToUInt32(parts[2], 16);
+                sp.len = parts.Length > 3 ? int.Parse(parts[3]) : 4;
+                if (sp.len != 1 && sp.len != 2 && sp.len != 4)
+                {
+                    Console.Error.WriteLine("watchdyn: longitud no valida (1, 2 o 4): " + opt);
+                    return 1;
+                }
+                dynSpecs.Add(sp);
+                continue;
+            }
+            if (opt.StartsWith("probe:"))
+            {
+                probes.Add(Convert.ToUInt32(opt.Substring(6), 16));
                 continue;
             }
             if (opt.StartsWith("dumplimit:"))
@@ -384,6 +428,9 @@ public static class Tracer
         if (dumpRawLen > 0) Log("# dumpraw off=0x" + dumpRawBase.ToString("X8") + " len=" + dumpRawLen);
         if (dumpAbsRawLen > 0) Log("# dumpabsraw base=0x" + dumpAbsRawBase.ToString("X8") + " len=" + dumpAbsRawLen);
         if (dumpAbsIndLen > 0) Log("# dumpabsind ptraddr=0x" + dumpAbsIndPtrAddr.ToString("X8") + " len=" + dumpAbsIndLen);
+        foreach (var sp in dynSpecs)
+            Log(string.Format("# watchdyn func=0x{0:X8} arg={1} off=0x{2:X} len={3}", sp.func, sp.arg, sp.off, sp.len));
+        foreach (uint pr in probes) Log(string.Format("# probe 0x{0:X8}", pr));
         if (wantRegs) Log("# regs");
         if (dumpStackOffs.Count > 0) Log("# dumpstack offs=" + dumpStackOffs.Count);
         if (dumpIndRawArg >= 0) Log("# dumpindraw arg=" + dumpIndRawArg + " len=" + dumpIndRawLen);
@@ -467,9 +514,10 @@ public static class Tracer
                         int wb = -1;
                         for (int i = 0; i < 4; i++) { if ((dr6 & (1u << i)) != 0) { wb = i; break; } }
                         int wi = wb - hwAddrs.Length;
-                        if (wb >= 0 && wi >= 0 && wi < watchAddrs.Count)
+                        int nstat = watchAddrs.Count;
+                        if (wb >= 0 && wi >= 0 && wi < nstat + dynWatch.Count)
                         {
-                            uint wa = watchAddrs[wi];
+                            uint wa = wi < nstat ? watchAddrs[wi] : dynWatch[wi - nstat].addr;
                             uint wval = U32((IntPtr)wa);
                             uint prev = watchPrev.ContainsKey(wa) ? watchPrev[wa] : 0xFFFFFFFFu;
                             watchPrev[wa] = wval;
@@ -478,11 +526,50 @@ public static class Tracer
                                 seq, clock.ElapsedMilliseconds, evTid, wa, at, prev, wval,
                                 ctx.Eax, ctx.Ecx, ctx.Edx, ctx.Esi, ctx.Edi, ctx.Ebp, ctx.Esp,
                                 U32((IntPtr)ctx.Esp)));
+                            if (probes.Count > 0)
+                            {
+                                var sb = new StringBuilder();
+                                sb.Append(string.Format("PROBE\t{0}\t{1}", seq, clock.ElapsedMilliseconds));
+                                for (int pk = 0; pk < probes.Count; pk++)
+                                    sb.Append(string.Format("\tp{0}=0x{1:X8}", pk, U32((IntPtr)probes[pk])));
+                                Log(sb.ToString());
+                            }
                             ctx.Dr6 = 0;
                             Wow64SetThreadContext(hThread, ref ctx);
                         }
                         else if (hitCount.ContainsKey(at))
                         {
+                            // watchdyn: el puntero se resuelve aqui, con los
+                            // argumentos del impacto, y se instala el watchpoint.
+                            foreach (var sp in dynSpecs)
+                            {
+                                if (sp.func + delta != at) continue;
+                                uint pv = U32((IntPtr)(ctx.Esp + 4 + 4 * sp.arg));
+                                if (pv == 0 || pv == 0xFFFFFFFF) continue;
+                                uint wa = pv + (uint)sp.off;
+                                bool known = false;
+                                foreach (var w in dynWatch) if (w.addr == wa) known = true;
+                                if (known) continue;
+                                // una direccion que ya no pudo instalarse no se
+                                // reintenta en cada impacto (evita ruido en el log)
+                                if (dynTried.Contains(wa)) continue;
+                                if (hwAddrs.Length + watchAddrs.Count + dynWatch.Count >= 4)
+                                {
+                                    dynTried.Add(wa);
+                                    Log(string.Format("# watchdyn SIN REGISTRO LIBRE addr=0x{0:X8}", wa));
+                                    continue;
+                                }
+                                if (sp.len > 1 && (wa & (uint)(sp.len - 1)) != 0)
+                                {
+                                    dynTried.Add(wa);
+                                    Log(string.Format("# watchdyn DESALINEADO addr=0x{0:X8} len={1}", wa, sp.len));
+                                    continue;
+                                }
+                                dynWatch.Add(new WatchEntry { addr = wa, len = sp.len });
+                                Log(string.Format("# watchdyn addr=0x{0:X8} len={1} arg{2} de 0x{3:X8}",
+                                    wa, sp.len, sp.arg, at));
+                                FillDr(ref ctx);
+                            }
                             hitCount[at]++;
                             lastCtx = ctx;
                             LogHit(at, ctx.Esp, evTid);
@@ -547,7 +634,7 @@ public static class Tracer
 
         if (dumpStrArg >= 0)
         {
-            uint argp = dumpStrArg == 0 ? a0 : (dumpStrArg == 1 ? a1 : a2);
+            uint argp = ArgVal(esp, dumpStrArg);
             if (argp != 0 && argp != 0xFFFFFFFF)
             {
                 uint addr = argp + dumpStrOff;
@@ -564,7 +651,7 @@ public static class Tracer
 
         if (dumpIndRawArg >= 0)
         {
-            uint argp = dumpIndRawArg == 0 ? a0 : (dumpIndRawArg == 1 ? a1 : a2);
+            uint argp = ArgVal(esp, dumpIndRawArg);
             uint ptr = U32((IntPtr)(argp + dumpIndRawPtrOff));
             if (ptr != 0 && ptr != 0xFFFFFFFF && dumpIndRawLen > 0)
             {
@@ -580,7 +667,7 @@ public static class Tracer
         for (int bi = 0; bi < dumpArgs.Count; bi++)
         {
             if (dumpLimit <= 0) break;
-            uint ptr = dumpArgs[bi] == 0 ? a0 : (dumpArgs[bi] == 1 ? a1 : a2);
+            uint ptr = ArgVal(esp, dumpArgs[bi]);
             if (ptr == 0 || ptr == 0xFFFFFFFF) continue;
             dumpLimit--;
             var sb = new StringBuilder();
@@ -605,7 +692,7 @@ public static class Tracer
 
         if (dumpIndArg >= 0)
         {
-            uint argp = dumpIndArg == 0 ? a0 : (dumpIndArg == 1 ? a1 : a2);
+            uint argp = ArgVal(esp, dumpIndArg);
             for (int bi = 0; bi < dumpIndPtrOffs.Count; bi++)
             {
                 if (dumpLimit <= 0) break;
@@ -622,7 +709,7 @@ public static class Tracer
 
         if (dumpRawLen > 0)
         {
-            uint argp = dumpRawArg == 0 ? a0 : (dumpRawArg == 1 ? a1 : a2);
+            uint argp = ArgVal(esp, dumpRawArg);
             if (argp != 0 && argp != 0xFFFFFFFF)
             {
                 dumpLimit--;

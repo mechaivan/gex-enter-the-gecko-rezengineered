@@ -53,18 +53,30 @@ usa `ReadProcessMemory`. Se añaden como argumentos opcionales detrás de
 
 | Opción | Significado |
 | --- | --- |
-| `dump:<arg>:<off>,...` | dwords en `(argumento <arg> + <off>)`; `<arg>` 0..2 son `a0`, `a1` y `a2` (las tres primeras palabras de la pila en el punto de interrupción). Repetible: cada opción añade un bloque |
+| `dump:<arg>:<off>,...` | dwords en `(argumento <arg> + <off>)`; `<arg>` 0..4 son las palabras de la pila en el punto de interrupción (`a0`, `a1`, …). Repetible: cada opción añade un bloque |
 | `dumpabs:<base>:<off>,...` | dwords en la dirección absoluta `<base>`. Varios bloques separados por `;` |
 | `dumpind:<arg>:<ptrOff>:<off>,...` | dwords en la dirección contenida en `(argumento <arg> + <ptrOff>)`, más `<off>` |
 | `dumpraw:<arg>:<off>:<len>` | bytes contiguos en `(argumento <arg> + <off>)` |
 | `watch:<addr>` | **breakpoint de escritura** de 4 bytes en una dirección absoluta. Registra la **instrucción que escribe** (EIP), el valor anterior y el nuevo, los registros y la dirección de retorno. Ocupa un registro de depuración (como `hw:`), así que `hw:` + `watch:` no pueden pasar de 4 en total |
+| `watchdyn:<func>:<arg>:<off>[:<len>]` | **breakpoint de escritura** en `[<arg> + <off>]`, donde `<arg>` es el argumento `0..4` de `<func>` **resuelto en su primer impacto**. Sirve para punteros del **heap** cuya dirección no se conoce hasta ejecutar. `<len>` = 1, 2 o 4 bytes (4 por defecto); con `len > 1` la dirección debe estar alineada. Ocupa un registro de depuración y no se reintenta si ya no cabe o está desalineada (avisa una sola vez) |
+| `probe:<addr>` | dword leído en **cada** impacto de watchpoint, en una línea `PROBE` aparte. Para **correlacionar** un valor global con lo que hace el watchpoint |
 | `dumpabsraw:<base>:<len>` | bytes contiguos en la dirección absoluta `<base>` |
 | `dumpabsind:<ptrAddr>:<len>` | bytes contiguos en la dirección guardada en el puntero global `<ptrAddr>` (por ejemplo la LUT de niebla en `0x64FEA8`) |
 | `dumpstack:<off>,...` | dwords en `(esp + <off>)` del punto de interrupción (para argumentos por debajo de `a2`) |
 | `dumpindraw:<arg>:<ptrOff>:<len>` | bytes contiguos en la dirección contenida en `(argumento <arg> + <ptrOff>)` |
 | `dumpstr:<arg>:<off>:<max>` | cadena terminada en NUL en `(argumento <arg> + <off>)` (rutas de fichero) |
 | `regs` | registros del hilo en el punto de interrupción (`eax`..`ebp`, `esp`) |
-| `dumplimit:N` | máximo de bloques volcados por impacto (4 por defecto) |
+| `dumplimit:N` | presupuesto **total** de bloques volcados en la sesión (4 por defecto). Ojo: **no se reinicia por impacto**, así que con muchos tipos de volcado se agota en los primeros impactos |
+
+Dos detalles que cambian cómo se leen los logs:
+
+- Los **watchpoints de escritura** disparan como `SINGLE_STEP` con el bit de
+  `DR6`: el `eip` registrado es la instrucción **siguiente** a la que escribe.
+- En un breakpoint **a mitad de función**, `esp` no apunta a la dirección de
+  retorno: los campos `ret`/`a0`/`a1`/`a2` quedan **desplazados uno** (el `ret`
+  real aparece en `a0`, el argumento 0 en `a1`, …). Para leer argumentos de un
+  breakpoint que no está en la primera instrucción, usa `dumpstack:` con el
+  offset correcto.
 
 
 ### Capturas de la validación de S-2 (emisión de nivel)

@@ -47,7 +47,12 @@ código) y volcado de memoria **de solo lectura** (`ReadProcessMemory`).
 | Opción | Uso en esta investigación |
 |---|---|
 | `hw:<dirs>` | hasta 4 direcciones de ejecución |
+| `watch:<addr>` | breakpoint de **escritura** de 4 B en una dirección absoluta |
+| `watchdyn:<func>:<arg>:<off>[:<len>]` | breakpoint de **escritura** en `[arg + off]`, donde `arg` se resuelve en el **primer impacto** de `<func>` (para punteros del heap que cambian entre ejecuciones); `len` = 1, 2 o 4 B |
+| `probe:<addr>` | dword leído en **cada** impacto de watchpoint (para correlacionar valores) |
 | `dumpabs:<base>:<offs>` | dwords de una dirección absoluta (bloque único por impacto) |
+| `dumpindraw:<arg>:<ptroff>:<len>` | bloque contiguo de `len` bytes tras **desreferenciar** `arg+ptroff` (así se capturó el array incrustado en el objeto) |
+| `dumpstack:<offs>` | dwords en `esp+off` (admite offsets negativos por desbordamiento: `0xFFFFFFF8` = `esp-8`) |
 | `dumplimit:N` | número de bloques volcados **en total** (limitación del trazador) |
 
 **Limitaciones del trazador, relevantes aquí:**
@@ -59,6 +64,12 @@ código) y volcado de memoria **de solo lectura** (`ReadProcessMemory`).
 - Cada impacto cuesta una excepción de depuración + una línea de log: el juego
   baja de ritmo. Se midió el coste (§ 3.3): con un impacto por frame la tasa
   real se mantiene (~25 fps), con volcado por frame también.
+- En un breakpoint **a mitad de función**, `esp` no apunta a la dirección de
+  retorno: los campos `ret`/`a0`/`a1`/`a2` del log quedan **desplazados uno**
+  (el `ret` real es `a0`, el argumento 0 es `a1`, etc.). Hay que tenerlo en
+  cuenta al leer los logs.
+- Los watchpoints de escritura disparan como `SINGLE_STEP` con el bit de `DR6`:
+  el **EIP registrado es la instrucción siguiente** a la que escribe.
 
 ### 2.3 Qué NO se ha hecho
 
@@ -178,7 +189,7 @@ secuencia: el juego usa la rama normal (Euler en `cam+0x30`).
 
 ## 4. El mecanismo
 
-### 4.1 La cámara copia: no calcula la trayectoria (§ 4.8-4.10)
+### 4.1 La cámara copia: no calcula la trayectoria (§ 4.8-4.14)
 
 
 El escritor de la posición de la cámara está en la función que empieza en
@@ -234,6 +245,12 @@ siguen sin identificar; no podemos afirmar todavía dónde ni cómo se interpola
 El port ya dispone de la imagen compactada de `level\\map7.dfx`, así que no
 necesita implementar E/S nueva para investigar esos datos.
 
+> **Superado (2026-11-13).** La rutina de actualización **sí** está identificada
+> (`0x411B8F` → `0x411B94` → `0x53E98C`, § 4.8-4.9), la representación de los
+> datos también (registros de **32 B** incrustados en el objeto, § 4.10) y la
+> interpolación está cerrada y verificada (§ 4.10-4.13). Se conserva el párrafo
+> como registro de lo que se sabía en esa fecha.
+
 ### 4.2 La trayectoria NO es una interpolación de dos puntos
 
 
@@ -253,6 +270,13 @@ El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
 la hipótesis de varios puntos de control es compatible con esa estructura, pero
 queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
 si usa Catmull-Rom, otra spline o una secuencia de muestras.
+
+> **Superado (2026-11-13).** Aquí se decía «registros de 0x200 B»: `0x200` es
+> la **alineación** de la imagen del `.DFX`, no el tamaño de un registro (§ 4.5).
+> El interpolador ya está identificado: registros de **32 B** y **Hermite
+> cúbica** en Q15 (§ 4.10), verificado contra las 428 muestras (§ 4.13). No se
+> etiqueta como Catmull-Rom porque el criterio de las tangentes no se ha
+> establecido.
 
 ### 4.3 El perfil de velocidad
 
@@ -351,6 +375,14 @@ frames** del vuelo son la unidad, y a 60 fps la misma secuencia duraría ≈ 7,1
 no 17,1 s. El port debe reproducir **el número de frames**, no la duración en
 segundos.
 
+> **Corrección (2026-11-13).** Este apartado atribuía el avance al contador de
+> `+0x46`. Medido después sobre el propio nodo (§ 4.11), el avance lo produce
+> `0x53F252` con **+1 en la fracción de 15 bits por llamada**, y `0x53E98C`
+> —quien la llama— se ejecuta **una vez por frame** desde el update de cámara.
+> El contador de `+0x46` **no** es la fracción ni el índice: coincide con la
+> fracción en 4 de 607 escrituras y se reinicia de forma irregular (§ 4.12). La
+> conclusión práctica (unidad = frames) **no cambia**; el mecanismo sí.
+
 El papel de `+0x10/+0x12/+0x14` (los valores que alternan) **no** está
 establecido: se han medido, pero no se ha identificado qué representan ni cómo
 participan en el cálculo.
@@ -375,6 +407,11 @@ El valor `0x200` describe la alineación de esa imagen en el contenedor, no el
 tamaño de un registro. La representación de la trayectoria sigue pendiente de
 decodificación; no sabemos todavía si contiene puntos de control, coeficientes,
 una secuencia transformada u otra estructura.
+
+> **Superado (2026-11-13).** La representación **sí** está decodificada: son
+> **registros de 32 B** (punto, dos tangentes y la duración `D`) incrustados en
+> el objeto del mundo, y la interpolación es una **Hermite cúbica** en Q15
+> (§ 4.10).
 **Qué escribe la cámara durante el vuelo.** Con `watch:` sobre
 `cam+0x00/+0x04/+0x30/+0x34` (posición X/Y, Z y Euler X/Y, Z) en una sesión
 completa de MAP7:
@@ -413,59 +450,241 @@ Es decir: **la cámara no calcula nada, copia tres `int16` de un puntero**.
 > **Actualizado (2026-11-13).** El párrafo anterior decía que la rutina
 > que actualiza la cámara durante los 428 frames no estaba identificada: **esa
 > limitación queda superada** por lo medido con breakpoints de escritura
-> (§ 4.8-4.10). Lo que **sigue** sin identificar es quién avanza el nodo de la
-> trayectoria, la curva exacta de la interpolación y si el contador de
-> `0x006466D8+0x46` gobierna la selección de datos.
+> (§ 4.8-4.14). También quedan resueltos después quién avanza el nodo
+> (`0x53F252`, § 4.11) y la curva exacta de la interpolación (Hermite en Q15,
+> verificada 428/428, § 4.13). Lo que **sigue** sin identificar es el criterio
+> con que se calcularon las tangentes guardadas en cada registro.
 
 ### 4.9 La cadena que produce ese puntero
 
 
 ```
-0x411B94  calll 0x53e98c          ; -> puntero a la posición actual
-0x53E98C  calll 0x53f252         ; comprobación previa
-0x53E9B0  calll 0x53ef00         ; rellena el buffer global 0x5AC608
-0x53E9BC  movl $0x5ac608, %eax   ; y lo devuelve
+0x411B8F  ...                      ; bloque del update de cámara
+0x411B94  calll 0x53e98c           ; -> puntero a la posición del frame
+0x53E997  calll 0x53f252           ; AVANZA el nodo (índice y fracción)
+0x53E9B0  calll 0x53ef00           ; EVALÚA la trayectoria en 0x005AC608
+0x53E9BC  movl $0x5ac608, %eax     ; devuelve el buffer
+0x411BB5  ... 0x411BD9             ; la cámara copia 3 int16 a cam+0/+2/+4
 ```
 
-- El **buffer global `0x005AC608`** es la posición del frame (tres `int16`).
-  Capturado con watchpoint: lo escribe `0x0053DF72` / `0x0053DFB1` (y la
-  tercera palabra), que están dentro de **`0x0053DEB0`**: la función de
-  interpolación.
-- `0x53EF00` es el **navegador de la trayectoria**:
+**Medido** con un breakpoint de ejecución en `0x53E98C` que registra sus
+argumentos (§ 2.2), en una sesión completa de MAP7:
+
+| Dato | Valor |
+|---|---|
+| Llamadas con el nodo de la cámara | **607** |
+| … desde `0x00411B94` (update de cámara) | **607** |
+| … desde `0x004043A8` (arranque, ms 25 352) | 1 (además de las 607) |
+| Llamadas que llegan a evaluar (`0x53E9BC`) | **428** = los 428 frames del vuelo |
+| Llamadas que no evalúan | 179 (frames posteriores al final: `0x53EF00` devuelve 0) |
+
+⟹ **Una llamada por frame**, desde el bloque `0x411B8F` del update de cámara.
+No hay ningún otro llamante que toque el nodo de la cámara durante el vuelo
+(`0x53E98C` es un accesor genérico usado por ~20 sitios: NPCs, objetos).
+
+**Los dos nodos de la cámara** (medidos en una sesión; son direcciones del
+**heap** y cambian entre ejecuciones):
+
+| Nodo | Objeto | Llamante | Salida | Papel |
+|---|---|---|---|---|
+| `0x1942AF68` | `0x1942AF78` | `0x411B94` | `0x005AC608` | **posición** (3 int16) |
+| `0x1942B2D0` | `0x1942B2E0` | `0x411C8C` | `0x005AC600` | **rotación** (cuaternio, 8 B) |
+
+`0x005AC608` es un **buffer de trabajo compartido**: cualquier objeto que use
+`0x53E98C` para posición escribe ahí (medido: dos nodos distintos lo escribieron
+en el mismo frame). Funciona porque la cámara copia el contenido **inmediatamente
+después** de la llamada. Por eso el port no debe tratarlo como almacenamiento
+persistente.
+
+### 4.10 El registro de 32 B y el interpolador `0x53DEB0`
+
+> **Corrección de una interpretación anterior.** § 4.9 decía que la variante
+> activa era de **20 B (10 int16)**. El desensamblado completo de `0x53EF00`
+> muestra que el tamaño depende de la bandera `obj[+6]`, y que **la cámara usa la
+> de 32 B**:
 
 ```asm
-0x53EF41  movswl 0x4(%ecx), %edx      ; obj[+4] = número de registros
-0x53EF48  cmpl %edx, %eax             ; ¿índice >= número?
-0x53EF65  movw 0x2(%edx), %ax         ; nodo[+2] = flags | fracción
-0x53EF6C  andw $0x1, %ax             ; bit 0 = "valor directo"
-0x53EF89  imull $0xa, %ecx, %ecx      ; índice * 10
-0x53EF94  movswl (%eax,%ecx), %ecx    ; array[índice * 10]
-0x53EFA3  shll $0x5, %eax            ; índice * 32  (la otra variante)
+0x53EF2D  movb 0x6(%eax), %cl        ; obj[+6] = variante
+0x53EF81  cmpl $0x1, %edx            ; ¿== 1?
+0x53EF8C  imull $0xa, %ecx, %ecx     ; sí:  índice * 10   (registros de 10 B)
+0x53EFA3  shll $0x5, %eax            ; no:  índice * 32   (registros de 32 B)
 ```
 
-⟹ La estructura que consulta es:
+| `obj[+6]` | Registro | Ruta | Uso medido |
+|---|---|---|---|
+| `1` | 10 B | `0x43158D` → `0x431036` (producto escalar de 4 int16, `>>12`, recorte a `0x1000`) | **rotación** (cuaternio) |
+| `≠ 1` | **32 B** | `0x53DEB0` (Hermite cúbica) | **posición** de la cámara |
 
-| Elemento | Contenido |
+**Layout del registro de 32 B** (leído del array capturado, § 4.13):
+
+| Offset | Tipo | Contenido |
+|---|---|---|
+| `+0x00` | int16 | **`D`**: duración del segmento **en frames** |
+| `+0x02` `+0x04` `+0x06` | int16 ×3 | **punto** del registro (x, y, z) |
+| `+0x08` `+0x0C` `+0x10` | int32 ×3 | **tangente de salida** (x, y, z) |
+| `+0x14` `+0x18` `+0x1C` | int32 ×3 | **tangente de entrada** (x, y, z) |
+
+El **array de registros está incrustado en el objeto**: `obj[+0]` apunta a
+`obj+8`, y `a = array + idx*32`, `b = a + 32`. `obj[+4]` es el número de
+registros (**26** para la cámara: índices `0..25`; el recorte posterior lo
+confirma, porque fija `nodo[0] = obj[4] - 1 = 25`).
+
+El **último registro (25) es un centinela**: `D = 0`, punto = encuadre final
+`(2243, 487, 196)` y tangentes a cero. Con `D = 0` la interpolación no divide
+(salvo con `frac = 0`, que copia el punto) y el avance devuelve 0, así que la
+secuencia **termina sola** en ese registro (§ 4.11).
+
+**El parámetro `t`** (en `0x53EF00`, con `S = [0x0054C1B0]`):
+
+```asm
+0x53F03C  movw 0x2(%ecx), %ax        ; nodo[+2] = flags | fracción
+0x53F040  shrw %ax                   ; >> 1
+0x53F043  andw $0x7fff, %ax          ; fracción de 15 bits
+0x53F04C  movl 0x54c1b0, %ecx        ; S  (medido en runtime: S = 15)
+0x53F052  shll %cl, %eax             ; fracción << S
+0x53F055  idivl -0x10(%ebp)          ; / D   (división con signo)
+```
+
+⟹ `t = (frac15 << S) / D`, es decir **`t` en Q15**: `0` en el registro actual,
+`32768` en el siguiente. Si `D == 0` o `frac15 == 0` no se interpola: se copian
+los tres `int16` del registro actual (`0x53F0B5..0x53F0FE`).
+
+**La interpolación** (`0x53DEB0(out, t, a, b)`, aritmética entera, `S = 15`):
+
+```
+t2  = (t * t)  >> S
+t3  = (t2 * t) >> S
+h00 = 2*t3 - 3*t2 + (1 << S)
+h01 = 3*t2 - 2*t3
+h10 = t3 - 2*t2 + t
+h11 = t3 - t2
+
+out[k] = (int16) ( ( P_a[k]*h00 + P_b[k]*h01
+                   + T_a[k]*h10 + T_b[k]*h11 ) >> S )      k = 0,1,2
+```
+
+con `P_a = a+2/+4/+6`, `P_b = b+2/+4/+6`, `T_a = a+8/+0xC/+0x10`,
+`T_b = b+0x14/+0x18/+0x1C`. Los términos de punto son `int16` con extensión de
+signo (`movswl`); los de tangente son **int32 completos** (`movl`). El resultado
+se **trunca a int16** (`movw %dx`), sin saturación.
+
+Los cuatro pesos son la base de Hermite cúbica. **No se etiqueta la curva como
+«Catmull-Rom»**: lo medido es la base de Hermite y sus tangentes tal como están
+guardadas en el registro; el criterio con que el exportador calculó esas
+tangentes no se ha establecido.
+
+### 4.11 El avance del nodo: `0x53F252`
+
+Desensamblada y verificada (`0x53F252..0x53F3C1`). `0x53F252(obj, nodo)`:
+
+```
+ret = 0
+if (obj == 0 || nodo == 0) return 0
+variant = (obj[+6] == 1)
+if (nodo[+0] >= obj[+4]) return 0              ; índice fuera de rango
+ret = 1
+D = (variant ? arr[nodo[+0]*10] : arr[nodo[+0]*32])   ; int16 de +0
+0x53E0CB(obj, nodo, 0)                         ; atiende el bit 0 del nodo
+frac = (((nodo[+2] >> 1) & 0x7FFF) + 1) & 0x7FFF
+nodo[+2] = (nodo[+2] & 1) | (frac << 1)        ; <-- escritura 0x53F312
+if (frac < D) return 1                         ; sigue en el mismo segmento
+nodo[+0] = nodo[+0] + 1                        ; <-- escritura 0x53F33F
+nodo[+2] = nodo[+2] & 1                        ; <-- escritura 0x53F350 (frac = 0)
+if (nodo[+0] < obj[+4] - 1) return 1           ; segmento siguiente normal
+if (nodo[+0] > obj[+4] - 1) ret = 0            ; se pasó: no se evalúa
+if (obj[+7] & 2) || (obj[+7] & 4) nodo[+0] = 0
+else                              nodo[+0] = obj[+4] - 1   ; <-- 0x53F3B8
+return ret
+```
+
+El recorte **solo** actúa en el último índice, y es lo que explica el final:
+
+- **Último segmento (`idx = 24`, `D = 18`)**: al llegar a `frac = 18` hace
+  `idx = 25`, `frac = 0`, y como `25 >= obj[4]-1 = 25` entra en el recorte; no
+  se ha pasado (`25 > 25` es falso), así que devuelve 1 y **evalúa** el registro
+  25 con `frac = 0` → el encuadre final `(2243, 487, 196)`.
+- **Registro 25 = centinela**: su `D` es **0** y sus tangentes son cero (medido
+  en el array). A partir de ahí, cada frame escribe `frac = 1`, `1 < 0` es
+  falso, incrementa a 26, el recorte lo devuelve a 25 y **devuelve 0**: no se
+  evalúa. La cámara se queda con el último valor. Eso son las 179 llamadas que
+  no evalúan y las 180 escrituras de recorte.
+
+Escritores exactos (medidos con watchpoints de 2 B sobre `nodo+0` y `nodo+2`):
+
+| EIP (instrucción siguiente) | Campo | Veces (sesión) |
+|---|---|---:|
+| `0x0053F316` | fracción (`nodo+2`) | 607 |
+| `0x0053F342` | índice (`nodo+0`) | 204 |
+| `0x0053F354` | fracción = 0 | 204 |
+| `0x0053F3BB` | índice recortado | 180 |
+
+⟹ El índice se escribe **204** veces: **25** son las transiciones reales
+(`0 → 25`) y el resto son los intentos posteriores al final, que el recorte
+devuelve a **25** (180 escrituras de recorte). La fracción se reinicia **204**
+veces por la misma razón. Por eso la posición **deja de cambiar** aunque la
+función se siga llamando cada frame.
+
+**Duraciones medidas** de los 25 segmentos (`D` de los registros `0..24`):
+
+```
+20, 13, 10, 10, 15, 10, 15, 14, 25, 39, 24, 26, 23, 17, 15, 18, 14, 13, 14,
+15, 15, 15, 15, 15, 18          → suma exacta = 428
+```
+
+La suma **coincide exactamente** con los 428 frames medidos por el otro camino
+(breakpoints en el update por frame). Es una confirmación independiente del
+modelo de avance.
+
+### 4.12 El contador `0x0064711E` no gobierna el nodo (resultado negativo)
+
+`0x006466D8 + 0x46 = 0x0064711E`. Se ha comprobado **correlacionando valores**,
+no por suposición: en 607 escrituras de la fracción, el contador **coincide con
+la fracción en 4** y no coincide con el índice nunca. Se comporta así:
+
+- suma **1 por frame**, pero **se reinicia** en puntos irregulares (medido en
+  `(idx, frac)` = (1,13), (5,9), (8,5), (9,13), (10,3), (11,12), (12,19),
+  (14,12), (16,8), (18,10), (20,14), (22,13), (24,16), (25,1)…);
+- llega a valores **> 31** (máximo medido: 50), así que no es una fracción de
+  5 bits ni un índice;
+- tras el final del vuelo sigue subiendo y reiniciándose, mientras el nodo está
+  fijo en `idx = 25`.
+
+⟹ **No es la fracción, no es el índice y no participa en el avance.** Su
+significado exacto queda **sin identificar**; lo que sí está demostrado es que
+el nodo lo mueve `0x53F252` (§ 4.11), no este contador.
+
+### 4.13 Verificación contra las 428 muestras: 428/428
+
+Se reimplementó la fórmula en Python con **aritmética entera exacta** (réplicas
+de `imull`, `sarl`, `idivl`, truncado a `int16`) y se comparó con las 428
+muestras publicadas en `analysis/menu_camera_map7.tsv`, partiendo solo del array
+capturado del proceso:
+
+| Comprobación | Resultado |
 |---|---|
-| `obj[+0]` | puntero al **array de registros** (dentro de la imagen del `.DFX`) |
-| `obj[+4]` | número de registros (`int16`) |
-| `obj[+6]` | bandera de variante: `0` → registros de **32 `int16` (64 B)**, `1` → registros de **10 `int16` (20 B)** |
-| nodo `+0` | **índice** del registro actual (`int16`) |
-| nodo `+2` | bit 0 = «usar el valor directo»; bits 1-15 = **fracción** de interpolación |
+| Duraciones `D` leídas del array → suma | **428** (igual que los frames medidos) |
+| Muestras comparadas | 428 |
+| Coincidencias **exactas** (los 3 ejes, sin tolerancia) | **428 / 428** |
+| Valor de `S` | `15`, leído de `[0x0054C1B0]` en runtime |
+| Primer frame calculado | `(2341, 4071, 3074)` = el capturado en `0x5AC608` |
+| Último frame (427) | `idx = 25`, `frac = 0`, `(2243, 487, 196)` |
 
-Y la interpolación (`0x53DEB0`, la variante de 20 B, que es la que usa este
-juego) calcula **tres pesos polinómicos** a partir de la fracción `t` (con el
-desplazamiento en punto fijo leído de `[0x0054C1B0]`) y los aplica a los
-registros actual y siguiente. La forma cerrada exacta de esos pesos **no está
-verificada** (lectura parcial del desensamblado): queda pendiente.
+También se cruzó con la **salida viva** del proceso (breakpoint en `0x53E9BC`,
+volcado de `0x005AC608`): la primera muestra capturada
+`0x0FE70925 / 0x0C020FE7 / 0x00000C02` = `(2341, 4071, 3074)` es exactamente el
+frame 0 calculado.
 
-En runtime (sesión de captura): `obj = 0x193C5F78` y el nodo en `0x193C5F68`.
-Son direcciones del **heap** y **cambian entre ejecuciones**, así que no se
-pueden fijar a priori; por eso el nodo se localizó con un breakpoint de
-ejecución en `0x53E98C` (que registra sus argumentos) y no con un watchpoint
-directo.
+⟹ **El algoritmo de la posición está cerrado**: dado el array, la posición de
+cada frame se reproduce bit a bit.
 
-### 4.10 Resumen del mecanismo (lo que se sabe y lo que no)
+**Reproducible**: `analysis/verify_menu_camera_interp.py` contiene la
+reimplementación (sin datos del juego incrustados) y compara contra el TSV:
+
+```
+python analysis/verify_menu_camera_interp.py <trace_arr.log> --ptr 0x<array>
+```
+
+### 4.14 Resumen del mecanismo (lo que se sabe y lo que no)
 
 
 | Pregunta | Respuesta | Estado |
@@ -473,10 +692,15 @@ directo.
 | ¿Quién escribe la posición? | `0x411BBB` / `0x411BCC` / `0x411BDD` | medido |
 | ¿Quién escribe la orientación? | `0x004122E8` / `0x4122F6` / `0x00412304` | medido |
 | ¿Cada cuánto? | posición: 1 por frame durante el vuelo (427 escrituras = frames 1..428); orientación: 1 por frame siempre | medido |
-| ¿De dónde salen los valores? | de un **array de registros** en la imagen del `.DFX`, indexado por el nodo | medido |
-| ¿Cómo se combinan? | interpolación entre el registro actual y el siguiente, con una fracción de 15 bits en el nodo | medido (mecánica); **la curva exacta no** |
-| ¿Quién avanza el nodo? | **no identificado** (el nodo está en el heap y su escritor no se ha capturado) | pendiente |
-| ¿El contador de `0x006466D8+0x46` gobierna la selección? | no demostrado: acompaña 1:1 a los frames, pero no se ha capturado el nodo en el mismo instante | pendiente |
+| ¿De dónde salen los valores? | de un **array de registros de 32 B incrustado en el objeto** (`obj+8`), indexado por el nodo | medido |
+| ¿Cómo se combinan? | **Hermite cúbica** en Q15 entre el registro actual y el siguiente, con `t = (frac15 << 15) / D` | medido y verificado 428/428 |
+| ¿Quién avanza el nodo? | **`0x53F252`**, llamada desde `0x53E997` (dentro de `0x53E98C`), una vez por frame desde `0x411B94` | medido |
+| ¿Cuánto avanza? | **+1** en la fracción de 15 bits; al llegar a `D`, `idx++` y `frac = 0` | medido |
+| ¿Qué es `D`? | `int16` en `array[idx*32 + 0]`: la **duración en frames** del segmento | medido |
+| ¿El contador de `0x0064711E` gobierna la selección? | **no**: no coincide con la fracción ni con el índice, y no participa en el avance | medido (negativo) |
+| ¿Qué es `obj[+6]`? | la variante del registro: `1` → 10 B (rotación), otro → 32 B (posición) | medido |
+| ¿Cómo se calculan las tangentes del registro? | **sin identificar** (se leen tal cual del array) | pendiente |
+
 
 ## 5. Relación con el menú
 
@@ -530,29 +754,31 @@ Con los datos medidos, el port necesita:
 | Origen de los datos | **la imagen de `level\map7.dfx`** (§ 4.5), que el port ya parsea | identificado |
 | Encuadre final como dato | literal en la imagen del `.DFX`, offset `0xC356` | medido |
 | Posición en el nodo | `+0x28` (int16 ×3) | medido |
-| Forma | recorrido curvo; el navegador selecciona registros y el interpolador combina el actual y el siguiente mediante una fracción de 15 bits | mecanismo identificado; curva exacta pendiente |
-| Origen de los datos | controlador del mundo `0x006487E0` y array de registros en la imagen de `level\\map7.dfx` | identificado |
+| Forma | **Hermite cúbica en Q15** sobre registros de 32 B, 25 segmentos de `D` frames (§ 4.10) | medido y verificado 428/428 |
+| Avance | `+1` en la fracción de 15 bits por frame; `idx++` al llegar a `D` (§ 4.11) | medido |
+| Origen de los datos | controlador del mundo `0x006487E0`; array de registros en la imagen de `level\map7.dfx` | identificado |
 
-**Lo que falta para poder implementarlo fielmente:**
+**Lo que el port necesita para reproducirlo** (ya sin inventar nada):
 
-1. **Quién avanza el nodo** de la trayectoria (el nodo vive en el heap; todavía
-   no se ha capturado la instrucción que modifica su índice/fracción).
-2. La **curva exacta** de `0x53DEB0`: se ha confirmado la interpolación entre
-   registros y el uso de una fracción de 15 bits, pero falta completar el
-   desensamblado y verificar la fórmula de los tres pesos polinómicos.
-3. Si el contador de `0x006466D8+0x46` gobierna la **selección** de registros
-   o solo acompaña al avance del nodo.
-4. El significado de los campos `+0x10/+0x12/+0x14` del estado en
-   `0x006466D8`.
-5. El **estado de menú** que dispara el vuelo y el momento exacto en que sus
-   elementos quedan visibles/preparados.
+1. Localizar en la imagen del `.DFX` el **array de registros de 32 B** (26
+   registros para MAP7, con `D` y las tangentes). El original lo construye en el
+   objeto del mundo (`obj+8`); el port lo leería al cargar el nivel.
+2. Reproducir el avance **por frame** (`+1` de fracción) y la fórmula de § 4.10
+   con **enteros**, no con coma flotante: el truncado a `int16` forma parte del
+   resultado (verificado bit a bit).
+3. La **rotación** va por otra ruta (registros de 10 B y cuaternios,
+   `0x43158D`); para el encuadre del menú basta con los valores medidos de Euler
+   (tabla de arriba) hasta que se cierre esa ruta.
 
-La rutina que copia la posición durante el vuelo **ya está localizada**:
-`0x411BBB` / `0x411BCC` / `0x411BDD` escriben X/Y/Z, y la cadena
-`0x53E98C → 0x53EF00 → 0x53DEB0` produce los tres valores. Por tanto, no
-queda pendiente localizar el escritor de cámara ni sustituirlo por una
-aproximación: queda reconstruir el avance del nodo y la matemática exacta
-del interpolador.
+**Lo que sigue pendiente (no bloquea el port):**
+
+1. El **criterio de las tangentes**: se leen tal cual del registro; cómo las
+   calculó el exportador no se ha establecido (no se etiqueta la curva como
+   Catmull-Rom ni Bézier).
+2. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
+3. El **estado de menú** que dispara el vuelo y el momento exacto en que el
+   menú queda estable.
+4. La ruta de **rotación** (registros de 10 B) y su conversión a Euler.
 
 ---
 
@@ -571,13 +797,11 @@ del interpolador.
 
 ## 8. Siguiente tarea
 
-1. Capturar quién **modifica el nodo del heap** (índice y fracción) y
-   relacionar esa escritura con el update de cada frame y con
-   `0x006466D8+0x46`.
-2. Completar el desensamblado de `0x53DEB0` y verificar la fórmula exacta de
-   los tres pesos polinómicos para la variante de registros de 10 `int16`.
-3. Identificar el estado que hace visibles/preparados los elementos del menú
-   al terminar el vuelo.
-4. Con esos datos, implementar el algoritmo original en DX11 y validarlo
-   frente a la secuencia medida de 428 frames; no sustituirlo por una curva
-   aproximada ni por muestras inventadas.
+1. Localizar el **array de 32 B** dentro de la imagen de `level\map7.dfx` y
+   leerlo con el parser del port (`port/src/asset/dfx.c`), para tener la
+   trayectoria como dato y no como muestras.
+2. Medir la **relación con el menú** (ruta 2D, estado de menú).
+3. Cerrar la ruta de **rotación** (registros de 10 B → cuaternio → Euler).
+4. Implementar la secuencia en el port con la fórmula de § 4.10 y comparar
+   frame a frame contra `analysis/menu_camera_map7.tsv` (la comparación ya
+   existe: 428/428 con la fórmula, falta contra el renderer).
