@@ -311,10 +311,11 @@ Ajuste polinomial de las 428 muestras con `t = frame/427`:
 15 497). Los residuos son del mismo orden que el propio recorrido: esto
 permite descartar un polinomio de grado bajo como descripción de la trayectoria,
 pero **no identifica por sí solo el interpolador ni demuestra una spline**.
-El controlador obtiene datos de un fichero organizado en registros de 0x200 B;
-la hipótesis de varios puntos de control es compatible con esa estructura, pero
-queda pendiente decodificar el nodo y seguir cómo se actualiza antes de afirmar
-si usa Catmull-Rom, otra spline o una secuencia de muestras.
+El controlador obtiene los datos de la imagen compactada de `level\\map7.dfx`.
+El valor `0x200` describe la alineación de esa imagen en el contenedor, no el
+tamaño de un registro. La representación de la trayectoria sigue pendiente de
+decodificación; no sabemos todavía si contiene puntos de control, coeficientes,
+una secuencia transformada u otra estructura.
 
 ### 4.3 El perfil de velocidad
 
@@ -341,10 +342,11 @@ algoritmo ni el número de puntos de control.
 - El movimiento ocurre en la ruta 3D (update por frame + emisión de
   geometría activos) ⟹ **no es la reproducción de una película**.
 
-⟹ El mecanismo demostrado es: **un controlador de cámara del mundo alimenta
-la posición y orientación que la cámara copia por frame**, usando datos
-procedentes de un fichero. La estructura exacta de esos datos y el algoritmo
-que genera cada estado siguen pendientes de decodificación.
+⟹ El mecanismo demostrado es más limitado: el mundo carga un controlador
+asociado a `level\\map7.dfx`, y el bloque `0x43B56B..0x43B5CC` copia desde él
+la posición y orientación de **colocación inicial**. La rutina que actualiza la
+cámara durante los 428 frames aún no está identificada; tampoco la estructura
+de trayectoria ni el algoritmo que genera los estados intermedios.
 
 ---
 
