@@ -950,6 +950,13 @@ mismo `gex_level_emit`, mismo `gex_geometry_build`): no hay una segunda
 implementación. Coste medido con MAP7: **0,50 ms por frame** (215 ms los 428
 frames), de los que ~3 ms son la carga inicial completa.
 
+La aritmética del *look-at* del port: longitud **entera** (`isqrt_frac`,
+transcripción de `0x4647EB`, **sin `sqrt()`**) y `atan2` de la libm con la
+constante **exacta** del original (`6.283185308` y `4096.0`) y truncamiento
+hacia cero; la única diferencia con el original es de implementación (x87
+`fpatan` frente a la libm), y está medida contra los **425/425** estados
+capturados del ejecutable (§ 8.3).
+
 Tras el centinela el paso devuelve 0 y **no escribe nada**: la última posición
 y la última orientación se conservan (el original tampoco escribía después de
 terminar el vuelo).
@@ -1137,6 +1144,19 @@ constantes, no por aproximación):
   `y == 0` → `0` o `0x800` según el signo de `x`.
 - El `+0x400` del tercer ángulo es un desplazamiento de **90°** (π/2) en
   Q12 de media vuelta.
+
+> **Qué hace el port exactamente (y dónde NO es una transcripción bit a bit).**
+> La longitud es **entera de verdad**: `isqrt_frac` transcribe `0x4647EB`
+> (bit más alto, `sh >>= 1`, `cl = sh + frac/2`, refinado) y **no hay
+> `sqrt()`** en el código. El `atan2` **no es una aproximación propia**: el
+> port usa el `atan2` de la libm en doble precisión —la misma función que la
+> CRT ofrece al original a través de `fpatan` (`0x5416C0`)— con la
+> **constante exacta** `6.283185308`, el multiplicador `4096.0` y el
+> truncamiento hacia cero. La única diferencia frente al original es de
+> **implementación** (x87 `fpatan` frente a la libm), no de fórmula, y está
+> **medida**: los 428 estados del port coinciden con los 428 de la referencia
+> y con los **425/425** estados capturados del ejecutable original en marcha.
+> `atan2(1,1) = 511` fija la constante en una prueba (`test_camera`).
 
 ### 8.4 Verificación
 

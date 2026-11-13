@@ -49,6 +49,17 @@ No lo son:
 - La Hermite de las dos trayectorias es **Q15** (`S = 15`), no Q12: se
   reutiliza el interpolador que ya existia, sin duplicarlo.
 
+**DONDE NO HAY TRANSCRIPCION BIT A BIT (declarado, no escondido).** La
+longitud es **entera de verdad**: `isqrt_frac` transcribe `0x4647EB` y **no
+hay `sqrt()`** en el codigo. El `atan2` **no es una aproximacion propia**: el
+port usa el `atan2` de la libm en doble precision --la misma funcion que la CRT
+ofrece al original a traves de `fpatan` (`0x5416C0`)-- con la constante exacta
+`6.283185308`, el multiplicador `4096.0` y el truncamiento hacia cero. La
+unica diferencia frente al original es de **implementacion** (x87 `fpatan`
+frente a la libm), no de formula, y esta **medida**: 428/428 contra la
+referencia y **425/425** contra los estados capturados del ejecutable en
+marcha.
+
 **PORT (modificado).**
 
 - `gex/camera.h` / `camera.c`: `sar_u32`, `isqrt_frac` (transcripcion exacta de
