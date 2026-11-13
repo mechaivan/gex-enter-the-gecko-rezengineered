@@ -50,7 +50,8 @@ extern "C" {
 #define GEX_DFX_ACTOR_ENTITY_OFFSET  0x28u
 #define GEX_DFX_SLOT_OPCODE_PATH     0x4Fu
 #define GEX_DFX_SLOT_OPCODE_END      0x0Eu
-#define GEX_DFX_SLOT_CAMERA          0u
+#define GEX_DFX_SLOT_CAMERA          0u  /* trayectoria de POSICION */
+#define GEX_DFX_SLOT_CAMERA_LOOKAT   1u  /* trayectoria de MIRA (look-at) */
 #define GEX_DFX_MAX_SLOTS            16u
 
 typedef enum gex_dfx_status {
@@ -145,6 +146,22 @@ gex_dfx_status gex_dfx_load_level(const gex_dfx_container *container,
  */
 gex_dfx_status gex_dfx_load_camera_path(const gex_dfx_container *container,
                                         gex_dfx_camera_path *out);
+
+/*
+ * Igual que `gex_dfx_load_camera_path`, pero eligiendo el slot de la lista
+ * de la cabecera de nivel. MAP7 tiene dos entradas con opcode 0x4F:
+ *
+ *   slot 0 -> actor 0x95EC -> ... -> array 0xC034 (POSICION)
+ *   slot 1 -> actor 0x961C -> ... -> array 0xC39C (MIRA)
+ *
+ * `gex_dfx_load_camera_path` es exactamente `slot == 0`. El slot 1 es la
+ * segunda trayectoria del look-at (0x406515 -> 0x40AE51). Se valida la
+ * misma cadena y el mismo contrato de registros; si el slot no existe o
+ * no cumple, se devuelve GEX_DFX_ERR_PATH sin adivinar.
+ */
+gex_dfx_status gex_dfx_load_camera_path_slot(const gex_dfx_container *container,
+                                             uint32_t slot,
+                                             gex_dfx_camera_path *out);
 void gex_dfx_release_container(gex_dfx_container *container);
 void gex_dfx_release_level(gex_dfx_level *level);
 void gex_dfx_release_camera_path(gex_dfx_camera_path *path);

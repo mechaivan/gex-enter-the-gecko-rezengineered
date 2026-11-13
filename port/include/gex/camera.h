@@ -200,6 +200,47 @@ void gex_cam_build_visibility_matrices(gex_camera *cam);
  * orientation_finalize, build_visibility_matrices in order. */
 void gex_cam_update(gex_camera *cam);
 
+/* --- Look-at del controlador de camara del menu ------------------- */
+
+/* 0x40534F: longitud entera del vector (x, y, 0), con la aritmetica
+ * exacta del original:
+ *
+ *   s   = x*x + y*y            (imul/add de 32 bits, con vuelta)
+ *   s <<= 4
+ *   r   = 0x4647EB(s, 4)       raiz entera con 4 bits fraccionarios
+ *   len = (r + 8) >> 4         (add y sar 4)
+ *
+ * No usa sqrt() ni punto flotante. Devuelve el int32 que consume el
+ * look-at como segundo argumento de 0x464181. */
+int32_t gex_cam_length_2d(int16_t x, int16_t y);
+
+/* 0x464181: atan2(y, x) en Q12 de media vuelta (2048 = pi), truncado
+ * hacia cero. Casos especiales medidos en el original:
+ *
+ *   x == 0:  y >= 0 ? 0x400 : 0xFC00
+ *   y == 0:  x > 0 ? 0 : 0x800
+ *
+ * En el resto reproduce la secuencia x87 del original:
+ *   trunc(atan2(y, x) / 6.283185308 * 4096.0)
+ * con la constante exacta de 0x54C178 y el truncamiento de 0x540950
+ * (`fistpll` con la palabra de control a truncar). */
+int16_t gex_cam_atan2_q12(int32_t y, int32_t x);
+
+/* 0x406515 -> 0x40AE51: orientacion de la camara hacia `target`.
+ *
+ *   d0 = cam[0] - target[0]
+ *   d1 = cam[1] - target[1]
+ *   d2 = cam[2] - target[2]          (tres int16, con vuelta)
+ *   len = 0x40534F(d0, d1)
+ *   euler[0] = -0x464181(d2, len)
+ *   euler[1] = 0
+ *   euler[2] =  0x464181(d1, d0) + 0x400
+ *
+ * Los angulos quedan en Q12 de media vuelta (2048 = pi), que es el mismo
+ * formato de `cam+0x30`. `euler` puede ser el propio `cam->euler`. */
+void gex_cam_look_at(int16_t euler[3], const int16_t cam[3],
+                     const int16_t target[3]);
+
 /* --- Visibility test (0x00401C00) --- */
 
 /* BSP node layout (verified): */

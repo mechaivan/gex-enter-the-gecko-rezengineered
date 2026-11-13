@@ -841,11 +841,82 @@ static void test_emit_matrix_reference(void) {
     CHECK(gex_cam_build_emit_matrix(&c, NULL) != 0);
 }
 
+/* ---------------------------------------------------------------------------
+ * Look-at del controlador de camara del menu (0x406515 -> 0x40AE51).
+ *
+ *   len  = 0x40534F(d0, d1)    longitud entera con 0x4647EB y sar 4
+ *   atan = 0x464181(y, x)      atan2 en Q12 de media vuelta, truncado
+ *   euler = (-atan2(d2, len), 0, atan2(d1, d0) + 0x400)
+ *
+ * Los valores de referencia salen de la aritmetica medida del original
+ * (constante 6.283185308 de 0x54C178 y `fistpll` con truncamiento). El caso
+ * atan2(1,1) = 511 es justamente el que distingue esa constante del 2*pi de
+ * la libm (que daria 512).
+ * ------------------------------------------------------------------------- */
+static void test_look_at_reference(void) {
+    int16_t euler[3];
+    int16_t cam0[3] = { 2341, 4071, 3074 };
+    int16_t mira0[3] = { 2817, 3862, 2711 };
+    int16_t cam1[3] = { 2243, 487, 196 };
+    int16_t mira1[3] = { 2742, 304, 172 };
+    int16_t same[3];
+
+    /* 0x40534F: longitud entera del vector (x, y, 0). */
+    CHECK(gex_cam_length_2d(3, 4) == 5);
+    CHECK(gex_cam_length_2d(0, 0) == 0);
+    CHECK(gex_cam_length_2d(-3, 4) == 5);
+    CHECK(gex_cam_length_2d(0, -20) == 20);
+    CHECK(gex_cam_length_2d(20, 0) == 20);
+    /* 428 frames del menu: d0=-476, d1=209 -> 520. */
+    CHECK(gex_cam_length_2d(-476, 209) == 520);
+
+    /* 0x464181: atan2 en Q12 de media vuelta. Casos especiales exactos. */
+    CHECK(gex_cam_atan2_q12(5, 0) == 0x400);
+    CHECK(gex_cam_atan2_q12(-5, 0) == (int16_t)0xFC00);
+    CHECK(gex_cam_atan2_q12(0, 5) == 0);
+    CHECK(gex_cam_atan2_q12(0, -5) == 0x800);
+    /* Cuadrantes y la constante exacta 6.283185308 (truncamiento). */
+    CHECK(gex_cam_atan2_q12(1, 1) == 511);
+    CHECK(gex_cam_atan2_q12(1, -1) == 1535);
+    CHECK(gex_cam_atan2_q12(-1, -1) == -1535);
+    CHECK(gex_cam_atan2_q12(-1, 1) == -511);
+    CHECK(gex_cam_atan2_q12(3, 4) == 419);
+    CHECK(gex_cam_atan2_q12(4, 3) == 604);
+    CHECK(gex_cam_atan2_q12(2, 1) == 721);
+
+    /* 0x40AE51: primer estado del vuelo, (-397, 0, 2802). */
+    gex_cam_look_at(euler, cam0, mira0);
+    CHECK(euler[0] == -397);
+    CHECK(euler[1] == 0);
+    CHECK(euler[2] == 2802);
+    /* Y el ultimo, (-29, 0, 2842). */
+    gex_cam_look_at(euler, cam1, mira1);
+    CHECK(euler[0] == -29);
+    CHECK(euler[1] == 0);
+    CHECK(euler[2] == 2842);
+
+    /* El destino puede ser el propio `cam` (el original escribe en
+     * cam+0x18 con la posicion en cam+0x00). */
+    memcpy(same, cam0, sizeof(same));
+    gex_cam_look_at(euler, same, same);
+    CHECK(euler[0] == -0x400);
+    CHECK(euler[1] == 0);
+    CHECK(euler[2] == 0x800);
+
+    /* Argumentos nulos: no se escribe nada. */
+    euler[0] = 7; euler[1] = 7; euler[2] = 7;
+    gex_cam_look_at(NULL, cam0, mira0);
+    gex_cam_look_at(euler, NULL, mira0);
+    gex_cam_look_at(euler, cam0, NULL);
+    CHECK(euler[0] == 7 && euler[1] == 7 && euler[2] == 7);
+}
+
 int main(void) {
     printf("Running camera tests...\n");
     test_tables_init();
     test_table_truncation();
     test_emit_matrix_reference();
+    test_look_at_reference();
     test_rotation_exact();
     test_identity_orientation();
     test_simple_rot_z();

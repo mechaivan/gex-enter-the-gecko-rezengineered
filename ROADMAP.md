@@ -232,12 +232,14 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     `run_sanitizers.ps1` **32/32**. **Ejecución real** (ventana Win32, GPU
     hardware): la cámara recorre la escena durante los 428 updates (los
     triángulos visibles cambian de 1123 a 41 y a 362 según el punto de vista) y
-    **termina en `(2243, 487, 196)`**. **Límites declarados:** la
-    **orientación todavía no se interpola** (la ruta de 10 B del enunciado
-    resultó ser la de otros actores; la orientación real del menú es un
-    *look-at* ya decodificado en la decimoséptima tanda, pero sin integrar)
-    y el atlas de texturas (64 entradas) cubre el
-    **91,3 %** de los vértices del vuelo, que tocan 166 texturas distintas.
+    **termina en `(2243, 487, 196)`**. **Límites declarados:** ~~la
+    orientación todavía no se interpola~~ **(superado en la decimoctava
+    tanda: el *look-at* ya está integrado y la matriz de emisión gira)** y el
+    atlas de texturas (64 entradas) cubre el
+    **91,3 %** de los vértices del vuelo, que tocan 166 texturas distintas
+    **(cifras de aquella tanda, medidas con la orientación fija; con el
+    *look-at* integrado son 231 texturas y 82,2 %, ver la decimoctava
+    tanda)**.
   - **Decimoséptima tanda (2026-11-13, la orientación del menú):** cierra la
     pregunta de la **segunda trayectoria**. (a) **Medición**: los 428 ángulos
     del menú **no** salen de un cuaternio sino de un *look-at* (`0x406515` →
@@ -256,9 +258,10 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     la trayectoria de **10 B** (variante 1, `0xD118`/`0xD120`, 18 registros,
     `D` + cuaternión Q12, SLERP `0x43158D`, `0x431430`, `0x431036`) **sí
     existe** pero **no se evalúa** en el menú (16 289 impactos medidos): es
-    de otro actor del nivel. (e) **Pendiente**: integrar la orientación en
-    el port (hoy `scene_level.c` fija `euler = (-397, 0, 2802)`) e
-    identificar las matrices `ctrl+0x4C`/`ctrl+0x26C` de `0x40A6F2`.
+    de otro actor del nivel. (e) **Pendiente en aquella tanda** (superado en
+    la decimoctava): integrar la orientación en el port e identificar las
+    "matrices" `ctrl+0x4C`/`ctrl+0x26C` de `0x40A6F2`, que resultaron ser
+    **puntos** de un muelle, no matrices.
   - **Décima tanda (2026-11-12, modos de mezcla por comando y byte alto del
     color de vértice):** los dos puntos que la novena dejó abiertos se
     **cierran con captura dinámica** del juego en ejecución (trazador con
@@ -279,6 +282,38 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     medir si el driver compensa la escala RGB 0..2 de Glide, mientras que el
     port normaliza a 0..1; tampoco se afirma equivalencia con el SST-1 ni
     comparación píxel a píxel.
+  - **Decimoctava tanda (2026-11-13, la orientación integrada en el port):**
+    cierra el circuito de la cámara del menú. (a) **Refutación con
+    evidencia**: `0x40A6F2` **no** es una rutina de matrices sino un
+    **muelle/limitador sobre puntos** (3 × int16) con cinco modos (tabla de
+    saltos en `0x40AD98`: `0x40A740`, `0x40A834`, `0x40AD6A` no-op,
+    `0x40A989`, `0x40AA7D`); `ctrl+0x4C` y `ctrl+0x26C` son **puntos**, no
+    matrices, y en la rama del vuelo (`ctrl+0x484 != 0`, retorno `0x411D0C`)
+    el *look-at* usa los **samples crudos** de las dos splines, sin
+    transformación. (b) **Constantes leídas del ejecutable**: `0x54C178` es el
+    double `0x1.921fb54524550p+2` = **6.283185308** (no el `2π` de la libm) y
+    `0x54C180` = **4096.0**; `0x540950` trunca hacia cero (`fistpll`), luego
+    `atan = trunc(atan2(y,x) / 6.283185308 * 4096.0)` y el caso `atan2(1,1)`
+    da **511**, no 512. `0x40534F` se transcribe exacto:
+    `len = (isqrt_frac((d0²+d1²)<<4, 4) + 8) >> 4`, con `0x4647EB` completo
+    (bit más alto, `sh >>= 1`, `cl = sh + frac/2`, refinado), sin `sqrt()`.
+    (c) **Port**: `gex_cam_length_2d`, `gex_cam_atan2_q12` y
+    `gex_cam_look_at` en `gex/camera.h`; `gex_dfx_load_camera_path_slot()` con
+    `GEX_DFX_SLOT_CAMERA_LOOKAT` lee la mira (actor `0x961C` → `0xC374` →
+    `0xC394` → `0xC39C`, 26 registros, suma 428); la escena avanza **dos
+    nodos independientes** y en cada update calcula el *look-at* y
+    **reconstruye las matrices derivadas** antes de re-emitir. (d)
+    **Validación**: `test_camera` (995) cubre la matemática con valores
+    conocidos, `test_camera_path_scene` (2701) la extracción de las dos
+    trayectorias y el primer/último Euler, `test_camera_path_tsv` (5735)
+    compara **428/428 posiciones, 428/428 miras y 428/428 Euler** contra los
+    dos TSV leídos en ejecución, y `test_camera_path_render` (26) comprueba
+    que la matriz de emisión y el buffer de la GPU cambian; suite completa
+    **0 fallos** y sanitizers **32/32**. (e) **Ejecución real** (ventana
+    Win32, GPU hardware): 428 muestras, `finished=1`, final
+    `pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)`, 1722 triángulos, salida
+    limpia. (f) **Texturas medidas de nuevo** con la orientación real: 231
+    distintas, las 64 más usadas cubren el 82,2 % de los vértices.
   - **Novena tanda (2026-11-12, ecuación de la mezcla alfa sobre el driver
     real):** registro histórico de la investigación que identificó nGlide
     2.10 y obtuvo dinámicamente el programa de
@@ -317,8 +352,8 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
 - [ ] S-2: Recorrido BSP (2026-11-07) — **recorrido estructural y visibilidad de cámara implementados y validados** en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)): DFS con detección de ciclos, referencias compartidas, límite de hojas y 815 hojas en AZTEC16; la **visibilidad original de cámara y su cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`) están implementadas** ([`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md)) y auditadas (889 comprobaciones de cámara + 37 de BSP, 0 fallos; `build.ps1 test` y `make test`), con la aritmética de 32 bits reproduciendo el wrap de x86. La **ruta de emisión de polígonos está implementada en código** (17.ª–18.ª pasadas): módulo puro `port/src/emit/emit.c` + `port/include/gex/emit.h` con `gex_level_emit` y sus fases (`collect`, `project`, `classify`, `subdivide`, `sort`), reproduciendo la proyección exacta de `0x46A1D0`, la niebla `0x64FEA8`/`0x461895`, los umbrales `0x65BF80`/`0x65BF04`, el determinante de `0x46B6B5`, el reparto de color entre `0x426256` y `0x426588` (segunda pasada de niebla), la prioridad de la subdivisión (4 principales + hasta 3 *slivers*, sin niebla), el gate completo de los emisores y la ordenación por `(maxz >> 2) + 4*layer` con desempate LIFO. La 18.ª pasada audita y corrige seis defectos (x/y sin inicializar, aritmética con wrap x86, offsets comprobados, mezcla de color real, subdivisión/emisores/orden verificados y AZTEC16 estructural) y deja `port/tests/test_level_emit.c` en **38 855 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. Pendiente: completar la validación dinámica integral contra el ejecutable original; las tablas trigonométricas ya están verificadas bit a bit. S-2 no se declara completo.
 - [x] S-3: Generador de Buffers D3D11 (2026-11-07, completado 2026-11-11) — **implementado en dos mitades**: conversión portable `gex_emit_output → gex_geometry` (`port/include/gex/geometry.h`, `port/src/geometry/geometry.c`) y creación/liberación de vertex/index buffers D3D11 (`port/include/gex/render/d3d11_mesh.h`, `port/src/render/d3d11_mesh.c`, Windows-only). Vértice de 28 B con posición, profundidad, color por vértice, UV, textura, capa y flags; deduplicación exacta y determinista; índices correctos para todos los triángulos, subdivisiones y pasadas de niebla; validación de punteros, conteos, multiplicaciones y desbordamientos antes de reservar o crear; `R16_UINT`/`R32_UINT` automático. Pruebas: `test_geometry` **6 963 comprobaciones, 0 fallos** (Clang `-O0`/`-O2` y ASan/UBSan) y `test_d3d11_mesh` **108 comprobaciones, 0 fallos** (WARP + hardware, lectura de vuelta, AZTEC16 real). **No incluye** shaders, `ID3D11InputLayout`, texturas ni `DrawIndexed` en este módulo aislado; esos componentes se integran en S-5. Detalle en [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §12–§13.
 - [ ] S-4: Cargador de Texturas (2026-11-07) - cargar .VFX, construir la tabla de texturas (índice de 14 bits) y crear texturas D3D11. **4A (2026-11-11): el contenedor `.VFX` está demostrado e implementado** (`port/include/gex/vfx.h`, `port/src/asset/vfx.c`, portable): tabla de entradas, offsets y tamaños validados estrictamente (con validación estricta del EOF: la tabla tiene que cubrir el fichero entero), tabla NCC solo para el formato `YIQ_422`, correspondencia DFX→VFX verificada (los 9 609 polígonos de AZTEC16 usan los índices 0..3 y el `.VFX` tiene 260 entradas). **Módulo 4B (2026-11-11) y auditoría correctiva:** el registro VFX es un `GrTexInfo` de Glide 2.x; los identificadores 1, 11 y 12 son **`GR_TEXFMT_YIQ_422`, `GR_TEXFMT_ARGB_1555` y `GR_TEXFMT_ARGB_4444`**; el bloque de 112 B de `+0x14` es una **`GuNccTable`**, no una paleta; y las dimensiones se derivan del LOD (`256 >> lod`) y del aspecto (`8x1`…`1x8`), con el tamaño del bloque coincidiendo en **15 251 de 15 251 registros** de los 37 `.VFX` originales. **Módulo 4C (2026-11-11):** las texturas del `.VFX` ya se suben a D3D11 (atlas + `ID3D11ShaderResourceView` + sampler lineal/WRAP + muestreo en el shader con el índice de 14 bits) y el nivel de AZTEC16 sale **texturizado** en ejecución real con GPU hardware (3 010 + 324 comprobaciones, 0 fallos; suite completa 16/16). **Lo que falta: completar la validación dinámica de S-2, el *depth buffer* y el blending por polígono del original. La trayectoria de posición de MAP7 ya está conectada al renderer. Detalle en `docs/VFX_TEXTURE_FORMAT.md` §9 y `docs/D3D11_FIRST_SCENE_PLAN.md` §18.
-- [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16 (incluye los shaders y el `ID3D11InputLayout` que el Módulo 3 dejó fuera a propósito). **Parcial (5A, 2026-11-11):** el pipeline de dibujo ya existe (`gex_d3d11_pipeline`: vertex/pixel shader de color por vértice compilados en ejecución con `d3dcompiler_47.dll`, `ID3D11InputLayout` de los 28 B del vértice, estados, viewport y `DrawIndexed`), el renderer R-3 lo usa antes del `Present` y la aplicación muestra un cubo 3D de prueba (`gex_shape_cube`). **Auditoría y primera ejecución real (2026-11-11):** corregida la liberación parcial (la limpieza ya no depende de una bandera), conservado el diagnóstico de error que se perdía al limpiar, añadidos los errores de dibujo al log, corregida la normal sin normalizar del sombreado, añadida la inyección de fallos por etapa del pipeline (287 comprobaciones offscreen con WARP, 0 fallos) y **ejecutada la aplicación real con ventana Win32 y swapchain en GPU real**: 30 frames presentados sin errores y **evidencia visual confirmada por captura de la ventana** (el cubo aparece con sus tres caras). Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` §14–§15. **Falta:** materiales NCC con iluminación, *depth buffer*, blending por polígono del original, la niebla aplicada después de la textura y `WM_SIZE`. La trayectoria de posición de MAP7 ya está conectada al renderer; rotación y estado del menú siguen pendientes. Las **texturas (S-4) ya están** (Módulo 4C) y la **carga del nivel real en el bucle de frames** también (Módulo 5B, §16).
-- [ ] S-5b: Primera geometria real de un nivel (2026-11-11, HECHO) - nuevo modulo portable `gex_scene_level` (`port/include/gex/scene_level.h`, `port/src/scene/scene_level.c`) que encadena `gex_dfx_load` -> `gex_dfx_load_level` -> `gex_bsp_walk` -> `gex_level_emit` -> `gex_geometry_build` sin duplicar implementaciones, con estadisticas y una **vista diagnostica** (matriz sintetica + niebla 0x461895 + encuadre automatico) que **no es la camara original**. La aplicacion acepta `--level <ruta>`; sin el sigue el cubo de prueba. AZTEC16: 815 hojas, 2854 triangulos (1427 de niebla), 4914 vertices, 8562 indices. **Ejecutado con ventana Win32 y GPU real y verificado visualmente** (captura local, no publicada): se ven las estructuras del nivel. Pruebas: `test_scene_level` 8627 comprobaciones, 0 fallos. Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` section 16. **Falta:** depth buffer, blending por poligono y la niebla despues de la textura. La trayectoria de posicion de la camara de MAP7 ya esta integrada; la rotacion y el estado del menu siguen pendientes. Las **texturas ya estan** (Modulo 4C, section 18).
+- [ ] S-5: Integración con Renderer D3D11 (2026-11-07) — integrar módulos anteriores con renderer existente para renderizar AZTEC16 (incluye los shaders y el `ID3D11InputLayout` que el Módulo 3 dejó fuera a propósito). **Parcial (5A, 2026-11-11):** el pipeline de dibujo ya existe (`gex_d3d11_pipeline`: vertex/pixel shader de color por vértice compilados en ejecución con `d3dcompiler_47.dll`, `ID3D11InputLayout` de los 28 B del vértice, estados, viewport y `DrawIndexed`), el renderer R-3 lo usa antes del `Present` y la aplicación muestra un cubo 3D de prueba (`gex_shape_cube`). **Auditoría y primera ejecución real (2026-11-11):** corregida la liberación parcial (la limpieza ya no depende de una bandera), conservado el diagnóstico de error que se perdía al limpiar, añadidos los errores de dibujo al log, corregida la normal sin normalizar del sombreado, añadida la inyección de fallos por etapa del pipeline (287 comprobaciones offscreen con WARP, 0 fallos) y **ejecutada la aplicación real con ventana Win32 y swapchain en GPU real**: 30 frames presentados sin errores y **evidencia visual confirmada por captura de la ventana** (el cubo aparece con sus tres caras). Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` §14–§15. **Falta:** materiales NCC con iluminación, *depth buffer*, blending por polígono del original, la niebla aplicada después de la textura y `WM_SIZE`. La trayectoria de posición de MAP7 ya está conectada al renderer; la **rotación ya está integrada** (*look-at* del original, decimoctava tanda) y el **estado del menú** sigue pendiente. Las **texturas (S-4) ya están** (Módulo 4C) y la **carga del nivel real en el bucle de frames** también (Módulo 5B, §16).
+- [ ] S-5b: Primera geometria real de un nivel (2026-11-11, HECHO) - nuevo modulo portable `gex_scene_level` (`port/include/gex/scene_level.h`, `port/src/scene/scene_level.c`) que encadena `gex_dfx_load` -> `gex_dfx_load_level` -> `gex_bsp_walk` -> `gex_level_emit` -> `gex_geometry_build` sin duplicar implementaciones, con estadisticas y una **vista diagnostica** (matriz sintetica + niebla 0x461895 + encuadre automatico) que **no es la camara original**. La aplicacion acepta `--level <ruta>`; sin el sigue el cubo de prueba. AZTEC16: 815 hojas, 2854 triangulos (1427 de niebla), 4914 vertices, 8562 indices. **Ejecutado con ventana Win32 y GPU real y verificado visualmente** (captura local, no publicada): se ven las estructuras del nivel. Pruebas: `test_scene_level` 8627 comprobaciones, 0 fallos. Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` section 16. **Falta:** depth buffer, blending por poligono y la niebla despues de la textura. La trayectoria de posicion de la camara de MAP7 ya esta integrada; la **rotacion ya esta integrada tambien** (look-at del original, decimoctava tanda) y el **estado del menu** sigue pendiente. Las **texturas ya estan** (Modulo 4C, section 18).
 
 ## Fase 2 — Reverse Engineering mínimo ⬜ (no iniciada)
 

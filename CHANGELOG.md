@@ -1,5 +1,130 @@
 # CHANGELOG
 
+## 2026-11-13 - 0.0.0 - La orientacion de la camara del menu, integrada en el port: dos nodos, el look-at entero en cada update y las matrices derivadas reconstruidas
+
+La camara del menu deja de moverse **sin girar**. El `euler` fijo
+`(-397, 0, 2802)` de `port/src/scene/scene_level.c` desaparece del modo
+trayectoria: en cada update se leen los samples de **las dos** trayectorias del
+`.DFX`, se calcula el *look-at* con la aritmetica entera del original y se
+reconstruyen las matrices derivadas **antes** de re-emitir la escena. La
+trayectoria de posicion ya validada **no cambia**: 428/428 sigue igual.
+
+**PREMISA REFUTADA, CON EVIDENCIA.** La investigacion partia de que `0x40A6F2`
+era una rutina de matrices y de que `ctrl+0x4C` / `ctrl+0x26C` eran matrices.
+No lo son:
+
+- `0x40A6F2` es un **muelle/limitador sobre puntos** (3 x int16) con **cinco
+  modos** por tabla de saltos en `0x40AD98`: `0 -> 0x40A740`, `1 -> 0x40A834`,
+  `2 -> 0x40AD6A` (no-op), `3 -> 0x40A989`, `4 -> 0x40AA7D`. Firma real:
+  `0x40A6F2(mode, pA, pB, prev, dst, limit)`; el modo 0 hace
+  `d = pB - pA; dst = (d >> 2) - prev; prev += dst; pA += prev`.
+- `ctrl+0x4C` y `ctrl+0x26C` son **puntos**: la mira suavizada del modo
+  *attract* y la de la segunda cadena. Solo actuan **fuera** del vuelo.
+- En la rama del vuelo (`ctrl+0x484 != 0`, retorno `0x411D0C`) el *look-at* usa
+  el **sample crudo** de la spline de mira y `cam+0x00` es el sample crudo de
+  posicion: **no hay transformacion**. Por eso la referencia se genera desde el
+  `.DFX` y no necesita valores capturados ya transformados.
+- `0x4122E4` es una copia plana `cam+0x18..0x1C -> cam+0x30..0x34`, sin
+  transformacion.
+- El frame 0 se ejecuta por la rama *attract* (retorno `0x411FBB`), donde el
+  objetivo ya es `cam+0x4C` convergido al sample de mira; los demas por
+  `0x411D07`.
+
+**CONSTANTES LEIDAS DEL EJECUTABLE, NO SUPUESTAS.**
+
+- `0x54C178` es el double `0x1.921fb54524550p+2` = **6.283185308**, que **no**
+  es el `2*pi` de la libm; `0x54C180` = **4096.0**.
+- `0x540950` fija la palabra de control a **truncamiento** (`orb $0xC,%ah`) y
+  usa `fistpll`; el llamador toma `%ax`. Luego
+  `atan = trunc(atan2(y,x) / 6.283185308 * 4096.0)` y **`atan2(1,1) = 511`**
+  (con `2*pi` daria 512), que es justo el caso que distingue ambas constantes.
+- `0x40534F` se transcribe exacto, sin `sqrt()`:
+  `len = (isqrt_frac((d0^2+d1^2)<<4, 4) + 8) >> 4`, con
+  `isqrt_frac(n,4) = floor(sqrt(n)*4)` y `0x4647EB` completo (bit mas alto,
+  `sh >>= 1`, `cl = sh + frac/2`, refinado).
+- Casos especiales de `0x464181`: `x == 0 -> y >= 0 ? 0x400 : 0xFC00`;
+  `y == 0 -> x > 0 ? 0 : 0x800`.
+- Argumentos de `0x40AE51`: `arg1 (0x8) = cam+0x18` (salida),
+  `arg2 (0xc) = target`, `arg3 (0x10) = cam`; por tanto `d = cam - target`.
+- La Hermite de las dos trayectorias es **Q15** (`S = 15`), no Q12: se
+  reutiliza el interpolador que ya existia, sin duplicarlo.
+
+**PORT (modificado).**
+
+- `gex/camera.h` / `camera.c`: `sar_u32`, `isqrt_frac` (transcripcion exacta de
+  `0x4647EB`), `gex_cam_length_2d` (`0x40534F`), `gex_cam_atan2_q12`
+  (`0x464181`) y `gex_cam_look_at` (`0x406515 -> 0x40AE51`).
+- `gex/asset/dfx.h` / `dfx.c`: `GEX_DFX_SLOT_CAMERA_LOOKAT 1u` y
+  `gex_dfx_load_camera_path_slot(container, slot, out)`;
+  `gex_dfx_load_camera_path()` queda como envoltorio del slot 0. La mira sale
+  de la **misma imagen compactada** y de su **cadena real de punteros** (actor
+  `0x961C` -> `0xC374` -> `0xC394` -> `0xC39C`), no de bytes parecidos: 26
+  registros, suma 428, key0 y key25 validos, slot inexistente rechazado.
+- `gex/scene_level.h` / `scene_level.c`: campos `dfx_lookat_path`,
+  `lookat_loaded`, `lookat_node`, `lookat_finished`, `lookat_last[3]`; carga
+  del slot 1; **dos nodos independientes** con avance por update logico;
+  `gex_cam_look_at` en cada update; `gex_cam_update`; re-emision con el
+  pipeline existente; liberacion del path de mira.
+- `gex_scene_reference_camera` **mantiene** el `euler` medido
+  `(-397, 0, 2802)` como semilla del modo de camara fija (preserva
+  `test_scene_level` y `REF_EMIT_M`), y el modo trayectoria lo sustituye en cada
+  update. Queda comentado en el codigo.
+- `i4_main_win32.c`: la linea de stats de la camara imprime tambien `euler` y
+  la cobertura de texturas.
+
+**VALIDACION (sin tolerancias).**
+
+| Suite | Comprobaciones | Que cubre |
+|---|---:|---|
+| `test_camera` | 995 | `len(3,4)=5`, casos especiales, `atan2(1,1)=511`, frame 0 y ultimo, `cam == target -> (-0x400, 0, 0x800)`, argumentos nulos |
+| `test_camera_path_scene` | 2701 | Extraccion de **las dos** trayectorias (26+26 registros, suma 428, centinela, slot 7 rechazado), 428 evaluaciones de posicion, mira final `(2742, 304, 172)`, primer y ultimo Euler, matriz de emision de la escena **==** `gex_cam_build_emit_matrix`, geometria distinta, Euler intacto tras el centinela |
+| `test_camera_path_tsv` | 5735 | **428/428 posiciones + 428/428 miras + 428/428 Euler** contra `analysis/menu_camera_map7.tsv` y `analysis/menu_camera_rotation_map7.tsv` leidos en ejecucion; los dos TSV coinciden entre si en los 428 angulos; sin cambios tras el centinela |
+| `test_camera_path_render` | 26 | La **matriz de emision si cambia** (rotacion y traslacion), Euler frame 9 = `(-376, 0, 2607)` y el buffer de vertices de la GPU es distinto antes y despues |
+
+`port/build.ps1 test` -> **exit 0, 0 fallos** (sin regresiones en el resto de
+suites); `port/run_sanitizers.ps1` -> **32/32 OK** (O0/O2/asan/ubsan).
+
+**EJECUCION REAL (ventana Win32, GPU hardware).**
+`gexloop.exe --level C:\GEX_REZ\GEX2\level\map7.dfx --camera-path --seconds 11`:
+
+```
+textures: 231 distinctas en el vuelo, se piden las 64 mas usadas (limite del atlas; cubren el 82.2% de los vertices)
+textures: 64 decodificadas de 'map7.vfx' (atlas 2692 x 130), 0 fallidas
+camera path: 26 records of 32 B, variant 0, flags 1
+camera path: playing (26 records, one step per logical update)
+stats: camera path: samples=102 finished=0 error=0 pos=(1471, 482, 580) euler=(19, 0, 1414) triangles=385
+stats: camera path: samples=222 finished=0 error=0 pos=(7262, -8803, 620) euler=(-79, 0, -452) triangles=334
+stats: camera path: samples=343 finished=0 error=0 pos=(3204, 4638, 1152) euler=(-111, 0, 1184) triangles=1070
+stats: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1722
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1722
+exit: clean, frame errors=0, clock warnings=0
+```
+
+La camara **gira con el vuelo**: los triangulos visibles pasan de 1123 a 334 y
+a 1722 segun el punto de vista **y** la orientacion, y el ultimo estado es el
+encuadre del menu, `(2243, 487, 196)` con Euler `(-29, 0, 2842)`.
+
+**LO QUE SIGUE ABIERTO (real, no de esta tanda).**
+
+- El **estado de menu** que dispara el vuelo y el instante en que los elementos
+  quedan visibles.
+- El **criterio de las tangentes** del exportador del `.DFX` (se leen tal cual
+  del registro; no se etiqueta la curva como Catmull-Rom ni Bezier).
+- El opcode `0x4F` del header y por que el actor de la spline hermana
+  (`0xCDF0`) no esta en la cabecera de nivel.
+- El **atlas de texturas** (64 entradas) cubre el **82,2 %** de los vertices del
+  vuelo, que toca **231** texturas distintas con la orientacion real.
+
+Con la posicion, el punto de mira, las transformaciones, la orientacion y las
+matrices integradas y validadas, **la camara del menu si se declara completa**;
+lo que falta de S-3 no es la camara.
+
+**DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (4.9, 4.14, 6.2, 6.3, 6.4, 8.2,
+8.3, 8.7 y 9), `PROJECT_STATE.md`, `ROADMAP.md` (decimoctava tanda y marcas de
+superado en decimosexta/decimoséptima), `RESEARCH.md`,
+`REVERSE_ENGINEERING.md` (leccion 26 actualizada, 27-29 nuevas) y
+`docs/D3D11_FIRST_SCENE_PLAN.md`.
+
 ## 2026-11-13 - 0.0.0 - La orientacion de la camara del menu: el look-at del original, reproducido 428/428
 
 Cierra la segunda mitad de la secuencia de camara del menu: los **428
@@ -51,10 +176,16 @@ impactos, su array **nunca se evalua**; el menu usa dos arrays de 32 B. La
 hipotesis del enunciado era razonable y estaba mal, y lo que la resuelve es
 medir que array se evalua en la sesion que importa.
 
-**LO QUE SIGUE PENDIENTE.** Integrar la orientacion en el port (hoy
+**LO QUE SIGUE PENDIENTE.** ~~Integrar la orientacion en el port (hoy
 `port/src/scene/scene_level.c` fija `euler = (-397, 0, 2802)`), identificar
 las matrices `ctrl+0x4C` / `ctrl+0x26C` de `0x40A6F2` y el criterio de las
-tangentes del exportador. La camara **sigue sin declararse completa**.
+tangentes del exportador. La camara **sigue sin declararse completa**.~~
+
+> **Superado el mismo dia.** La orientacion **ya esta integrada** (entrada
+> siguiente): `scene_level.c` calcula el *look-at* en cada update desde la mira
+> del `.DFX`, y `ctrl+0x4C` / `ctrl+0x26C` resultaron ser **puntos** de un
+> muelle, no matrices. Sigue abierto solo el criterio de las tangentes y el
+> estado de menu.
 
 Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` seccion 8.
 
@@ -141,21 +272,24 @@ encuadre del menu.
 
 **NEGATIVOS Y LIMITES (no se ocultan).**
 
-- La **orientacion no se interpola**: la ruta de rotacion (registros de 10 B,
+- ~~La **orientacion no se interpola**: la ruta de rotacion (registros de 10 B,
   `0x43158D` / `0x431036`) sigue sin decodificar, asi que la camara mantiene
   los angulos medidos iniciales y **solo cambia la traslacion** de la matriz
-  de emision. El original si rotaba durante el vuelo (Euler de
-  `(-397, 0, 2802)` a `(-29, 0, 2842)`). Es una diferencia declarada.
+  de emision.~~ **Superado en la entrada siguiente**: la orientacion real es un
+  *look-at* entre dos trayectorias de 32 B, ya integrado; la matriz de emision
+  **si** gira. (La ruta de 10 B existe, esta descifrada, pero es de otro actor.)
 - El **atlas de texturas tiene 64 entradas** y el vuelo toca **166** texturas
-  distintas (el frame 0 solo 62). Para no tocar el modulo de texturas ni el
-  shader, la app recorre la trayectoria una vez y pide las **64 mas usadas**,
-  que cubren el **91,3 %** de los vertices del vuelo (con el atlas del frame 0
-  seria el 65,4 %). El 8,7 % restante sale con el color del vertice.
+  distintas (el frame 0 solo 62) **con la orientacion fija de aquella tanda**;
+  con el *look-at* integrado son **231** y la cobertura con las 64 mas usadas
+  baja al **82,2 %**. Para no tocar el modulo de texturas ni el shader, la app
+  recorre la trayectoria una vez y pide las mas usadas; el resto sale con el
+  color del vertice.
 - El **estado de menu** (cuando aparecen sus elementos) no esta aislado.
 - El opcode `0x4F` del header y el papel de la spline hermana de `0xC394`
   siguen sin identificar.
-- **No se declara la camara completa**: esta tanda cierra la integracion de
-  la trayectoria de **posicion** con el renderer.
+- ~~**No se declara la camara completa**: esta tanda cierra la integracion de
+  la trayectoria de **posicion** con el renderer.~~ **Superado en la entrada
+  siguiente**, que integra la orientacion y valida el conjunto.
 
 **DOCUMENTACION.** `S3_MENU_CAMERA_SEQUENCE.md` (6.4 nueva, 6.2 con la
 validacion, 6.3 y 8 actualizados), `PROJECT_STATE.md`, `ROADMAP.md`

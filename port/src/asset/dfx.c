@@ -278,15 +278,16 @@ static int dfx_i32(const uint8_t *image, size_t size, uint32_t off,
  *
  * La lista es una secuencia de entradas (opcode u32, indice u32, puntero
  * u32) terminada por el opcode 0x0E. De MAP7 se conocen dos entradas, las
- * dos con opcode 0x4F: el slot 0 (trayectoria de posicion) y el slot 1 (una
- * spline hermana cuyo papel no esta establecido).
+ * dos con opcode 0x4F: el slot 0 (trayectoria de posicion) y el slot 1
+ * (trayectoria de mira del look-at).
  *
- * Se busca el slot 0 con opcode 0x4F. Si no esta, el nivel no tiene la
- * estructura documentada y se devuelve GEX_DFX_ERR_PATH: no se adivina.
+ * Se busca la entrada con el indice pedido y opcode 0x4F. Si no esta, el
+ * nivel no tiene la estructura documentada y se devuelve GEX_DFX_ERR_PATH:
+ * no se adivina.
  */
 static gex_dfx_status dfx_find_camera_slot(const uint8_t *image, size_t size,
-                                           uint32_t header, uint32_t *actor_out,
-                                           uint32_t *slot_out) {
+                                           uint32_t header, uint32_t wanted,
+                                           uint32_t *actor_out) {
     uint32_t off = header;
     uint32_t i;
 
@@ -310,9 +311,8 @@ static gex_dfx_status dfx_find_camera_slot(const uint8_t *image, size_t size,
             return GEX_DFX_ERR_PATH;
         }
         off += 4u;
-        if (index == GEX_DFX_SLOT_CAMERA && opcode == GEX_DFX_SLOT_OPCODE_PATH) {
+        if (index == wanted && opcode == GEX_DFX_SLOT_OPCODE_PATH) {
             *actor_out = pointer;
-            *slot_out = index;
             return GEX_DFX_OK;
         }
     }
@@ -321,10 +321,15 @@ static gex_dfx_status dfx_find_camera_slot(const uint8_t *image, size_t size,
 
 gex_dfx_status gex_dfx_load_camera_path(const gex_dfx_container *container,
                                         gex_dfx_camera_path *out) {
+    return gex_dfx_load_camera_path_slot(container, GEX_DFX_SLOT_CAMERA, out);
+}
+
+gex_dfx_status gex_dfx_load_camera_path_slot(const gex_dfx_container *container,
+                                             uint32_t slot,
+                                             gex_dfx_camera_path *out) {
     const uint8_t *image;
     size_t size;
     uint32_t actor;
-    uint32_t slot;
     uint32_t entity;
     uint32_t object;
     uint32_t keys;
@@ -344,9 +349,9 @@ gex_dfx_status gex_dfx_load_camera_path(const gex_dfx_container *container,
     image = container->image;
     size = container->image_size;
 
-    /* 1. Cabecera de nivel -> slot 0 -> registro de actor. */
-    if (dfx_find_camera_slot(image, size, GEX_DFX_LEVEL_HEADER_OFFSET, &actor,
-                              &slot) != GEX_DFX_OK) {
+    /* 1. Cabecera de nivel -> slot pedido -> registro de actor. */
+    if (dfx_find_camera_slot(image, size, GEX_DFX_LEVEL_HEADER_OFFSET, slot,
+                              &actor) != GEX_DFX_OK) {
         return GEX_DFX_ERR_PATH;
     }
 

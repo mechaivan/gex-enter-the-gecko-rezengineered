@@ -92,6 +92,12 @@ typedef struct gex_scene_level {
     gex_camera_path_node path_node;
     uint32_t path_frames;   /* muestras producidas hasta ahora */
     int path_finished;      /* el centinela ya se alcanzo */
+    /* Segunda trayectoria del nivel: el punto de mira del look-at. */
+    gex_dfx_camera_path dfx_lookat_path;
+    int lookat_loaded;
+    gex_camera_path_node lookat_node;
+    int lookat_finished;    /* su centinela ya se alcanzo */
+    int16_t lookat_last[3]; /* ultimo objetivo valido (se conserva) */
     gex_scene_stats stats;
     int loaded;
 } gex_scene_level;
@@ -150,15 +156,17 @@ gex_scene_status gex_scene_level_load_camera(gex_scene_level *scene,
                                              const gex_camera *cam);
 
 /*
- * Carga un nivel con la camara original **y la trayectoria de posicion** que
- * el propio nivel trae en su `.DFX` (MAP7: 26 registros de 32 B).
+ * Carga un nivel con la camara original **y las dos trayectorias** que el
+ * propio nivel trae en su `.DFX` (MAP7: 26 + 26 registros de 32 B).
  *
- * La trayectoria se lee del contenedor con `gex_dfx_load_camera_path`, que
+ * La trayectoria de posicion se lee del slot 0 (array 0xC034) y la de mira
+ * del slot 1 (array 0xC39C), ambas con `gex_dfx_load_camera_path_slot`, que
  * sigue la cadena de punteros documentada (S3_MENU_CAMERA_SEQUENCE.md 4.5).
- * Los registros quedan en la escena (`scene->dfx_path`) y el nodo se inicializa
- * en el estado original (indice 0, fraccion 0).
+ * Los registros quedan en la escena (`scene->dfx_path` y
+ * `scene->dfx_lookat_path`) y cada nodo se inicializa en el estado original
+ * (indice 0, fraccion 0).
  *
- * Si el nivel no tiene esa estructura, devuelve GEX_SCENE_ERR_PATH: no se
+ * Si el nivel no tiene esas estructuras, devuelve GEX_SCENE_ERR_PATH: no se
  * inventa una trayectoria.
  */
 gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
@@ -166,21 +174,24 @@ gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
                                                   const gex_camera *cam);
 
 /*
- * Avanza la trayectoria **un frame logico** y actualiza la camara.
+ * Avanza **una actualizacion logica** de las dos trayectorias y actualiza la
+ * camara.
  *
  * Hace exactamente lo que hace el original por frame:
- *   1. un paso de `gex_camera_path` (avance + evaluacion);
- *   2. si produjo muestra, escribe **solo la posicion** en `cam` y recalcula
- *      las matrices derivadas (A/B, a_cam/b_cam) con `gex_cam_update`;
- *   3. vuelve a emitir el nivel con la nueva camara (BSP + emision +
+ *   1. un paso de `gex_camera_path` en la trayectoria de posicion y otro en
+ *      la de mira (nodos independientes, cada uno con su avance);
+ *   2. escribe la posicion en `cam` y calcula la orientacion con el look-at
+ *      entero (`gex_cam_look_at`, 0x406515 -> 0x40AE51) desde esa posicion
+ *      al punto de mira;
+ *   3. recalcula las matrices derivadas (O, M, A/B, a_cam/b_cam) con
+ *      `gex_cam_update`;
+ *   4. vuelve a emitir el nivel con la camara nueva (BSP + emision +
  *      geometria), de modo que la imagen refleje el movimiento.
  *
- * La orientacion se conserva: la ruta de rotacion (registros de 10 B) sigue
- * sin estar decodificada, asi que la camara mantiene los angulos medidos.
- *
- * Devuelve 1 si hubo muestra nueva, 0 si la trayectoria ya termino (el
- * centinela) y -1 si fallo la re-emision. Tras el centinela no se escribe
- * nada mas: la ultima posicion se conserva.
+ * Devuelve 1 si hubo muestra nueva, 0 si la trayectoria de posicion ya
+ * termino (el centinela) y -1 si fallo la re-emision. Tras el centinela no
+ * se escribe nada mas: la ultima posicion y la ultima orientacion se
+ * conservan.
  */
 int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam);
 

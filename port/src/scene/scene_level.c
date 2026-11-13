@@ -156,12 +156,18 @@ static void scene_frame_view(gex_emit_matrix *mat, const scene_box *box)
  * con el breakpoint de hardware en 0x004269C2:
  *
  *   cam+0x00..0x05  posicion   (2341, 4071, 3074)
- *   cam+0x30..0x35  Euler      (-397, 0, 2802)   Q12 de vuelta
+ *   cam+0x30..0x35  Euler      (-397, 0, 2802)   Q12 de media vuelta
  *   cam+0x40        focal      0x140 (320)
  *   cam+0x48        ancho      0x180 (384)
  *   cam+0x5C        corte lejano 8500
  *   cam+0x490/492/494 escala por fila de la matriz de emision 0x1000
  *   cam+0x43C       bandera de base identica 0
+ *
+ * Los angulos de arriba son el estado capturado del frame 0, que coincide
+ * con el look-at calculado desde la posicion y el primer punto de mira. Se
+ * usan como semilla de los modos sin trayectoria (camara fija). El modo
+ * `gex_scene_level_load_camera_path` **no los conserva**: en cada update
+ * sustituye `cam->euler` por el look-at entero de `gex_cam_look_at`.
  *
  * Los parametros de proyeccion (centro 256/192 y plano cercano 160) los fija
  * el juego una vez en 0x4636DD..0x4636FB y no dependen de la camara.
@@ -174,6 +180,9 @@ void gex_scene_reference_camera(gex_camera *cam) {
     cam->pos[0] = 2341;
     cam->pos[1] = 4071;
     cam->pos[2] = 3074;
+    /* Estado medido del frame 0. Es la semilla del modo de camara fija; el
+     * modo trayectoria lo sustituye en cada update por el look-at calculado
+     * desde el .DFX (gex_cam_look_at). */
     cam->euler[0] = -397;
     cam->euler[1] = 0;
     cam->euler[2] = 2802;
@@ -494,6 +503,21 @@ gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
     scene->path_frames = 0;
     scene->path_finished = 0;
 
+    /* 2b. Segunda trayectoria: el punto de mira del look-at (slot 1,
+     *     actor 0x961C -> ... -> array 0xC39C). */
+    dst = gex_dfx_load_camera_path_slot(&scene->container,
+                                         GEX_DFX_SLOT_CAMERA_LOOKAT,
+                                         &scene->dfx_lookat_path);
+    if (dst != GEX_DFX_OK) {
+        return GEX_SCENE_ERR_PATH;
+    }
+    scene->lookat_loaded = 1;
+    gex_camera_path_init_node(&scene->lookat_node);
+    scene->lookat_finished = 0;
+    scene->lookat_last[0] = scene->dfx_lookat_path.path.keys[0].point[0];
+    scene->lookat_last[1] = scene->dfx_lookat_path.path.keys[0].point[1];
+    scene->lookat_last[2] = scene->dfx_lookat_path.path.keys[0].point[2];
+
     /* 3. Emision inicial con la camara de referencia. */
     st = scene_emit_with_camera(scene, cam);
     if (st != GEX_SCENE_OK) {
@@ -565,12 +589,13 @@ gex_scene_status gex_scene_camera_path_texture_usage(const char *level_path,
 
 int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam) {
     int16_t sample[3];
+    int16_t target[3];
     gex_scene_status st;
 
     if (scene == NULL || cam == NULL) {
         return -1;
     }
-    if (!scene->path_loaded || !scene->loaded) {
+    if (!scene->path_loaded || !scene->lookat_loaded || !scene->loaded) {
         return -1;
     }
     if (scene->path_finished) {
@@ -578,23 +603,42 @@ int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam) {
         return 0;
     }
 
-    /* 1. Un paso de la trayectoria (avance + evaluacion). */
+    /* 1. Trayectoria de posicion: avance + evaluacion (0x53E98C). */
     if (gex_camera_path_step(&scene->dfx_path.path, &scene->path_node,
                              sample) == 0) {
         scene->path_finished = 1;
         return 0;
     }
 
-    /* 2. Solo la posicion: la ruta de rotacion (10 B) no esta decodificada y
-     *    la orientacion medida se conserva. */
     cam->pos[0] = sample[0];
     cam->pos[1] = sample[1];
     cam->pos[2] = sample[2];
-    /* Las matrices A/B y a_cam/b_cam dependen de la posicion: se recalculan
-     *    (mismo camino que el original tras escribir la camara). */
+
+    /* 2. Trayectoria de mira: nodo independiente, un avance por update
+     *    (0x411C87). Si su centinela llega antes que el de la posicion, se
+     *    conserva el ultimo objetivo; no se inventa una orientacion. */
+    if (!scene->lookat_finished) {
+        if (gex_camera_path_step(&scene->dfx_lookat_path.path,
+                                 &scene->lookat_node, target) == 0) {
+            scene->lookat_finished = 1;
+        } else {
+            scene->lookat_last[0] = target[0];
+            scene->lookat_last[1] = target[1];
+            scene->lookat_last[2] = target[2];
+        }
+    }
+
+    /* 3. Orientacion: look-at entero desde la posicion al punto de mira
+     *    (0x406515 -> 0x40AE51 -> 0x40534F + 0x464181). Sustituye los
+     *    angulos fijos por los calculados en este update. */
+    gex_cam_look_at(cam->euler, cam->pos, scene->lookat_last);
+
+    /* 4. Matrices derivadas (O, M, A/B, a_cam/b_cam): dependen de la
+     *    posicion y de la orientacion, asi que se recalculan con la misma
+     *    cadena que usa el renderer D3D11. */
     gex_cam_update(cam);
 
-    /* 3. Re-emision con la nueva camara: el BSP se vuelve a recorrer (la
+    /* 5. Re-emision con la nueva camara: el BSP se vuelve a recorrer (la
      *    visibilidad depende de la camara) y la emision se rehace con la
      *    matriz nueva. */
     st = scene_emit_with_camera(scene, cam);
@@ -626,6 +670,10 @@ void gex_scene_level_free(gex_scene_level *scene)
     if (scene->path_loaded) {
         gex_dfx_release_camera_path(&scene->dfx_path);
         scene->path_loaded = 0;
+    }
+    if (scene->lookat_loaded) {
+        gex_dfx_release_camera_path(&scene->dfx_lookat_path);
+        scene->lookat_loaded = 0;
     }
     if (scene->level_loaded) {
         gex_dfx_release_level(&scene->level);

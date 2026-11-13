@@ -471,6 +471,163 @@ void gex_cam_update(gex_camera *cam) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Look-at del controlador de camara (0x406515 -> 0x40AE51)           */
+/* ------------------------------------------------------------------ */
+
+/* `sar` de 32 bits sobre los bits, sin depender del comportamiento
+ * definido por la implementacion para el desplazamiento de negativos. */
+static uint32_t sar_u32(uint32_t value, unsigned bits) {
+    uint32_t out;
+    if (bits == 0) return value;
+    out = value >> bits;
+    if (value & 0x80000000u) out |= ~(0xFFFFFFFFu >> bits);
+    return out;
+}
+
+/* 0x4647EB: raiz cuadrada entera con `frac` bits fraccionarios.
+ *
+ * Transcripcion exacta del bucle del original: localiza el bit mas alto
+ * de `n`, calcula la raiz por el metodo de resta/shift y refina los
+ * `frac` bits finales. Los productos y sumas son de 32 bits y las
+ * comparaciones son con signo, igual que los `cmpl` del x86.
+ *
+ * Con frac = 4 devuelve floor(sqrt(n) * 4) para los valores del menu
+ * (comprobado contra el original en los 428 frames). */
+static int32_t isqrt_frac(uint32_t n, int32_t frac) {
+    uint32_t bit;
+    uint32_t res;
+    uint32_t q;
+    uint32_t y;
+    uint32_t t;
+    int32_t sh;
+    int32_t f;
+    int32_t cl;
+
+    if (n == 0) return 0;
+
+    bit = 0x80000000u;
+    sh = 0x1f;
+    while ((bit & n) == 0u) {
+        bit = sar_u32(bit, 1);
+        sh -= 1;
+    }
+
+    /* sarl de sh (siempre >= 0) */
+    sh >>= 1;
+
+    /* cltd; subl %edx,%eax; sarl: (frac - signo(frac)) / 2 */
+    f = frac - (frac < 0 ? -1 : 0);
+    f = (int32_t)sar_u32((uint32_t)f, 1);
+
+    cl = (sh + f) & 31;
+    bit = (uint32_t)1u << cl;
+    res = bit;
+
+    q = (uint32_t)1u << ((sh << 1) & 31);
+    y = q;
+    n = n - q;
+
+    {
+        int32_t prev = sh;
+        sh -= 1;
+        if (prev != 0) {
+            for (;;) {
+                bit = sar_u32(bit, 1);
+                q = sar_u32(q, 2);
+                t = n - (y + q);
+                if (bits_i32(t) < 0) {
+                    y = sar_u32(y, 1);
+                } else {
+                    n = t;
+                    y = sar_u32(y, 1) + q;
+                    res |= bit;
+                }
+                prev = sh;
+                sh -= 1;
+                if (prev == 0) break;
+            }
+        }
+    }
+
+    /* Refinado de los bits fraccionarios. */
+    n = n << ((uint32_t)frac & 31u);
+    y = y << ((uint32_t)frac & 31u);
+    q = (uint32_t)1u << ((uint32_t)frac & 31u);
+    bit = sar_u32(bit, 1);
+    while (bit != 0u) {
+        q = sar_u32(q, 2);
+        t = n - (y + q);
+        if (bits_i32(t) < 0) {
+            y = sar_u32(y, 1);
+        } else {
+            n = t;
+            y = sar_u32(y, 1) + q;
+            res |= bit;
+        }
+        bit = sar_u32(bit, 1);
+    }
+
+    return bits_i32(res);
+}
+
+int32_t gex_cam_length_2d(int16_t x, int16_t y) {
+    uint32_t s;
+
+    /* imull + addl de 32 bits: la suma puede desbordar el rango con signo
+     * y el registro da la vuelta. */
+    s = (uint32_t)((int32_t)x * (int32_t)x);
+    s += (uint32_t)((int32_t)y * (int32_t)y);
+    s <<= 4;                              /* shll $4 */
+
+    /* addl $8; sarl $4 */
+    return bits_i32(sar_u32((uint32_t)isqrt_frac(s, 4) + 8u, 4));
+}
+
+int16_t gex_cam_atan2_q12(int32_t y, int32_t x) {
+    double a;
+    int64_t v;
+
+    /* Casos especiales de 0x464181, antes de tocar el coprocesador. */
+    if (x == 0) {
+        return (int16_t)(y >= 0 ? 0x400 : 0xFC00);
+    }
+    if (y == 0) {
+        return (int16_t)(x > 0 ? 0 : 0x800);
+    }
+
+    /* 0x5416C0 es `fpatan` (atan2 en x87); 0x54C178 es el double
+     * 0x1.921fb54524550p+2 = 6.283185308 (NO es el 2*pi de la libm) y
+     * 0x54C180 es 4096.0. El orden es fdiv y luego fmul, y 0x540950
+     * trunca hacia cero con `fistpll`. */
+    a = atan2((double)y, (double)x);
+    a = a / 6.283185308;
+    a = a * 4096.0;
+    v = (int64_t)a;                       /* fistpll: trunca hacia cero */
+    return (int16_t)(uint16_t)v;          /* el llamador toma %ax */
+}
+
+void gex_cam_look_at(int16_t euler[3], const int16_t cam[3],
+                     const int16_t target[3]) {
+    int16_t d0, d1, d2;
+    int32_t len;
+
+    if (euler == NULL || cam == NULL || target == NULL) return;
+
+    /* subl de 32 bits y almacenamiento de palabra: el resultado es el
+     * int16 de la diferencia. */
+    d0 = low_i16((int32_t)cam[0] - (int32_t)target[0]);
+    d1 = low_i16((int32_t)cam[1] - (int32_t)target[1]);
+    d2 = low_i16((int32_t)cam[2] - (int32_t)target[2]);
+
+    len = gex_cam_length_2d(d0, d1);
+
+    /* 0x40AEC7: movswl %ax; negl %edx; movw %dx. */
+    euler[0] = low_i16(-(int32_t)gex_cam_atan2_q12(d2, len));
+    euler[1] = 0;
+    euler[2] = low_i16((int32_t)gex_cam_atan2_q12(d1, d0) + 0x400);
+}
+
+/* ------------------------------------------------------------------ */
 /* Visibility test                                                    */
 /* ------------------------------------------------------------------ */
 

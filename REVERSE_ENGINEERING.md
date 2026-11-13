@@ -575,13 +575,40 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    el dato llega a lo que se dibuja y se ha visto funcionar.
 26. **Un limite del modulo de arriba puede pasar al de abajo sin que nadie
    lo note.** El atlas de texturas caben 64 entradas y el vuelo de MAP7 toca
-   166 texturas distintas: en el frame 0 solo se veian 62, asi que el limite
+   **231** texturas distintas (166 cuando se midio con la orientacion fija):
+   en el frame 0 solo se veian 62, asi que el limite
    no se veia hasta que la camara se movio. La solucion aplicada fue elegir
-   las texturas mas usadas (91,3 % de cobertura) **sin tocar** el modulo de
-   texturas ni el shader, y **declarar** el 8,7 % restante. La regla: al
+   las texturas mas usadas (**82,2 %** de cobertura con la orientacion real)
+   **sin tocar** el modulo de
+   texturas ni el shader, y **declarar** el 17,8 % restante. La regla: al
    integrar, comprobar que los limites del sistema receptor siguen valiendo
    en el caso nuevo, y si no, decirlo con numeros en vez de dejarlo
    implicito.
+27. **Una premisa del enunciado puede ser falsa, y la medida manda.** La
+   investigacion de la orientacion partia de que `0x40A6F2` era una rutina de
+   matrices y de que `ctrl+0x4C` / `ctrl+0x26C` eran matrices. El
+   desensamblado y la medida dicen otra cosa: `0x40A6F2` es un
+   **muelle/limitador sobre puntos** (3 x int16) con cinco modos, los dos
+   campos son **puntos**, y en la rama del vuelo el *look-at* usa los
+   **samples crudos** de las splines, sin transformacion. La regla: cuando la
+   premisa y la medida no coinciden, se documenta la refutacion y se sigue la
+   medida, sin "arreglar" la implementacion para que encaje con la premisa.
+28. **Una constante se lee, no se recuerda.** El `atan2` del original divide
+   por el double `0x1.921fb54524550p+2` = **6.283185308**, que no es el
+   `2*pi` de la libm, y multiplica por `4096.0`; el truncamiento lo fija
+   `0x540950` con `fistpll`. La diferencia es de una unidad en casos como
+   `atan2(1,1)` (511 frente a 512) y basta para romper la igualdad exacta. La
+   regla: las constantes de coma flotante se decodifican del binario y se
+   fijan en una prueba con un caso que las distinga.
+29. **Integrar no es solo escribir el valor: hay que reconstruir lo que
+   depende de el.** Al sustituir el Euler fijo por el *look-at* calculado, la
+   matriz de emision, las matrices de visibilidad y la geometria re-emitida
+   dependen de la orientacion nueva. Se reconstruyen con el pipeline que ya
+   existia (`gex_cam_update`, `gex_bsp_walk`, `gex_level_emit`,
+   `gex_geometry_build`), sin duplicar ninguna etapa, y la prueba comprueba
+   que la matriz que usa la escena es exactamente la que produce la camara y
+   que el buffer de la GPU cambia. La regla: al cambiar una entrada, recorrer
+   sus dependencias hasta lo que se dibuja.
 
 
 ## 5. Registro

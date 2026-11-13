@@ -520,13 +520,21 @@ No hay ningún otro llamante que toque el nodo de la cámara durante el vuelo
 | Nodo | Objeto | Llamante | Salida | Papel |
 |---|---|---|---|---|
 | `0x1942AF68` | `0x1942AF78` | `0x411B94` | `0x005AC608` | **posición** (3 int16) |
-| `0x1942B2D0` | `0x1942B2E0` | `0x411C8C` | `0x005AC600` | **rotación** (cuaternio, 8 B) |
+| `0x1942B2D0` | `0x1942B2E0` | `0x411C87` | `0x005AC608` | **mira** (3 int16) |
 
 `0x005AC608` es un **buffer de trabajo compartido**: cualquier objeto que use
 `0x53E98C` para posición escribe ahí (medido: dos nodos distintos lo escribieron
 en el mismo frame). Funciona porque la cámara copia el contenido **inmediatamente
 después** de la llamada. Por eso el port no debe tratarlo como almacenamiento
 persistente.
+
+> **Corrección (2026-11-13).** Una medición anterior atribuía al segundo nodo
+> de la cámara la salida `0x005AC600` y un "cuaternio de 8 B". El
+> desensamblado y el `.DFX` muestran que la cámara llama **dos veces** a
+> `0x53E98C` (`0x411B8F` y `0x411C87`) y las dos devuelven `0x005AC608` con
+> **3 int16**: posición y punto de mira. `0x005AC600` es la salida del
+> **otro** accesor, `0x53E9C7`, que avanza con `0x53F3C2` y evalúa la variante
+> de 10 B (cuaternio) de otros actores; la cámara del menú no lo usa.
 
 ### 4.10 El registro de 32 B y el interpolador `0x53DEB0`
 
@@ -722,7 +730,8 @@ python analysis/verify_menu_camera_interp.py <trace_arr.log> --ptr 0x<array>
 | Pregunta | Respuesta | Estado |
 |---|---|---|
 | ¿Quién escribe la posición? | `0x411BBB` / `0x411BCC` / `0x411BDD` | medido |
-| ¿Quién escribe la orientación? | `0x004122E8` / `0x4122F6` / `0x00412304` | medido |
+| ¿Quién escribe la orientación? | `0x40AE51` (*look-at*, desde `0x406515`); `0x4122E4` copia `cam+0x18..0x1C` a `cam+0x30..0x34` | medido |
+| ¿De dónde sale la orientación? | de un ***look-at*** entre la posición (`cam+0x00`) y el *sample* de la **segunda trayectoria de 32 B** (mira, array `0xC39C`) | medido y verificado 428/428 (§ 8) |
 | ¿Cada cuánto? | posición: 1 por frame durante el vuelo (427 escrituras = frames 1..428); orientación: 1 por frame siempre | medido |
 | ¿De dónde salen los valores? | de un **array de registros de 32 B incrustado en el objeto** (`obj+8`), indexado por el nodo | medido |
 | ¿Cómo se combinan? | **Hermite cúbica** en Q15 entre el registro actual y el siguiente, con `t = (frac15 << 15) / D` | medido y verificado 428/428 |
@@ -730,10 +739,10 @@ python analysis/verify_menu_camera_interp.py <trace_arr.log> --ptr 0x<array>
 | ¿Cuánto avanza? | **+1** en la fracción de 15 bits; al llegar a `D`, `idx++` y `frac = 0` | medido |
 | ¿Qué es `D`? | `int16` en `array[idx*32 + 0]`: la **duración en frames** del segmento | medido |
 | ¿El contador de `0x0064711E` gobierna la selección? | **no**: no coincide con la fracción ni con el índice, y no participa en el avance | medido (negativo) |
-| ¿Qué es `obj[+6]`? | la variante del registro: `1` → 10 B (rotación), otro → 32 B (posición) | medido |
+| ¿Qué es `obj[+6]`? | la variante del registro: `1` → 10 B (cuaternio de **otros actores**), otro → 32 B (punto). La cámara del menú usa **32 B** en sus dos trayectorias | medido |
 | ¿Cómo se calculan las tangentes del registro? | **sin identificar** (se leen tal cual del array) | pendiente |
-| ¿Dónde están los 26 registros en el `.DFX`? | cadena header `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` → objeto `0xC02C` → array `0xC034` (§ 4.5) | medido |
-| ¿Está reproducido en el port? | **sí**: módulo `gex/camera_path.h`, aritmética entera, 428/428 exactos (§ 6) | implementado |
+| ¿Dónde están los 26 registros en el `.DFX`? | cadena header `0x5FC` → actor `0x95EC` → `+0x28` → entidad `0xC00C` → objeto `0xC02C` → array `0xC034` (§ 4.5); la mira, actor `0x961C` → `0xC374` → `0xC394` → `0xC39C` | medido |
+| ¿Está reproducido en el port? | **sí**: módulo `gex/camera_path.h` (aritmética entera) y *look-at* `gex_cam_look_at`, 428/428 exactos de posición, mira y Euler (§ 6, § 8) | implementado |
 
 
 ## 5. Relación con el menú
@@ -854,14 +863,14 @@ Resultados: `port/build.ps1 test` → **1437 comprobaciones, 0 fallos** (y el
 resto de suites sin regresión); `port/run_sanitizers.ps1` → **O0/O2/asan/ubsan,
 24/24 OK**.
 
-**Validación de la integración (2026-11-13).** Tres suites nuevas, todas
-exactas y sin tolerancias:
+**Validación de la integración (2026-11-13).** Tres suites, todas exactas y
+sin tolerancias:
 
 | Suite | Comprobaciones | Qué cubre |
 |---|---:|---|
-| `test_camera_path_scene` | 2567 | La cadena de punteros del `.DFX` (offsets, cantidad, variante, flags, centinela) y los **26 registros** comparados con la referencia; las **428 posiciones** producidas por la escena; el comportamiento tras el centinela; el rechazo de niveles sin trayectoria (AZTEC16) |
-| `test_camera_path_tsv` | 1728 | Las **428 posiciones contra `analysis/menu_camera_map7.tsv` leído en tiempo de ejecución** (no contra el header generado), más la primera y la última |
-| `test_camera_path_render` | 25 | Que la cámara llega a la **GPU**: la traslación de la matriz y los triángulos cambian, y el **buffer de vértices leído de vuelta de la GPU es distinto** antes y después de avanzar |
+| `test_camera_path_scene` | 2701 | La cadena de punteros del `.DFX` de **las dos** trayectorias (offsets, cantidad, variante, flags, centinela; posición `0xC034` y mira `0xC39C`); las **428 posiciones** producidas por la escena; el primer y el último Euler; la mira y su nodo independiente; la matriz de emisión reconstruida con la orientación nueva; el comportamiento tras el centinela; el rechazo de niveles sin trayectoria (AZTEC16) |
+| `test_camera_path_tsv` | 5735 | Las **428 posiciones, los 428 puntos de mira y los 428 Euler** contra `analysis/menu_camera_map7.tsv` y `analysis/menu_camera_rotation_map7.tsv` leídos en tiempo de ejecución, más el estado tras el centinela |
+| `test_camera_path_render` | 26 | Que la cámara llega a la **GPU**: la matriz de emisión (rotación y traslación), el Euler y los triángulos cambian, y el **buffer de vértices leído de vuelta de la GPU es distinto** antes y después de avanzar |
 
 `port/build.ps1 test` → las tres suites más el resto, **0 fallos**;
 `port/run_sanitizers.ps1` → **32/32 OK** (O0/O2/asan/ubsan sobre las ocho
@@ -878,8 +887,9 @@ suites portables).
    contenedor en el runtime es una decisión de integración, no del módulo.
    (La lectura desde el contenedor sí existe, pero vive en el módulo del
    `.DFX`: § 6.4.)
-2. **No modela la rotación**: la variante de 10 B / cuaternio / Euler sigue
-   pendiente (§ 8).
+2. **No modela la rotación**: evalúa los registros de 32 B (puntos). La
+   orientación es un *look-at* entre dos puntos y vive en `gex/camera.h`
+   (`gex_cam_look_at`) y en `gex/scene_level.h`, no en este módulo (§ 8).
 3. **No conoce el estado de menú** ni cuándo aparecen sus elementos (§ 5).
 4. **No toca el renderer**: ni emisión, ni texturas, ni orden de dibujo, ni la
    cámara estática ya integrada. La conexión es la tarea siguiente.
@@ -919,15 +929,20 @@ MAP7 no se aplica por el mismo camino a otros niveles.
 
 **2. Escena con trayectoria.**
 `gex_scene_level_load_camera_path()` (`gex/scene_level.h`) carga el nivel
-igual que `gex_scene_level_load_camera()` **y además** lee la trayectoria del
-propio `.DFX`, dejando el nodo en el estado original (índice 0, fracción 0).
-`gex_scene_level_camera_path_step()` hace, por cada llamada, exactamente lo
-que hace el original por frame:
+igual que `gex_scene_level_load_camera()` **y además** lee **las dos**
+trayectorias del propio `.DFX` (posición en el slot 0, array `0xC034`; mira en
+el slot 1, array `0xC39C`), dejando los dos nodos en el estado original
+(índice 0, fracción 0). `gex_scene_level_camera_path_step()` hace, por cada
+llamada, exactamente lo que hace el original por frame:
 
-1. un paso de `gex_camera_path` (avance + evaluación);
-2. si hubo muestra, escribe **solo la posición** en la cámara y recalcula las
-   matrices derivadas (`gex_cam_update`: marco local, O, M, A/B, a_cam/b_cam);
-3. vuelve a emitir el nivel con la cámara nueva: se recorre el BSP otra vez
+1. un paso de `gex_camera_path` en la trayectoria de **posición** y otro en la
+   de **mira** (nodos independientes, cada uno con su avance);
+2. escribe la posición en `cam` y calcula la orientación con el *look-at*
+   entero (`gex_cam_look_at`, `0x406515 → 0x40AE51`) desde esa posición al
+   punto de mira;
+3. recalcula las matrices derivadas (`gex_cam_update`: marco local, O, M,
+   A/B, a_cam/b_cam);
+4. vuelve a emitir el nivel con la cámara nueva: se recorre el BSP otra vez
    (la visibilidad depende de la cámara) y se rehacen emisión y geometría.
 
 La re-emisión es **la misma** que la de la carga (mismo `gex_bsp_walk`,
@@ -936,7 +951,8 @@ implementación. Coste medido con MAP7: **0,50 ms por frame** (215 ms los 428
 frames), de los que ~3 ms son la carga inicial completa.
 
 Tras el centinela el paso devuelve 0 y **no escribe nada**: la última posición
-se conserva (el original tampoco escribía después de terminar el vuelo).
+y la última orientación se conservan (el original tampoco escribía después de
+terminar el vuelo).
 
 **3. Renderer.**
 `gex_d3d11_mesh_update()` (`gex/render/d3d11_mesh.h`) sustituye el contenido
@@ -958,30 +974,31 @@ gexloop.exe --level C:\GEX_REZ\GEX2\level\map7.dfx --camera-path
 2026-11-13):
 
 ```
-textures: 166 distinctas en el vuelo, se piden las 64 mas usadas (limite del atlas)
-textures: 64 decodificadas de 'map7.vfx' (atlas 2824 x 130), 0 fallidas
+textures: 231 distinctas en el vuelo, se piden las 64 mas usadas (limite del atlas; cubren el 82.2% de los vertices)
+textures: 64 decodificadas de 'map7.vfx' (atlas 2692 x 130), 0 fallidas
 camera path: 26 records of 32 B, variant 0, flags 1
 camera path: playing (26 records, one step per logical update)
-stats: camera path: samples=110 finished=0 error=0 pos=(377, -313, 903) triangles=219
-stats: camera path: samples=208 finished=0 error=0 pos=(5542, -8782, 752) triangles=41
-stats: camera path: samples=328 finished=0 error=0 pos=(5027, 4718, 1385) triangles=365
-stats: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
-final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) triangles=362
+stats: camera path: samples=102 finished=0 error=0 pos=(1471, 482, 580) euler=(19, 0, 1414) triangles=385
+stats: camera path: samples=222 finished=0 error=0 pos=(7262, -8803, 620) euler=(-79, 0, -452) triangles=334
+stats: camera path: samples=343 finished=0 error=0 pos=(3204, 4638, 1152) euler=(-111, 0, 1184) triangles=1070
+stats: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1722
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1722
 exit: clean, frame errors=0, clock warnings=0
 ```
 
-La cámara recorre la escena (el número de triángulos visibles cambia de 1123
-a 41 y a 362 según el punto de vista) y **termina en `(2243, 487, 196)`**, el
+La cámara recorre la escena **y gira con ella** (el número de triángulos
+visibles cambia de 1123 a 334 y a 1722 según el punto de vista y la
+orientación) y **termina en `(2243, 487, 196)` con Euler `(-29, 0, 2842)`**, el
 encuadre del menú.
 
 > **Limitación de las texturas (medida, no inventada).** El atlas tiene un
-> máximo de 64 entradas y el vuelo toca **166** texturas distintas (el frame 0
+> máximo de 64 entradas y el vuelo toca **231** texturas distintas (el frame 0
 > solo 62). Para no tocar el módulo de texturas ni el shader, la aplicación
 > recorre la trayectoria una vez y pide al banco del `.VFX` las **64 más
-> usadas**, que cubren el **91,3 %** de los vértices del vuelo; el 8,7 %
+> usadas**, que cubren el **82,2 %** de los vértices del vuelo; el 17,8 %
 > restante sale con el color del vértice (la búsqueda en la tabla no encuentra
-> la entrada). Con el atlas del frame 0 la cobertura sería del 65,4 %.
-> Ampliar el atlas (o la tabla del *constant buffer*) es una tarea aparte.
+> la entrada). Ampliar el atlas (o la tabla del *constant buffer*) es una
+> tarea aparte.
 
 **Lo que sigue pendiente (no bloquea la integración):**
 
@@ -993,12 +1010,13 @@ encuadre del menú.
 3. El papel de los campos `+0x10/+0x12/+0x14` del estado en `0x006466D8`.
 4. El **estado de menú** que dispara el vuelo y el momento exacto en que el
    menú queda estable.
-5. La ruta de **rotación** (registros de 10 B) y su conversión a Euler. La
-   cámara del port **mantiene la orientación medida inicial** durante el vuelo:
-   la parte rotacional de la matriz de emisión no cambia, solo la
-   traslación. Es una diferencia **conocida y declarada** respecto del
-   original (que sí rotaba durante el vuelo: Euler de `(-397, 0, 2802)` a
-   `(-29, 0, 2842)`).
+
+> **Superado (2026-11-13).** El punto que antes figuraba aquí —"la ruta de
+> rotación (registros de 10 B) y su conversión a Euler"— describía una
+> conclusión equivocada: la orientación **no** sale de registros de 10 B, sino
+> del *look-at* entre las dos trayectorias de 32 B (§ 8). Ya está integrada:
+> `cam->euler` se calcula en cada update y la parte rotacional de la matriz de
+> emisión cambia con el vuelo, como en el original.
 
 ---
 
@@ -1048,11 +1066,23 @@ Los dos arrays tienen 26 registros, `count = 26`, `variante = 0`, `flags = 1`,
 y duraciones `20,13,10,10,15,10,…` cuya suma es **428**. El registro 25 es el
 centinela (`D = 0`).
 
-- El array de **posición** (`0xC034`) da `ctrl+0x1AC` y, tras la transformación
-  `0x40A6F2` con la matriz `ctrl+0x4C`, `ctrl+0x1BC` → la posición de la
-  cámara (`cam+0x00`).
-- El array de **mira** (`0xC39C`) da `ctrl+0x274` y, tras `0x40A6F2` con
-  `ctrl+0x26C`, el punto de mira final.
+- El array de **posición** (`0xC034`) da el *sample* crudo del nodo
+  (`ctrl+0x480`) y en la rama del vuelo (`ctrl+0x484 != 0`, retorno
+  `0x411D0C`) se escribe **tal cual** en `cam+0x00..0x05`: no hay
+  transformación intermedia.
+- El array de **mira** (`0xC39C`) da el *sample* crudo del nodo
+  (`ctrl+0x484`), que se copia a `cam+0x1AC..` y es el segundo argumento del
+  *look-at* `0x406515`. Tampoco hay transformación.
+- **`0x40A6F2` no es una rutina de matrices.** Es un **muelle/limitador sobre
+  puntos** (3 × int16) con cinco modos (tabla de saltos en `0x40AD98`):
+  `0 → 0x40A740`, `1 → 0x40A834`, `2 → 0x40AD6A` (no-op), `3 → 0x40A989`,
+  `4 → 0x40AA7D`. Firma real:
+  `0x40A6F2(mode, pA, pB, prev, dst, limit)`; el modo 0 hace
+  `d = pB - pA; dst = (d >> 2) - prev; prev += dst; pA += prev`.
+  Por tanto `ctrl+0x4C` y `ctrl+0x26C` son **puntos** (3 × int16), no
+  matrices: la mira suavizada del modo *attract* y la de la segunda cadena.
+  Solo actúan fuera del vuelo; en el frame 0 (rama *attract*, retorno
+  `0x411FBB`) el objetivo ya es el *sample* de mira convergido.
 
 Los dos se interpolan con **la misma Hermite Q15** de `0x53DEB0` (§ 4.10), que
 ya está verificada 428/428 para la posición.
@@ -1085,18 +1115,26 @@ cam+0x18 = euler_x ; cam+0x1A = euler_y ; cam+0x1C = euler_z
 y `0x4122E4` copia `cam+0x18..0x1C` a `cam+0x30..0x34`, que es lo que consume
 el renderer.
 
-Puntos clave de la aritmética:
+Puntos clave de la aritmética (corregidos leyendo el ejecutable y las
+constantes, no por aproximación):
 
-- **`0x40534F`** no usa coma flotante: `s = d0² + d1² + d2²`, `s <<= 4`, y
-  `0x4647EB` es una **raíz cuadrada entera** (no la de la CRT). El resultado
-  es `len = round(√(d0²+d1²))`, medido directamente en la pila: con
-  `d = (-472, 212, 361)` el original pasa `len = 517` (= `round(517.42)`).
+- **`0x40534F`** no usa coma flotante ni redondeo:
+  `s = d0² + d1² + d2²` con `d2 = 0` (imul de 32 bits, con vuelta),
+  `s <<= 4`, `r = 0x4647EB(s, 4)` (raíz entera con 4 bits fraccionarios) y
+  `len = (r + 8) >> 4`. La transcripción exacta es
+  `len = (isqrt_frac((d0² + d1²) << 4, 4) + 8) >> 4`, con
+  `isqrt_frac(n, 4) = floor(√n · 4)` para estos valores. Con
+  `d = (-472, 212)` el original pasa `len = 517`.
 - **`0x464181`** es `atan2` de la CRT (doble precisión) convertido a entero:
-  el divisor es `0x54C178` = π (`3.14159274`) y el multiplicador `0x54C180` =
-  2π (`6.28318548`); el resultado final es un `int16` en **Q12 de media
-  vuelta** (`2048 = π`), truncado (`0x540950` usa `fistpll` con el modo de
-  redondeo hacia cero). Casos especiales: `x == 0` → `±1024`; `y == 0` → `0` o
-  `2048`.
+  divide por `0x54C178` y multiplica por `0x54C180`, que leídos del ejecutable
+  son el double `0x1.921fb54524550p+2` = **6.283185308** (no el `2π` de la
+  libm) y **4096.0**. El resultado es un `int16` en **Q12 de media vuelta**
+  (`2048 = π`), truncado hacia cero (`0x540950` fija `fistpll` con `orb $0xC,
+  %ah`; el llamador toma `%ax`). Es decir:
+  `trunc(atan2(y, x) / 6.283185308 * 4096.0)`. El caso `atan2(1, 1)` da
+  **511** justamente porque la constante no es `2π` (con `2π` daría 512).
+  Casos especiales: `x == 0` → `0x400` o `0xFC00` según el signo de `y`;
+  `y == 0` → `0` o `0x800` según el signo de `x`.
 - El `+0x400` del tercer ángulo es un desplazamiento de **90°** (π/2) en
   Q12 de media vuelta.
 
@@ -1181,14 +1219,26 @@ Por eso los 428 ángulos del menú **no** salen de un cuaternio: el original
 los deriva de un *look-at* entre dos puntos, y por eso la "segunda
 trayectoria" del controlador es el array hermano de 26 registros de 32 B.
 
-### 8.7 Lo que queda pendiente de esta parte
+### 8.7 Correcciones a lo que § 8 daba por pendiente
+
+La primera redacción de esta sección dejaba tres cosas abiertas que ya están
+medidas y **superan** lo que aquí se escribió:
+
+1. **`ctrl+0x4C` y `ctrl+0x26C` no son matrices**: son puntos de 3 × int16 y
+   `0x40A6F2` es un muelle/limitador sobre puntos (§ 8.2). En la rama del
+   vuelo no se aplican.
+2. **El script de referencia no usa valores capturados ya transformados**:
+   `analysis/gen_menu_camera_rotation_ref.py` lee los *samples* crudos de las
+   dos splines del `.DFX` y reproduce **428/428** posiciones, puntos de mira y
+   ángulos. La comprobación contra el ejecutable en marcha (breakpoint en
+   `0x406515`) da **425/425** estados emparejables.
+3. **La orientación ya está integrada en el port** (§ 9): el *look-at* se
+   calcula en cada update y las matrices derivadas se reconstruyen con él.
+
+Siguen abiertos, y son de otra parte del problema:
 
 - El criterio con que el exportador del `.DFX` calculó las tangentes de los
   registros de 32 B (no lo mismo para posición y para mira).
-- El significado de `ctrl+0x4C` y `ctrl+0x26C` (las matrices de `0x40A6F2`):
-  la posición y el punto de mira **crudos** del `.DFX` no coinciden con los
-  que usa el *look-at* hasta pasar por ellas; el script de referencia usa los
-  valores ya transformados, medidos en ejecución.
 - El opcode `0x4F` del header y por qué el actor de la spline hermana
   (`0xCDF0`) no está en la cabecera de nivel.
 
@@ -1205,18 +1255,19 @@ trayectoria" del controlador es el array hermano de 26 registros de 32 B.
 > `(2243, 487, 196)`.
 >
 > **Superado también (2026-11-13).** La ruta de orientación está cerrada
-> (§ 8): los 428 ángulos se calculan con el *look-at* del original y se
-> reproducen 428/428 desde el `.DFX`. Queda **integrarla** en el port.
+> (§ 8) **e integrada**: los 428 ángulos se calculan con el *look-at* del
+> original y se reproducen 428/428 desde el `.DFX`, en el port, con la mira
+> leída del propio nivel (slot 1, array `0xC39C`). La ejecución real con
+> ventana y GPU hardware termina en `pos=(2243, 487, 196)`,
+> `euler=(-29, 0, 2842)`.
+>
+> **Lo que queda de S-3** no es la cámara: es el estado de menú y el atlas.
 
-1. **Integrar la orientación** en el port: leer el array de mira (`0xC39C`),
-   calcular el *look-at* con la aritmética de § 8.3 y alimentar
-   `cam->euler` con los tres ángulos, en vez del valor fijo `(-397, 0, 2802)`
-   que hay hoy en `port/src/scene/scene_level.c`.
-2. Identificar el **estado de menú** que dispara el vuelo y el instante en que
+1. Identificar el **estado de menú** que dispara el vuelo y el instante en que
    los elementos quedan visibles (ruta 2D o flujo de comandos).
-3. Establecer el **criterio de las tangentes** del exportador (sin él no se
+2. Establecer el **criterio de las tangentes** del exportador (sin él no se
    etiqueta la curva).
-4. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
+3. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
    `0xC394`.
-5. Ampliar el atlas de texturas (64 entradas) o su tabla de búsqueda para
+4. Ampliar el atlas de texturas (64 entradas) o su tabla de búsqueda para
    cubrir el 100 % de las 166 texturas del vuelo (§ 6.4).

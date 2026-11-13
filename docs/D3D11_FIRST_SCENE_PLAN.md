@@ -781,14 +781,12 @@ El trabajo inmediato deja de ser «conseguir dibujar un nivel» y pasa a reconst
 la experiencia de entrada: movimiento y temporización de la cámara original,
 encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 
-> **Estado (2026-11-13).** El **movimiento de la camara** ya esta integrado:
-> el port reproduce los 428 frames del vuelo y termina en el encuadre del
-> menu `(2243, 487, 196)` en una ventana real con GPU hardware. Lo que queda
-> del hito es la **interfaz DX11** y su navegacion, y la **integracion de la
-> orientacion** (ya descifrada: los 428 angulos salen de un *look-at* entre
-> dos trayectorias de 32 B del `.DFX`, no de un cuaternio; ver
-> `S3_MENU_CAMERA_SEQUENCE.md` 8, reproducido 428/428). Detalle en
-> `S3_MENU_CAMERA_SEQUENCE.md` 6.4.
+> **Estado (2026-11-13).** El **movimiento y la orientacion de la camara** ya
+> estan integrados: el port reproduce los 428 frames del vuelo, gira con el
+> *look-at* del original y termina en el encuadre del menu
+> `(2243, 487, 196)`, Euler `(-29, 0, 2842)`, en una ventana real con GPU
+> hardware. Lo que queda del hito es la **interfaz DX11** y su navegacion.
+> Detalle en `S3_MENU_CAMERA_SEQUENCE.md` 6.4 y 8.
 
 **La secuencia original ya está capturada y medida** (2026-11-12): al entrar en
 la ruta 3D la cámara **vuela sola** 428 frames (~17,1 s a ~25 fps) desde el
@@ -832,24 +830,34 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.14):
   lee los registros reales del `.DFX` (y **rechaza** los niveles sin esa
   estructura); `gex_scene_level_load_camera_path()` +
   `gex_scene_level_camera_path_step()` hacen un paso de trayectoria por update
-  lógico, escriben **solo la posición** y **re-emiten** el nivel con la cámara
-  nueva reutilizando el BSP, la emisión y la geometría existentes (0,50 ms por
-  frame medido); `gex_d3d11_mesh_update()` sustituye el contenido de los
-  buffers. La app lo engancha con `--camera-path`. **Sin tocar** pipeline,
-  shaders, atlas, *blending*, niebla ni orden de dibujo. Validación: **4320
-  comprobaciones** en tres suites nuevas (`test_camera_path_scene` 2567,
-  `test_camera_path_tsv` 1728 contra el **TSV crudo leído en tiempo de
-  ejecución**, `test_camera_path_render` 25 con lectura de vuelta del **buffer
-  de vértices de la GPU**), `build.ps1 test` sin fallos, `run_sanitizers.ps1`
-  **32/32**. Ejecución real con ventana Win32 y GPU hardware: la cámara
-  recorre la escena en los 428 updates y **termina en `(2243, 487, 196)`**.
-- **Lo que queda para el renderer**: **integrar la orientación** (los 428
-  ángulos ya están descifrados y medidos: *look-at* `0x40AE51` entre la
-  posición y el punto de mira, `atan2` en Q12 de media vuelta truncado,
-  **428/428**; hasta entonces la orientación se mantiene fija y solo cambia
-  la traslación de la matriz), el **estado de menú**, y ampliar el
-  atlas de texturas (64 entradas) para cubrir las 166 texturas que toca el
-  vuelo (con las 64 más usadas se cubre el 91,3 % de los vértices).
+  lógico, calculan la orientación con el *look-at* entero, reconstruyen las
+  matrices derivadas y **re-emiten** el nivel con la cámara nueva reutilizando
+  el BSP, la emisión y la geometría existentes (0,50 ms por frame medido);
+  `gex_d3d11_mesh_update()` sustituye el contenido de los buffers. La app lo
+  engancha con `--camera-path`. **Sin tocar** pipeline,
+  shaders, atlas, *blending*, niebla ni orden de dibujo. Validación: **8462
+  comprobaciones** en tres suites (`test_camera_path_scene` 2701,
+  `test_camera_path_tsv` 5735 con **428/428 posiciones, miras y Euler** contra
+  los dos TSV crudos leídos en tiempo de
+  ejecución, `test_camera_path_render` 26 con lectura de vuelta del **buffer
+  de vértices de la GPU**), más `test_camera` (995, la matemática del
+  *look-at*), `build.ps1 test` sin fallos y `run_sanitizers.ps1` **32/32**.
+  Ejecución real con ventana Win32 y GPU hardware: la cámara
+  recorre la escena en los 428 updates y **termina en `(2243, 487, 196)` con
+  Euler `(-29, 0, 2842)`**.
+- **La orientación, integrada** (2026-11-13): el *look-at* `0x406515` →
+  `0x40AE51` se reproduce con `gex_cam_length_2d` (`0x40534F`, raíz entera
+  `0x4647EB`), `gex_cam_atan2_q12` (`0x464181`, constante exacta
+  `6.283185308` y `4096.0`, truncado) y `gex_cam_look_at`; la mira se lee del
+  slot 1 del `.DFX` (`0xC39C`, 26 registros, suma 428) y su nodo avanza
+  independiente. La matriz de emisión, la visibilidad y la geometría se
+  recalculan con la orientación nueva: la parte rotacional **ya cambia** con
+  el vuelo. Queda refutada la premisa de que `0x40A6F2` fuese una rutina de
+  matrices: es un muelle sobre **puntos** y en el vuelo no se aplica.
+- **Lo que queda para el renderer**: el **estado de menú** y ampliar el
+  atlas de texturas (64 entradas) para cubrir las **231** texturas que toca el
+  vuelo con la orientación real (con las 64 más usadas se cubre el 82,2 % de
+  los vértices).
 
 - **Base ya demostrada:** parser DFX, recorrido BSP, visibilidad, cámara y emisión
   de MAP7; 1 123 triángulos y 62 texturas en la ejecución reportada, con pruebas

@@ -147,11 +147,13 @@ static int run(void)
     }
     CHECK(scene.path_frames == 10);
 
-    /* The rotational part of the emit matrix is unchanged (the rotation path
-     * is not decoded yet); the translation and the geometry do change. */
-    CHECK(memcmp(emit_before, scene.stats.emit_m, sizeof(emit_before)) == 0);
+    /* The emit matrix changes with the orientation: the look-at of the
+     * original is recomputed in every update, so both its rotational part
+     * and its translation follow the flight, and the geometry changes too. */
+    CHECK(memcmp(emit_before, scene.stats.emit_m, sizeof(emit_before)) != 0);
     CHECK(memcmp(trans_before, scene.stats.emit_t, sizeof(trans_before)) != 0);
     CHECK(scene.stats.triangles != tri_before);
+    CHECK(cam.euler[0] == -376 && cam.euler[1] == 0 && cam.euler[2] == 2607);
 
     /* The GPU buffers carry the new geometry. */
     CHECK(gex_d3d11_mesh_update(dev.device, &scene.geometry, &mesh) ==

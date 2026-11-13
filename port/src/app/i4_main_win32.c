@@ -330,11 +330,14 @@ static void print_stats(const char *prefix, const gex_i4_app *app,
     if (g_camera_path_state != NULL) {
         const i4_camera_path *p = g_camera_path_state;
         printf("%s camera path: samples=%u finished=%d error=%d "
-               "pos=(%d, %d, %d) triangles=%zu\n", prefix,
+               "pos=(%d, %d, %d) euler=(%d, %d, %d) triangles=%zu\n", prefix,
                (unsigned)p->samples, p->finished, p->error,
                p->cam != NULL ? p->cam->pos[0] : 0,
                p->cam != NULL ? p->cam->pos[1] : 0,
                p->cam != NULL ? p->cam->pos[2] : 0,
+               p->cam != NULL ? p->cam->euler[0] : 0,
+               p->cam != NULL ? p->cam->euler[1] : 0,
+               p->cam != NULL ? p->cam->euler[2] : 0,
                p->scene != NULL ? p->scene->stats.triangles : 0);
     }
 #endif
@@ -580,11 +583,10 @@ int main(int argc, char **argv)
                  *
                  * Con la secuencia de camara la geometria cambia en cada
                  * frame: las texturas que se ven NO son solo las del
-                 * frame 0, sino las de todo el vuelo (166 en MAP7, mas que
-                 * las 64 que caben en el atlas). Para no tocar el modulo de
-                 * texturas ni el shader, se recorre la trayectoria una vez
-                 * y se piden las texturas MAS USADAS, que cubren el 91 % de
-                 * los vertices del vuelo. */
+                 * frame 0, sino las de todo el vuelo (mas que las 64 que
+                 * caben en el atlas). Para no tocar el modulo de texturas ni
+                 * el shader, se recorre la trayectoria una vez y se piden las
+                 * texturas MAS USADAS; la cobertura resultante se imprime. */
                 if (options.camera_path && scene.path_loaded) {
                     uint32_t *counts = (uint32_t *)calloc(16384u,
                                                           sizeof(uint32_t));
@@ -621,10 +623,26 @@ int main(int argc, char **argv)
                                 (n > (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES)
                                 ? (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES : n;
                             used = idxs;
-                            printf("textures: %u distinctas en el vuelo, "
-                                   "se piden las %u mas usadas (limite del "
-                                   "atlas)\n", (unsigned)distinct,
-                                   (unsigned)used_count);
+                            {
+                                uint64_t total = 0;
+                                uint64_t covered = 0;
+                                uint32_t k;
+                                for (k = 0; k < 16384u; k++) {
+                                    total += counts[k];
+                                }
+                                for (k = 0; k < used_count; k++) {
+                                    covered += counts[idxs[k]];
+                                }
+                                printf("textures: %u distinctas en el vuelo, "
+                                       "se piden las %u mas usadas (limite del "
+                                       "atlas; cubren el %.1f%% de los "
+                                       "vertices)\n", (unsigned)distinct,
+                                       (unsigned)used_count,
+                                       total != 0
+                                           ? 100.0 * (double)covered /
+                                                 (double)total
+                                           : 0.0);
+                            }
                         }
                     }
                     free(counts);

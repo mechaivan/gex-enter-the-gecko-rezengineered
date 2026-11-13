@@ -195,9 +195,12 @@ registros se reconstruyo siguiendo la **cadena real de punteros** del `.DFX`
 `0xC02C` -> array `0xC034`), no buscando bytes parecidos: los 832 B del fichero
 son identicos al volcado runtime del array. La variante de **rotacion**
 (registros de 10 B) se rechaza de forma explicita en vez de aproximarla (se
-ha medido despues que **no es la de la camara del menu**), y la
-camara **no** se declara completa: faltan esa ruta, el estado de menu y la
-conexion al renderer D3D11.
+ha medido despues que **no es la de la camara del menu**). En aquella tanda la
+camara **no** se declaro completa porque faltaban "esa ruta, el estado de menu
+y la conexion al renderer"; hoy esa frase esta **superada**: la orientacion no
+era la ruta de 10 B sino un *look-at* (parrafo siguiente, ya integrado), la
+conexion al renderer esta hecha y lo unico que sigue abierto de verdad es el
+**estado de menu**.
 
 La ruta de **orientacion** se ha cerrado el mismo 2026-11-13, y el resultado
 cambia la pregunta: los 428 angulos del menu **no** salen de un cuaternion.
@@ -206,11 +209,35 @@ El controlador de camara del menu (`0x65CD80`) tiene **dos** trayectorias
 `0xC39C` (punto de mira, actor hermano `0x961C`) -- con las mismas duraciones
 (suma 428), y `0x406515` -> `0x40AE51` deriva los tres angulos de un
 *look-at* entre las dos: `d = cam - mira`,
-`euler = (-atan2(d.z, len), 0, atan2(d.y, d.x) + 0x400)`, con
-`len = (4*isqrt((d0^2+d1^2)<<4) + 8) >> 4` (`0x40534F`, raiz **entera**
-`0x4647EB`) y `atan2` de la CRT (`0x464181`) truncado a `int16` en **Q12 de
-media vuelta** (`2048 = pi`). Se reproduce **428/428** con enteros desde el
-`.DFX` y **425/425** contra la captura directa del original.
+`euler = (-atan2(d.z, len), 0, atan2(d.y, d.x) + 0x400)`. La aritmetica
+exacta, leida de las constantes y no supuesta, es
+`len = (isqrt_frac((d0^2+d1^2)<<4, 4) + 8) >> 4` (`0x40534F`, con `0x4647EB`
+completo: bit mas alto, `sh >>= 1`, `cl = sh + frac/2`, refinado; **sin**
+`sqrt()`) y `atan = trunc(atan2(y,x) / 6.283185308 * 4096.0)`, porque
+`0x54C178` es el double `0x1.921fb54524550p+2` (**no** el `2*pi` de la libm)
+y `0x54C180` es `4096.0`, con `0x540950` truncando hacia cero. Se reproduce
+**428/428** con enteros desde el `.DFX` y **425/425** contra la captura
+directa del original.
+
+Una **premisa de la investigacion resulto falsa** y conviene dejarla escrita:
+`0x40A6F2` no es una rutina de matrices, sino un **muelle/limitador sobre
+puntos** (3 x int16) con cinco modos (tabla de saltos en `0x40AD98`), y
+`ctrl+0x4C` / `ctrl+0x26C` son **puntos**, no matrices. En la rama del vuelo
+(`ctrl+0x484 != 0`, retorno `0x411D0C`) el *look-at* usa los **samples crudos**
+de las dos splines, sin transformacion; por eso la referencia se puede generar
+desde el `.DFX` y no necesita valores capturados en ejecucion.
+
+La orientacion se ha **integrado en el port** el 2026-11-13 con el mismo
+criterio: `gex_cam_length_2d`, `gex_cam_atan2_q12` y `gex_cam_look_at`
+reproducen esas tres rutinas con enteros (mas el `atan2` de libm con la
+constante exacta, que es lo que hace el original via x87), el modulo del
+`.DFX` lee la mira por el slot 1 (`gex_dfx_load_camera_path_slot`), la escena
+avanza **dos nodos independientes** por update y, antes de re-emitir,
+reconstruye las matrices derivadas con la orientacion nueva. La validacion es
+exacta: **428/428** posiciones, miras y Euler contra los dos TSV leidos en
+tiempo de ejecucion, y la matriz de emision y el buffer de la GPU cambian con
+el vuelo. La ejecucion real (ventana Win32, GPU hardware) termina en
+`pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)`.
 
 El **resultado negativo** importa mas que el positivo: la variante de **10 B**
 (cuaternion Q12, SLERP entero `0x43158D`, `0x431430`, `0x431036`) existe en
@@ -239,12 +266,13 @@ error en el generador del header no pueda esconder una diferencia con el
 original), y la lectura de vuelta del **buffer de vertices de la GPU** para
 comprobar que el cambio llega a lo que se dibuja. La ejecucion real con
 ventana y GPU hardware recorre los 428 frames y termina en `(2243, 487, 196)`,
-el encuadre del menu. Quedan dos limitaciones **declaradas**: la orientacion
-todavia **no se interpola** (ya esta decodificada como *look-at* del original,
-pero sin integrar: la parte rotacional de la matriz no cambia y solo la
-traslacion), y el atlas de
-texturas, limitado a 64 entradas, cubre el 91,3 % de los vertices del vuelo
-(que tocan 166 texturas distintas; con el atlas del frame 0 seria el 65,4 %).
+el encuadre del menu. En aquella tanda quedaban dos limitaciones
+**declaradas**: la orientacion todavia no se interpolaba y el atlas de
+texturas, limitado a 64 entradas, cubria el 91,3 % de los vertices del vuelo
+(166 texturas distintas). **La primera esta superada** (la orientacion se
+integra y gira con el vuelo, parrafo anterior); la del atlas sigue, con las
+cifras medidas de nuevo con la orientacion real: **231** texturas distintas y
+**82,2 %** de cobertura con las 64 mas usadas.
 
 
 La integracion de la camara real en el renderer (2026-11-11) ha seguido la
