@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2026-11-14 - 0.0.0 - La aparición del menú: estado medido, captura real del encuadre y las texturas del fotograma final dentro del atlas
+
+El menú principal **no** aparece al terminar el vuelo de cámara: el actor
+`tvmenu__` de MAP7 ya está en estado 2 ~150 ms después de cargar el nivel.
+La medida dinámica (breakpoints de hardware) y la captura del backbuffer
+separan lo que dibuja el BSP (el muro de pantallas) de lo que dibuja el actor
+(las opciones).
+
+**Medido (ejecución real, copia de trabajo del EU, MD5
+`692B12825003417CC4A5A9D4DB13EEBE`):**
+
+- `0x52754F` (update de `tvmenu__`): **2413** ejecuciones, una por frame.
+- `0x527432` (mostrar/ocultar): **1** ejecución, en la carga (`t=28433 ms`),
+  rama de ocultar.
+- `[entity+0xF4]`: `0` → **`2`** en `t=28586 ms`; se queda en 2. Con
+  `count=4`, `idx=1`, `b13=0`.
+- El menú de `.rdata` con `MAIN MENU...` es el de **pausa/debug**; el
+  principal es el actor `tvmenu__` del nivel (`0x463340` carga `\gex.dfx`,
+  `map7.dfx`, `map7.vfx`, `map7.tad`).
+
+**Port:**
+
+- `--screenshot PATH` / `--screenshot-frame N`: captura del backbuffer ya
+  dibujado a PPM (P6) antes del `Present`
+  (`gex_d3d11_renderer_request_capture`, `renderer_capture_ppm`). La
+  ejecución real (GPU hardware) termina en `pos=(2243, 487, 196)`,
+  `euler=(-29, 0, 2842)` y escribe la captura.
+- `--textures-final`: con `--camera-path`, elige las texturas del fotograma
+  final (`gex_scene_camera_path_final_texture_usage`) en vez de las más
+  usadas del vuelo. El fotograma final usa **65** índices; se piden los 64
+  más usados (se descarta el 99, 3 vértices). El muro de cuatro pantallas
+  sale texturizado **sin ampliar el atlas ni tocar el shader**.
+- La primera captura (selección del vuelo) mostraba el muro sin textura: no
+  era un material roto, era la textura fuera de las 64 elegidas.
+
+**Pruebas:** `test_camera_path_scene` añade la comprobación del fotograma
+final (65 índices, subconjunto del vuelo, argumentos inválidos);
+`build.ps1 test` completo y `run_sanitizers.ps1` (O0/O2, ASan, UBSan) en
+verde.
+
+**Sigue abierto:** qué primitiva dibuja las 4 opciones y de dónde salen sus
+cadenas; si las cuatro pantallas son el menú o decorado. El port solo dibuja
+BSP, así que ver las opciones exige render de actores (fuera del paso mínimo
+de esta tanda).
+
 ## 2026-11-13 - 0.0.0 - La orientacion de la camara del menu, integrada en el port: dos nodos, el look-at entero en cada update y las matrices derivadas reconstruidas
 
 La camara del menu deja de moverse **sin girar**. El `euler` fijo

@@ -2688,3 +2688,29 @@ flotantes, que no es el `GrVertex` clásico). La captura de ventana del juego
 devuelve negro, así que no hay verificación píxel a píxel: la comparación es a
 nivel de **ecuación y de estado de mezcla**.
 
+## 20. Captura del fotograma y selección de texturas del encuadre final (2026-11-14)
+
+- **Captura:** `gex_d3d11_renderer_request_capture()` marca un pedido y
+  `gex_d3d11_renderer_present()` lo atiende **después** de limpiar y dibujar,
+  antes del `Present`: copia el backbuffer a una textura de staging
+  (`D3D11_USAGE_STAGING` + `CPU_ACCESS_READ`), la mapea y escribe un PPM (P6)
+  de 8 bits (RGBA -> RGB; los formatos BGRA se reordenan). Un pedido
+  sustituye al anterior; si la escritura falla, `last_capture_hresult` guarda
+  el error y el `Present` sigue. La app lo expone como `--screenshot PATH` y
+  `--screenshot-frame N` (sin `--screenshot-frame` se usa el límite de
+  `--frames`).
+- **Selección:** `gex_scene_camera_path_final_texture_usage()` recorre la
+  trayectoria en una escena propia y cuenta los índices de textura (14 bits)
+  del **último** fotograma. En MAP7 son **65**; `--textures-final` pide al
+  `.VFX` los 64 más usados de ese fotograma (descarta el índice 99, 3
+  vértices), dentro del límite del atlas (`GEX_D3D11_TEXTURE_MAX_ENTRIES`) y
+  sin tocar el shader.
+- **Por qué:** la selección "más usadas del vuelo" deja fuera texturas que
+  solo aparecen al final (la pantalla del televisor). Con la selección del
+  fotograma final el muro de cuatro pantallas sale texturizado. Las opciones
+  del menú siguen sin aparecer porque las dibuja el actor `tvmenu__`, no el
+  BSP: verlas exige render de actores.
+- **Verificación:** `test_camera_path_scene` exige 65 índices en el fotograma
+  final, que su conjunto sea subconjunto del vuelo y que los argumentos
+  inválidos devuelvan `GEX_SCENE_ERR_ARG` (2772 comprobaciones, 0 fallos);
+  suite completa y sanitizers O0/O2/ASan/UBSan en verde.

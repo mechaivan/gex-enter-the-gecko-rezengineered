@@ -382,6 +382,39 @@ static void test_texture_usage(void)
                                                &distinct) == GEX_SCENE_ERR_ARG);
     CHECK(gex_scene_camera_path_texture_usage(MAP7_PATH, NULL, counts, 0u,
                                                &distinct) == GEX_SCENE_ERR_ARG);
+
+    /* Final frame only: MAP7's last pose uses 65 distinct indices, one more
+     * than the atlas maximum (64). The selection keeps the 64 most used at
+     * that pose and drops index 99 (3 vertices), which is what textures the
+     * menu framing (the TV screen). */
+    {
+        uint32_t final_counts[16384];
+        size_t final_distinct = 0;
+        uint32_t final_total = 0;
+
+        memset(final_counts, 0, sizeof(final_counts));
+        CHECK(gex_scene_camera_path_final_texture_usage(
+                  MAP7_PATH, NULL, final_counts, 16384u, &final_distinct) ==
+              GEX_SCENE_OK);
+        CHECK(final_distinct == 65u);
+        for (i = 0; i < 16384u; i++) {
+            final_total += final_counts[i];
+            if (final_counts[i] != 0u) {
+                CHECK(counts[i] != 0u);
+            }
+        }
+        CHECK(final_total > 0u);
+
+        CHECK(gex_scene_camera_path_final_texture_usage(
+                  NULL, NULL, final_counts, 16384u, &final_distinct) ==
+              GEX_SCENE_ERR_ARG);
+        CHECK(gex_scene_camera_path_final_texture_usage(
+                  MAP7_PATH, NULL, NULL, 16384u, &final_distinct) ==
+              GEX_SCENE_ERR_ARG);
+        CHECK(gex_scene_camera_path_final_texture_usage(
+                  MAP7_PATH, NULL, final_counts, 0u, &final_distinct) ==
+              GEX_SCENE_ERR_ARG);
+    }
 }
 
 /* ------------------------------------------------------------------ */

@@ -50,12 +50,16 @@ typedef struct i4_options {
     const char *level_path; /* .DFX to load, or NULL for the test cube */
     int diagnostic_view; /* 1 = vista sintetica + encuadre automatico */
     int camera_path; /* 1 = reproduce la trayectoria de camara del nivel */
+    const char *screenshot_path; /* .ppm de salida, o NULL */
+    uint64_t screenshot_frame; /* 0 = el ultimo frame del limite */
+    int textures_final; /* 1 = texturas del fotograma final del vuelo */
 } i4_options;
 
 static void usage(const char *exe)
 {
     printf("usage: %s [--frames N] [--seconds N] [--level PATH] "
-           "[--diagnostic-view] [--camera-path]\n", exe);
+           "[--diagnostic-view] [--camera-path] [--textures-final] "
+           "[--screenshot PATH [--screenshot-frame N]]\n", exe);
     printf("  --frames N   exit after N presented frames\n");
     printf("  --seconds N  exit after N seconds\n");
     printf("  --level PATH load a .DFX level with the ORIGINAL game camera "
@@ -64,6 +68,13 @@ static void usage(const char *exe)
            "framing instead of the game camera\n");
     printf("  --camera-path  play the camera path stored in the level itself "
            "(MAP7: 428 frames of the menu fly-through)\n");
+    printf("  --screenshot PATH  write the presented backbuffer as a binary "
+           "PPM (P6) to PATH\n");
+    printf("  --screenshot-frame N  capture on presented frame N (default: the "
+           "--frames limit)\n");
+    printf("  --textures-final  with --camera-path, ask the .VFX for the "
+           "textures of the final camera pose (the menu framing) instead of "
+           "the most used over the flight\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -189,6 +200,9 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->level_path = NULL;
     options->diagnostic_view = 0;
     options->camera_path = 0;
+    options->screenshot_path = NULL;
+    options->screenshot_frame = 0;
+    options->textures_final = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -207,10 +221,23 @@ static int parse_options(int argc, char **argv, i4_options *options)
             options->diagnostic_view = 1;
         } else if (strcmp(argv[i], "--camera-path") == 0) {
             options->camera_path = 1;
+        } else if (strcmp(argv[i], "--textures-final") == 0) {
+            options->textures_final = 1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
             options->level_path = argv[++i];
             if (options->level_path[0] == '\0') {
                 fprintf(stderr, "invalid --level path\n");
+                return 0;
+            }
+        } else if (strcmp(argv[i], "--screenshot") == 0 && i + 1 < argc) {
+            options->screenshot_path = argv[++i];
+            if (options->screenshot_path[0] == '\0') {
+                fprintf(stderr, "invalid --screenshot path\n");
+                return 0;
+            }
+        } else if (strcmp(argv[i], "--screenshot-frame") == 0 && i + 1 < argc) {
+            if (!parse_u64(argv[++i], &options->screenshot_frame)) {
+                fprintf(stderr, "invalid --screenshot-frame value\n");
                 return 0;
             }
         } else {
@@ -360,6 +387,8 @@ int main(int argc, char **argv)
     uint64_t focus_losses_seen = 0;
     uint64_t errors = 0;
     uint64_t clock_warnings = 0;
+    uint64_t screenshot_target = 0;
+    int screenshot_requested = 0;
     int parsed;
     int exit_code = 0;
     int timer_resolution_set = 0;
@@ -395,6 +424,35 @@ int main(int argc, char **argv)
     if (parsed == 0) {
         return 1;
     }
+
+    /* La captura es un pedido diferido al renderer: necesita un fotograma
+     * concreto. Sin --screenshot-frame se usa el limite de --frames. */
+    if (options.screenshot_path != NULL) {
+        if (options.screenshot_frame == 0 && options.frame_limit == 0) {
+            fprintf(stderr, "error: --screenshot needs --frames N or "
+                            "--screenshot-frame N\n");
+            return 1;
+        }
+        screenshot_target = (options.screenshot_frame > 0)
+                                ? options.screenshot_frame
+                                : options.frame_limit;
+    } else if (options.screenshot_frame != 0) {
+        fprintf(stderr, "error: --screenshot-frame needs --screenshot PATH\n");
+        return 1;
+    }
+    if (options.textures_final &&
+        (!options.camera_path || options.level_path == NULL)) {
+        fprintf(stderr, "error: --textures-final needs --camera-path and "
+                        "--level PATH\n");
+        return 1;
+    }
+#if !defined(_WIN32)
+    if (options.screenshot_path != NULL) {
+        fprintf(stderr, "error: --screenshot needs the Direct3D 11 "
+                        "renderer (Windows only)\n");
+        return 1;
+    }
+#endif
 
     if (!gex_win32_clock_init(&clock)) {
         fprintf(stderr, "error: QueryPerformanceCounter is unavailable\n");
@@ -591,10 +649,18 @@ int main(int argc, char **argv)
                     uint32_t *counts = (uint32_t *)calloc(16384u,
                                                           sizeof(uint32_t));
                     size_t distinct = 0;
-                    if (counts != NULL &&
-                        gex_scene_camera_path_texture_usage(
-                            options.level_path, &path_cam, counts, 16384u,
-                            &distinct) == GEX_SCENE_OK) {
+                    gex_scene_status usage_status = GEX_SCENE_ERR_ARG;
+                    if (counts != NULL) {
+                        usage_status =
+                            options.textures_final
+                                ? gex_scene_camera_path_final_texture_usage(
+                                      options.level_path, &path_cam, counts,
+                                      16384u, &distinct)
+                                : gex_scene_camera_path_texture_usage(
+                                      options.level_path, &path_cam, counts,
+                                      16384u, &distinct);
+                    }
+                    if (counts != NULL && usage_status == GEX_SCENE_OK) {
                         uint32_t *idxs = (uint32_t *)malloc(16384u *
                                                              sizeof(uint32_t));
                         if (idxs != NULL) {
@@ -633,10 +699,13 @@ int main(int argc, char **argv)
                                 for (k = 0; k < used_count; k++) {
                                     covered += counts[idxs[k]];
                                 }
-                                printf("textures: %u distinctas en el vuelo, "
-                                       "se piden las %u mas usadas (limite del "
-                                       "atlas; cubren el %.1f%% de los "
-                                       "vertices)\n", (unsigned)distinct,
+                                printf("textures: %u distinctas en %s, "
+                                       "se piden %u (limite del atlas; cubren "
+                                       "el %.1f%% de los vertices)\n",
+                                       (unsigned)distinct,
+                                       options.textures_final
+                                           ? "el fotograma final"
+                                           : "el vuelo",
                                        (unsigned)used_count,
                                        total != 0
                                            ? 100.0 * (double)covered /
@@ -809,6 +878,22 @@ int main(int argc, char **argv)
 
         log_input(&app.input, &focus_losses_seen);
         now_us = gex_win32_clock_now_us(&clock);
+#if defined(_WIN32)
+        /* La captura se pide justo antes del step que producira el Present
+         * objetivo: el renderer la atiende dentro de ese Present, con la
+         * geometria de ese fotograma ya dibujada. */
+        if (!screenshot_requested && options.screenshot_path != NULL &&
+            app.d3d11_enabled && screenshot_target > 0 &&
+            app.renderer.d3d11_renderer.presents + 1u >= screenshot_target) {
+            screenshot_requested = 1;
+            if (gex_d3d11_renderer_request_capture(
+                    &app.renderer.d3d11_renderer,
+                    options.screenshot_path) != GEX_D3D11_RENDERER_OK) {
+                fprintf(stderr, "error: could not request screenshot '%s'\n",
+                        options.screenshot_path);
+            }
+        }
+#endif
         status = gex_i4_app_step(&app, now_us);
 
         if (status == GEX_FRAME_WARN_CLOCK) {
@@ -870,6 +955,12 @@ int main(int argc, char **argv)
     }
 
     now_us = gex_win32_clock_now_us(&clock);
+#if defined(_WIN32)
+    if (options.screenshot_path != NULL && !screenshot_requested) {
+        fprintf(stderr, "warning: screenshot frame %" PRIu64
+                        " was never reached\n", screenshot_target);
+    }
+#endif
     print_stats("final:", &app, now_us, start_us);
     printf("exit: %s, frame errors=%" PRIu64 ", clock warnings=%" PRIu64 "\n",
            exit_code == 0 ? "clean" : "with errors", errors, clock_warnings);

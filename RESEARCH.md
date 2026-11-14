@@ -1162,6 +1162,36 @@ que habrá que verificar contra el juego real (Fase 1–2):
   después); el blending alfa se aplica a todo el dibujo (en el original, por
   polígono).
 
+
+## S-32 - S-3: la aparición del menú (2026-11-14)
+
+- **Método:** breakpoints de hardware sobre `0x52754F` (update del actor
+  `tvmenu__`) y `0x527432` (mostrar/ocultar) en una copia de trabajo del
+  ejecutable EU (MD5 `692B12825003417CC4A5A9D4DB13EEBE`); captura del
+  backbuffer del port a PPM antes del `Present`.
+- **Resultado:** `0x52754F` corre **2413** veces (una por frame) y `0x527432`
+  **una sola vez**, en la carga (`t=28433 ms`), por la rama de ocultar;
+  `[entity+0xF4]` pasa de `0` a **`2`** en `t=28586 ms` (~150 ms después de la
+  carga) y se queda en `2` durante todo el vuelo (`count=4`, `idx=1`,
+  `b13=0`). El menú **no** aparece al terminar los 428 frames: cámara y menú
+  son independientes.
+- **Dos menús:** la tabla de `.rdata` con `MAIN MENU...` /
+  `LEVEL SELECT MENU...` / `QUIT GAME` (`0x54E1E0`, acciones `0x423A8D`,
+  `0x4238E2`, `0x423930`) es el menú de **pausa/debug in-game**; el principal
+  es el actor `tvmenu__` del nivel (`0x463340` carga `\gex.dfx`, `map7.dfx`,
+  `map7.vfx`, `map7.tad`). La tabla `0x553204` asocia por **nombre**
+  (`('tvmenu__','map_____') -> 0x527432, 0x52754F`); el `.DFX` no lleva
+  punteros de código (el nombre va inline en el offset `0xF969C`).
+- **Captura:** el encuadre final muestra la estatua de Gex y un muro de
+  cuatro pantallas **BSP**. Sin las texturas del fotograma final el muro sale
+  con el color por vértice (su textura queda fuera de las 64 más usadas del
+  vuelo). El fotograma final usa **65** índices; `--textures-final` pide los
+  64 más usados de ese fotograma (descarta el 99, 3 vértices) y el muro sale
+  texturizado sin ampliar el atlas ni tocar el shader.
+- **Límite:** las opciones del menú no son BSP: las dibuja el actor
+  (`tvmenu__`, estado 2, 4 entradas, índice 1). Verlas exige render de
+  actores; no se ha adelantado en esta tanda.
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

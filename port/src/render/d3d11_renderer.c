@@ -17,6 +17,8 @@
 #if defined(_WIN32)
 
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <d3d11.h>
 
 gex_d3d11_renderer_status gex_d3d11_renderer_init(
@@ -154,6 +156,114 @@ gex_d3d11_renderer_status gex_d3d11_renderer_resize(
     return GEX_D3D11_RENDERER_OK;
 }
 
+/*
+ * Escribe el backbuffer como PPM binario (P6) de 8 bits.
+ *
+ * Se llama dentro del Present, con la limpieza y la geometría ya hechas y
+ * antes de intercambiar los buffers: es el único momento en que el contenido
+ * del backbuffer es exactamente el frame que se va a mostrar. La copia va a
+ * una textura de staging (CPU read) porque el backbuffer no es mapeable.
+ */
+static void renderer_capture_ppm(gex_d3d11_renderer *renderer)
+{
+    ID3D11Texture2D *staging = NULL;
+    D3D11_TEXTURE2D_DESC src;
+    D3D11_TEXTURE2D_DESC desc;
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    unsigned char *row = NULL;
+    FILE *file = NULL;
+    HRESULT hr;
+    UINT y;
+    int swap_rb;
+    int ok = 0;
+
+    renderer->capture_pending = 0;
+    renderer->last_capture_hresult = S_OK;
+
+    if (renderer->backbuffer == NULL || renderer->capture_path[0] == '\0') {
+        renderer->last_capture_hresult = E_FAIL;
+        return;
+    }
+
+    ID3D11Texture2D_GetDesc(renderer->backbuffer, &src);
+    /* El backbuffer de R-2 es R8G8B8A8_UNORM, pero un cambio de formato en la
+     * swapchain no debe producir canales cruzados: se cubren los BGRA. */
+    swap_rb = (src.Format == DXGI_FORMAT_B8G8R8A8_UNORM ||
+               src.Format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB ||
+               src.Format == DXGI_FORMAT_B8G8R8X8_UNORM ||
+               src.Format == DXGI_FORMAT_B8G8R8X8_UNORM_SRGB);
+
+    desc = src;
+    desc.Usage = D3D11_USAGE_STAGING;
+    desc.BindFlags = 0;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    desc.MiscFlags = 0;
+
+    hr = ID3D11Device_CreateTexture2D(renderer->device, &desc, NULL, &staging);
+    if (FAILED(hr) || staging == NULL) {
+        renderer->last_capture_hresult = FAILED(hr) ? hr : E_FAIL;
+        if (staging != NULL) {
+            ID3D11Texture2D_Release(staging);
+        }
+        return;
+    }
+
+    ID3D11DeviceContext_CopyResource(renderer->context,
+                                     (ID3D11Resource *)staging,
+                                     (ID3D11Resource *)renderer->backbuffer);
+
+    memset(&mapped, 0, sizeof(mapped));
+    hr = ID3D11DeviceContext_Map(renderer->context, (ID3D11Resource *)staging,
+                                 0u, D3D11_MAP_READ, 0u, &mapped);
+    if (FAILED(hr)) {
+        renderer->last_capture_hresult = hr;
+        ID3D11Texture2D_Release(staging);
+        return;
+    }
+
+    row = (unsigned char *)malloc((size_t)src.Width * 3u);
+    if (row != NULL) {
+        file = fopen(renderer->capture_path, "wb");
+    }
+    if (row != NULL && file != NULL) {
+        fprintf(file, "P6\n%u %u\n255\n", (unsigned)src.Width,
+                (unsigned)src.Height);
+        for (y = 0; y < src.Height; y++) {
+            const unsigned char *p = (const unsigned char *)mapped.pData +
+                                     (size_t)y * mapped.RowPitch;
+            UINT x;
+            for (x = 0; x < src.Width; x++) {
+                row[x * 3u + 0u] = swap_rb ? p[x * 4u + 2u] : p[x * 4u + 0u];
+                row[x * 3u + 1u] = p[x * 4u + 1u];
+                row[x * 3u + 2u] = swap_rb ? p[x * 4u + 0u] : p[x * 4u + 2u];
+            }
+            if (fwrite(row, 3u, (size_t)src.Width, file) !=
+                (size_t)src.Width) {
+                break;
+            }
+        }
+        ok = (y == src.Height) && (ferror(file) == 0);
+        if (fclose(file) != 0) {
+            ok = 0;
+        }
+        file = NULL;
+    }
+
+    if (!ok) {
+        renderer->last_capture_hresult = E_FAIL;
+        fprintf(stderr, "capture: could not write '%s'\n",
+                renderer->capture_path);
+    } else {
+        renderer->captures++;
+        printf("capture: wrote %s (%ux%u)\n", renderer->capture_path,
+               (unsigned)src.Width, (unsigned)src.Height);
+    }
+
+    free(row);
+    ID3D11DeviceContext_Unmap(renderer->context, (ID3D11Resource *)staging, 0u);
+    ID3D11Texture2D_Release(staging);
+}
+
 int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
 {
     gex_d3d11_renderer *renderer = (gex_d3d11_renderer *)ctx;
@@ -161,8 +271,7 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
 
     if (renderer == NULL || !renderer->initialized || tick == NULL) {
         return 1;
-    }
-    
+    }    
     /* Clear the render target with the configured color */
     ID3D11DeviceContext_ClearRenderTargetView(renderer->context, renderer->rtv,
                                            renderer->clear_color);
@@ -201,6 +310,12 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
         }
     }
     
+    /* Captura de fotograma (S-3): se atiende aquí, con la geometría ya
+     * dibujada y antes de intercambiar los buffers. */
+    if (renderer->capture_pending) {
+        renderer_capture_ppm(renderer);
+    }
+
     /* Present the backbuffer with the configured sync interval */
     HRESULT hr = IDXGISwapChain_Present(renderer->swapchain, renderer->sync_interval, 0);
     renderer->last_hresult = hr;
@@ -225,6 +340,26 @@ int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick)
     renderer->last_frame_index = tick->frame_index;
     
     return draw_failed;
+}
+
+gex_d3d11_renderer_status gex_d3d11_renderer_request_capture(
+    gex_d3d11_renderer *renderer, const char *path)
+{
+    size_t len;
+
+    if (renderer == NULL || !renderer->initialized) {
+        return GEX_D3D11_RENDERER_BAD_STATE;
+    }
+    if (path == NULL || path[0] == '\0') {
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
+    }
+    len = strlen(path);
+    if (len + 1u > sizeof(renderer->capture_path)) {
+        return GEX_D3D11_RENDERER_BAD_ARGUMENT;
+    }
+    memcpy(renderer->capture_path, path, len + 1u);
+    renderer->capture_pending = 1;
+    return GEX_D3D11_RENDERER_OK;
 }
 
 gex_d3d11_renderer_status gex_d3d11_renderer_set_geometry(

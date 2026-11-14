@@ -83,6 +83,14 @@ typedef struct gex_d3d11_renderer {
     /* Diagnóstico del último dibujo fallido (Módulo 5A). */
     gex_d3d11_pipeline_status last_draw_status;
     HRESULT last_draw_hresult;
+    /* Captura de fotograma (S-3): pedido diferido que se atiende dentro del
+     * siguiente Present, copiando el backbuffer **ya dibujado** (limpieza +
+     * geometría) a un PPM binario. Sirve para verificar visualmente el
+     * encuadre sin depender de una captura externa de la ventana. */
+    int capture_pending;             /* 1 = hay una captura pedida */
+    char capture_path[260];          /* ruta del .ppm de destino */
+    uint64_t captures;               /* capturas escritas con éxito */
+    HRESULT last_capture_hresult;    /* S_OK o el último error de captura */
 } gex_d3d11_renderer;
 
 /*
@@ -107,7 +115,9 @@ typedef struct gex_d3d11_renderer {
         .pipeline = NULL, .mesh = NULL,                                        \
         .geometry_reference_width = 0, .geometry_reference_height = 0,         \
         .draws = 0, .draw_errors = 0,                                          \
-        .last_draw_status = GEX_D3D11_PIPELINE_OK, .last_draw_hresult = S_OK    \
+        .last_draw_status = GEX_D3D11_PIPELINE_OK, .last_draw_hresult = S_OK,    \
+        .capture_pending = 0, .capture_path = {0}, .captures = 0,                \
+        .last_capture_hresult = S_OK                                             \
     }
 
 /*
@@ -146,6 +156,24 @@ gex_d3d11_renderer_status gex_d3d11_renderer_resize(
  * the backbuffer.
  */
 int gex_d3d11_renderer_present(void *ctx, const gex_frame_tick *tick);
+
+/*
+ * Pide una captura del backbuffer en el siguiente Present (S-3).
+ *
+ * La captura se atiende **después** de limpiar y dibujar la geometría, justo
+ * antes de `IDXGISwapChain::Present`, así que el PPM contiene exactamente lo
+ * que se va a presentar. El formato de salida es PPM binario (P6) de 8 bits;
+ * el canal alfa se descarta y los formatos BGRA se reordenan a RGB.
+ *
+ *   renderer == NULL o no inicializado -> BAD_STATE
+ *   path == NULL, vacío o demasiado largo -> BAD_ARGUMENT
+ *
+ * Un pedido sustituye al anterior si aún no se ha atendido. Si la escritura
+ * falla, `last_capture_hresult` guarda el HRESULT (o E_FAIL para errores de
+ * fichero) y `captures` no aumenta; el Present sigue su curso normal.
+ */
+gex_d3d11_renderer_status gex_d3d11_renderer_request_capture(
+    gex_d3d11_renderer *renderer, const char *path);
 
 /*
  * Registra la geometría opcional que se dibuja antes de cada Present

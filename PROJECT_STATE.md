@@ -8,10 +8,44 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-13 (secuencia de cámara del menú: **orientación
-integrada** en el port — posición, mira, *look-at* y matrices derivadas —,
-**428/428** posiciones, miras y Euler contra los TSV y ejecución real hasta
-`euler = (-29, 0, 2842)`)
+**Last updated:** 2026-11-14 (aparición del menú: **estado medido** — `tvmenu__`
+pasa a estado 2 a los ~150 ms de cargar MAP7, con 4 entradas e índice 1 —,
+**captura real del encuadre final** en PPM y **selección de las texturas del
+fotograma final** dentro del límite de 64 del atlas; el muro de pantallas es
+BSP, las opciones del menú son del actor)
+
+### Aparición del menú: estado medido y captura real (2026-11-14)
+
+Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 10.
+
+- **El menú no aparece al terminar los 428 frames.** Traza con breakpoints de
+  hardware sobre `0x52754F` (update de `tvmenu__`) y `0x527432`
+  (mostrar/ocultar): `0x52754F` corre **2413 veces** (una por frame) y
+  `0x527432` **una sola vez**, en la carga, tomando la rama de **ocultar**.
+  `[entity+0xF4]` pasa de `0` a **`2`** en `t=28586 ms` (~150 ms tras la
+  carga) y se queda en `2` durante el vuelo y después; con `count=4`,
+  `idx=1`, `b13=0`. Cámara y menú son independientes.
+- **Dos "menús" distintos.** La tabla de `.rdata` con `MAIN MENU...` /
+  `LEVEL SELECT MENU...` / `QUIT GAME` (`0x54E1E0`, acciones `0x423A8D`,
+  `0x4238E2`, `0x423930`) es el **menú de pausa/debug in-game**. El menú
+  principal real es el actor `tvmenu__` del nivel MAP7: `0x463340` carga
+  `\gex.dfx`, `map7.dfx`, `map7.vfx` y `map7.tad`; la tabla de actores
+  `0x553204` asocia `('tvmenu__','map_____') -> 0x527432, 0x52754F` por
+  **nombre** (el `.DFX` no lleva punteros de código).
+- **Captura de fotograma en el port.** `--screenshot PATH` /
+  `--screenshot-frame N`: el renderer copia el backbuffer ya dibujado a un
+  PPM (P6) antes del `Present`. Ejecución real con GPU hardware: el vuelo
+  termina en `pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)` y la captura
+  muestra la estatua de Gex y un **muro BSP de cuatro pantallas**.
+- **La pantalla salía sin textura por la selección del atlas**, no por un
+  material roto: el port pide las 64 texturas más usadas del vuelo y la del
+  fotograma final queda fuera. Medido: el fotograma final usa **65** índices;
+  `--textures-final` pide los 64 más usados de ese fotograma (descarta el
+  índice 99, 3 vértices) y el muro sale texturizado, sin ampliar el atlas.
+- **Lo que falta para ver el menú:** las opciones no son BSP; las dibuja el
+  actor `tvmenu__` (estado 2, 4 entradas). El port solo dibuja BSP, así que el
+  siguiente paso real es el render de actores, no otra corrección de
+  materiales.
 
 ### Secuencia de cámara del menú: la orientación integrada (2026-11-13)
 

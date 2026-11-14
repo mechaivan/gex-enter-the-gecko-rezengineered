@@ -528,6 +528,67 @@ gex_scene_status gex_scene_level_load_camera_path(gex_scene_level *scene,
     return GEX_SCENE_OK;
 }
 
+gex_scene_status gex_scene_camera_path_final_texture_usage(
+    const char *level_path,
+    const gex_camera *cam,
+    uint32_t *counts,
+    size_t counts_len,
+    size_t *distinct)
+{
+    gex_scene_level scan;
+    gex_camera cam_local;
+    size_t seen = 0;
+    size_t v;
+    int frames = 0;
+
+    if (level_path == NULL || counts == NULL || counts_len == 0u) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    memset(counts, 0, counts_len * sizeof(uint32_t));
+    if (distinct != NULL) {
+        *distinct = 0;
+    }
+
+    memset(&scan, 0, sizeof(scan));
+    if (cam != NULL) {
+        cam_local = *cam;
+    } else {
+        gex_scene_reference_camera(&cam_local);
+    }
+    if (gex_scene_level_load_camera_path(&scan, level_path, &cam_local) !=
+        GEX_SCENE_OK) {
+        gex_scene_level_free(&scan);
+        return GEX_SCENE_ERR_PATH;
+    }
+
+    /* Avanzar hasta el centinela. La geometria se re-emite en cada paso y la
+     * ultima emision es la que se queda: al terminar, `scan.geometry` es el
+     * fotograma final (la pose de reposo de la camara). */
+    for (frames = 0; frames < 4096; frames++) {
+        int step = gex_scene_level_camera_path_step(&scan, &cam_local);
+        if (step <= 0) {
+            break;
+        }
+    }
+
+    for (v = 0; v < scan.geometry.vertex_count; v++) {
+        uint32_t idx = scan.geometry.vertices[v].texture & 0x3FFFu;
+        if ((size_t)idx >= counts_len) {
+            continue;
+        }
+        if (counts[idx] == 0u) {
+            seen++;
+        }
+        counts[idx]++;
+    }
+    gex_scene_level_free(&scan);
+
+    if (distinct != NULL) {
+        *distinct = seen;
+    }
+    return GEX_SCENE_OK;
+}
+
 gex_scene_status gex_scene_camera_path_texture_usage(const char *level_path,
                                                      const gex_camera *cam,
                                                      uint32_t *counts,

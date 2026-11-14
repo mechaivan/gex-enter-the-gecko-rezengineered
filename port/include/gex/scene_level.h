@@ -217,6 +217,28 @@ gex_scene_status gex_scene_camera_path_texture_usage(const char *level_path,
                                                      size_t counts_len,
                                                      size_t *distinct);
 
+/*
+ * Igual que `gex_scene_camera_path_texture_usage`, pero cuenta solo la
+ * geometria del **ultimo** fotograma de la trayectoria (la pose en la que la
+ * camara se detiene: el encuadre del menu).
+ *
+ * En MAP7 ese fotograma usa 65 indices distintos, uno mas que el maximo del
+ * atlas (`GEX_D3D11_TEXTURE_MAX_ENTRIES`, 64): quedarse con los 64 mas usados
+ * de ese fotograma texturiza el encuadre final completo salvo una superficie
+ * de 3 vertices, sin ampliar el atlas ni cambiar el shader. El vuelo entero
+ * toca mas, por eso la seleccion "mas usadas" deja fuera texturas que solo
+ * aparecen al final (la pantalla del televisor).
+ *
+ * Devuelve el numero de indices distintos del fotograma final, o 0 si no se
+ * pudo recorrer la trayectoria. No toca la escena del llamante.
+ */
+gex_scene_status gex_scene_camera_path_final_texture_usage(
+    const char *level_path,
+    const gex_camera *cam,
+    uint32_t *counts,
+    size_t counts_len,
+    size_t *distinct);
+
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);
 

@@ -610,6 +610,21 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    que el buffer de la GPU cambia. La regla: al cambiar una entrada, recorrer
    sus dependencias hasta lo que se dibuja.
 
+30. **Dos cosas con el mismo nombre son dos cosas distintas.** "Menú" era a la
+   vez la tabla de `.rdata` con `MAIN MENU...` / `LEVEL SELECT MENU...` y el
+   actor `tvmenu__` del nivel. La primera es el menú de **pausa/debug
+   in-game**; el segundo es el menú principal, y solo el segundo tiene el
+   vuelo de cámara. Se distinguen por el **mecanismo** (tabla de acciones
+   frente a actor con estado `+0xF4`), no por la cadena. La regla: antes de
+   atribuir un comportamiento a un nombre, localizar quién lo ejecuta y en
+   qué nivel vive.
+31. **Lo que no se dibuja también se mide.** El menú está activo desde ~150 ms
+   tras la carga, pero el port no lo dibuja porque solo recorre el BSP. La
+   captura del backbuffer lo demuestra sin ambigüedad: el muro de pantallas
+   es BSP y sale texturizado con `--textures-final`; las opciones no
+   aparecen. La regla: separar "estado activo" de "geometría dibujada" con
+   una imagen y con la ruta que la produce, y no dar por hecho que un estado
+   lógico implica píxeles.
 
 ## 5. Registro
 

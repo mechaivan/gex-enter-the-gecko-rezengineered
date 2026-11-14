@@ -314,6 +314,36 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     `pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)`, 1722 triángulos, salida
     limpia. (f) **Texturas medidas de nuevo** con la orientación real: 231
     distintas, las 64 más usadas cubren el 82,2 % de los vértices.
+  - **Decimonovena tanda (2026-11-14, la aparición del menú y la captura del
+    encuadre):** separa el menú de pausa del menú principal y mide cuándo
+    aparece. (a) **Medida dinámica** (breakpoints de hardware sobre una copia
+    de trabajo del EU, MD5 `692B12825003417CC4A5A9D4DB13EEBE`): `0x52754F`
+    (update de `tvmenu__`) se ejecuta **2413 veces**, una por frame;
+    `0x527432` (mostrar/ocultar) **una sola vez**, en la carga
+    (`t=28433 ms`), por la rama de **ocultar**. `[entity+0xF4]` pasa de `0` a
+    **`2`** en `t=28586 ms` (~150 ms tras la carga) y se queda en `2` durante
+    el vuelo; `count=4`, `idx=1`, `b13=0`. El menú **no** aparece al terminar
+    los 428 frames: cámara y menú son independientes. (b) **Dos menús**: la
+    tabla de `.rdata` con `MAIN MENU...`/`LEVEL SELECT MENU...`/`QUIT GAME`
+    (`0x54E1E0`, acciones `0x423A8D`, `0x4238E2`, `0x423930`) es la del
+    **menú de pausa/debug in-game**; el principal es el actor `tvmenu__` del
+    nivel MAP7 (`0x463340` carga `\gex.dfx`, `map7.dfx`, `map7.vfx`,
+    `map7.tad`). La tabla de actores `0x553204` asocia por **nombre**
+    (`('tvmenu__','map_____') -> 0x527432, 0x52754F`); el `.DFX` no lleva
+    punteros de código. (c) **Captura real**: el port gana
+    `--screenshot PATH`/`--screenshot-frame N` (PPM P6 del backbuffer ya
+    dibujado, antes del `Present`); con GPU hardware el vuelo termina en
+    `pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)` y la imagen muestra la
+    estatua de Gex y un **muro BSP de cuatro pantallas**. (d) **Atlas**: la
+    primera captura salía sin textura porque la pantalla solo aparece al
+    final y quedaba fuera de las 64 más usadas del vuelo; el fotograma final
+    usa **65** índices y `--textures-final`
+    (`gex_scene_camera_path_final_texture_usage`) pide los 64 más usados de
+    ese fotograma (descarta el 99, 3 vértices), sin ampliar el atlas ni
+    tocar el shader; el muro sale texturizado. (e) **Límite declarado**: las
+    opciones del menú **no** son BSP; las dibuja el actor `tvmenu__`
+    (estado 2, 4 entradas), así que verlas exige render de actores, que es
+    el siguiente paso y no se adelanta aquí.
   - **Novena tanda (2026-11-12, ecuación de la mezcla alfa sobre el driver
     real):** registro histórico de la investigación que identificó nGlide
     2.10 y obtuvo dinámicamente el programa de

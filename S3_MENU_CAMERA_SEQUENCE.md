@@ -1285,9 +1285,118 @@ Siguen abiertos, y son de otra parte del problema:
 
 1. Identificar el **estado de menú** que dispara el vuelo y el instante en que
    los elementos quedan visibles (ruta 2D o flujo de comandos).
+   **→ Medido y cerrado en § 10 (2026-11-14):** el menú ya está en estado 2
+   ~150 ms después de cargar el nivel; no lo dispara el vuelo.
 2. Establecer el **criterio de las tangentes** del exportador (sin él no se
    etiqueta la curva).
 3. Identificar el opcode `0x4F` del header y el papel de la spline hermana de
    `0xC394`.
 4. Ampliar el atlas de texturas (64 entradas) o su tabla de búsqueda para
    cubrir el 100 % de las 166 texturas del vuelo (§ 6.4).
+   **→ Parcial en § 10.3 (2026-11-14):** sin ampliar el atlas, la selección
+   del fotograma final texturiza el encuadre del menú.
+
+## 10. La aparición del menú: medida y estado (2026-11-14)
+
+> Esta sección cierra el punto 1 de la lista de §9 con **medida dinámica**, y
+> separa dos cosas que el nombre "menú" confundía: el **menú de pausa/debug
+> in-game** y el **menú principal del nivel MAP7**. Los puntos 2 y 3 de §9
+> (tangentes del exportador, opcode `0x4F`) siguen **sin tocar**.
+
+### 10.1 El menú principal no se dispara al terminar los 428 frames
+
+Traza con breakpoints de hardware sobre `0x52754F` (update del actor
+`tvmenu__`) y `0x527432` (mostrar/ocultar), en una copia de trabajo del
+ejecutable EU (`GEX3D.EXE`, MD5 `692B12825003417CC4A5A9D4DB13EEBE`):
+
+| Medida | Valor |
+|---|---|
+| `0x52754F` | **2413** ejecuciones (una por frame lógico) |
+| `0x527432` | **1** ejecución, en la carga (`t=28433 ms`), rama de **ocultar** |
+| `[entity+0xF4]` | `0` hasta `t=28547 ms`; **`2`** desde `t=28586 ms` (~150 ms tras la carga) |
+| `[entity+0xFC+0x04]` | **4** entradas |
+| `[entity+0xFC+0x06]` | índice **1** |
+| `[entity+0xFC+0x0F]` | `0` (ningún `tvbutn_` marcado como seleccionado en la medida) |
+
+Conclusión: **el menú está activo antes y durante el vuelo**; no aparece al
+terminar los 428 frames. Cámara y menú son dos cosas independientes que
+comparten el mismo nivel. La rama de ocultar de `0x527432` deja
+`[ctx+0xc]->[0x4e]=0`, pone `[entity+0x10]|=0x10000` y `[ctx+0x4c94]|=0x80`;
+la rama de mostrar (que aquí **no** se ejecuta) limpia el bit `0x7f` de
+`[ctx+0x4c94]` y recorre los hijos llamando a `0x45f818`.
+
+### 10.2 Qué menú es cada uno
+
+- Las cadenas `MAIN MENU...`, `LEVEL SELECT MENU...` y `QUIT GAME`
+  (`0x54EEB0`, `0x54EE8C`, `0x54EEA4`) forman una tabla de 24 B por registro
+  en `.rdata` (base ≈`0x54E1E0`, acciones `0x423A8D`, `0x4238E2`,
+  `0x423930`): es el **menú de pausa/debug in-game** (coherente con
+  `0x43E719`), no el menú principal.
+- El menú principal real es el **actor `tvmenu__` del nivel MAP7**:
+  `0x463340` carga `\gex.dfx` (`0x5518F4`), `%s\level\map7.dfx`
+  (`0x551900`), `%s\level\map7.vfx` (`0x551914`) y `%s\audio\map7.tad`
+  (`0x551928`), y fija `[0x551640]+0x4C80 = 3`.
+- La tabla de actores de `0x553204` (20 B: `nombre1, nombre2, f1, f2, f3`)
+  es **dato muerto** en el ejecutable, pero asocia por **nombre**:
+  `0x553394` = `('tvmenu__','map_____') -> 0x527432, 0x52754F`;
+  `0x5533A8` = `('tvmenu__','credits_') ->` las mismas;
+  `0x5533BC` = `'tvbutn__'` (el botón).
+- El `.DFX` **no lleva punteros de código**: 0 impactos de `0x527432`,
+  `0x127432`, `0x52754F`, `0x12754F`, `0x51D845`, `0x11D845` en MAP7.DFX. El
+  nombre va inline (`tvmenu__` en el offset `0xF969C`) y la asociación se hace
+  en el ejecutable.
+- La máquina de estados de `0x52754F` ramifica sobre `[entity+0xF4]`: `0`
+  (`0x526A80`), `2` (cuerpo `0x527630`), `3` (`0x5271F9`), más `0x527323`
+  común y cola en `0x5278EA`. El estado 2 lee cuatro entradas de 32 B en
+  `ctx->[0x8] + 0x480` (la suma de `word[0]` da el ancho de texto).
+- La búsqueda del botón seleccionado es `0x527911(entity)`: recorre los hijos
+  (`0x475C91` cuenta, `0x475CBF` obtiene), compara el nombre con `'tvbu'` +
+  `'tn__'` (`0x55745C`/`0x55746C`, es decir `"tvbutn_"`) y devuelve el índice
+  del hijo con `[hijo+0xFC+0x0F]==1`.
+
+### 10.3 Qué dibuja el port y qué no (captura real)
+
+Se añadió al port una **captura del backbuffer**: `--screenshot PATH` y
+`--screenshot-frame N` copian el fotograma ya dibujado a un PPM (P6) justo
+antes de `IDXGISwapChain::Present`
+(`gex_d3d11_renderer_request_capture()` + `renderer_capture_ppm()`). La
+captura se atiende **después** de la limpieza y del dibujo, así que contiene
+exactamente lo que se presenta. Ejecución real, ventana Win32 y GPU hardware:
+
+```text
+gexloop.exe --level C:/GEX_REZ/GEX2/level/map7.dfx --camera-path --frames 700 --screenshot menu_final.ppm
+...
+camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842)
+capture: wrote menu_final.ppm (960x540)
+exit: clean, frame errors=0, clock warnings=0
+```
+
+La imagen final muestra la estatua de Gex y, delante, un **muro de cuatro
+pantallas** con marco metálico. Es geometría **BSP**: el port la dibuja con
+`gex_bsp_walk` + `gex_emit` (no hay render de actores).
+
+La primera captura salía **sin textura** (color por vértice). No era un
+material roto: la aplicación pide al `.VFX` solo las **64 texturas más usadas
+del vuelo** (límite del atlas, `GEX_D3D11_TEXTURE_MAX_ENTRIES`) y la textura
+de la pantalla solo aparece al final. Medido: el fotograma final usa **65**
+índices distintos. Con `--textures-final`
+(`gex_scene_camera_path_final_texture_usage()`) se piden los 64 más usados de
+ese fotograma y se descarta el índice **99** (3 vértices, una superficie): el
+muro sale texturizado **sin ampliar el atlas ni tocar el shader**.
+
+El contenido del menú (las 4 opciones y la selección) **no** está en esa
+textura ni en el BSP: lo dibuja el actor `tvmenu__` (estado 2, 4 entradas,
+índice 1), que el port todavía no renderiza.
+
+### 10.4 Lo que queda abierto (sin inventar)
+
+- **Qué primitiva dibuja las opciones** (texto/quad del actor, o modelos
+  `tvbutn__`) y de dónde salen las cadenas de las 4 entradas. El estado 2 lee
+  la lista de `ctx->[0x8] + 0x480` (32 B por entrada), pero el origen del
+  texto no se ha volcado todavía.
+- **Si las cuatro pantallas del muro son el menú o el decorado** del set: la
+  captura las muestra oscuras y sin texto; el actor podría pintar sobre ellas
+  o ser elementos aparte.
+- **Ver las opciones exige render de actores**, que no entra en el paso mínimo
+  de esta tanda. El criterio de las tangentes del exportador y el opcode
+  `0x4F` siguen fuera de la tarea.
