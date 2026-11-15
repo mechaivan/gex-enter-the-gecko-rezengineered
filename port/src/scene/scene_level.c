@@ -6,6 +6,7 @@
  */
 
 #include "gex/scene_level.h"
+#include "gex/menu.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -420,6 +421,59 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
     scene->stats.indices = scene->geometry.index_count;
     scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
 
+    return GEX_SCENE_OK;
+}
+
+/* Reconstruye la matriz de emisión que dejó la última carga de la escena.
+ * La escena guarda sus componentes en `stats`, así que el menú se proyecta
+ * exactamente con la misma vista que el nivel. */
+static void scene_matrix_from_stats(const gex_scene_level *scene,
+                                    gex_emit_matrix *mat)
+{
+    memset(mat, 0, sizeof(*mat));
+    memcpy(mat->m, scene->stats.emit_m, sizeof(mat->m));
+    mat->t[0] = scene->stats.emit_t[0];
+    mat->t[1] = scene->stats.emit_t[1];
+    mat->t[2] = scene->stats.emit_t[2];
+    mat->focal = scene->stats.proj_focal;
+    mat->cx = scene->stats.view_cx;
+    mat->cy = scene->stats.view_cy;
+    mat->near_z = scene->stats.proj_near_z;
+}
+
+gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected)
+{
+    gex_menu_scene menu;
+    gex_emit_matrix mat;
+    gex_emit_status est;
+    gex_geom_status gst;
+
+    if (scene == NULL || !scene->loaded || !scene->emit_loaded) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (!gex_menu_scene_measured(&menu, selected)) {
+        return GEX_SCENE_ERR_NOMEM;
+    }
+    scene_matrix_from_stats(scene, &mat);
+    est = gex_menu_emit(&menu, &mat, &scene->emit);
+    gex_menu_scene_free(&menu);
+    if (est != GEX_EMIT_OK) {
+        return (est == GEX_EMIT_ERR_NOMEM) ? GEX_SCENE_ERR_NOMEM
+                                           : GEX_SCENE_ERR_EMIT;
+    }
+
+    if (scene->geometry_loaded) {
+        gex_geometry_free(&scene->geometry);
+        scene->geometry_loaded = 0;
+    }
+    gst = gex_geometry_build(&scene->emit, &scene->geometry);
+    if (gst != GEX_GEOM_OK) {
+        return GEX_SCENE_ERR_GEOMETRY;
+    }
+    scene->geometry_loaded = 1;
+    scene->stats.triangles = scene->emit.count;
+    scene->stats.vertices = scene->geometry.vertex_count;
+    scene->stats.indices = scene->geometry.index_count;
     return GEX_SCENE_OK;
 }
 

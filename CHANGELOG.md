@@ -1,5 +1,69 @@
 # CHANGELOG
 
+## 2026-11-15 - 0.0.0 - El menú del televisor se dibuja en el port: actores medidos, panel `tvmenu__` y los cuatro rótulos `tvbutn__`
+
+El port ya dibuja el **menú principal de MAP7** tal como lo dibuja el original:
+el panel del televisor (`tvmenu__`) y los cuatro rótulos (`tvbutn__`) con su
+geometría, su colocación y sus texturas, en el encuadre en el que termina la
+trayectoria de cámara. La cámara **no se ha tocado**: sigue en `428` muestras,
+`pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)`.
+
+**Medido en el original (binario EU, MD5 `692B12825003417CC4A5A9D4DB13EEBE`,
+solo lectura; volcado en ejecución con el trazador):**
+
+- Ruta de dibujo del actor: `0x471552(actor, matriz de cámara, out, modo)`
+  transforma las tres columnas del registro con `0x4698B0`, toma la traslación
+  de `+0x14/+0x18/+0x1C` y proyecta con `0x469B02` (focal `320`, centro
+  `256,192`, near `160`). `arg3 == 0` → rama de **panel** `0x4718CF`;
+  `arg3 != 0` → rama **texturizada** `0x470F96` (billboard `0x470C7B`).
+- Formato del **registro de animación** (0x20 B): `+0x00` 9 × int16 base
+  ortonormal Q12 **por columnas**, `+0x12` relleno, `+0x14/+0x18/+0x1C` int32
+  posición de mundo. Confirmado con los cinco registros del menú.
+- Posiciones medidas: panel en `(2900, -84, -528)` (se proyecta **fuera** del
+  encuadre) y rótulos en `(2758, 412, 198/170/143/115)` =
+  START/LOAD/OPTIONS/QUIT, con base común
+  `(663,-4041,0)/(4041,663,0)/(0,0,4096)`.
+- `.DFX` (offsets de imagen, `fichero = imagen + 0x19800`): `tvmenu__` clase
+  `0x0DFE68` (1 modelo, `field_0x10 = 0`, caja de 8 vértices/12 polígonos,
+  radio 552, sin textura `uv_ptr = 0x20800080`); `tvbutn__` clase `0x0DC538`
+  (20 modelos; los modelos 2 y 3 son el mismo quad de 4 vértices/2 triángulos
+  con textura `600` y `604`).
+- Texturas `600..607` (128×32, `ARGB_1555`, LOD 1): `600` START, `601` QUIT,
+  `602` OPTIONS, `603` LOAD en lavanda; `604..607` las mismas en rojo. El
+  resaltado es `+4`, medido en el par START.
+
+**Port:**
+
+- Módulo `gex/actor` (`port/include/gex/actor.h`, `port/src/asset/actor.c`):
+  lee del `.DFX` clase, modelo, vértices, polígonos, subpartes y registro UV;
+  `gex_actor_polygon_textured` distingue el marcador `0x20800080`.
+- Módulo `gex/menu` (`port/include/gex/menu.h`, `port/src/scene/menu.c`):
+  escena con el panel (12 triángulos sin textura) y los cuatro rótulos
+  (2 triángulos cada uno) con base, posición y UV **medidas**; `selected` elige
+  la variante resaltada `+4`.
+- `gex_emit_output_push` (en `gex/emit.h`/`emit.c`): añade un triángulo ya
+  construido a la salida, con el mismo crecimiento y contabilidad que el
+  emisor del nivel.
+- `gex_scene_level_add_menu(scene, selected)`: empuja el menú a la emisión y
+  reconstruye la geometría para subirla a D3D11.
+- `gexloop.exe --menu`: al terminar la trayectoria añade el menú y hace
+  `gex_d3d11_mesh_update`; las ocho texturas del menú pasan a ser las primeras
+  de la lista de selección del atlas, sin ampliarlo.
+- La UV del rótulo se divide por 2: el registro llega a `u=255/v=63` y el
+  `.VFX` sirve 128×32 (LOD 1); sin dividir, el modo texel del shader repetía
+  la textura 2×2 (observado en la primera captura).
+
+**Pruebas:** `test_actor` (**80 comprobaciones, 0 fallos**) contra MAP7.DFX:
+clases por offset y por nombre, modelos, vértices, subpartes, UV, marcador sin
+textura, errores y búsqueda; `test_menu` (**193 comprobaciones, 0 fallos**)
+fija las constantes medidas de la escena. Suite completa en verde;
+`run_sanitizers.ps1` (O0/O2/ASan/UBSan) **40/40** con `menu.c`, `test_actor` y
+`test_menu` añadidos. Captura real
+con ventana Win32 y GPU hardware (`menu_s4_final.png`, 960×540): los cuatro rótulos
+caen a **1 px** de los del original, con las mismas palabras y colores. El
+fondo sigue mostrando la limitación conocida de visibilidad del BSP (no es una
+regresión de esta tanda). Detalle: `S3_MENU_CAMERA_SEQUENCE.md` § 11.
+
 ## 2026-11-14 - 0.0.0 - La aparición del menú: estado medido, captura real del encuadre y las texturas del fotograma final dentro del atlas
 
 El menú principal **no** aparece al terminar el vuelo de cámara: el actor

@@ -8,11 +8,45 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-14 (aparición del menú: **estado medido** — `tvmenu__`
-pasa a estado 2 a los ~150 ms de cargar MAP7, con 4 entradas e índice 1 —,
-**captura real del encuadre final** en PPM y **selección de las texturas del
-fotograma final** dentro del límite de 64 del atlas; el muro de pantallas es
-BSP, las opciones del menú son del actor)
+**Last updated:** 2026-11-15 (menú del televisor **dibujado en el port**: lector
+de actores del `.DFX`, escena del panel `tvmenu__` + los cuatro rótulos
+`tvbutn__` con base y posición medidas, texturas `600..607` decodificadas y
+`--menu`; rótulos a **1 px** del original, suite y sanitizers en verde)
+
+### Menú del televisor en el port: actores medidos (2026-11-15)
+
+Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 11.
+
+- **El menú es geometría de actor, no overlay.** Ruta medida en el binario:
+  `0x471552(actor, matriz de cámara, out, modo)` transforma las columnas del
+  registro con `0x4698B0`, traslada con `+0x14/+0x18/+0x1C`, proyecta con
+  `0x469B02` (focal 320, centro 256,192, near 160) y llama al renderer
+  virtual. `arg3 == 0` → rama de **panel** `0x4718CF`; `arg3 != 0` → rama
+  **texturizada** `0x470F96` (billboard `0x470C7B`).
+- **Formato del registro de animación (medido, 0x20 B):** `+0x00` 9 × int16
+  base ortonormal Q12 **por columnas**, `+0x12` relleno, `+0x14/0x18/0x1C`
+  int32 posición de mundo. Verificado con los cinco registros del menú.
+- **Registros del menú:** panel `tvmenu__` base `(-3977,976,0)/(-976,-3977,0)/(0,0,4096)`
+  en `(2900,-84,-528)` (se proyecta **fuera** del encuadre, arriba-derecha);
+  rótulos en `(2758,412,198/170/143/115)` = START/LOAD/OPTIONS/QUIT con base
+  común `(663,-4041,0)/(4041,663,0)/(0,0,4096)`.
+- **En el `.DFX`:** `tvmenu__` clase `0x0DFE68`, 1 modelo, `field_0x10 = 0`,
+  caja de 8 vértices/12 polígonos, radio 552, **sin textura**
+  (`uv_ptr = 0x20800080`); `tvbutn__` clase `0x0DC538`, 20 modelos, y los
+  modelos 2 y 3 son el mismo quad de 4 vértices/2 triángulos con textura
+  `600` y `604`.
+- **Texturas `600..607` (128×32, ARGB_1555, LOD 1) decodificadas:**
+  `600` START, `601` QUIT, `602` OPTIONS, `603` LOAD (lavanda) y `604..607` las
+  mismas en **rojo** (resaltado, regla `+4` medida en el par START).
+- **Implementado:** módulos `gex/actor` (lectura de clase/modelo/vértice/
+  polígono/subparte/UV) y `gex/menu` (escena medida), `gex_emit_output_push`,
+  `gex_scene_level_add_menu` y `--menu` en `gexloop.exe`; `test_actor` con
+  **80 comprobaciones** contra MAP7.DFX y `test_menu` con **193** que fijan
+  las constantes medidas de la escena.
+- **Validación:** suite completa en verde, sanitizers O0/O2/ASan/UBSan 40/40,
+  y captura real con GPU hardware: los cuatro rótulos caen a **1 px** de los
+  del original, con las mismas palabras y colores. El fondo sigue siendo la
+  limitación conocida de visibilidad del BSP (no es regresión de esta tanda).
 
 ### Aparición del menú: estado medido y captura real (2026-11-14)
 

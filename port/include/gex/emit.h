@@ -247,6 +247,14 @@ gex_emit_status gex_level_emit(const uint8_t *image, size_t image_size,
                                uint32_t state_flags,
                                gex_emit_output *out);
 
+/*
+ * Añade un triángulo ya construido a la salida, con el mismo crecimiento y la
+ * misma contabilidad (`seq`, `fog_pass_count`) que el emisor. Lo usa la escena
+ * del menú (S-4) para dibujar sus quads encima de la geometría del nivel.
+ */
+gex_emit_status gex_emit_output_push(gex_emit_output *out,
+                                     const gex_emit_triangle *tri);
+
 void gex_emit_output_free(gex_emit_output *out);
 void gex_emit_poly_list_free(gex_emit_poly_list *list);
 const char *gex_emit_status_name(gex_emit_status status);

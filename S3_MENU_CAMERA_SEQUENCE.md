@@ -1390,6 +1390,9 @@ textura ni en el BSP: lo dibuja el actor `tvmenu__` (estado 2, 4 entradas,
 
 ### 10.4 Lo que queda abierto (sin inventar)
 
+> **Superado (2026-11-15):** los tres puntos siguientes se midieron y se
+> implementaron en §11 (render de actores del menú con las texturas `600..607`).
+
 - **Qué primitiva dibuja las opciones** (texto/quad del actor, o modelos
   `tvbutn__`) y de dónde salen las cadenas de las 4 entradas. El estado 2 lee
   la lista de `ctx->[0x8] + 0x480` (32 B por entrada), pero el origen del
@@ -1400,3 +1403,287 @@ textura ni en el BSP: lo dibuja el actor `tvmenu__` (estado 2, 4 entradas,
 - **Ver las opciones exige render de actores**, que no entra en el paso mínimo
   de esta tanda. El criterio de las tangentes del exportador y el opcode
   `0x4F` siguen fuera de la tarea.
+
+## 11. El menú del televisor en el port: actores medidos (2026-11-15)
+
+> Esta sección cierra el punto "ver las opciones" de §10.4 con **medida
+> dinámica** del registro de animación de cada actor y **lectura del `.DFX`**,
+> y añade al port un render mínimo de actores que reproduce el menú en reposo
+> con START seleccionado. **No** toca la cámara (§6.4/§8 siguen cerradas), ni
+> las tangentes del exportador, ni el opcode `0x4F`, ni el atlas, ni el audio.
+
+### 11.1 La ruta de dibujo del actor, medida en el binario
+
+El menú no se dibuja como overlay 2D: es geometría de actor en el mundo. La
+ruta que la dibuja, leída del desensamblado del ejecutable EU
+(`C:\GEX_REZ\SMOKE_H4A\GEX3D.EXE`, MD5 `692B12825003417CC4A5A9D4DB13EEBE`,
+base fija `0x400000`, solo lectura):
+
+| Dirección | Papel medido |
+|---|---|
+| `0x471552` | `(actor, matriz de cámara 9×int16, out, modo)`: copia la matriz a `0x646BE0`, transforma las tres columnas del registro del actor con `0x4698B0` a `0x647680`, copia la traslación de `+0x14/+0x18/+0x1C` a `0x646BB4`, proyecta con `0x469B02` y llama al renderer virtual `[0x551644]+0x4C98` |
+| `0x4718CF` | rama de **panel** (`arg3 == 0`): no pasa por el billboard |
+| `0x470F96` | rama **texturizada** (`arg3 != 0`) |
+| `0x470C7B` | reflexión de Householder que orienta el quad hacia la cámara (billboard) |
+| `0x469B02` | proyección (focal `320`, centro `256,192`, near `160`) |
+
+El trazador (breakpoints de hardware sobre `0x471552`) volcó, por cada llamada,
+los `0x20` bytes del registro de animación que el original recorre. Los
+argumentos del trazador se indexan al revés (`dumpraw:0` corresponde a `a2`),
+así que el primer volcado leía la estructura de salida; el segundo volcado, ya
+sobre el actor, dio los registros que se usan aquí.
+
+### 11.2 Formato del registro de animación (medido)
+
+`0x20` bytes por subparte, común a todos los actores del menú:
+
+```text
++0x00  9 x int16   base ortonormal Q12, por COLUMNAS:
+                     col0 = eje X local   (3 int16)
+                     col1 = eje Y local   (3 int16)
+                     col2 = eje Z local   (3 int16)
++0x12  int16       relleno
++0x14  int32       posición de mundo X
++0x18  int32       posición de mundo Y
++0x1C  int32       posición de mundo Z
+```
+
+Se verificó con los **cinco** registros del menú (el panel y los cuatro
+rótulos): en los cuatro rótulos la base es la **misma** y el quad mira a la
+cámara del menú; solo cambian la posición y la textura.
+
+Registros medidos:
+
+| Actor | base X | base Y | base Z | posición de mundo |
+|---|---|---|---|---|
+| panel `tvmenu__` | `(-3977, 976, 0)` | `(-976, -3977, 0)` | `(0, 0, 4096)` | `(2900, -84, -528)` |
+| START | `(663, -4041, 0)` | `(4041, 663, 0)` | `(0, 0, 4096)` | `(2758, 412, 198)` |
+| LOAD | idem | idem | idem | `(2758, 412, 170)` |
+| OPTIONS | idem | idem | idem | `(2758, 412, 143)` |
+| QUIT | idem | idem | idem | `(2758, 412, 115)` |
+
+La traza completa contiene **128** posiciones distintas (actores del nivel
+entero). Las cuatro de los rótulos son las que caen en el encuadre del menú y
+las únicas que forman la columna de opciones.
+
+El **panel** se proyecta con la matriz del fotograma final **fuera del
+encuadre** (arriba y a la derecha: esquinas de `(310, -114)` a `(741, 74)` en
+espacio de juego 512×384). Por eso el port lo dibuja pero no tapa la escena:
+el rectángulo oscuro del televisor que se ve en el original **no** es este
+registro (§11.7).
+
+### 11.3 Lo que hay en el `.DFX`: clases, modelos y UV
+
+El `.DFX` de MAP7 trae los actores. Los offsets son **offsets de imagen**
+(`fichero = imagen + 0x19800`). Medido:
+
+| Clase | Offset | Modelos | `field_0x10` | Contenido |
+|---|---|---|---|---|
+| `tvmenu__` | `0x0DFE68` | 1 | `0` (rama de panel) | modelo `0` en `0x0DFEBC`: caja cerrada de **8 vértices / 12 polígonos / 1 subparte**, radio `552`, **sin normales** |
+| `tvbutn__` | `0x0DC538` | 20 | `0` | modelos `2` (`0x0DD820`) y `3` (`0x0DD9A0`): el **mismo quad** de **4 vértices / 2 triángulos**, radio `66`, con textura `600` y `604` |
+
+- **Vértices del panel** (del `.DFX`): cara frontal en `z = 418` y trasera en
+  `z = 0`, `x` de `-302` a `283`, `y` de `-156` a `199`.
+- **Vértices del rótulo**: quad plano en `XZ` local (`y = 0`),
+  `x` de `-59` a `61`, `z` de `0` a `27`.
+- **Registro UV** de 12 B (el mismo de `gex/emit.h`):
+  `3 × { u8 u, u8 v, u16 texture }`, `texture = word[+6] & 0x3FFF`,
+  `layer = int8[+0x0B]`. En el rótulo: `u = 255 / v = 63` en un vértice,
+  `u = 255 / v = 0` en el siguiente, `u = 0 / v = 0`, `u = 0 / v = 63`.
+  Los 12 polígonos del panel llevan `uv_ptr = 0x20800080`, que **no cae en la
+  imagen**: es el marcador de "polígono sin textura" (no se inventa textura).
+- **`field_0x10`** es el selector de rama de dibujo: `0` = panel
+  (`0x4718CF`), distinto de `0` = texturizada (`0x470F96`). Ambos actores del
+  menú lo tienen a `0`; el panel no tiene UV y los rótulos sí, así que la
+  rama la decide el actor, no la presencia de UV.
+
+Enumerando las 41 clases candidatas del `.DFX` (`gex_actor_class_find` hace la
+misma validación que el test), entre las **clases** del nivel los rótulos del
+menú son los únicos quads de 4 vértices con textura de la familia `600..607`;
+no hay otra clase que pueda ser "las opciones".
+
+### 11.4 Las texturas del menú: qué dice cada una (medido)
+
+Las ocho texturas `600..607` del `.VFX` son de **128×32**,
+`GEX_VFX_FORMAT_ARGB_1555`, `8192` B de datos, LOD `1`, aspecto `4x1`.
+Decodificadas una a una, su contenido es:
+
+| Índice | Texto | Color |
+|---|---|---|
+| `600` | `START` | lavanda |
+| `601` | `QUIT` | lavanda |
+| `602` | `OPTIONS` | lavanda |
+| `603` | `LOAD` | lavanda |
+| `604` | `START` | rojo |
+| `605` | `QUIT` | rojo |
+| `606` | `OPTIONS` | rojo |
+| `607` | `LOAD` | rojo |
+
+El orden en pantalla (arriba → abajo) es **START, LOAD, OPTIONS, QUIT**, así
+que el emparejamiento del port es `600/603/602/601`, y la variante resaltada es
+`+4` (`604/607/606/605`). La regla `+4` está **medida** para START (modelos 2
+y 3 del `.DFX`: `600` y `604`); para las otras tres es **hipótesis
+consistente** con que las ocho texturas forman cuatro pares normal/resaltado
+del mismo texto (§11.7).
+
+**Escala UV.** El registro del actor llega a `u = 255` y `v = 63`, y el
+`.VFX` sirve la textura a **128×32** (LOD 1, la mitad de la resolución a la que
+se refieren las UV). El pipeline del port muestrea en modo **texel**
+(`texels = uv * 256` con wrap por tamaño), así que la UV se **divide por 2**
+para que el quad recorra la textura exactamente una vez. Sin dividir, el shader
+repite la textura 2×2 y cada rótulo sale cuatro veces: eso es lo que se vio en
+la primera captura (`menu_s4.png`) y lo que corrigió `menu_s4_final.png`.
+
+### 11.5 Lo implementado en el port
+
+| Pieza | Fichero | Contenido |
+|---|---|---|
+| Lector de actores | `port/include/gex/actor.h`, `port/src/asset/actor.c` | clase, modelo, vértice, polígono, subparte y registro UV del `.DFX`; `gex_actor_polygon_textured` distingue el marcador `0x20800080` |
+| Escena del menú | `port/include/gex/menu.h`, `port/src/scene/menu.c` | panel (12 triángulos sin textura) + 4 rótulos (2 triángulos cada uno) con base, posición y UV **medidas**; `selected` elige la variante `+4` |
+| Emisión | `port/include/gex/emit.h`, `port/src/emit/emit.c` | `gex_emit_output_push`: añade un triángulo ya construido a la salida, con el mismo crecimiento y contabilidad que el emisor del nivel |
+| Escena de nivel | `port/include/gex/scene_level.h`, `port/src/scene/scene_level.c` | `gex_scene_level_add_menu(scene, selected)`: empuja los triángulos del menú a la emisión y reconstruye la geometría para subirla a D3D11 |
+| Aplicación | `port/src/app/i4_main_win32.c` | `--menu`: al terminar la trayectoria (paso 0) añade el menú y hace `gex_d3d11_mesh_update`; prioriza las texturas `600..607` en la lista de selección |
+| Prueba | `port/tests/test_actor.c` | **80 comprobaciones, 0 fallos** contra MAP7.DFX (clases, modelos, vértices, subpartes, UV, marcador sin textura, errores y búsqueda por nombre) |
+| Prueba | `port/tests/test_menu.c` | **193 comprobaciones, 0 fallos**: fija las constantes medidas de `menu.c` (20 triángulos, texturas `600/603/602/601` y variantes `+4`, UV, colores, vértices de mundo calculados a mano con la base Q12, emisión y descarte por plano cercano) |
+
+`gex_actor_*` lee del `.DFX`; `menu.c` lleva los valores medidos y
+`test_actor` verifica que coinciden **exactamente** con el `.DFX` (offset de
+clase, número de modelos, `field_0x10`, vértices, radio, subpartes, textura y
+UV), de modo que si el fichero no coincide la suite falla.
+
+La selección de texturas del atlas no se amplió: con `--menu` las ocho
+texturas del menú se colocan **las primeras** de la lista de 64 entradas, así
+que entran siempre. Sin ese orden, el fotograma final usa 65 índices distintos
+y las del menú podían quedar fuera.
+
+### 11.6 Validación
+
+**Suite completa** (`port\build.ps1`): todos los checks en verde, incluidos
+`test_actor: 80 comprobaciones, 0 fallos` y `test_menu: 193 comprobaciones,
+0 fallos`, y `gexloop.exe` compilado.
+
+**Sanitizers** (`port\run_sanitizers.ps1`, O0 / O2 / ASan / UBSan, con
+`menu.c` y `test_actor`/`test_menu` añadidos a la lista): resultado en §11.6.1.
+
+**Captura real** (ventana Win32, GPU hardware, 960×540):
+
+```text
+gexloop.exe --level C:/GEX_REZ/GEX2/level/map7.dfx --camera-path
+            --textures-final --menu --frames 1000 --screenshot menu_s4_final.ppm
+...
+menu: panel tvmenu__ + rotulos tvbutn__ anadidos (triangulos=1742)
+capture: wrote menu_s4_final.ppm (960x540)
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1742
+```
+
+La cámara final es **idéntica** a la de S-3: `--menu` no toca ni la trayectoria
+ni la orientación. Con 700 fotogramas la captura se dispara antes de terminar
+la trayectoria (381 de 428 pasos); hacen falta **≥ 1000**.
+
+**Comparación de los cuatro rótulos** (centro y ancho en espacio de juego
+512×384; el original se midió sobre `shot_020_50.017ms.png` a 1024×768 y se
+dividió por 2, el port sobre `menu_s4_final.png` a 960×540 con escala 1.406 y
+desplazamiento horizontal 120):
+
+| Rótulo | Centro original | Centro port | Δ | Ancho original | Ancho port | Δ |
+|---|---|---|---|---|---|---|
+| START | `(144, 151)` | `(145, 151)` | 1 px | `83` | `84` | 1 px |
+| LOAD | `(144, 180)` | `(145, 180)` | 1 px | `70.5` | `71` | 0.5 px |
+| OPTIONS | `(144, 208)` | `(145, 208)` | 1 px | `114` | `114.5` | 0.5 px |
+| QUIT | `(143, 236)` | `(144, 236)` | 1 px | `64` | `64` | 0 px |
+
+Los cuatro textos coinciden además **palabra por palabra** y en color: START
+en rojo (resaltado) y LOAD/OPTIONS/QUIT en lavanda.
+
+**Fondo.** El port sigue mostrando cielo y edificios donde el original tiene
+la habitación (techo de madera, pared roja y el marco del televisor). **No es
+una regresión de S-4**: la captura de S-3 `menu_final_tex.png` presenta el
+mismo aspecto. La causa conocida es la visibilidad del BSP del port
+(`scene_visible_all` dibuja todas las hojas del nivel en vez del conjunto que
+ve la cámara), que es una tarea aparte.
+
+#### 11.6.1 Sanitizers
+
+`port\run_sanitizers.ps1` con `menu.c` añadido a `$sceneSrc` y las pruebas
+`test_actor` (compila `actor.c` + `dfx.c`) y `test_menu` (compila `menu.c` +
+`emit.c`) añadidas a la lista: **10 pruebas × 4 variantes = 40/40 OK**, sin
+fallos:
+
+```text
+OK test_camera/O0 ... OK test_menu/O0        (10 pruebas)
+OK test_camera/O2 ... OK test_menu/O2        (10 pruebas)
+OK test_camera/asan ... OK test_menu/asan    (10 pruebas)
+OK test_camera/ubsan ... OK test_menu/ubsan  (10 pruebas)
+SANITIZERS + O0/O2: TODO OK
+```
+
+(salida condensada: son 40 líneas `OK`, una por prueba y variante)
+
+`menu.c` entra en los enlaces de `test_camera_path_scene`, `test_camera_path_tsv`
+y `test_scene_level`, así que también pasa por ASan y UBSan en las cuatro
+variantes. `test_actor` es el que ejercita el lector de actores contra el
+`.DFX` real (si el fichero no está, se salta y no falla, igual que el resto de
+la suite); `test_menu` fija las constantes medidas de la escena y no depende de
+ningún fichero.
+
+### 11.7 Medido, hipótesis y desconocido
+
+**Medido**
+
+- La ruta de dibujo del actor y la proyección (§11.1).
+- El formato de `0x20` B del registro de animación y los cinco registros del
+  menú (§11.2).
+- Clases, modelos, vértices, subpartes, UV y marcador sin textura del `.DFX`
+  (§11.3), verificado por `test_actor`.
+- Contenido de las ocho texturas `600..607`, su tamaño y formato (§11.4).
+- La regla `+4` en el par START `600/604` (modelos 2 y 3).
+- Posiciones, tamaños y colores de los cuatro rótulos en pantalla, con 1 px de
+  error (§11.6).
+
+**Hipótesis**
+
+- Que las otras tres parejas normal/resaltado son `601/605` (QUIT),
+  `602/606` (OPTIONS) y `603/607` (LOAD): lo dice el **contenido** de cada
+  textura y el orden en pantalla, pero la estructura que el original consulta
+  para elegir el índice por botón **no se ha volcado**.
+- Que el registro del panel es el del televisor aunque se proyecte fuera del
+  encuadre: es el único modelo de `tvmenu__` (la clase que el ejecutable asocia
+  al menú por nombre) y no tiene textura; su posición y su base son las
+  medidas, no una suposición.
+
+**Desconocido**
+
+- **Qué dibuja el rectángulo oscuro del televisor** que se ve detrás de las
+  opciones. No es el registro del panel (§11.2): su proyección cae arriba y a
+  la derecha. Candidatos sin comprobar: geometría BSP del set (el muro de
+  cuatro pantallas de S-3) o alguna de las clases de caja de 8 vértices sin
+  textura (`loadtv__` `0x0DBD98`, `start___` `0x0D3E80`, `tile____`
+  `0x0D60F0`). No se elige ninguna sin medirla.
+- **El mecanismo de selección**: la lista de `ctx->[0x8] + 0x480` (32 B por
+  entrada, `word[0]` = ancho de texto) no se ha volcado, así que no se sabe si
+  el índice de textura sale de ahí, del modelo del botón o de otro campo.
+- **El billboard `0x470C7B`** (reflexión de Householder) no se reproduce: el
+  port usa la base **medida** del registro, que ya es la orientada hacia la
+  cámara del menú. Funciona para este encuadre; para otro ángulo habría que
+  reproducir la reflexión.
+- **El estado del menú en el port** es fijo: START seleccionado, sin entrada,
+  sin animación y sin transición. El original tiene `[entity+0xF4] = 2`,
+  `count = 4`, `idx = 1` (§10.1).
+
+### 11.8 Lo que falta para el menú completo y New Game
+
+1. **Entrada y estado**: leer teclado en la pantalla del menú, mover el índice
+   `0..3`, cambiar la textura resaltada (`+4`) y confirmar. Hoy `selected` es
+   un parámetro fijo.
+2. **Identificar el rectángulo del televisor** (§11.7) y dibujarlo, o corregir
+   la visibilidad del BSP del port para que el set salga como en el original.
+3. **New Game**: qué hace la acción de START en el original (carga de nivel y
+   comandos), que no está medida. Requiere trazar la acción de la entrada
+   confirmada, no deducirla de la tabla de `.rdata` (esa es el menú de pausa).
+4. **Transición de las cuatro cinemáticas** (dato del usuario): logo de la
+   desarrolladora → logo de Ubisoft → cinemática del juego → cinemática del
+   título (no skipeable) → menú de la TV. Las tres primeras se pueden skipear;
+   el port no reproduce ninguna todavía.
+5. **Billboard general** (`0x470C7B`) para que el menú se vea bien desde
+   cualquier cámara, y el resto de actores del nivel (`tvbutn__` modelos 0/1,
+   `loadtv__`, `start___`...) si el menú completo los usa.

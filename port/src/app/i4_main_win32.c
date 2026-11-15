@@ -53,6 +53,7 @@ typedef struct i4_options {
     const char *screenshot_path; /* .ppm de salida, o NULL */
     uint64_t screenshot_frame; /* 0 = el ultimo frame del limite */
     int textures_final; /* 1 = texturas del fotograma final del vuelo */
+    int menu; /* 1 = anade el menu del televisor al final de la trayectoria */
 } i4_options;
 
 static void usage(const char *exe)
@@ -75,6 +76,8 @@ static void usage(const char *exe)
     printf("  --textures-final  with --camera-path, ask the .VFX for the "
            "textures of the final camera pose (the menu framing) instead of "
            "the most used over the flight\n");
+    printf("  --menu  when the camera path ends, add the TV main menu "
+           "(tvmenu__ panel + the four tvbutn__ labels) to the scene\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -134,6 +137,7 @@ typedef struct i4_camera_path {
     uint32_t samples;   /* muestras producidas */
     int finished;       /* el centinela ya se alcanzo */
     int error;          /* fallo de la re-emision */
+    int menu;           /* 1 = anadir el menu del televisor al terminar */
 } i4_camera_path;
 
 /*
@@ -159,6 +163,23 @@ static int i4_camera_path_update(void *ctx)
         /* Fin de la trayectoria: la ultima posicion se conserva y no se
          * escribe nada mas (como en el original). */
         state->finished = 1;
+        /* S-4: el menu del televisor aparece cuando termina el vuelo. Se
+         * anade a la emision del ultimo fotograma y se sube a la GPU. */
+        if (state->menu) {
+            if (gex_scene_level_add_menu(state->scene, 0) != GEX_SCENE_OK) {
+                fprintf(stderr, "error: no se pudo anadir el menu\n");
+                state->error = 1;
+                return 1;
+            }
+            if (gex_d3d11_mesh_update(state->device, &state->scene->geometry,
+                                       state->mesh) != GEX_D3D11_MESH_OK) {
+                fprintf(stderr, "error: mesh update failed (menu)\n");
+                state->error = 1;
+                return 1;
+            }
+            printf("menu: panel tvmenu__ + rotulos tvbutn__ anadidos "
+                   "(triangulos=%zu)\n", state->scene->emit.count);
+        }
         return 0;
     }
     state->samples++;
@@ -203,6 +224,7 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->screenshot_path = NULL;
     options->screenshot_frame = 0;
     options->textures_final = 0;
+    options->menu = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -223,6 +245,8 @@ static int parse_options(int argc, char **argv, i4_options *options)
             options->camera_path = 1;
         } else if (strcmp(argv[i], "--textures-final") == 0) {
             options->textures_final = 1;
+        } else if (strcmp(argv[i], "--menu") == 0) {
+            options->menu = 1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
             options->level_path = argv[++i];
             if (options->level_path[0] == '\0') {
@@ -688,6 +712,44 @@ int main(int argc, char **argv)
                             used_count =
                                 (n > (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES)
                                 ? (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES : n;
+                            /* S-4: el menu necesita sus ocho texturas
+                             * (600..607). Se ponen las primeras de la lista
+                             * para que entren siempre en el atlas de 64
+                             * entradas, sin ampliarlo. */
+                            if (options.menu && idxs != NULL) {
+                                static const uint32_t menu_tex[8] = {
+                                    600, 601, 602, 603, 604, 605, 606, 607};
+                                uint32_t *prio = (uint32_t *)malloc(
+                                    ((size_t)n + 8u) * sizeof(uint32_t));
+                                if (prio != NULL) {
+                                    uint32_t total = 0, k;
+                                    for (k = 0; k < 8u; k++) {
+                                        prio[total++] = menu_tex[k];
+                                    }
+                                    for (k = 0; k < n; k++) {
+                                        uint32_t m;
+                                        int is_menu = 0;
+                                        for (m = 0; m < 8u; m++) {
+                                            if (idxs[k] == menu_tex[m]) {
+                                                is_menu = 1;
+                                                break;
+                                            }
+                                        }
+                                        if (!is_menu) {
+                                            prio[total++] = idxs[k];
+                                        }
+                                    }
+                                    free(idxs);
+                                    idxs = prio;
+                                    n = total;
+                                    used_count =
+                                        (n > (uint32_t)
+                                                 GEX_D3D11_TEXTURE_MAX_ENTRIES)
+                                            ? (uint32_t)
+                                                  GEX_D3D11_TEXTURE_MAX_ENTRIES
+                                            : n;
+                                }
+                            }
                             used = idxs;
                             {
                                 uint64_t total = 0;
@@ -846,6 +908,7 @@ int main(int argc, char **argv)
         path_state.samples = 0;
         path_state.finished = 0;
         path_state.error = 0;
+        path_state.menu = options.menu;
         gex_i4_app_set_update_callback(&app, i4_camera_path_update, &path_state);
         g_camera_path_state = &path_state;
         printf("camera path: playing (%d records, one step per logical "

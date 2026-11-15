@@ -65,11 +65,13 @@ $cameraSrc = @((Join-Path $PSScriptRoot 'src/camera/camera.c'))
 $cameraPathSrc = @((Join-Path $PSScriptRoot 'src/camera/camera_path.c'))
 $bspSrc = @((Join-Path $PSScriptRoot 'src/bsp/bsp.c'))
 $dfxBspSrc = @((Join-Path $PSScriptRoot 'src/asset/dfx.c'))
+$actorSrc = @((Join-Path $PSScriptRoot 'src/asset/actor.c'))
 $vfxSrc = @((Join-Path $PSScriptRoot 'src/asset/vfx.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_decode.c'), (Join-Path $PSScriptRoot 'src/asset/vfx_texture.c'))
 $emitSrc = @((Join-Path $PSScriptRoot 'src/emit/emit.c'))
 $geometrySrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry.c'))
 $shapesSrc = @((Join-Path $PSScriptRoot 'src/geometry/geometry_shapes.c'))
-$sceneSrc = @((Join-Path $PSScriptRoot 'src/scene/scene_level.c'))
+$sceneSrc = @((Join-Path $PSScriptRoot 'src/scene/scene_level.c'), (Join-Path $PSScriptRoot 'src/scene/menu.c'))
+$menuSrc = @((Join-Path $PSScriptRoot 'src/scene/menu.c'))
 $inputSrc = @((Join-Path $PSScriptRoot 'src/input/key_state.c'))
 $renderSrc = @((Join-Path $PSScriptRoot 'src/render/null_renderer.c'))
 $d3d11Src = @((Join-Path $PSScriptRoot 'src/render/d3d11_device.c'))
@@ -119,6 +121,8 @@ if ($Target -in @('test', 'all')) {
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_geometry_shapes.c') 'test_geometry_shapes.exe' ($shapesSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'test shapes (Module 5A) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_scene_level.c') 'test_scene_level.exe' ($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc) @('-lm')) 'level loader (Module 5B) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_vfx.c') 'test_vfx.exe' ($vfxSrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc) @('-lm')) 'VFX texture container (Module 4A) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_actor.c') 'test_actor.exe' ($actorSrc + $dfxBspSrc)) 'actor class/model reader (S-4) checks'
+    Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_menu.c') 'test_menu.exe' ($menuSrc + $emitSrc)) 'menu scene (S-4) checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_adpcm.c') 'test_adpcm.exe' $audioSrc) 'ADPCM checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_audio.c') 'test_audio.exe' $audioSrc) 'audio path checks'
     Run-Check (Build-Exe (Join-Path $PSScriptRoot 'tests/test_frame.c') 'test_frame.exe' ($coreSrc + $audioSrc)) 'frame loop checks'

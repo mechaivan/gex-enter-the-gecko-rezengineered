@@ -625,6 +625,27 @@ dinámica de la cadena de cámara de S-2 (2026-11-11): ver
    aparecen. La regla: separar "estado activo" de "geometría dibujada" con
    una imagen y con la ruta que la produce, y no dar por hecho que un estado
    lógico implica píxeles.
+32. **Un formato de registro se confirma con varios casos, no con uno.** El
+   registro de animación de los actores (0x20 B: 9 × int16 de base Q12 por
+   columnas, relleno en `+0x12` y posición de mundo en `+0x14/+0x18/+0x1C`) se
+   dio por bueno después de comprobarlo con **cinco** registros (el panel y los
+   cuatro rótulos), y la comprobación se dejó en `test_actor` contra el `.DFX`.
+   Con un solo caso, un relleno o una columna transpuesta habrían pasado
+   desapercibidos. La regla: un formato medido se valida con varios ejemplos y
+   se ancla en una prueba que falle si el fichero cambia.
+33. **El volcado hay que leerlo donde está el dato, no donde se supone.** El
+   trazador indexa los argumentos al revés (`dumpraw:0` es `a2`), así que el
+   primer volcado del actor devolvió la **estructura de salida** y no el
+   registro. Se detectó porque los valores no eran coherentes entre llamadas.
+   La regla: cuando un volcado "casi" cuadra, comprobar el índice del argumento
+   antes de construir una teoría encima.
+34. **Una textura que se repite cuatro veces es una escala, no cuatro
+   objetos.** La primera captura del menú mostraba cada rótulo 2×2 dentro del
+   quad: el registro UV llega a `u = 255 / v = 63` y el `.VFX` sirve la textura
+   a 128×32 (LOD 1), así que en modo **texel** (`uv * 256`) el shader la repite.
+   Dividir la UV por 2 la recorre una sola vez. La regla: antes de tocar
+   geometría o materiales, comprobar la relación entre el rango UV y el tamaño
+   real del nivel de textura que se está muestreando.
 
 ## 5. Registro
 

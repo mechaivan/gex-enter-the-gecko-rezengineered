@@ -265,6 +265,15 @@ static gex_emit_status push_tri(gex_emit_output *out,
     return GEX_EMIT_OK;
 }
 
+/* Empuje público: lo usa la escena del menú (S-4) para añadir sus triángulos
+ * a un buffer que ya trae la geometría del nivel, con el mismo crecimiento y
+ * la misma contabilidad de `seq`/`fog_pass_count` que el emisor. */
+gex_emit_status gex_emit_output_push(gex_emit_output *out,
+                                     const gex_emit_triangle *tri) {
+    if (out == NULL || tri == NULL) return GEX_EMIT_ERR_ARG;
+    return push_tri(out, tri);
+}
+
 static int grow_polys(gex_emit_poly_list *list, size_t need) {
     if (list->capacity >= need) return 0;
     if (need > SIZE_MAX / sizeof(gex_emit_poly)) return -2;

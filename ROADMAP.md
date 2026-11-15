@@ -314,7 +314,36 @@ F-xx/S-xx sin necesidad de una implementación concreta.**
     `pos=(2243, 487, 196)`, `euler=(-29, 0, 2842)`, 1722 triángulos, salida
     limpia. (f) **Texturas medidas de nuevo** con la orientación real: 231
     distintas, las 64 más usadas cubren el 82,2 % de los vértices.
-  - **Decimonovena tanda (2026-11-14, la aparición del menú y la captura del
+  - **Vigésima tanda (2026-11-15, el menú del televisor en el port):** el port
+    dibuja el menú principal de MAP7. (a) **Ruta medida**: el original dibuja
+    los actores con `0x471552(actor, matriz de cámara, out, modo)` →
+    `0x4698B0` (transforma las tres columnas del registro) → traslación de
+    `+0x14/+0x18/+0x1C` → `0x469B02` (focal 320, centro 256,192, near 160) →
+    renderer virtual; `arg3 == 0` es la rama de **panel** `0x4718CF` y
+    `arg3 != 0` la **texturizada** `0x470F96` (billboard `0x470C7B`).
+    (b) **Formato del registro de animación (0x20 B, medido con el trazador)**:
+    `+0x00` 9 × int16 base ortonormal Q12 **por columnas**, `+0x12` relleno,
+    `+0x14/+0x18/+0x1C` int32 posición de mundo. Registros medidos: panel en
+    `(2900,-84,-528)` con base `(-3977,976,0)/(-976,-3977,0)/(0,0,4096)` (se
+    proyecta **fuera** del encuadre) y rótulos en `(2758,412,198/170/143/115)`
+    = START/LOAD/OPTIONS/QUIT con base común
+    `(663,-4041,0)/(4041,663,0)/(0,0,4096)`. (c) **`.DFX`**: `tvmenu__` clase
+    `0x0DFE68` (1 modelo, `field_0x10 = 0`, caja de 8 vértices/12 polígonos,
+    radio 552, sin textura: `uv_ptr = 0x20800080`); `tvbutn__` clase
+    `0x0DC538` (20 modelos; el 2 y el 3 son el mismo quad de 4 vértices con
+    textura `600` y `604`). (d) **Texturas `600..607`** decodificadas
+    (128×32, ARGB_1555, LOD 1): `600` START, `601` QUIT, `602` OPTIONS,
+    `603` LOAD en lavanda y `604..607` las mismas en rojo; la regla `+4` está
+    medida en el par START. (e) **Port**: módulos `gex/actor` y `gex/menu`,
+    `gex_emit_output_push`, `gex_scene_level_add_menu`, opción `--menu` y
+    prioridad de las ocho texturas en la selección del atlas (sin ampliarlo);
+    `test_actor` con **80 comprobaciones** contra MAP7.DFX y `test_menu` con
+    **193** que fijan las constantes medidas. (f) **Validación**:
+    suite completa 0 fallos, sanitizers **40/40** (O0/O2/ASan/UBSan) y captura
+    real con GPU hardware en la que los cuatro rótulos caen a **1 px** de los
+    del original, con las mismas palabras y colores. El fondo sigue mostrando
+    la limitación conocida de visibilidad del BSP (no es regresión de esta
+    tanda).  - **Decimonovena tanda (2026-11-14, la aparición del menú y la captura del
     encuadre):** separa el menú de pausa del menú principal y mide cuándo
     aparece. (a) **Medida dinámica** (breakpoints de hardware sobre una copia
     de trabajo del EU, MD5 `692B12825003417CC4A5A9D4DB13EEBE`): `0x52754F`

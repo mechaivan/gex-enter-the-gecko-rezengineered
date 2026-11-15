@@ -239,6 +239,21 @@ gex_scene_status gex_scene_camera_path_final_texture_usage(
     size_t counts_len,
     size_t *distinct);
 
+/*
+ * Añade a la escena el menú principal del televisor (S-4): el panel del CRT
+ * y los cuatro rótulos, proyectados con la **misma** matriz de emisión que
+ * acaba de usar el nivel.
+ *
+ * Los triángulos del menú se empujan al buffer de emisión y se reconstruye la
+ * geometría, de modo que la escena queda lista para subir a los buffers
+ * D3D11 como cualquier otra. `selected` es el rótulo resaltado (0 = START).
+ *
+ * No toca el BSP ni la cámara: el menú se dibuja encima del encuadre que ya
+ * haya. Devuelve GEX_SCENE_ERR_ARG si la escena no tiene emisión, y
+ * GEX_SCENE_ERR_NOMEM / GEX_SCENE_ERR_GEOMETRY si falla la reconstrucción.
+ */
+gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected);
+
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);
 

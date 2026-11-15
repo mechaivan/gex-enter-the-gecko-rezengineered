@@ -1192,6 +1192,42 @@ que habrá que verificar contra el juego real (Fase 1–2):
   (`tvmenu__`, estado 2, 4 entradas, índice 1). Verlas exige render de
   actores; no se ha adelantado en esta tanda.
 
+## S-33 - S-4: los actores del menú, medidos (2026-11-15)
+
+- **Método:** breakpoints de hardware sobre la ruta de dibujo del actor
+  (`0x471552`) con volcado de los `0x20` B del registro de animación de cada
+  subparte, más lectura directa del `.DFX`/`.VFX` de MAP7. Sin deducir el
+  formato por bytes: el formato se comprobó con cinco registros reales.
+- **Ruta de dibujo:** `0x471552(actor, matriz de cámara 9×int16, out, modo)`
+  copia la matriz, transforma las tres columnas del registro con `0x4698B0`,
+  toma la traslación de `+0x14/+0x18/+0x1C` y proyecta con `0x469B02`
+  (focal `320`, centro `256,192`, near `160`). `arg3 == 0` → rama de **panel**
+  `0x4718CF`; `arg3 != 0` → rama **texturizada** `0x470F96`, con el billboard
+  `0x470C7B` (reflexión de Householder) que el port no reproduce.
+- **Formato medido (0x20 B):** `+0x00` 9 × int16 base ortonormal Q12 **por
+  columnas** (`col0` = X local, `col1` = Y, `col2` = Z), `+0x12` relleno,
+  `+0x14/0x18/0x1C` int32 posición de mundo. Los cuatro rótulos comparten base
+  (`(663,-4041,0)/(4041,663,0)/(0,0,4096)`) y solo cambian de posición:
+  `(2758,412,198/170/143/115)`. El panel (`tvmenu__`) va en
+  `(2900,-84,-528)` con base `(-3977,976,0)/(-976,-3977,0)/(0,0,4096)` y se
+  proyecta **fuera** del encuadre.
+- **`.DFX`:** `tvmenu__` clase `0x0DFE68` (1 modelo, `field_0x10 = 0`, caja de
+  8 vértices/12 polígonos, radio 552, sin textura `uv_ptr = 0x20800080`);
+  `tvbutn__` clase `0x0DC538` (20 modelos; modelos 2 y 3 = mismo quad de 4
+  vértices/2 triángulos con textura `600` y `604`). Offsets **de imagen**
+  (`fichero = imagen + 0x19800`).
+- **Texturas `600..607`:** 128×32, `ARGB_1555`, LOD 1, 8192 B. Decodificadas:
+  `600` START, `601` QUIT, `602` OPTIONS, `603` LOAD (lavanda) y `604..607`
+  las mismas en rojo. El registro del actor llega a `u = 255 / v = 63` y la
+  textura se sirve a la mitad de resolución, así que la UV se divide por 2 para
+  que el modo texel del pipeline no la repita 2×2.
+- **Resultado:** el port dibuja el menú en reposo con START resaltado y los
+  cuatro rótulos caen a **1 px** de los del original (centros y anchos).
+- **Abierto:** qué geometría dibuja el rectángulo oscuro del televisor (no es
+  el registro del panel, que cae fuera del encuadre), el mecanismo que elige la
+  textura por botón (la lista de `ctx->[0x8]+0x480`, 32 B por entrada, no se ha
+  volcado) y el estado/entrada del menú.
+
 ## Pendiente del mantenedor
 
 - [x] Enlaces principales recibidos (PCGamingWiki, REA, Gex64Decomp como

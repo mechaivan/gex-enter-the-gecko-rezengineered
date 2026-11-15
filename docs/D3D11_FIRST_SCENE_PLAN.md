@@ -2714,3 +2714,104 @@ nivel de **ecuación y de estado de mezcla**.
   final, que su conjunto sea subconjunto del vuelo y que los argumentos
   inválidos devuelvan `GEX_SCENE_ERR_ARG` (2772 comprobaciones, 0 fallos);
   suite completa y sanitizers O0/O2/ASan/UBSan en verde.
+
+## 21. S-4: render de actores y el menú del televisor (2026-11-15)
+
+Hasta aquí el port solo dibujaba BSP. El menú principal de MAP7 **no es BSP**:
+es el actor `tvmenu__` (la pantalla del televisor) más cuatro botones
+`tvbutn__`, colocados en el mundo. Esta sección añade la primera ruta de
+**geometría de actor** al pipeline, sin tocar cámara, BSP ni shader.
+
+### 21.1 Piezas nuevas
+
+| Pieza | Fichero | Contrato |
+|---|---|---|
+| Lector de actores | `port/include/gex/actor.h`, `port/src/asset/actor.c` | Portable C11. Lee del `.DFX` la clase (nombre, nº de modelos, tabla, `field_0x10`), el modelo (vértices, polígonos, subpartes, normales, radio), el vértice, el polígono, la subparte y el registro UV de 12 B. Todo offset se valida contra la imagen; ante incoherencia devuelve error y no adivina |
+| Escena del menú | `port/include/gex/menu.h`, `port/src/scene/menu.c` | Portable C11. Construye los triángulos del panel y de los cuatro rótulos con base/posición/UV **medidas** y los proyecta con `gex_emit_project`, la misma proyección del nivel |
+| Emisión | `gex_emit_output_push` | Añade un triángulo ya construido a `gex_emit_output` con el mismo crecimiento y la misma contabilidad (`seq`, `fog_pass_count`) que `gex_level_emit` |
+| Escena | `gex_scene_level_add_menu` | Empuja el menú a la emisión del último fotograma y reconstruye `gex_geometry`; no toca el BSP ni la cámara |
+
+### 21.2 Cómo se coloca un actor
+
+El original transforma las **columnas** de un registro de animación de 0x20 B
+(base ortonormal Q12) con la matriz de cámara y suma la traslación de mundo:
+
+```text
+mundo = posición + (base · local) >> 12
+```
+
+con `base` en columnas (`col0` = eje X local, `col1` = Y, `col2` = Z). El port
+hace lo mismo sobre los vértices del modelo (que ya están en el espacio local
+del actor) y pasa el resultado por `gex_emit_project`, así que los triángulos
+del menú entran en el mismo buffer de emisión y en el mismo `DrawIndexed` que
+el nivel.
+
+### 21.3 Qué se dibuja (y qué no)
+
+- **Sí:** el panel `tvmenu__` (caja de 8 vértices / 12 triángulos, sin
+  textura: el `.DFX` marca `uv_ptr = 0x20800080`) y los cuatro rótulos
+  `tvbutn__` (2 triángulos cada uno) con las texturas `600/603/602/601`
+  (START/LOAD/OPTIONS/QUIT) y la variante `+4` en el resaltado.
+- **No:** el billboard `0x470C7B` (reflexión de Householder). Se usa la base
+  **medida** del registro, que ya está orientada a la cámara del menú; para
+  otro ángulo habría que reproducir la reflexión.
+- **No:** el rectángulo oscuro del televisor que se ve detrás de las opciones.
+  El registro del panel se proyecta **fuera** del encuadre (arriba-derecha), así
+  que ese rectángulo es otra cosa (BSP del set o una clase de caja sin
+  textura); queda sin identificar.
+
+### 21.4 Texturas: la UV se divide por 2
+
+El registro UV del rótulo llega a `u = 255`, `v = 63`, y el `.VFX` sirve la
+textura a **128×32** (LOD 1, la mitad de la resolución a la que se refieren las
+UV). El pipeline muestrea en modo **texel** (`texels = uv * 256`, wrap por
+tamaño), así que la UV se divide por 2 para recorrer la textura exactamente una
+vez. Sin dividir, el shader la repite 2×2 y cada rótulo sale cuatro veces: eso
+es lo que mostró la primera captura.
+
+### 21.5 Atlas
+
+El atlas sigue en 64 entradas. Con `--menu`, las ocho texturas del menú se
+colocan **las primeras** de la lista de selección, de modo que entran siempre
+(antes, el fotograma final usaba 65 índices distintos y podían quedar fuera).
+No se amplía el atlas ni se toca el shader.
+
+### 21.6 Verificación
+
+- `test_actor`: **80 comprobaciones, 0 fallos** contra MAP7.DFX (clases por
+  offset y por nombre, modelos, vértices, subpartes, UV, marcador sin textura,
+  errores y búsqueda). Registrado en `build.ps1`.
+- `test_menu`: **193 comprobaciones, 0 fallos** sobre la escena: número de
+  triángulos, texturas por rótulo y variantes `+4`, UV, colores, vértices de
+  mundo calculados a mano con la base Q12, orden de emisión, `seq`,
+  `source_poly` y descarte por plano cercano. No depende de ningún fichero.
+- Suite completa (`port\build.ps1`): todos los checks en verde y `gexloop.exe`
+  compilado.
+- `run_sanitizers.ps1`: **40/40** (10 pruebas × O0/O2/ASan/UBSan), con `menu.c`
+  en `$sceneSrc` y `test_actor`/`test_menu` en la lista.
+- Ejecución real (ventana Win32, GPU hardware):
+
+```text
+gexloop.exe --level C:/GEX_REZ/GEX2/level/map7.dfx --camera-path
+            --textures-final --menu --frames 1000 --screenshot menu_s4_final.ppm
+menu: panel tvmenu__ + rotulos tvbutn__ anadidos (triangulos=1742)
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1742
+```
+
+- Comparación con el original (espacio de juego 512×384): centros
+  `(144,151)/(144,180)/(144,208)/(143,236)` frente a
+  `(145,151)/(145,180)/(145,208)/(144,236)` y anchos `83/70.5/114/64` frente a
+  `84/71/114.5/64`, es decir **≤ 1 px** en las ocho medidas, con las mismas
+  palabras y colores.
+- **Fondo:** el port sigue mostrando cielo y edificios donde el original tiene
+  la habitación. Es la limitación conocida de visibilidad del BSP
+  (`scene_visible_all` dibuja todas las hojas), ya presente en la captura de
+  S-3; **no** es una regresión de S-4.
+
+### 21.7 Lo que falta
+
+Entrada y estado del menú (mover el índice y confirmar), identificar el
+rectángulo del televisor o corregir la visibilidad del BSP, la acción de New
+Game en el original y las cuatro cinemáticas previas (logo de la
+desarrolladora → logo de Ubisoft → cinemática del juego → cinemática del título
+no skipeable → menú de la TV). Detalle: `S3_MENU_CAMERA_SEQUENCE.md` § 11.8.
