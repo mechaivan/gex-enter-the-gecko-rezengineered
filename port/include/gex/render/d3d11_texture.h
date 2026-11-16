@@ -70,14 +70,18 @@ extern "C" {
 
 /* Modo de interpretación de la coordenada de textura.
  *
- * GEX_NCC_UV_MODE_NORMALIZED: el byte de UV del `.DFX` es una fracción de
- *   la textura (256 bytes = la textura entera). Es la lectura que encaja con
- *   el hecho de que el divisor del original sea una constante (independiente
- *   del tamaño de la textura) y con que las esquinas de los polígonos caigan
- *   en 0 y 255.
+ * El pipeline guarda en el vértice `byte_uv / 256`.
  *
- * GEX_NCC_UV_MODE_TEXEL: el byte de UV es la coordenada en texels, y la
- *   textura se repite cada `w` x `h` texels.
+ * GEX_NCC_UV_MODE_TEXEL (el que usa la aplicación, medido en S-5): el byte de
+ *   UV es 1/256 del **lado mayor** de la textura, con la misma escala en los
+ *   dos ejes. El shader calcula `texels = uv * max(w, h)`. Es la lectura que
+ *   demuestra el binario (`s = byte/16` con `oow = 1/16` → `s = byte`) y que
+ *   confirma la medida de MAP7: las 288 texturas del nivel usan 0..255 en el
+ *   lado mayor y 0..(256*menor/mayor) en el menor.
+ *
+ * GEX_NCC_UV_MODE_NORMALIZED: el byte de UV es una fracción de cada eje por
+ *   separado (256 = la textura entera en ancho y en alto). Solo es correcto
+ *   para texturas cuadradas; se conserva para las pruebas sintéticas.
  *
  * El modo se elige al crear el conjunto y se aplica en el shader, así que se
  * puede cambiar sin tocar la geometría.
@@ -87,8 +91,14 @@ typedef enum gex_ncc_uv_mode {
     GEX_NCC_UV_MODE_TEXEL      = 1
 } gex_ncc_uv_mode;
 
-/* Máximo de entradas en la tabla de búsqueda (índice de textura -> atlas). */
-#define GEX_D3D11_TEXTURE_MAX_ENTRIES 64
+/* Máximo de entradas en la tabla de búsqueda (índice de textura -> atlas).
+ *
+ * Medido en S-5: el fotograma final del vuelo de MAP7 usa **65** índices
+ * distintos y el menú añade los ocho de `tvbutn__` (600..607), así que hacen
+ * falta 73. El límite anterior (64) obligaba a descartar texturas: se
+ * quedaban fuera el 2,4 % de los vértices del encuadre del menú. 128 cubre
+ * el fotograma con margen y el constant buffer resultante mide 4 KiB. */
+#define GEX_D3D11_TEXTURE_MAX_ENTRIES 128
 
 /* Ancho máximo del atlas antes de partir en más filas. */
 #define GEX_D3D11_TEXTURE_ATLAS_MAX_WIDTH 4096u

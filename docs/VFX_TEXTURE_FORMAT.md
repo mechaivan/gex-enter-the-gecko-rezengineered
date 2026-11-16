@@ -737,28 +737,54 @@ por celda sobre 128 texels ⇒ **1 unidad = 1/2 texel**.
 
 ### 9.2 Qué se ha implementado en el port
 
+> **Corrección (S-5, 2026-11-16).** La primera redacción de este apartado
+> describía el modo texel como "el byte es la coordenada en texels y la textura
+> se repite cada `w × h`" y justificaba la densidad de texels constante. Esa
+> lectura (`texels = uv * 256`) era **errónea**: repetía cada textura
+> `256/lado` veces. La regla medida está en § 9.2.1; los párrafos siguientes
+> conservan el registro histórico y marcan lo refutado.
+
 - El vértice transporta la UV normalizada **dividiendo entre 256** (no 255): el
   byte 255 es el último texel, no el borde derecho, y con `/255` el último
   vértice caía en 1.0 y el sampler con WRAP lo devolvía al primer texel
   (costura en el borde de cada polígono). El cambio es reversible
   (`round(u * 256)` devuelve el byte original).
 - El **modo de interpretación** se elige al crear el conjunto de texturas:
-  - `GEX_NCC_UV_MODE_TEXEL` (por defecto): el byte es la coordenada en
-    **texels** y la textura se repite cada `w x h` texels.
-  - `GEX_NCC_UV_MODE_NORMALIZED`: el byte es una fracción de la textura
-    (256 bytes = la textura entera).
-- **Por defecto el modo texel**: es el único que mantiene la **densidad de
-  texels constante** entre texturas de distinta resolución (una de 64x64 y
-  otra de 256x256 reparten el mismo número de texels por unidad de mundo), que
-  es lo que necesita un nivel. La lectura normalizada haría que la densidad
-  dependiera de la resolución de cada textura. Las dos lecturas producen
-  imágenes distintas (el 69 % de los píxeles con geometría cambia entre ellas)
-  y se han capturado las dos en ejecución real.
-- **Límite conocido:** el factor exacto de zoom (cuántos texels por byte de
-  UV) **no se ha podido cerrar** con evidencia estática: depende de la escala
-  de la cámara real del juego, que sigue sin validarse dinámicamente (S-2). El
-  período de repetición (cada `w x h` texels) sí es el mismo en las dos
-  lecturas.
+  - `GEX_NCC_UV_MODE_TEXEL` (por defecto): **`texels = uv · max(w, h)`**, con
+    la misma escala en ambos ejes (256 unidades = lado mayor). Ver § 9.2.1.
+  - `GEX_NCC_UV_MODE_NORMALIZED`: el byte es una fracción de cada eje por
+    separado (256 = la textura entera en ancho y en alto). Solo es correcto
+    para texturas cuadradas; se conserva para las pruebas sintéticas.
+- ~~**Por defecto el modo texel**: es el único que mantiene la **densidad de
+  texels constante** entre texturas de distinta resolución…~~ **Refutado:** con
+  la regla correcta la densidad **depende** de la resolución de cada textura
+  (una de 64×64 cubre 64 texels sobre el mismo tramo UV en el que una de
+  128×128 cubre 128). Eso es lo normal: el artista elige la resolución. La
+  lectura normalizada por eje sigue siendo incorrecta para texturas no
+  cuadradas porque el eje menor nunca llega a 255.
+- ~~**Límite conocido:** el factor exacto de zoom … no se ha podido cerrar.~~
+  **Cerrado en S-5:** `1 byte = lado_mayor/256` texels. El período de
+  repetición ya no aplica porque la UV nunca excede una textura.
+
+#### 9.2.1 La regla medida (S-5)
+
+El original escribe `s = byte` (`0x4661A6..0x4661B8`: `byte · 1.0f / 16.0f` en
+`sow`; `0x4684EF`: `1/16` en `oow`; el hardware divide `sow/oow`). El espacio
+de Glide es **256 unidades = lado mayor de la textura, con escala uniforme en
+ambos ejes**:
+
+- SDK de Glide: `255.0f * oow` recorre la textura entera (`test17.c`,
+  `qatest00.c`); `gsplash.c` lo documenta como "texture coords in [0..255.0f]".
+- Ruta de fuentes `0x432BE2`: `*256/16` con `oow = 1.0` sobre 16 columnas ×
+  4 filas de celdas de 8×8 texels en 128×32 ⇒ 256 unidades = 128 texels.
+- Medición de MAP7 (`uvprobe`, 16 292 polígonos, 288 texturas): 64×32 usa
+  `u 0..255 / v 0..127`; 16×32, `0..127 / 0..255`; 128×32, `0..255 / 0..63`;
+  8×64, `0..31 / 0..255`; 4×4, `0..255 / 0..255`. Ninguna textura recorre su
+  UV más de una vez.
+
+El shader implementa `texels = uv * max(size.x, size.y)` y el wrap por tamaño
+queda solo como salvaguarda. Detalle y pruebas: `docs/D3D11_FIRST_SCENE_PLAN.md`
+§ 22.
 
 ### 9.3 Los modos de filtrado y direccionamiento del original
 

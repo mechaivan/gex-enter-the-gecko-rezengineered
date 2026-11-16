@@ -1,5 +1,88 @@
 # CHANGELOG
 
+## 2026-11-16 - 0.0.0 - S-5: la escala UV de MAP7 corregida (256 = lado mayor); mosaicos y pantalla del televisor en cuatro partes eliminados
+
+El port ya muestra las texturas de MAP7 **una sola vez por polígono**, como el
+original: se han eliminado los mosaicos de las paredes, el tronco y la columna
+del fondo, y la pantalla del televisor ya no sale "en cuatro partes". La cámara
+**no se ha tocado**: `428` muestras, `pos=(2243, 487, 196)`,
+`euler=(-29, 0, 2842)`. Los rótulos siguen a 1 px del original (sin cambios,
+demostrado por equivalencia exacta).
+
+**Causa demostrada (medida en el binario EU, MD5
+`692B12825003417CC4A5A9D4DB13EEBE`, solo lectura):**
+
+- La ruta BSP escribe `s = byte`: `0x4661A6..0x4661B8` hace
+  `(float)byte * 1.0f / 16.0f` y lo guarda en `sow` (`0x6475a4`), mientras
+  `0x4684EF` escribe `0x3D800000 = 1/16` en `base+0x20` (`oow`). El hardware
+  de Glide recupera `s = sow/oow = byte`.
+- El espacio de coordenadas de Glide es **256 unidades = lado MAYOR de la
+  textura, con escala uniforme en ambos ejes**. Confirmado en el SDK
+  (`test17.c`/`qatest00.c`: `255.0f * oow` = textura entera; `gsplash.c`:
+  "texture coords in [0..255.0f]") y en la ruta de fuentes del juego
+  (`0x432BE2`: `*256/16` con `oow = 1.0`, rejilla 16×4 de celdas 8×8 en
+  128×32).
+- Medición de MAP7 (`uvprobe`, 16 292 polígonos, 288 texturas, 652 registros
+  VFX): cada textura usa 0..255 en el lado mayor y 0..(256·menor/mayor) en el
+  menor (`64×32 → 0..255/0..127`, `16×32 → 0..127/0..255`,
+  `128×32 → 0..255/0..63`, `8×64 → 0..31/0..255`, `4×4 → 0..255/0..255`).
+  **Ninguna textura recorre su UV más de una vez**: la repetición no es
+  intencionada; el WRAP es solo el valor por defecto de Glide.
+
+**El defecto y la corrección:**
+
+- El shader en modo texel hacía `texels = uv * 256`, que repetía cada textura
+  `256/lado` veces (32→8×, 64→4×, 16→16×): origen de los mosaicos y de la
+  pantalla del televisor en cuatro partes.
+- Ahora `texels = uv * max(size.x, size.y)` (escala uniforme = lado mayor) y se
+  retira el `/2` que `menu.c` aplicaba a los rótulos.
+- **Equivalencia de los rótulos:** antes `(byte/2)/256*256 = byte/2`; ahora
+  `byte/256*128 = byte/2`. Divisiones por potencias de dos sobre enteros, sin
+  error de redondeo → los rótulos no cambian.
+
+**Atlas (medido antes de ampliarlo):**
+
+- El fotograma final del vuelo usa **65 índices distintos** y el menú añade los
+  ocho `600..607`: hacen falta **73**. Con el límite de 64 se descartaba el
+  **2,4 % de los vértices** con `--menu` (cobertura 97,6 %); sin menú, el
+  99,87 % (se perdía la textura `99`, 16×8).
+- `GEX_D3D11_TEXTURE_MAX_ENTRIES` pasa de **64 a 128** (constant buffer 4 KiB;
+  HLSL `float4 gex_tex_entries[256]`, dos `float4` por entrada).
+- Ejecución real: **73 texturas decodificadas, 100,0 % de cobertura**, atlas
+  **4026×130**.
+
+**Defecto independiente (no UV, pendiente de S-6):**
+
+- La pantalla inferior del televisor tiene dos juegos de quads coplanares: el
+  logo GEX (textura `368`, 64×64, opaca) y el "cristal" negro (textura `311`,
+  64×64, opaca), con el mismo `z` (574/572/570/540/538/536) y `seq` 137–145
+  frente a 115–122. La regla LIFO dibuja el `seq` mayor primero, así que el
+  cristal tapa el logo. El original muestra el logo. Es visibilidad/orden de
+  emisión y estado de material; no se toca el orden sin demostrar qué
+  modelo/actor posee cada quad.
+
+**Hipótesis descartadas:** dividir la UV entre 2 en el pipeline (solo valía
+para los rótulos, era una compensación del `uv*256`); "la repetición es
+intencionada"; "normalizar por las dimensiones reales de cada eje"; "el atlas
+pequeño causa los mosaicos".
+
+**Pruebas:**
+
+- `test_d3d11_pipeline`: **343 comprobaciones**, nueva `test_texture_uv_scale`
+  con un `.VFX` sintético de 64×32 (byte `(128,64)` → texel `(32,16)`;
+  `(255,127)` → `(63,31)`; `(0,0)` → `(0,0)`).
+- **Regresión real:** con la fórmula antigua (`uv*256`) la prueba falla;
+  restaurada la corrección, pasa.
+- `test_menu`: expectativas UV a los bytes medidos (`255`/`63`).
+- Suite completa: **0 fallos**. Sanitizers: **40/40 OK** (O0/O2/ASan/UBSan).
+- Aplicación compilada y captura real en ventana Win32 con GPU hardware:
+  `textures: 65 distinctas ... se piden 73 ... cubren el 100.0%`,
+  `samples=428 finished=1`, `triangles=1742`.
+
+**Documentación:** `PROJECT_STATE.md`, `ROADMAP.md` (S-5c),
+`docs/D3D11_FIRST_SCENE_PLAN.md` § 22 (con § 21.4/§ 21.5 marcados como
+corregidos), `docs/VFX_TEXTURE_FORMAT.md` § 9.2.1 y este CHANGELOG.
+
 ## 2026-11-15 - 0.0.0 - El menú del televisor se dibuja en el port: actores medidos, panel `tvmenu__` y los cuatro rótulos `tvbutn__`
 
 El port ya dibuja el **menú principal de MAP7** tal como lo dibuja el original:

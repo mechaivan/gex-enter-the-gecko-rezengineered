@@ -78,13 +78,17 @@ static const uint8_t kLabelTriangle[2][3] = {
  * filas superiores de una página de 128x128, es decir v 0..63 de 0..255.
  * u = 255 es el borde derecho del texto y v = 0 el superior.
  *
- * Escala: el registro llega a u = 255 y v = 63, y el `.VFX` sirve la textura
- * a 128x32 (LOD 1, la mitad de la resolución a la que se refieren las UV).
- * El pipeline muestrea en modo **texel**, así que la UV se divide por 2 para
- * que el quad recorra la textura exactamente una vez; sin dividir, el shader
- * la repite 2x2 y cada rótulo sale cuatro veces (medido en la captura). */
-static const uint8_t kLabelU[4] = {255 / 2, 255 / 2, 0, 0};
-static const uint8_t kLabelV[4] = {63 / 2, 0, 0, 63 / 2};
+ * Escala (S-5): los bytes de UV del `.DFX` **no** se dividen. El original
+ * escribe `s = byte / 16` con `oow = 1/16` (0x4661A6..0x4661B8 y 0x4684EF),
+ * es decir `s = byte`, y el espacio de coordenadas de Glide es
+ * **256 unidades = lado mayor de la textura** (medido en el SDK:
+ * `test17.c`/`qatest00.c` usan `255.0f * oow` para la textura entera, y la
+ * ruta de fuentes 0x432BE2 usa `*256/16` con `oow = 1.0`). Para 128x32 eso
+ * da `u = byte * 128/256 = byte/2` y `v = byte/2`: el registro (255, 63)
+ * recorre la textura exactamente una vez. El shader aplica esa escala
+ * (`uv * max(w,h)`); aquí solo se guarda el byte medido. */
+static const uint8_t kLabelU[4] = {255, 255, 0, 0};
+static const uint8_t kLabelV[4] = {63, 0, 0, 63};
 
 /*
  * Los cuatro botones comparten la **misma** base medida (los cuatro registros

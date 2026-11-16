@@ -93,19 +93,21 @@ static void test_scene(void)
         CHECK_EQ_I(scene.tris[PANEL_TRIS + i * 2 + 1].texture, expected[i]);
     }
 
-    /* UV del rótulo: la textura se recorre una vez (registro dividido por 2). */
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].u[0], 127);
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].v_uv[0], 31);
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].u[1], 127);
+    /* UV del rótulo: el byte medido, sin dividir (S-5). El shader escala por
+     * el lado mayor (128), de modo que 255 -> texel 127,5 y 63 -> 31,5: la
+     * textura 128x32 se recorre exactamente una vez. */
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].u[0], 255);
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].v_uv[0], 63);
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].u[1], 255);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].v_uv[1], 0);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].u[2], 0);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 0].v_uv[2], 0);
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].u[0], 127);
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].v_uv[0], 31);
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].u[0], 255);
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].v_uv[0], 63);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].u[1], 0);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].v_uv[1], 0);
     CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].u[2], 0);
-    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].v_uv[2], 31);
+    CHECK_EQ_I(scene.tris[PANEL_TRIS + 1].v_uv[2], 63);
 
     /* START: quad de 4 vértices con la base medida (mira a la cámara). */
     check_vertex(&scene, PANEL_TRIS + 0, 0, 2767, 351, 198);

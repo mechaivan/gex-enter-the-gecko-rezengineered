@@ -2760,7 +2760,13 @@ el nivel.
   que ese rectángulo es otra cosa (BSP del set o una clase de caja sin
   textura); queda sin identificar.
 
-### 21.4 Texturas: la UV se divide por 2
+### 21.4 Texturas: la UV se divide por 2 (corregido en § 22)
+
+> **Corrección (S-5, 2026-11-16).** Este apartado describía la hipótesis que se
+> aplicó en S-4: dividir la UV entre 2 porque el pipeline muestreaba con
+> `texels = uv * 256`. Esa lectura era **errónea** y solo funcionaba para los
+> rótulos por casualidad (ver § 22.1). Se conserva como dato histórico; la
+> regla medida es `texels = uv * max(w, h)` y la UV **no** se divide.
 
 El registro UV del rótulo llega a `u = 255`, `v = 63`, y el `.VFX` sirve la
 textura a **128×32** (LOD 1, la mitad de la resolución a la que se refieren las
@@ -2769,12 +2775,16 @@ tamaño), así que la UV se divide por 2 para recorrer la textura exactamente un
 vez. Sin dividir, el shader la repite 2×2 y cada rótulo sale cuatro veces: eso
 es lo que mostró la primera captura.
 
-### 21.5 Atlas
+### 21.5 Atlas (ampliado en § 22.2)
 
 El atlas sigue en 64 entradas. Con `--menu`, las ocho texturas del menú se
 colocan **las primeras** de la lista de selección, de modo que entran siempre
 (antes, el fotograma final usaba 65 índices distintos y podían quedar fuera).
 No se amplía el atlas ni se toca el shader.
+
+> **Corrección (S-5).** El fotograma final usa 65 índices y con el menú hacen
+> falta 73; el límite de 64 dejaba fuera el 2,4 % de los vértices. En § 22.2 se
+> amplía a 128 entradas con la cobertura medida al 100 %.
 
 ### 21.6 Verificación
 
@@ -2815,3 +2825,183 @@ rectángulo del televisor o corregir la visibilidad del BSP, la acción de New
 Game en el original y las cuatro cinemáticas previas (logo de la
 desarrolladora → logo de Ubisoft → cinemática del juego → cinemática del título
 no skipeable → menú de la TV). Detalle: `S3_MENU_CAMERA_SEQUENCE.md` § 11.8.
+
+## 22. S-5: auditoría de fidelidad de las texturas de MAP7 (2026-11-16)
+
+S-4 dejó los rótulos a 1 px del original, pero **el resto de MAP7 no era
+fiel**: las paredes, el tronco y la columna del fondo mostraban la textura
+repetida en mosaico y la pantalla del televisor salía "en cuatro partes". Esta
+sección audita la ruta completa (UV → shader → atlas → sampler → orden de
+emisión) por separado y corrige **solo** lo demostrado.
+
+### 22.1 La escala de la UV: `256 = lado mayor`
+
+**Qué escribe el original (medido en el binario, solo lectura).**
+
+```text
+0x46619D: movb 0x10(%ecx),%dl        ; byte de UV del comando 0x34
+0x4661A6: fildl -0x208(%ebp)         ; (float)byte
+0x4661AC: fmuls 0x54c188             ; * 1.0f      (0x54c188 = 1.0f)
+0x4661B2: fdivs 0x54c18c             ; / 16.0f     (0x54c18c = 16.0f)
+0x4661B8: fstps 0x6475a4             ; vertex->tmuvtx[0].sow
+...
+0x4684EF: escribe 0x3D800000 (1/16) en base+0x20   ; oow
+```
+
+Glide almacena `sow = s · oow`; el hardware recupera `s = sow / oow`, es decir
+**`s = byte`** (0..255). No hay ninguna división por el tamaño de la textura.
+
+**Qué significa 0..255 en Glide.** El SDK de Glide (fuente original,
+`glide-2002.04.10ds1`) lo fija en tres sitios independientes:
+
+- `test17.c` y `qatest00.c`: `sow = 255.0f * oow` para recorrer la textura
+  entera.
+- `gsplash.c`: "texture coords in [0..255.0f]".
+- Ruta de fuentes del juego `0x432BE2`: `u0 = (glyph & 0xF) · 256/16`,
+  `v0 = (glyph >> 4) · 256/16`, con `oow = 1.0`, sobre una rejilla de **16
+  columnas × 4 filas de celdas de 8×8 texels** en una textura de **128×32**.
+  256 unidades = 128 texels (el lado mayor) ⇒ **1 unidad = 0,5 texel**.
+
+Por tanto el espacio de coordenadas es **256 unidades = lado mayor de la
+textura, con la misma escala en los dos ejes**. Una textura 64×32 usa
+`u 0..255` y `v 0..127`; una 8×64 usa `u 0..31` y `v 0..255`.
+
+**Medición sobre MAP7** (`uvprobe`, herramienta temporal fuera del repo:
+16 292 polígonos, 288 texturas distintas, 652 registros VFX). El rango UV
+global de cada textura es exactamente el que predice la regla:
+
+| Textura | Rango u | Rango v | Predicción `256·lado/mayor` |
+|---|---|---|---|
+| 64×32 | 0..255 | 0..127 | u 255, v 127 ✓ |
+| 16×32 | 0..127 | 0..255 | u 127, v 255 ✓ |
+| 4×4 | 0..255 | 0..255 | ambos 255 ✓ |
+| 128×32 | 0..255 | 0..63 | u 255, v 63 ✓ |
+| 8×64 | 0..31 | 0..255 | u 31, v 255 ✓ |
+
+**Ninguna textura recorre su rango UV más de una vez.** La repetición no es
+intencionada en el original: el direccionamiento WRAP es solo el valor por
+defecto de Glide y nunca llega a activarse con estas UV.
+
+**El defecto del port.** El shader en modo texel hacía `texels = uv * 256`, de
+modo que una textura de lado `L` se repetía `256/L` veces: 32→8×, 64→4×,
+16→16×. Eso explica a la vez los mosaicos de las paredes y la pantalla del
+televisor "en cuatro partes" (textura de 64×64 → 4×4 copias).
+
+**Corrección.**
+
+```hlsl
+float scale = max(size.x, size.y);   /* lado mayor, escala uniforme */
+texels = input.uv * scale;
+texels = texels - floor(texels / size) * size;   /* wrap por si acaso */
+```
+
+y se retira el `/2` que `menu.c` aplicaba a los rótulos.
+
+**Por qué los rótulos no cambian (demostrado, no observado).** El registro del
+rótulo es `(u, v) = (255, 63)` y su textura mide 128×32:
+
+| | Antes | Ahora |
+|---|---|---|
+| UV en el vértice | `byte/2/256` | `byte/256` |
+| Escala del shader | `× 256` | `× 128` (`max(128,32)`) |
+| Texel resultante | `byte/2` | `byte/2` |
+
+Ambas son divisiones por potencias de dos sobre enteros, así que el resultado
+es **idéntico bit a bit**; la captura de S-5 confirma que los rótulos siguen a
+1 px del original.
+
+### 22.2 El atlas: medido antes de ampliarlo
+
+La auditoría del atlas (`texaudit`, temporal) midió qué texturas usa de verdad
+el fotograma final del vuelo:
+
+- **65 índices distintos** en el fotograma final; con `--menu` hacen falta
+  **73** (65 + las ocho `600..607`).
+- Con el límite anterior de **64** entradas se descartaban texturas: con el
+  menú, el **2,4 % de los vértices** quedaba sin textura (cobertura 97,6 %);
+  sin menú, el 99,87 % (se perdía la textura `99`, de 16×8, con 3 vértices).
+- Las ocho menos usadas con `--menu` eran `99, 84, 200, 192, 124, 164, 241,
+  136`; las más usadas, `10` (20,30 %), `13` (11,98 %), `260` (7,41 %).
+
+`GEX_D3D11_TEXTURE_MAX_ENTRIES` pasa de **64 a 128**. El HLSL declara
+`float4 gex_tex_entries[256]` (dos `float4` por entrada) y el constant buffer
+mide **4 KiB**. Resultado medido en ejecución: **73 texturas decodificadas,
+100,0 % de cobertura**, atlas **4026×130**, 0 fallos.
+
+No se amplió el atlas "por si acaso": el número sale de contar los índices
+usados, y el margen (128 frente a 73) cubre fotogramas con más texturas sin
+volver a tocar el límite.
+
+### 22.3 Lo que no era UV: el logo de la pantalla inferior
+
+La pantalla inferior del televisor tiene **dos juegos de quads coplanares** en
+el `.DFX`:
+
+| Textura | Contenido | Tamaño | Alfa | `z` | `seq` |
+|---|---|---|---|---|---|
+| `368` | logo GEX (fondo morado, letras naranjas) | 64×64 | opaca (4096/4096 a 255) | 574/572/570/540/538/536 | 137–145 |
+| `311` | "cristal" negro con viñeta | 64×64 | opaca (4096/4096 a 255) | los mismos | 115–122 |
+
+La ordenación de emisión (`tri_compare`: bucket `(maxz >> 2) + 4·layer`,
+desempate **LIFO** por `seq`) dibuja primero el `seq` mayor. El logo `368`
+(`seq` 137–145) se dibuja antes y el cristal `311` (`seq` 115–122) después, así
+que **el cristal tapa el logo**. El original muestra el logo.
+
+**Clasificación:** es un defecto de **visibilidad/orden de emisión y estado de
+material**, no de interpretación UV. La UV de ambos quads es correcta (0..255
+en ambos ejes para una textura 64×64). No se toca el orden de emisión: antes
+hay que demostrar qué modelo/actor posee cada quad y si el cristal pertenece a
+un estado (televisor apagado) que el original no dibuja en este fotograma.
+Queda como pendiente real de S-6.
+
+### 22.4 Pruebas y validación
+
+- **`test_d3d11_pipeline`** (343 comprobaciones): nueva
+  `test_texture_uv_scale` con un `.VFX` sintético de **64×32** cuyo texel
+  codifica su posición. Comprueba `byte (128,64) → texel (32,16)`,
+  `(255,127) → (63,31)` y `(0,0) → (0,0)`. Las dos lecturas descartadas dan
+  otros valores (`uv*256` → `(0,0)`; normalizado por eje → `(32,8)`), así que
+  la prueba distingue las tres.
+- **Regresión real:** revirtiendo temporalmente el shader a `uv*256`, la
+  prueba falla; restaurada la corrección, pasa.
+- **`test_menu`** (193 comprobaciones): expectativas UV actualizadas a los
+  bytes medidos (`255` / `63`) en vez de los divididos.
+- **Suite completa:** 0 fallos.
+- **Sanitizers:** `run_sanitizers.ps1` **40/40 OK** (O0/O2/ASan/UBSan).
+- **Ejecución real** (ventana Win32, GPU hardware, 960×540):
+
+```text
+gexloop.exe --level C:/GEX_REZ/GEX2/level/map7.dfx --camera-path
+            --textures-final --menu --frames 1000 --screenshot menu_s5_uv.ppm
+textures: 65 distinctas en el fotograma final, se piden 73 (limite del atlas; cubren el 100.0% de los vertices)
+textures: 73 decodificadas de 'map7.vfx' (atlas 4026 x 130), 0 fallidas
+final: camera path: samples=428 finished=1 error=0 pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1742
+```
+
+La cámara no se ha tocado: mismas 428 muestras y misma pose que S-4.
+
+### 22.5 Comparación con el original, elemento por elemento
+
+| Elemento | Antes (S-4) | Ahora (S-5) | Clasificación del resto |
+|---|---|---|---|
+| Rótulos | correctos (con `/2`) | correctos (sin `/2`) | — |
+| Pantalla del televisor (superior) | 4×4 copias | una sola copia | — |
+| Pantalla inferior (logo GEX) | logo tapado | logo tapado | orden/material (S-6) |
+| Paredes | mosaico | una copia | visibilidad BSP (conocida) |
+| Suelo | mosaico | una copia | visibilidad BSP (conocida) |
+| Objetos del fondo | mosaico | una copia | visibilidad BSP (conocida) |
+
+El fondo sigue mostrando cielo y edificios donde el original tiene la
+habitación porque `scene_visible_all` dibuja todas las hojas; es la limitación
+conocida de S-2/S-3 y **no** es una regresión de S-5.
+
+### 22.6 Lo que queda (S-6)
+
+1. **Logo de la pantalla inferior:** identificar el modelo/actor de los quads
+   `311` y `368`, comprobar si el cristal pertenece a un estado que el original
+   no dibuja, y solo entonces ajustar la visibilidad (sin romper la regla LIFO).
+2. **Visibilidad del BSP:** sustituir `scene_visible_all` por el recorrido
+   visible de cámara para que el fondo coincida con el original.
+3. **Materiales:** blending por polígono y niebla después de la textura.
+4. **Entrada y estado del menú** (mover el índice y confirmar) y las
+   cinemáticas previas.

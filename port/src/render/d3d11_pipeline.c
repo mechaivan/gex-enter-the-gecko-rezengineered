@@ -99,9 +99,15 @@ static const char GEX_HLSL_VERTEX[] =
  * constante `GexTex`, que da el tamaño y la posición de la textura dentro
  * del atlas.
  *
- * La coordenada del vértice es una fracción de la textura (256 bytes = la
- * textura entera): la posición del texel es `uv * tamaño`. En el modo "texel"
- * la posición se toma módulo el tamaño (la textura se repite).
+ * La coordenada del vértice es `byte_uv / 256` (el pipeline la normaliza así).
+ * El espacio de coordenadas del original es **256 unidades = lado mayor de la
+ * textura** (S-5): `s = byte / 16` con `oow = 1/16` da `s = byte`, y Glide
+ * interpreta 0..256 como la textura entera en su lado mayor. Por tanto la
+ * posición del texel es `uv * max(w, h)` en AMBOS ejes (escala uniforme), no
+ * `uv * w` y `uv * h` por separado: para una textura 64x32 el eje corto
+ * recorre 0..127 bytes, que son 0..31 texeles. Con `uv * 256` (la lectura
+ * anterior) cada textura se repetía `256/lado` veces: era el origen de los
+ * mosaicos y de la pantalla del televisor en cuatro partes.
  *
  * Si no hay texturas (el camino del cubo de prueba) la tabla está vacía y el
  * shader devuelve el color por vértice tal cual, sin tocar nada.
@@ -132,7 +138,7 @@ static const char GEX_HLSL_PIXEL[] =
     "\n"
     "cbuffer GexTex : register(b1) {\n"
     "    float4 gex_tex_header;\n"
-    "    float4 gex_tex_entries[128];\n"
+    "    float4 gex_tex_entries[256];\n"
     "};\n"
     "\n"
     "Texture2D gex_tex_atlas : register(t0);\n"
@@ -154,13 +160,15 @@ static const char GEX_HLSL_PIXEL[] =
     "            float2 origin = float2(a.w, b.x);\n"
     "            float2 texels;\n"
     "            if (mode == 1) {\n"
-    "                /* Modo texel: la coordenada va en texels y la textura\n"
-    "                   se repite cada w x h texels. */\n"
-    "                texels = input.uv * 256.0;\n"
+    "                /* Modo texel (el del original, S-5): el byte de UV es\n"
+    "                   1/256 del lado MAYOR de la textura, con la misma\n"
+    "                   escala en los dos ejes. */\n"
+    "                float scale = max(size.x, size.y);\n"
+    "                texels = input.uv * scale;\n"
     "                texels = texels - floor(texels / size) * size;\n"
     "            } else {\n"
     "                /* Modo normalizado: el byte de UV es una fraccion de\n"
-    "                   la textura (256 = la textura entera). */\n"
+    "                   cada eje por separado (256 = la textura entera). */\n"
     "                texels = input.uv * size;\n"
     "            }\n"
     "            /* D3D11 muestrea en el centro del texel: se suma media\n"

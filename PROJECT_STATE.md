@@ -8,10 +8,99 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-15 (menú del televisor **dibujado en el port**: lector
-de actores del `.DFX`, escena del panel `tvmenu__` + los cuatro rótulos
-`tvbutn__` con base y posición medidas, texturas `600..607` decodificadas y
-`--menu`; rótulos a **1 px** del original, suite y sanitizers en verde)
+**Last updated:** 2026-11-16 (S-5: **escala UV corregida** a `256 = lado mayor`
+de la textura, con la regla medida en el binario; mosaicos y pantalla del
+televisor en cuatro partes eliminados; atlas de 64 a 128 entradas con medición
+de cobertura al 100 %; rótulos sin cambios, demostrado por equivalencia exacta)
+
+### S-5: fidelidad de las texturas de MAP7 (2026-11-16)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 22 y
+`docs/VFX_TEXTURE_FORMAT.md` § 9.2.
+
+**Causa principal demostrada: la escala de la UV, no el atlas ni el filtrado.**
+
+- **El original escribe `s = byte`.** La ruta BSP `0x4661A6..0x4661B8` hace
+  `fildl (float)byte` → `fmuls 1.0f` (`0x54c188`) → `fdivs 16.0f`
+  (`0x54c18c`) → `fstps 0x6475a4` (`sow`), y `0x4684EF` escribe
+  `0x3D800000 = 1/16` en `base+0x20` (`oow`). El hardware de Glide divide
+  `sow/oow`, así que la coordenada efectiva es **`s = byte`** (0..255).
+- **El espacio de coordenadas es `256 = lado MAYOR` de la textura, con escala
+  uniforme en ambos ejes.** Confirmado en el SDK de Glide: `test17.c` y
+  `qatest00.c` usan `255.0f * oow` para recorrer la textura entera, y
+  `gsplash.c` documenta "texture coords in [0..255.0f]". La ruta de fuentes
+  `0x432BE2` usa `*256/16` con `oow = 1.0` sobre una rejilla de 16 columnas ×
+  4 filas de celdas de 8×8 texels en una textura de 128×32: 256 unidades = 128
+  texels (lado mayor), 1 unidad = 0,5 texel.
+- **Medición de MAP7** (`uvprobe`, 16 292 polígonos, 288 texturas, 652
+  registros VFX): el rango UV de cada textura es **siempre 0..255 en el lado
+  mayor y 0..(256·menor/mayor) en el menor**. Ejemplos medidos:
+  `64×32 → u 0..255 / v 0..127`, `16×32 → 0..127 / 0..255`,
+  `4×4 → 0..255 / 0..255`, `128×32 → 0..255 / 0..63`,
+  `8×64 → 0..31 / 0..255`. Ninguna textura recorre su rango UV más de una vez.
+- **El port usaba `texels = uv * 256`**, que repetía cada textura
+  `256/lado` veces (32→8×, 64→4×, 16→16×): era el origen de los **mosaicos**
+  (paredes, tronco, columna del fondo) y de la **pantalla del televisor en
+  cuatro partes**. No era un problema del atlas, del sampler WRAP ni del
+  filtrado lineal.
+- **Corrección:** el shader en modo texel pasa a
+  `texels = uv * max(size.x, size.y)` (escala uniforme = lado mayor) y se
+  retira el `/2` que `menu.c` aplicaba a los rótulos. Equivalencia exacta para
+  los rótulos: antes `(byte/2)/256*256 = byte/2`; ahora
+  `byte/256*128 = byte/2`, con divisiones por potencias de dos y sin error de
+  redondeo → **los rótulos no cambian, demostrado, no solo observado**.
+
+**Atlas: ampliado con medición, no a ciegas.**
+
+- El fotograma final del vuelo usa **65 índices distintos** y el menú añade los
+  ocho `600..607`, es decir hacen falta **73**. Con el límite anterior (64) se
+  quedaba fuera el **2,4 % de los vértices** del encuadre del menú (97,6 % de
+  cobertura); sin menú, el 99,87 % (se perdía la textura 99, de 16×8).
+- `GEX_D3D11_TEXTURE_MAX_ENTRIES` pasa de **64 a 128**; el constant buffer
+  resultante mide **4 KiB** (HLSL `float4 gex_tex_entries[256]`, dos `float4`
+  por entrada). Tras el cambio: **73 texturas decodificadas, 100,0 % de
+  cobertura**, atlas 4026×130.
+
+**Defecto independiente, no UV: el logo de la pantalla inferior.**
+
+- La pantalla inferior del televisor tiene **dos juegos de quads coplanares**:
+  el logo GEX (textura `368`, 64×64, opaca, con su viñeta) y el "cristal"
+  (textura `311`, 64×64, negra con viñeta, también opaca). Comparten `z`
+  (574/572/570/540/538/536) y sus `seq` son 137–145 (`368`) frente a 115–122
+  (`311`). La regla LIFO del bucket dibuja primero el `seq` mayor, así que el
+  **cristal 311 tapa el logo 368**. El original muestra el logo.
+- **Clasificación:** visibilidad/orden de emisión y estado de material, **no**
+  interpretación UV. No se toca el orden de emisión sin demostrar antes qué
+  modelo/actor posee cada quad y si el cristal pertenece a un estado que el
+  original no dibuja en este fotograma. Queda como pendiente real (S-6).
+
+**Hipótesis descartadas en esta tanda.**
+
+- "Dividir la UV entre 2 en el pipeline": solo valía para los rótulos; era una
+  compensación del `uv*256` erróneo. Refutada como regla general.
+- "La repetición es intencionada en el original": refutada; ninguna textura
+  recorre su UV más de una vez y el WRAP solo existe como valor por defecto del
+  sampler.
+- "Normalizar por las dimensiones reales de cada eje": refutada; el eje menor
+  nunca llega a 255 y la escala es uniforme sobre el lado mayor.
+- "El atlas pequeño causa los mosaicos": refutada; los mosaicos aparecían con
+  las 64 texturas cargadas; eran escala UV.
+
+**Validación.**
+
+- Suite completa (`port\build.ps1 test`): **0 fallos**; `test_d3d11_pipeline`
+  **343 comprobaciones**, incluida la nueva `test_texture_uv_scale` con una
+  textura 64×32 (byte `(128,64)` → texel `(32,16)`; `(255,127)` → `(63,31)`).
+- Prueba de regresión **real**: con la fórmula antigua (`uv*256`) la prueba
+  falla; restaurada la corrección, pasa (verificado revirtiendo y restaurando).
+- `run_sanitizers.ps1`: **40/40 OK** (O0/O2/ASan/UBSan).
+- Aplicación compilada (`build.ps1 loop`) y **captura real** en ventana Win32
+  con GPU hardware: 960×540, `textures: 65 distinctas ... se piden 73 ...
+  cubren el 100.0%`, atlas 4026×130, `samples=428 finished=1
+  pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1742`.
+- Comparación visual con el original: mosaicos eliminados (paredes, tronco,
+  columna del fondo con una sola copia), pantalla del televisor ya no está en
+  cuatro partes, rótulos START/LOAD/OPTIONS/QUIT correctos en orden y posición.
 
 ### Menú del televisor en el port: actores medidos (2026-11-15)
 
