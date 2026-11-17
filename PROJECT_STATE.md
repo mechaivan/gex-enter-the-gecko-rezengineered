@@ -8,10 +8,141 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-16 (S-5: **escala UV corregida** a `256 = lado mayor`
-de la textura, con la regla medida en el binario; mosaicos y pantalla del
-televisor en cuatro partes eliminados; atlas de 64 a 128 entradas con medición
-de cobertura al 100 %; rótulos sin cambios, demostrado por equivalencia exacta)
+**Last updated:** 2026-11-17 (S-6: **auditoría visual de MAP7** con capturas
+del mismo encuadre; identificado el parche plano como el panel del televisor
+del menú, el azul de las esquinas como el clear del port y el fuego rectangular
+como mezcla de la textura `370`; **corregidos el orden del panel** (se ordena
+con el nivel y queda tras el suelo, con los rótulos encima) **y el recorte a la
+zona lógica** (scissor 512×384), con 66 + 1 771 + 30 comprobaciones nuevas;
+R/B y blending quedan medidos y diseñados, sin cambiar)
+
+### S-6: auditoría visual de MAP7 en el port D3D11 (2026-11-17)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 23.
+
+**Método.** Se compara el **mismo encuadre** en los dos ejecutables, a la
+resolución de referencia del original (512×384), con la cámara validada
+(`samples=428`, `pos=(2243,487,196)`, `euler=(-29,0,2842)`). El encuadre es
+correcto: el texto del menú cae a **±1 px** entre original y port (START
+original `(104,142)-(186,160)` / port `(104,143)-(187,160)`; LOAD original
+`(110,173)-(198,199)` / port `(111,172)-(199,199)`). Toda la auditoría se hace
+por **medición** (`probe_pixel`, `polyprobe`, `leafprobe`, `emitprobe`,
+`menuprobe`) y no por inspección visual.
+
+**1. El parche plano `(16,16,24)` de abajo-derecha es el panel del televisor
+del menú, no el suelo.**
+
+- `MENU_PANEL_COLOR 0xFF101018` en `port/src/scene/menu.c`: 12 triángulos sin
+  textura (el `.DFX` no le da UV: `uv_ptr = 0x20800080`).
+- `menuprobe` lo proyecta en `(310,305)-(741,848)` del espacio lógico y cubre
+  **14 956 px** de los 196 608 de la pantalla, en la esquina inferior derecha.
+  Es exactamente la región del defecto.
+- **Refutada** la hipótesis anterior ("parche de suelo con la textura 265
+  plana"): la textura 265 decodifica en grises (56–83) y el suelo se dibuja con
+  la matemática esperada — `emitprobe` da el triángulo ganador `poly#136`
+  (tex 265, color interpolado `(44,77,152)`, texel ≈63 → `(11,19,38)`) y la
+  captura sin `--menu` muestra `(11,19,38)` en ese píxel. El parche solo
+  aparece con `--menu`, y la diferencia entre las dos capturas del port es de
+  43 944 px con la forma exacta del panel y de los rótulos.
+- **Causa demostrada del exceso:** el port **añadía la escena del menú después
+  del ordenado del nivel**, así que el panel se dibujaba el último y tapaba el
+  suelo. El original dibuja los actores por el **mismo** renderer ordenado por
+  buckets, con la clave `(maxz>>2) + 4·layer`: el panel tiene 146..291 (en la
+  zona visible, 277..291), el suelo 193..242 y los rótulos 134..135. Con el
+  orden descendente del original (mayor = más lejos = antes), el panel queda
+  **detrás** del suelo —el original muestra suelo en toda su proyección— y los
+  rótulos **delante** (`poly#116`, clave 25..39, queda debajo de ellos).
+- **Corregido:** el menú se emite en dos partes según las dos rutas medidas
+  (`GEX_MENU_PART_PANEL` antes de `gex_emit_sort`, `GEX_MENU_PART_LABELS`
+  después). Captura con `--menu`: los 9 puntos del panel coinciden
+  **exactamente** con la captura sin menú y la región de los rótulos es
+  **idéntica** a la de S-5 (0 px distintos de 17 550). Pruebas en
+  `test_scene_level` (+1 771) y `test_menu` (+30). Detalle en § 23.1.
+
+**2. Las esquinas azules `(51,51,204)` no son geometría ausente.**
+
+- Ni con las **249 hojas** que ve la cámara (2 820 polígonos) ni con las
+  **1 483 hojas** del nivel entero (16 292 polígonos) hay un solo polígono que
+  cubra `(20,20)`: `polyprobe` y `leafprobe` dan cobertura vacía en ambos
+  casos.
+- `(51,51,204)` = `{0.2f, 0.2f, 0.8f}` = el **clear de marcador** de
+  `port/src/app/i4_main_win32.c:528`. En el original ese azul no existe: el
+  original pinta un **rectángulo 2D de fondo** de 512×384 (`0x64FB40`, handler
+  `0x00469268`) con un degradado morado/oscuro medido en `(15,8,46)`,
+  `(17,8,64)` y `(20,8,71)`.
+
+**3. El fuego rectangular con fondo negro es la mezcla de la textura `370`.**
+
+- La llama usa la textura **370** (32×32, `ARGB_1555`): alfa 255 en los 1 024
+  texeles y fondo **negro**. El original la dibuja con
+  `grAlphaBlendFunction (1,4,4,0)` — **aditiva** — en los 6 triángulos del
+  opcode `0xB6`; el port usa el estado global `(1,5,4,0)`, así que el negro
+  del fondo se vuelve opaco y tapa lo que hay detrás. Diseño en § 19.10.
+
+**4. Límites laterales: el port no recortaba a la zona lógica. (Corregido.)**
+
+- El original dibuja en una superficie de **512×384**: fuera de ella no hay
+  framebuffer y nada puede aparecer. El port escala esa zona a la ventana
+  (960×540 → factor 1,40625 y bandas de 120 px), pero dibujaba **fuera** del
+  rectángulo: en la captura de referencia, **29 941 px** de la banda izquierda
+  y **35 680 px** de la derecha (de 64 800 cada una) tenían geometría que el
+  original recortaría.
+- **Corrección implementada:** `ScissorEnable = TRUE` en el rasterizador y
+  `RSSetScissorRects` en `gex_d3d11_pipeline_set_target`, con el rectángulo
+  calculado por `gex_d3d11_pipeline_logical_rect` — **la misma matemática del
+  vertex shader** (`scale = min(vw/rw, vh/rh)`, centrado, bordes hacia fuera).
+- **Prueba de regresión:** `test_logical_rect` (+66 comprobaciones, 409 en
+  `test_d3d11_pipeline`): 960×540 → `(120,0,720,540)`; 4:3 exacto → todo el
+  destino; más ancho → bandas laterales; más alto → bandas arriba/abajo;
+  argumentos nulos → rect a cero; y la propiedad de que el rectángulo cabe en
+  el destino y contiene el centro.
+- **Verificación en ejecución:** captura 960×540 tras el cambio → **0 px** de
+  geometría en las dos bandas y **0 px distintos** dentro de la zona lógica
+  respecto a la captura anterior. El encuadre de referencia (512×384) no
+  cambia por construcción (el rectángulo es todo el destino).
+
+**5. Color por vértice: intercambio R/B. Queda como incógnita, sin cambiar.**
+
+- Media global (R−B) sin menú: original `+22,12` frente a port `−25,97`; con
+  intercambio, `+25,97`. La correlación por píxel es solo `+0,254` y las
+  pruebas por regiones se contradicen.
+- **Medición limpia (suelo, textura 265 gris):** en `(341,341)` el port da
+  `(11,19,38)` con el intercambio actual del vertex shader y `(38,19,11)` si se
+  quita; el original muestra `(55,36,21)`. Es decir, el original conserva el
+  orden R>G>B del color de vértice (y el port queda ~35 % más oscuro por otro
+  motivo), mientras que el intercambio lo invierte. La región del suelo lo
+  confirma (`(330,350)-(440,375)`: original R−B `+19,1`, port actual `−5,3`,
+  sin intercambio `+5,3`).
+- **Pero** la pared prefiere lo contrario (región `(400,200)-(470,280)`:
+  original R−B `+12,2`, port actual `+5,7`, sin intercambio `−5,7`). No hay una
+  regla única demostrada; el ganador del original en esos píxeles no está
+  identificado, así que el signo no se puede atribuir al orden de canales.
+  **No se toca el shader**: haría falta un fotograma de control con un polígono
+  y una textura conocidos (§ 23.6).
+
+**6. Recuento y descarte de polígonos: sin regresión.**
+
+- Con la cámara: **249 hojas / 2 820 polígonos** (`draw=764`, `subdivide=466`,
+  `backface=983`, `depth-clip=62`, `offscreen=545`). Todas las hojas: 1 483 /
+  16 292. El `depth-clip` del original está verificado (`0x46A1D0` compara con
+  `[0x6474E8]` y `0xFFFF`, marca `0x40000` y el llamador `0x4015e3` descarta
+  con máscara `0x7E07E000`) y el port hace lo mismo.
+- La diferencia de ~1 517 polígonos/frame citada en la documentación anterior
+  **no es comparable**: se midió en AZTEC16 (`S2_BSP_TRAVERSAL.md` § 8), no en
+  MAP7.
+
+**Validación.**
+
+- Suite completa (`port\build.ps1 test`): **0 fallos**; `test_d3d11_pipeline`
+  pasa de 343 a **409** comprobaciones, `test_scene_level` de 12 335 a
+  **14 106** y `test_menu` de 193 a **223**.
+- `run_sanitizers.ps1`: **40/40 OK** (O0/O2/ASan/UBSan) con los cambios de
+  `menu.c` y `scene_level.c`.
+- Captura real con GPU hardware a 960×540: `samples=428 finished=1
+  pos=(2243, 487, 196) euler=(-29, 0, 2842) triangles=1742` con `--menu` y
+  `1722` sin él; bandas limpias y panel oculto tras el nivel.
+- Captura 512×384 de referencia: el panel ya no tapa el suelo y los rótulos
+  siguen a ±1 px del original, con su color.
 
 ### S-5: fidelidad de las texturas de MAP7 (2026-11-16)
 
@@ -116,9 +247,15 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 11.
   base ortonormal Q12 **por columnas**, `+0x12` relleno, `+0x14/0x18/0x1C`
   int32 posición de mundo. Verificado con los cinco registros del menú.
 - **Registros del menú:** panel `tvmenu__` base `(-3977,976,0)/(-976,-3977,0)/(0,0,4096)`
-  en `(2900,-84,-528)` (se proyecta **fuera** del encuadre, arriba-derecha);
-  rótulos en `(2758,412,198/170/143/115)` = START/LOAD/OPTIONS/QUIT con base
-  común `(663,-4041,0)/(4041,663,0)/(0,0,4096)`.
+  en `(2900,-84,-528)`; rótulos en `(2758,412,198/170/143/115)` =
+  START/LOAD/OPTIONS/QUIT con base común `(663,-4041,0)/(4041,663,0)/(0,0,4096)`.
+  **Corrección de S-6 (2026-11-17):** con la cámara validada
+  (`pos=(2243,487,196)`, `euler=(-29,0,2842)`) el panel **sí** entra en el
+  encuadre: se proyecta en `(310,305)-(741,848)` del espacio lógico, es decir
+  ocupa el tercio inferior derecho de la pantalla (14 612 px de los 196 608 de
+  la zona lógica). La afirmación anterior —"se proyecta **fuera** del
+  encuadre, arriba-derecha"— era **falsa**; ver `S3_MENU_CAMERA_SEQUENCE.md`
+  § 11.2 y § 11.7.
 - **En el `.DFX`:** `tvmenu__` clase `0x0DFE68`, 1 modelo, `field_0x10 = 0`,
   caja de 8 vértices/12 polígonos, radio 552, **sin textura**
   (`uv_ptr = 0x20800080`); `tvbutn__` clase `0x0DC538`, 20 modelos, y los

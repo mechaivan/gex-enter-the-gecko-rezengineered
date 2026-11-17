@@ -315,6 +315,115 @@ static void test_map7_camera_mode(void)
     CHECK(scene.leaves.leaves == NULL);
 }
 
+/* ------------------------------------------------------------------ */
+/* S-6: orden del menú dentro del frame                               */
+/* ------------------------------------------------------------------ */
+
+/* Clave de bucket del original: `(maxz >> 2) + 4 * layer`, descendente. */
+static int32_t tri_key(const gex_emit_triangle *t)
+{
+    int32_t m = t->z[0];
+    if (t->z[1] > m) m = t->z[1];
+    if (t->z[2] > m) m = t->z[2];
+    return (m >> 2) + (int32_t)t->layer * 4;
+}
+
+/*
+ * El menú no se dibuja por encima del nivel. Medido en MAP7: el panel sin
+ * textura tiene clave 291 y el suelo 212, así que el suelo se dibuja después y
+ * lo tapa (el original muestra suelo en toda la proyección del panel); los
+ * rótulos, en cambio, quedan encima (el original muestra su color sobre
+ * `poly#116`, clave 25). Por eso el panel entra en el ordenado y los rótulos se
+ * añaden al final.
+ */
+static void test_map7_menu_order(void)
+{
+    gex_scene_level scene;
+    gex_camera cam;
+    FILE *f = fopen(MAP7_PATH, "rb");
+    size_t before, i;
+    size_t last_panel = 0, first_label = 0, floor_poly = 0;
+    int have_panel = 0, have_label = 0, have_floor = 0;
+    int steps = 0;
+    static const uint16_t label_textures[8] = {
+        604, 604, 603, 603, 602, 602, 601, 601
+    };
+
+    if (!f) {
+        printf("skip map7 menu order (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&scene, 0, sizeof(scene));
+    gex_scene_reference_camera(&cam);
+    CHECK(gex_scene_level_load_camera_path(&scene, MAP7_PATH, &cam) ==
+          GEX_SCENE_OK);
+    while (steps < 4096 &&
+           gex_scene_level_camera_path_step(&scene, &cam) > 0) {
+        steps++;
+    }
+    /* Fotograma de referencia del vuelo: 428 muestras. */
+    CHECK(scene.path_frames == 428u);
+    before = scene.emit.count;
+    CHECK(before > 0u);
+
+    CHECK(gex_scene_level_add_menu(&scene, 0) == GEX_SCENE_OK);
+    CHECK(scene.emit.count == before + 20u); /* 12 panel + 8 rótulos */
+    CHECK(scene.geometry_loaded == 1);
+    CHECK(scene.stats.triangles == scene.emit.count);
+
+    /* Localiza el panel de mayor clave, el primer rótulo y el suelo bajo el
+     * panel (`poly#136`, ganador del píxel (341,341) en la captura). */
+    for (i = 0; i < scene.emit.count; i++) {
+        const gex_emit_triangle *t = &scene.emit.tris[i];
+        if (t->texture == 0u && t->color[0] == 0xFF101018u) {
+            if (!have_panel || tri_key(t) > tri_key(&scene.emit.tris[last_panel])) {
+                last_panel = i;
+            }
+            have_panel = 1;
+        } else if (t->color[0] == 0xFFFFFFFFu && t->texture >= 601u &&
+                   t->texture <= 604u) {
+            if (!have_label) {
+                first_label = i;
+                have_label = 1;
+            }
+        } else if (t->source_poly == 136u && t->texture == 265u) {
+            if (!have_floor) {
+                floor_poly = i;
+                have_floor = 1;
+            }
+        }
+    }
+    CHECK(have_panel == 1);
+    CHECK(have_label == 1);
+    CHECK(have_floor == 1);
+
+    /* El panel se ordena CON el nivel: la parte ordenada (todo menos los ocho
+     * rótulos) está en orden descendente de clave. */
+    for (i = 1; i + 8u < scene.emit.count; i++) {
+        CHECK(tri_key(&scene.emit.tris[i - 1]) >=
+              tri_key(&scene.emit.tris[i]));
+    }
+    /* Y el panel de mayor clave queda detrás del suelo que lo tapa. */
+    CHECK(last_panel < floor_poly);
+    CHECK(tri_key(&scene.emit.tris[last_panel]) >
+          tri_key(&scene.emit.tris[floor_poly]));
+
+    /* ...y los rótulos son los últimos ocho, en el orden medido. */
+    CHECK(first_label + 8u == scene.emit.count);
+    for (i = 0; i < 8u; i++) {
+        CHECK(scene.emit.tris[first_label + i].texture == label_textures[i]);
+    }
+    for (i = first_label; i < scene.emit.count; i++) {
+        CHECK(scene.emit.tris[i].source_poly >= 12u);
+        CHECK(scene.emit.tris[i].source_poly < 20u);
+    }
+
+    gex_scene_level_free(&scene);
+    CHECK(scene.emit.tris == NULL);
+}
+
 int main(void)
 {
     test_status_names();
@@ -323,6 +432,7 @@ int main(void)
     test_diagnostic_view();
     test_aztec_real();
     test_map7_camera_mode();
+    test_map7_menu_order();
 
     printf("test_scene_level: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

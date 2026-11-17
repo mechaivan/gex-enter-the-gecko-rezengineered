@@ -76,6 +76,30 @@ gex_emit_status gex_menu_emit(const gex_menu_scene *scene,
                               const gex_emit_matrix *mat,
                               gex_emit_output *out);
 
+/*
+ * Subconjunto de la escena del menú, por ruta de dibujo medida (S-3 § 11.1).
+ *
+ * El original dibuja el menú por **dos** rutas distintas: el panel sin textura
+ * (`tvmenu__`, `arg3 == 0` → `0x4718CF`) y los rótulos texturados
+ * (`tvbutn__`, `arg3 != 0` → `0x470F96`, billboard `0x470C7B`). S-6 mide que
+ * el panel queda **tapado por el nivel** (claves de bucket 146..291, 277..291
+ * en la zona visible, frente a 103..242 de los polígonos que lo cubren, y el
+ * original muestra suelo en toda su proyección) y que
+ * los rótulos quedan **por encima** (el original muestra su color sobre
+ * `poly#116`, clave 25..39). Por eso el llamador emite el panel antes del ordenado
+ * y los rótulos después.
+ */
+typedef enum gex_menu_part {
+    GEX_MENU_PART_ALL = 0,   /* panel + rótulos (comportamiento histórico) */
+    GEX_MENU_PART_PANEL,     /* solo el panel sin textura */
+    GEX_MENU_PART_LABELS     /* solo los rótulos texturados */
+} gex_menu_part;
+
+gex_emit_status gex_menu_emit_part(const gex_menu_scene *scene,
+                                   const gex_emit_matrix *mat,
+                                   gex_emit_output *out,
+                                   gex_menu_part part);
+
 #ifdef __cplusplus
 }
 #endif

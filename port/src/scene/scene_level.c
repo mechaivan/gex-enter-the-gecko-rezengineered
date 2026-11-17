@@ -455,7 +455,39 @@ gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected)
         return GEX_SCENE_ERR_NOMEM;
     }
     scene_matrix_from_stats(scene, &mat);
-    est = gex_menu_emit(&menu, &mat, &scene->emit);
+
+    /* S-6: el menú NO se dibuja por encima de la escena. El original usa dos
+     * rutas distintas (§ 11.1): el panel sin textura (`0x4718CF`) y los
+     * rótulos texturados (`0x470F96`). Medido en MAP7:
+     *
+     *   - el panel queda **tapado por el nivel**: sus claves de bucket
+     *     (585..1166 -> 146..291; en la zona visible 1108..1166 -> 277..291)
+     *     son mayores que las de los polígonos que lo cubren (103..242) y el
+     *     original muestra suelo en toda su proyección;
+     *   - los rótulos quedan **por encima**: el original muestra su color
+     *     sobre `poly#116` (clave 25..39).
+     *
+     * Por eso el panel entra en el ordenado del nivel y los rótulos se añaden
+     * después. Antes de este cambio el menú entero se añadía tras el ordenado
+     * y el panel tapaba el tercio inferior derecho de la pantalla. */
+    est = gex_menu_emit_part(&menu, &mat, &scene->emit, GEX_MENU_PART_PANEL);
+    if (est != GEX_EMIT_OK) {
+        gex_menu_scene_free(&menu);
+        return (est == GEX_EMIT_ERR_NOMEM) ? GEX_SCENE_ERR_NOMEM
+                                           : GEX_SCENE_ERR_EMIT;
+    }
+    {
+        /* `push_tri` numera `seq` con el orden de inserción, así que el
+         * desempate LIFO del original deja el panel detrás de los polígonos
+         * del nivel que comparten clave. */
+        gex_emit_status sst =
+            gex_emit_sort(scene->emit.tris, scene->emit.count);
+        if (sst != GEX_EMIT_OK) {
+            gex_menu_scene_free(&menu);
+            return GEX_SCENE_ERR_EMIT;
+        }
+    }
+    est = gex_menu_emit_part(&menu, &mat, &scene->emit, GEX_MENU_PART_LABELS);
     gex_menu_scene_free(&menu);
     if (est != GEX_EMIT_OK) {
         return (est == GEX_EMIT_ERR_NOMEM) ? GEX_SCENE_ERR_NOMEM

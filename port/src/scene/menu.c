@@ -266,9 +266,21 @@ gex_emit_status gex_menu_emit(const gex_menu_scene *scene,
                               const gex_emit_matrix *mat,
                               gex_emit_output *out)
 {
+    return gex_menu_emit_part(scene, mat, out, GEX_MENU_PART_ALL);
+}
+
+gex_emit_status gex_menu_emit_part(const gex_menu_scene *scene,
+                                   const gex_emit_matrix *mat,
+                                   gex_emit_output *out,
+                                   gex_menu_part part)
+{
     size_t i;
 
     if (scene == NULL || mat == NULL || out == NULL) {
+        return GEX_EMIT_ERR_ARG;
+    }
+    if (part != GEX_MENU_PART_ALL && part != GEX_MENU_PART_PANEL &&
+        part != GEX_MENU_PART_LABELS) {
         return GEX_EMIT_ERR_ARG;
     }
     for (i = 0; i < scene->count; i++) {
@@ -278,6 +290,14 @@ gex_emit_status gex_menu_emit(const gex_menu_scene *scene,
         gex_emit_triangle tri;
         gex_emit_status st;
         int c;
+
+        /* El panel es el único sin textura (el .DFX no le da registro UV). */
+        if (part == GEX_MENU_PART_PANEL && t->texture != 0u) {
+            continue;
+        }
+        if (part == GEX_MENU_PART_LABELS && t->texture == 0u) {
+            continue;
+        }
 
         for (c = 0; c < 3; c++) {
             flat[c * 3 + 0] = t->v[c][0];

@@ -128,14 +128,45 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
                                                    const gex_d3d11_device *device);
 
 /*
- * Fija el destino de dibujo: render target, viewport y constant buffer.
+ * Rectángulo de la zona lógica dentro del destino, en píxeles enteros.
+ *
+ * El original dibuja en una superficie de 512x384: fuera de ese rectángulo no
+ * existe framebuffer, así que **nada** puede aparecer ahí. Cuando la ventana no
+ * tiene la proporción 4:3 el port centra la zona lógica y deja bandas a los
+ * lados; la geometría proyectada fuera de [0,512)x[0,384) caía en esas bandas
+ * (S-6: 29 941 px en la banda izquierda y 35 680 en la derecha de una captura
+ * 960x540). El pipeline fija este rectángulo como scissor, que es el recorte
+ * duro del borde del framebuffer original.
+ */
+typedef struct gex_d3d11_logical_rect {
+    int32_t  x;       /* esquina izquierda, píxeles */
+    int32_t  y;       /* esquina superior, píxeles */
+    uint32_t width;
+    uint32_t height;
+} gex_d3d11_logical_rect;
+
+/*
+ * Calcula el rectángulo con la MISMA matemática que el vertex shader:
+ * `scale = min(vw/rw, vh/rh)` y centrado. Los bordes se redondean hacia fuera
+ * (floor/ceil) para no recortar ningún píxel interior, y se acotan al destino.
+ *
+ *   1 = calculado; 0 = algún tamaño es 0 (rect a cero).
+ */
+int gex_d3d11_pipeline_logical_rect(UINT width, UINT height,
+                                    UINT ref_width, UINT ref_height,
+                                    gex_d3d11_logical_rect *out);
+
+/*
+ * Fija el destino de dibujo: render target, viewport, scissor y constant
+ * buffer.
  *
  *   rvt == NULL o width/height/ref_width/ref_height == 0 -> BAD_ARGUMENT
  *   pipeline no inicializado                          -> BAD_STATE
  *
  * `ref_width`/`ref_height` son la resolución lógica del espacio proyectado
  * (512x384 en el original). El vertex shader centra esa resolución en el
- * viewport y la escala sin deformarla (scale = min(vw/rw, vh/rh)).
+ * viewport y la escala sin deformarla (scale = min(vw/rw, vh/rh)); el scissor
+ * se fija al mismo rectángulo (ver `gex_d3d11_pipeline_logical_rect`).
  */
 gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
     gex_d3d11_pipeline *pipeline,

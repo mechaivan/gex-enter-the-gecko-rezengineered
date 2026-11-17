@@ -842,6 +842,30 @@ de niebla por vértice).
   distintos y el contenido de la textura se reconoce en el panel con marco de
   la pared.
 
+### 9.7 El alfa de las texturas y la mezcla por comando (medido en S-6)
+
+El **alfa del texel no basta** para decidir la mezcla: el original cambia el
+estado de mezcla **por comando** y el mismo banco de texturas se usa con estados
+distintos. El caso medido en MAP7:
+
+- La **llama** del nivel usa la textura **370** (32×32, `ARGB_1555`): alfa 255
+  en los 1 024 texeles y **fondo negro**. El original la dibuja con
+  `grAlphaBlendFunction (1, 4, 4, 0)` — **aditiva** (`src * 1 + dst * 1`) — en
+  los 6 triángulos del opcode `0xB6`.
+- El port aplica el estado **global** `(1, 5, 4, 0)`
+  (`SRC_ALPHA`/`INV_SRC_ALPHA`), así que el negro del fondo se vuelve **opaco** y
+  tapa lo que hay detrás: es el "fuego rectangular con fondo negro" de la
+  auditoría visual (S-6, `docs/D3D11_FIRST_SCENE_PLAN.md` § 23.3).
+- Con alfa 255, la mezcla aditiva y la sustitutiva solo difieren en el fondo
+  negro; el resto de la textura coincide. Por eso el defecto tiene **forma de
+  rectángulo** y no de llama.
+
+**No implementado.** La corrección exige llevar la selección de mezcla hasta el
+triángulo (hoy el estado es único por frame), y su prueba de regresión natural
+—comparar los píxeles del fuego con el original— está contaminada por la
+incógnita del orden de canales R/B (§ 23.5 del mismo documento). El diseño está
+en § 19.10 y queda como pendiente de S-6.
+
 ## 8. Limitaciones y siguiente paso
 
 1. **El Módulo 4C ya no está bloqueado por los datos**: hay decodificadores CPU

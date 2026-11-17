@@ -20,6 +20,7 @@
 
 #if defined(_WIN32)
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -540,12 +541,15 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
     release_blob(&vs_code);
 
     /* Rasterizador: relleno sólido, sin culling (la emisión ya descartó los
-     * triángulos con el determinante 2D del original) y sin scissor. */
+     * triángulos con el determinante 2D del original) y **con scissor**: el
+     * original no tiene framebuffer fuera de 512x384, así que la geometría
+     * proyectada fuera de la zona lógica no puede dibujarse (S-6). El
+     * rectángulo lo fija `gex_d3d11_pipeline_set_target`. */
     memset(&raster_desc, 0, sizeof(raster_desc));
     raster_desc.FillMode = D3D11_FILL_SOLID;
     raster_desc.CullMode = D3D11_CULL_NONE;
     raster_desc.DepthClipEnable = TRUE;
-    raster_desc.ScissorEnable = FALSE;
+    raster_desc.ScissorEnable = TRUE;
     raster_desc.AntialiasedLineEnable = FALSE;
     raster_desc.MultisampleEnable = FALSE;
     raster_desc.DepthBias = 0;
@@ -695,6 +699,54 @@ void gex_d3d11_pipeline_shutdown(gex_d3d11_pipeline *pipeline)
  * Destino de dibujo
  * ======================================================================== */
 
+int gex_d3d11_pipeline_logical_rect(UINT width, UINT height,
+                                    UINT ref_width, UINT ref_height,
+                                    gex_d3d11_logical_rect *out)
+{
+    float scale, fw, fh, fx, fy;
+    int32_t x0, y0, x1, y1;
+
+    if (out == NULL) {
+        return 0;
+    }
+    out->x = 0;
+    out->y = 0;
+    out->width = 0u;
+    out->height = 0u;
+    if (width == 0u || height == 0u || ref_width == 0u || ref_height == 0u) {
+        return 0;
+    }
+
+    /* Misma aritmética que el vertex shader: escala uniforme y centrado. */
+    scale = (float)width / (float)ref_width;
+    if ((float)height / (float)ref_height < scale) {
+        scale = (float)height / (float)ref_height;
+    }
+    fw = (float)ref_width * scale;
+    fh = (float)ref_height * scale;
+    fx = ((float)width - fw) * 0.5f;
+    fy = ((float)height - fh) * 0.5f;
+
+    /* Hacia fuera: un píxel del borde lógico cae dentro del rectángulo. */
+    x0 = (int32_t)floorf(fx);
+    y0 = (int32_t)floorf(fy);
+    x1 = (int32_t)ceilf(fx + fw);
+    y1 = (int32_t)ceilf(fy + fh);
+
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > (int32_t)width) x1 = (int32_t)width;
+    if (y1 > (int32_t)height) y1 = (int32_t)height;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+
+    out->x = x0;
+    out->y = y0;
+    out->width = (uint32_t)(x1 - x0);
+    out->height = (uint32_t)(y1 - y0);
+    return 1;
+}
+
 gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
     gex_d3d11_pipeline *pipeline,
     ID3D11RenderTargetView *rtv,
@@ -702,6 +754,8 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
     UINT ref_width, UINT ref_height)
 {
     D3D11_VIEWPORT viewport;
+    D3D11_RECT scissor;
+    gex_d3d11_logical_rect logical;
     D3D11_MAPPED_SUBRESOURCE mapped;
     gex_d3d11_constants constants;
     HRESULT hr;
@@ -745,6 +799,19 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_set_target(
 
     ID3D11DeviceContext_OMSetRenderTargets(pipeline->context, 1, &rtv, NULL);
     ID3D11DeviceContext_RSSetViewports(pipeline->context, 1, &viewport);
+
+    /* Recorte duro al borde del framebuffer original (512x384). El
+     * rasterizador tiene ScissorEnable = TRUE, así que este rectángulo es
+     * obligatorio: sin él no se dibujaría nada. */
+    if (gex_d3d11_pipeline_logical_rect(width, height, ref_width, ref_height,
+                                        &logical)) {
+        scissor.left = (LONG)logical.x;
+        scissor.top = (LONG)logical.y;
+        scissor.right = (LONG)(logical.x + (int32_t)logical.width);
+        scissor.bottom = (LONG)(logical.y + (int32_t)logical.height);
+        ID3D11DeviceContext_RSSetScissorRects(pipeline->context, 1, &scissor);
+    }
+
     ID3D11DeviceContext_VSSetConstantBuffers(pipeline->context, 0, 1,
                                              &pipeline->constant_buffer);
     pipeline->last_hresult = S_OK;

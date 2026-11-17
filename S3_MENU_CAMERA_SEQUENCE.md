@@ -1466,11 +1466,21 @@ La traza completa contiene **128** posiciones distintas (actores del nivel
 entero). Las cuatro de los rótulos son las que caen en el encuadre del menú y
 las únicas que forman la columna de opciones.
 
-El **panel** se proyecta con la matriz del fotograma final **fuera del
-encuadre** (arriba y a la derecha: esquinas de `(310, -114)` a `(741, 74)` en
-espacio de juego 512×384). Por eso el port lo dibuja pero no tapa la escena:
-el rectángulo oscuro del televisor que se ve en el original **no** es este
-registro (§11.7).
+**Corrección de S-6 (2026-11-17).** Con la matriz del fotograma final el panel
+**sí** entra en el encuadre: sus 12 triángulos se proyectan entre
+`(310, 305)` y `(741, 848)` del espacio de juego 512×384 (la parte visible es
+`(311, 305)-(511, 383)`, 14 956 px de los 196 608) — medido con `menuprobe`
+sobre la emisión real. La frase anterior —"se proyecta **fuera del encuadre**
+(arriba y a la derecha: `(310, -114)` a `(741, 74)`)"— era **falsa**: esas
+esquinas corresponden al panel **sin** la traslación de su registro, no al panel
+proyectado.
+
+El original **no muestra** el panel en esa zona porque queda **tapado por el
+nivel**: se ordena con la misma clave de bucket que la geometría
+(`(maxz >> 2) + 4·layer`, panel `146..291` —`277..291` en la zona visible—,
+suelo `193..242`) y el suelo se dibuja después. El port lo dibujaba el último y
+por eso aparecía como un parche plano `(16,16,24)`; corregido en S-6 emitiendo
+el panel antes del ordenado (ver `docs/D3D11_FIRST_SCENE_PLAN.md` § 23.1).
 
 ### 11.3 Lo que hay en el `.DFX`: clases, modelos y UV
 
@@ -1646,19 +1656,23 @@ ningún fichero.
   `602/606` (OPTIONS) y `603/607` (LOAD): lo dice el **contenido** de cada
   textura y el orden en pantalla, pero la estructura que el original consulta
   para elegir el índice por botón **no se ha volcado**.
-- Que el registro del panel es el del televisor aunque se proyecte fuera del
-  encuadre: es el único modelo de `tvmenu__` (la clase que el ejecutable asocia
-  al menú por nombre) y no tiene textura; su posición y su base son las
-  medidas, no una suposición.
+- ~~Que el registro del panel es el del televisor aunque se proyecte fuera del
+  encuadre~~: **resuelto en S-6** — es el único modelo de `tvmenu__` (la clase
+  que el ejecutable asocia al menú por nombre), no tiene textura y se proyecta
+  **dentro** del encuadre, en `(310,305)-(741,848)`; el original lo deja detrás
+  del suelo por la clave de bucket. Ya no es una hipótesis.
 
 **Desconocido**
 
 - **Qué dibuja el rectángulo oscuro del televisor** que se ve detrás de las
-  opciones. No es el registro del panel (§11.2): su proyección cae arriba y a
-  la derecha. Candidatos sin comprobar: geometría BSP del set (el muro de
-  cuatro pantallas de S-3) o alguna de las clases de caja de 8 vértices sin
-  textura (`loadtv__` `0x0DBD98`, `start___` `0x0D3E80`, `tile____`
-  `0x0D60F0`). No se elige ninguna sin medirla.
+  opciones. S-6 mide que **no** es el panel: su proyección está cubierta por
+  geometría del nivel en el original (`emitprobe2` da ganador tex 261, 87, 265
+  y 86 en los puntos muestreados), así que el panel no es lo que se ve ahí.
+  Candidatos sin comprobar: geometría BSP del set (el muro de cuatro pantallas
+  de S-3) o alguna de las clases de caja de 8 vértices sin textura
+  (`loadtv__` `0x0DBD98`, `start___` `0x0D3E80`, `tile____` `0x0D60F0`), o el
+  rectángulo 2D de fondo `0x64FB40` (`docs/D3D11_FIRST_SCENE_PLAN.md` § 23.2).
+  No se elige ninguna sin medirla.
 - **El mecanismo de selección**: la lista de `ctx->[0x8] + 0x480` (32 B por
   entrada, `word[0]` = ancho de texto) no se ha volcado, así que no se sabe si
   el índice de textura sale de ahí, del modelo del botón o de otro campo.

@@ -191,6 +191,38 @@ static void test_emit(void)
     /* source_poly identifica el triángulo de la escena. */
     CHECK_EQ_I(out.tris[PANEL_TRIS + 1].source_poly, PANEL_TRIS + 1);
 
+    /* S-6: subconjuntos por ruta de dibujo medida. El panel (sin textura) se
+     * ordena con el nivel; los rótulos (texturados) se añaden después. */
+    gex_emit_output_free(&out);
+    memset(&out, 0, sizeof(out));
+    CHECK(gex_menu_emit_part(&scene, &mat, &out, GEX_MENU_PART_PANEL) ==
+          GEX_EMIT_OK);
+    CHECK_EQ_I(out.count, PANEL_TRIS);
+    for (i = 0; i < out.count; i++) {
+        CHECK_EQ_I(out.tris[i].texture, 0);
+    }
+    gex_emit_output_free(&out);
+    memset(&out, 0, sizeof(out));
+    CHECK(gex_menu_emit_part(&scene, &mat, &out, GEX_MENU_PART_LABELS) ==
+          GEX_EMIT_OK);
+    CHECK_EQ_I(out.count, scene.count - PANEL_TRIS);
+    for (i = 0; i < out.count; i++) {
+        CHECK(out.tris[i].texture != 0);
+    }
+    CHECK_EQ_I(out.tris[0].texture, 604);
+    gex_emit_output_free(&out);
+    memset(&out, 0, sizeof(out));
+    CHECK(gex_menu_emit_part(&scene, &mat, &out, (gex_menu_part)99) ==
+          GEX_EMIT_ERR_ARG);
+    CHECK(gex_menu_emit_part(NULL, &mat, &out, GEX_MENU_PART_ALL) ==
+          GEX_EMIT_ERR_ARG);
+    CHECK(gex_menu_emit_part(&scene, NULL, &out, GEX_MENU_PART_ALL) ==
+          GEX_EMIT_ERR_ARG);
+    CHECK(gex_menu_emit_part(&scene, &mat, NULL, GEX_MENU_PART_ALL) ==
+          GEX_EMIT_ERR_ARG);
+    CHECK_EQ_I(out.count, 0);
+    gex_emit_output_free(&out);
+
     /* Un vértice detrás del plano cercano descarta el triángulo, como el
      * original (`0x46A1D0` abandona el polígono entero). */
     memset(&out, 0, sizeof(out));

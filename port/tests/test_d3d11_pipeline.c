@@ -233,6 +233,77 @@ static void test_input_layout(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Scissor de la zona lógica (S-6)                                    */
+/* ------------------------------------------------------------------ */
+
+/* El rectángulo del scissor debe coincidir con el encuadre que aplica el
+ * vertex shader (escala uniforme y centrado) y no puede recortar nada dentro
+ * de la zona lógica. Es una función pura: se prueba sin dispositivo. */
+static void test_logical_rect(void)
+{
+    gex_d3d11_logical_rect r;
+
+    /* 960x540: escala 1,40625 (540/384), bandas de 120 px a los lados. Es el
+     * tamaño real de la ventana del port donde S-6 midió la fuga. */
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 540, 512, 384, &r) == 1);
+    CHECK(r.x == 120 && r.y == 0);
+    CHECK(r.width == 720u && r.height == 540u);
+    CHECK((uint32_t)r.x + r.width == 840u);
+
+    /* 4:3 exacto: el rectángulo es todo el destino. */
+    CHECK(gex_d3d11_pipeline_logical_rect(512, 384, 512, 384, &r) == 1);
+    CHECK(r.x == 0 && r.y == 0 && r.width == 512u && r.height == 384u);
+    CHECK(gex_d3d11_pipeline_logical_rect(1024, 768, 512, 384, &r) == 1);
+    CHECK(r.x == 0 && r.y == 0 && r.width == 1024u && r.height == 768u);
+    CHECK(gex_d3d11_pipeline_logical_rect(640, 480, 512, 384, &r) == 1);
+    CHECK(r.x == 0 && r.y == 0 && r.width == 640u && r.height == 480u);
+    CHECK(gex_d3d11_pipeline_logical_rect(320, 240, 512, 384, &r) == 1);
+    CHECK(r.x == 0 && r.y == 0 && r.width == 320u && r.height == 240u);
+
+    /* Más ancho que 4:3: bandas laterales; más alto: bandas arriba/abajo. */
+    CHECK(gex_d3d11_pipeline_logical_rect(1000, 540, 512, 384, &r) == 1);
+    CHECK(r.x == 140 && r.y == 0 && r.width == 720u && r.height == 540u);
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 600, 512, 384, &r) == 1);
+    CHECK(r.x == 80 && r.y == 0 && r.width == 800u && r.height == 600u);
+
+    /* La esquina lógica (0,0) cae exactamente en (x,y) del rectángulo y la
+     * (512,384) en (x+width, y+height): coincide con x_img = x0 + x*scale. */
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 540, 512, 384, &r) == 1);
+    CHECK((double)r.x + 512.0 * (540.0 / 384.0) ==
+          (double)(r.x + (int32_t)r.width));
+
+    /* Argumentos inválidos: rect a cero y 0. */
+    CHECK(gex_d3d11_pipeline_logical_rect(0, 540, 512, 384, &r) == 0);
+    CHECK(r.x == 0 && r.y == 0 && r.width == 0u && r.height == 0u);
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 0, 512, 384, &r) == 0);
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 540, 0, 384, &r) == 0);
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 540, 512, 0, &r) == 0);
+    CHECK(gex_d3d11_pipeline_logical_rect(960, 540, 512, 384, NULL) == 0);
+
+    /* Propiedad: para cualquier destino no nulo el rectángulo cabe dentro y
+     * contiene el centro. */
+    {
+        static const UINT sizes[][2] = {
+            { 960u, 540u }, { 1280u, 720u }, { 800u, 600u },
+            { 640u, 400u }, { 300u, 200u }, { 1920u, 1080u }
+        };
+        size_t i;
+        for (i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+            CHECK(gex_d3d11_pipeline_logical_rect(sizes[i][0], sizes[i][1],
+                                                  512, 384, &r) == 1);
+            CHECK(r.x >= 0 && r.y >= 0);
+            CHECK((uint32_t)r.x + r.width <= sizes[i][0]);
+            CHECK((uint32_t)r.y + r.height <= sizes[i][1]);
+            CHECK(r.width > 0u && r.height > 0u);
+            CHECK((uint32_t)r.x <= sizes[i][0] / 2u &&
+                  (uint32_t)r.x + r.width >= sizes[i][0] / 2u);
+            CHECK((uint32_t)r.y <= sizes[i][1] / 2u &&
+                  (uint32_t)r.y + r.height >= sizes[i][1] / 2u);
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Init / shutdown                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -1165,6 +1236,7 @@ int main(void)
     test_names();
     test_initializer();
     test_input_layout();
+    test_logical_rect();
     test_renderer_geometry_contract();
 
     ds = gex_d3d11_device_init(&device, GEX_D3D11_DRIVER_WARP, 0);

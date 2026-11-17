@@ -1,5 +1,100 @@
 # CHANGELOG
 
+## 2026-11-17 - 0.0.0 - S-6: auditoría visual de MAP7; el panel del menú se ordena con el nivel y el port recorta a la zona lógica
+
+Auditoría del fotograma de referencia de MAP7 comparando original y port en el
+**mismo encuadre** (512×384, `samples=428`, `pos=(2243, 487, 196)`,
+`euler=(-29, 0, 2842)`), con el texto del menú a ±1 px entre los dos
+ejecutables. La cámara y la corrección UV de S-5 **no se han tocado**.
+
+**Dos correcciones (las dos con prueba de regresión):**
+
+1. **El parche plano `(16,16,24)` era el panel del televisor, no el suelo.**
+   El port añadía la escena del menú **después** del ordenado del nivel, así que
+   el panel `tvmenu__` (`MENU_PANEL_COLOR 0xFF101018`, 12 triángulos sin UV) se
+   dibujaba el último y tapaba el tercio inferior derecho de la pantalla. El
+   original ordena el actor con la **misma** clave de bucket que el nivel,
+   `(maxz >> 2) + 4·layer`, descendente: panel `146..291` (en la zona visible,
+   `277..291`), suelo tex 265 `193..242`, rótulos `134..135`. Por eso el
+   original muestra suelo donde el
+   port mostraba el parche.
+   - Corrección: `gex_menu_emit_part` con `GEX_MENU_PART_PANEL` (12 triángulos
+     sin textura) emitido **antes** de `gex_emit_sort` y `GEX_MENU_PART_LABELS`
+     (8 texturados) **después**, siguiendo las dos rutas medidas en el binario
+     (`0x4718CF` panel / `0x470F96` texturada). `gex_menu_emit` sigue emitiendo
+     los 20 (compatibilidad).
+   - Verificación en captura: los 9 puntos muestreados del panel coinciden
+     **exactamente** con la captura sin menú y la región de los rótulos es
+     **idéntica** a la de S-5 (0 px distintos de 17 550).
+   - Se probó primero a ordenar **todo** el menú con el nivel: los rótulos
+     quedaban negros (tapados por `poly#116`, clave 25..39). De ahí la separación en
+     dos partes.
+
+2. **Límites laterales: el port dibujaba fuera de la zona lógica.**
+   El original dibuja en una superficie de 512×384 y no tiene framebuffer fuera
+   de ella. En una ventana 960×540 (factor 1,40625, bandas de 120 px) el port
+   tenía geometría en **29 941 px** de la banda izquierda y **35 680 px** de la
+   derecha, de 64 800 cada una.
+   - Corrección: `ScissorEnable = TRUE` en el rasterizador y
+     `RSSetScissorRects` en `gex_d3d11_pipeline_set_target`, con el rectángulo
+     de `gex_d3d11_pipeline_logical_rect` — **la misma matemática del vertex
+     shader** (`scale = min(vw/rw, vh/rh)`, centrado, bordes hacia fuera con
+     floor/ceil y acotados al destino).
+   - Verificación en captura 960×540: **0 px** de geometría en las dos bandas y
+     **0 px distintos** dentro de la zona lógica respecto a la captura anterior.
+     El encuadre de referencia 512×384 no cambia (el rectángulo es todo el
+     destino).
+
+**Defectos auditados que quedan medidos y diseñados, sin cambiar:**
+
+- **Esquinas azules `(51,51,204)`:** no es geometría ausente. Ni con las 249
+  hojas que ve la cámara (2 820 polígonos) ni con las 1 483 del nivel entero
+  (16 292) hay un polígono que cubra `(20,20)`; el azul es el clear de marcador
+  `{0.2f, 0.2f, 0.8f}` de `i4_app/i4_main_win32.c:528`. El original pinta un
+  rectángulo 2D de fondo (`0x64FB40`, handler `0x00469268`) con degradado
+  morado; falta medir su fórmula para sustituirlo.
+- **Fuego rectangular con fondo negro:** la llama usa la textura `370` (32×32
+  `ARGB_1555`, alfa 255 y fondo negro). El original la mezcla **aditiva**,
+  `grAlphaBlendFunction (1,4,4,0)`, en los 6 triángulos del opcode `0xB6`; el
+  port usa el estado global `(1,5,4,0)`, así que el negro se vuelve opaco. El
+  diseño está en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.10; no se implementa
+  porque la prueba de regresión natural está contaminada por la incógnita R/B.
+- **Intercambio R/B del vertex shader:** el suelo (tex 265, gris) pide quitarlo
+  —`(341,341)`: original `(55,36,21)`, port `(11,19,38)`, sin intercambio
+  `(38,19,11)`— y la pared pide lo contrario. Sin ganador identificado por
+  píxel en el original, **no se toca**.
+- **Recuento y `depth-clip`:** sin regresión. El `depth-clip` del original
+  (`0x46A1D0`, llamador `0x4015e3`, máscara `0x7E07E000`) ya se reproduce (62
+  descartes con la cámara) y la diferencia de ~1 517 polígonos/frame que citaba
+  la documentación era de AZTEC16, no de MAP7.
+
+**Pruebas:**
+
+- `test_d3d11_pipeline`: **409 comprobaciones** (antes 343), nueva
+  `test_logical_rect` (+66): 960×540 → `(120,0,720,540)`; 4:3 exacto → todo el
+  destino; más ancho → bandas laterales; más alto → bandas arriba/abajo;
+  argumentos nulos → rect a cero; y la propiedad de que el rectángulo cabe en
+  el destino y contiene el centro.
+- `test_scene_level`: **14 106 comprobaciones** (antes 12 335), nueva
+  `test_map7_menu_order` (+1 771): con el fotograma real, la parte ordenada está
+  en orden descendente de clave, el panel de mayor clave (`poly#9`, 286) queda
+  antes del suelo que lo tapa (`poly#136`, 234) y los rótulos son los últimos
+  ocho con las texturas medidas `604,604,603,603,602,602,601,601`.
+- `test_menu`: **223 comprobaciones** (antes 193), partes del menú y errores de
+  argumento.
+- Suite completa: **0 fallos**. Sanitizers: **40/40 OK** (O0/O2/ASan/UBSan).
+- Captura real en GPU hardware: `samples=428 finished=1
+  pos=(2243, 487, 196) euler=(-29, 0, 2842)`, `triangles=1742` con `--menu` y
+  `1722` sin él.
+
+**Documentación:** `PROJECT_STATE.md` (sección S-6 y corrección de la
+afirmación falsa del panel), `ROADMAP.md` (S-6),
+`docs/D3D11_FIRST_SCENE_PLAN.md` § 23 (23.1 panel, 23.2 esquinas, 23.3 fuego,
+23.4 scissor, 23.5 R/B, 23.6 recuento, 23.7 pendientes),
+`docs/VFX_TEXTURE_FORMAT.md` § 9.7 (alfa y mezcla por comando),
+`S3_MENU_CAMERA_SEQUENCE.md` § 11.2 y § 11.7 (el panel se proyecta **dentro**
+del encuadre y queda tras el nivel) y este CHANGELOG.
+
 ## 2026-11-16 - 0.0.0 - S-5: la escala UV de MAP7 corregida (256 = lado mayor); mosaicos y pantalla del televisor en cuatro partes eliminados
 
 El port ya muestra las texturas de MAP7 **una sola vez por polígono**, como el

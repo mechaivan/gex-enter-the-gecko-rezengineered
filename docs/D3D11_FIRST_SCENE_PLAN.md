@@ -3005,3 +3005,195 @@ conocida de S-2/S-3 y **no** es una regresión de S-5.
 3. **Materiales:** blending por polígono y niebla después de la textura.
 4. **Entrada y estado del menú** (mover el índice y confirmar) y las
    cinemáticas previas.
+
+## 23. Auditoría visual de MAP7 y correcciones de S-6 (2026-11-17)
+
+S-6 audita los defectos visuales del fotograma de referencia de MAP7 con
+**evidencia medida**, no por inspección de la imagen: dos capturas del **mismo
+encuadre** (original 512×384 y port a la misma resolución lógica) y sondas que
+recorren la emisión real (`probe_pixel`, `polyprobe`, `leafprobe`, `emitprobe`,
+`menuprobe`, `actprobe`).
+
+**El encuadre de referencia es correcto.** El texto del menú cae a ±1 px entre
+los dos ejecutables (START original `(104,142)-(186,160)` / port
+`(104,143)-(187,160)`; LOAD original `(110,173)-(198,199)` / port
+`(111,172)-(199,199)`), con `samples=428`, `pos=(2243,487,196)`,
+`euler=(-29,0,2842)` en los dos. Ninguna diferencia de esta sección es un
+problema de cámara.
+
+### 23.1 El parche plano `(16,16,24)` es el panel del televisor, no el suelo
+
+El defecto más grande del fotograma (un cuarto inferior derecho con color
+plano) **no** es geometría del nivel ni un fallo de textura:
+
+- El color es `MENU_PANEL_COLOR 0xFF101018` = `(16,16,24)` de
+  `port/src/scene/menu.c`: los 12 triángulos del panel `tvmenu__` del `.DFX`
+  (`0xDFF04`), que **no llevan registro UV** (`uv_ptr = 0x20800080`).
+- `menuprobe` los proyecta con la matriz final en `(310,305)-(741,848)` del
+  espacio lógico y cubren **14 956 px** de los 196 608 de la pantalla; la parte
+  visible es `(311,305)-(511,383)`.
+- La hipótesis anterior ("parche de suelo con la textura 265 plana") queda
+  **refutada**: la textura 265 decodifica en grises (56–83) y `emitprobe` da
+  como ganador del píxel `(341,341)` al `poly#136` (tex 265, color interpolado
+  `(44,77,152)`, texel ≈63 → `(11,19,38)`), que es exactamente lo que muestra
+  la captura **sin** `--menu`. El parche solo aparece con el menú, y el
+  contraste entre las dos capturas del port es de 43 944 px con la forma del
+  panel y de los rótulos.
+
+**Causa demostrada: el menú se añadía después del ordenado.** El original
+dibuja los actores por el mismo renderer que el nivel, con la misma clave de
+bucket `(maxz >> 2) + 4·layer` y el mismo desempate LIFO. Medido:
+
+| objeto | z | layer | clave |
+|---|---|---|---|
+| panel `tvmenu__` (12 tri) | 585..1166 | 0 | 146..291 |
+| panel, triángulos de la zona visible | 1108..1166 | 0 | 277..291 |
+| suelo tex 265 (`poly#77..80`) | 375..449 | 25 | 193..212 |
+| suelo tex 265 (`poly#136`, bajo el panel) | 526..570 | 25 | 231..242 |
+| rótulos `tvbutn__` (8 tri) | 537..541 | 0 | 134..135 |
+| `poly#116` (tex 317) | 503..557 | −25 | 25..39 |
+
+La clave se ordena **descendente** (mayor = más lejos = se dibuja antes), así
+que el panel queda **detrás** de los polígonos del nivel que lo cubren
+(277..291 frente a 103..242 en los cuatro píxeles medidos) y el original
+muestra suelo marrón en toda su proyección: comprobado con `emitprobe2`, todos
+los puntos muestreados del panel están cubiertos por geometría del nivel
+(tex 261, 87, 265, 86). Los rótulos, en cambio, están **por encima**: el
+original muestra su color sobre `poly#116` (clave 25..39) — `(255,51,31)` en
+`(140,150)` y `(56,54,96)` en `(180,180)`.
+
+**Corrección implementada.** El menú se emite en dos partes, siguiendo las dos
+rutas medidas en § 11.1 de `S3_MENU_CAMERA_SEQUENCE.md`:
+
+- `GEX_MENU_PART_PANEL` (12 triángulos sin textura) → se emite **antes** de
+  `gex_emit_sort`, de modo que participa del ordenado del nivel;
+- `GEX_MENU_PART_LABELS` (8 triángulos texturados) → se emite **después**,
+  como los dibuja la ruta texturizada `0x470F96`.
+
+`gex_menu_emit` sigue emitiendo los 20 (comportamiento histórico, usado por
+`test_menu`). El `seq` lo asigna `push_tri` con el orden de inserción, así que
+el desempate LIFO del original deja el panel detrás de los polígonos del nivel
+que comparten clave.
+
+**Validación de la corrección.**
+
+- Captura con `--menu` tras el cambio: los 9 puntos muestreados del panel
+  coinciden **exactamente** con la captura sin menú, y la región de los rótulos
+  es **idéntica** a la de S-5 (0 px distintos de 17 550).
+- `test_scene_level` (+1 771 comprobaciones): con el fotograma de referencia,
+  la parte ordenada del array está en orden descendente de clave, el panel de
+  mayor clave (`poly#9`, 286) queda antes del suelo que lo tapa (`poly#136`,
+  234) y los rótulos son los últimos ocho con las texturas medidas
+  `604,604,603,603,602,602,601,601`.
+- `test_menu` (+30): `PART_PANEL` emite 12 triángulos sin textura,
+  `PART_LABELS` emite 8 con las texturas 604..601 y los argumentos inválidos
+  devuelven `GEX_EMIT_ERR_ARG`.
+
+**Detalle conocido:** los triángulos del panel con clave baja (146..205) se
+dibujan *después* de algunos polígonos del nivel y aportan su color en 84 px de
+la zona de la llama, donde la mezcla no es sustitutiva. En esos 84 px el
+resultado con menú queda **más cerca** del original que la captura sin menú
+(`(452,321)`: original `(7,7,12)`, con menú `(7,6,7)`, sin menú `(14,13,43)`).
+
+### 23.2 Las esquinas azules no son geometría ausente
+
+`(51,51,204)` = `{0.2f, 0.2f, 0.8f}`, el **clear de marcador** de
+`port/src/app/i4_main_win32.c:528`. No hay geometría que falte:
+
+- con las **249 hojas** que ve la cámara (2 820 polígonos) **ni** con las
+  **1 483 hojas** del nivel entero (16 292 polígonos) hay un polígono que cubra
+  `(20,20)`: `polyprobe` y `leafprobe` dan cobertura vacía en los dos casos;
+- el original no tiene ese azul: pinta un **rectángulo 2D de fondo** de 512×384
+  (constante `0x64FB40`, handler `0x00469268`) con un degradado
+  morado/oscuro medido en `(15,8,46)`, `(17,8,64)` y `(20,8,71)`.
+
+**Pendiente, no corregido:** sustituir el clear por ese rectángulo exige medir
+la fórmula del degradado (no solo tres muestras); se deja diseñado para no
+inventar el gradiente.
+
+### 23.3 El fuego rectangular con fondo negro: mezcla de la textura 370
+
+La llama usa la textura **370** (32×32, `ARGB_1555`, alfa 255 en los 1 024
+texeles y fondo **negro**). El original la dibuja con
+`grAlphaBlendFunction (1,4,4,0)` — **aditiva** — en los 6 triángulos del opcode
+`0xB6`; el port aplica el estado global `(1,5,4,0)`, así que el negro del fondo
+se vuelve opaco y tapa lo que hay detrás. El diseño de la corrección (selección
+de mezcla por comando) está en § 19.10 y **no se ha implementado**: exige
+cambiar el estado de mezcla por triángulo, y la prueba de regresión natural
+(comparar los píxeles del fuego con el original) está contaminada por el
+problema de color de § 23.5.
+
+### 23.4 Límites laterales: scissor a la zona lógica (implementado)
+
+El original dibuja en una superficie de **512×384**: fuera de ese rectángulo no
+existe framebuffer. El port escala la zona lógica a la ventana (960×540 →
+factor 1,40625 y bandas de 120 px), pero dibujaba **fuera** del rectángulo:
+
+| banda | píxeles con geometría | de |
+|---|---|---|
+| izquierda (x < 120) | 29 941 | 64 800 |
+| derecha (x ≥ 840) | 35 680 | 64 800 |
+
+**Corrección:** `ScissorEnable = TRUE` en el rasterizador y
+`RSSetScissorRects` en `gex_d3d11_pipeline_set_target`, con el rectángulo de
+`gex_d3d11_pipeline_logical_rect`, que usa **la misma matemática del vertex
+shader** (`scale = min(vw/rw, vh/rh)`, centrado, bordes hacia fuera con
+floor/ceil y acotados al destino):
+
+| destino | rectángulo |
+|---|---|
+| 960×540 | `(120,0,720,540)` |
+| 512×384, 640×480, 1024×768 | todo el destino |
+| 1000×540 | `(140,0,720,540)` |
+| 960×600 | `(80,0,800,600)` |
+
+**Validación:** `test_logical_rect` (+66 comprobaciones, `test_d3d11_pipeline`
+343 → 409) y captura real: **0 px** de geometría en las dos bandas y **0 px
+distintos** dentro de la zona lógica respecto a la captura anterior. La captura
+de referencia 512×384 no cambia por construcción.
+
+### 23.5 Color por vértice: el intercambio R/B sigue sin demostrar
+
+- Media global (R−B) sin menú: original `+22,12`, port `−25,97`; quitando el
+  intercambio del vertex shader, `+25,97`. La correlación por píxel es solo
+  `+0,254` y las regiones se contradicen.
+- **Medición limpia (suelo, textura 265 gris):** en `(341,341)` el port da
+  `(11,19,38)` con el intercambio actual y `(38,19,11)` sin él; el original
+  muestra `(55,36,21)`. El original conserva el orden R>G>B del color de
+  vértice y el intercambio lo invierte; la región del suelo lo confirma
+  (`(330,350)-(440,375)`: original R−B `+19,1`, port `−5,3`, sin intercambio
+  `+5,3`).
+- **La pared prefiere lo contrario** (`(400,200)-(470,280)`: original R−B
+  `+12,2`, port `+5,7`, sin intercambio `−5,7`), y en esos píxeles no está
+  identificado qué polígono gana en el original.
+
+**No se toca el shader.** El experimento que lo resolvería está descrito abajo.
+
+### 23.6 Recuento, descarte y depth-clip
+
+- Con la cámara: **249 hojas / 2 820 polígonos** (`draw=764`, `subdivide=466`,
+  `backface=983`, `depth-clip=62`, `offscreen=545`). Todas las hojas: 1 483 /
+  16 292 (`draw=860`, `subdivide=2 114`, `backface=2 689`, `depth-clip=9 310`,
+  `offscreen=1 319`).
+- El `depth-clip` del original está verificado en el binario: `0x46A1D0`
+  compara la profundidad con `[0x6474E8]` (`0xA0`) y `0xFFFF`, escribe
+  `0x40000` en `[0x647578]` y el llamador `0x4015e3` descarta el polígono con
+  la máscara `0x7E07E000`. El port hace lo mismo (62 descartes).
+- La diferencia de ~1 517 polígonos/frame que citaba la documentación anterior
+  **no es comparable**: se midió en AZTEC16 (`S2_BSP_TRAVERSAL.md` § 8), no en
+  MAP7.
+
+### 23.7 Lo que queda de S-6
+
+1. **Experimento decisivo del color (R/B):** fotograma de control con un solo
+   polígono y una textura conocida (o el mismo polígono con dos texturas de
+   color opuesto) para separar el orden del color de vértice del de la textura.
+2. **Fondo `0x64FB40`:** medir la fórmula del degradado (más de tres muestras)
+   y sustituir el clear azul.
+3. **Mezcla por comando:** implementar la selección de § 19.10 para el opcode
+   `0xB6` (fuego aditivo).
+4. **Logo de la pantalla inferior:** sigue pendiente lo de § 22.6 (el cristal
+   `311` tapa el logo `368`).
+5. **`poly#116` (tex 317, layer −25):** decidir si el original lo dibuja; hoy
+   el port lo dibuja después de los rótulos y solo se evita el efecto porque
+   los rótulos se añaden al final.
