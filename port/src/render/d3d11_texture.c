@@ -33,6 +33,15 @@ typedef struct {
  * el ancho máximo; si no, se empieza una fila nueva. Cada textura ocupa
  * (w+2) x (h+2): un texel de borde replicado para que el filtrado bilineal
  * no mezcle con la vecina.
+ *
+ * S-8: el ancho del atlas es el de la fila **más ancha**, no el de la
+ * última. Medido sobre el conjunto exacto que pedía la aplicación: con 128
+ * texturas la fila 0 medía 4070 px y la última 1278 (se devolvía 1278), y con
+ * 231 las filas son 4070 / 4080 / 1616 (se devolvía 1616). Devolver el ancho
+ * de la última dejaba fuera del atlas a las texturas de las filas anchas:
+ * `blit_with_border` escribía con ese paso y `atlas_uv` se salía de [0,1], de
+ * modo que se muestreaba otra zona del atlas (y se corrompían texturas
+ * vecinas). El defecto estaba ya presente con 128 entradas.
  */
 static void atlas_layout(const gex_vfx_texture_bank *bank,
                          atlas_slot *slots, UINT *width, UINT *height)
@@ -40,6 +49,7 @@ static void atlas_layout(const gex_vfx_texture_bank *bank,
     UINT x = 0;
     UINT y = 0;
     UINT row_height = 0;
+    UINT max_width = 0;
     UINT i;
 
     for (i = 0; i < bank->texture_count; i++) {
@@ -48,6 +58,9 @@ static void atlas_layout(const gex_vfx_texture_bank *bank,
         UINT th = tex->height + 2u;
 
         if (x + tw > GEX_D3D11_TEXTURE_ATLAS_MAX_WIDTH && x > 0u) {
+            if (x > max_width) {
+                max_width = x;
+            }
             x = 0u;
             y += row_height;
             row_height = 0u;
@@ -61,7 +74,10 @@ static void atlas_layout(const gex_vfx_texture_bank *bank,
             row_height = th;
         }
     }
-    *width = x;
+    if (x > max_width) {
+        max_width = x;
+    }
+    *width = max_width;
     *height = y + row_height;
     if (*width == 0u) {
         *width = 1u;

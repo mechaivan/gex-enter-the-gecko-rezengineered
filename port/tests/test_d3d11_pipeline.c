@@ -905,9 +905,64 @@ static int write_synthetic_vfx(const char *path)
     return 0;
 }
 
-static void test_texture_set(gex_d3d11_device *device)
+/*
+ * `.VFX` sintético con `count` texturas de `size` x `size` en ARGB_4444.
+ * Cada textura es de un color uniforme derivado de su índice, de modo que el
+ * texel leído del atlas identifica la textura exacta.
+ */
+static int write_synthetic_vfx_multi(const char *path, uint32_t count,
+                                     uint32_t size)
 {
-    const char *vfx_path = "gex_test_texture.vfx";
+    FILE *fh;
+    uint8_t header[0x8C];
+    uint16_t *data;
+    uint32_t i, x, y, lod = 0;
+    const uint32_t bytes = size * size * 2u;
+
+    /* lod_side(lod) = 256 >> lod: para 32 px, lod = 3. */
+    while ((256u >> lod) > size && lod < 9u) {
+        lod++;
+    }
+    fh = fopen(path, "wb");
+    if (fh == NULL) {
+        return -1;
+    }
+    data = (uint16_t *)malloc(bytes);
+    if (data == NULL) {
+        fclose(fh);
+        return -1;
+    }
+    fwrite(&count, 1, sizeof(count), fh);
+    for (i = 0; i < count; i++) {
+        uint32_t r = (i * 3u) & 0x0Fu;
+        uint32_t g = (i * 5u + 1u) & 0x0Fu;
+        uint32_t b = (i * 7u + 2u) & 0x0Fu;
+        uint16_t word = (uint16_t)((0xFu << 12) | (r << 8) | (g << 4) | b);
+
+        memset(header, 0, sizeof(header));
+        header[0] = (uint8_t)lod; /* smallLod */
+        header[4] = (uint8_t)lod; /* largeLod */
+        header[8] = 3;            /* aspect = 1x1 */
+        header[12] = 12;          /* GR_TEXFMT_ARGB_4444 */
+        header[0x84] = (uint8_t)(bytes & 0xFFu);
+        header[0x85] = (uint8_t)((bytes >> 8) & 0xFFu);
+        header[0x86] = (uint8_t)((bytes >> 16) & 0xFFu);
+        header[0x87] = (uint8_t)((bytes >> 24) & 0xFFu);
+        fwrite(header, 1, sizeof(header), fh);
+        for (y = 0; y < size; y++) {
+            for (x = 0; x < size; x++) {
+                data[y * size + x] = word;
+            }
+        }
+        fwrite(data, 1, bytes, fh);
+    }
+    fclose(fh);
+    free(data);
+    return 0;
+}
+
+static void test_texture_set(gex_d3d11_device *device)
+{    const char *vfx_path = "gex_test_texture.vfx";
     gex_vfx_texture_bank bank;
     gex_d3d11_texture_set set = GEX_D3D11_TEXTURE_SET_INITIALIZER;
     gex_d3d11_pipeline pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
@@ -1056,6 +1111,117 @@ static void test_texture_set(gex_d3d11_device *device)
 
     gex_d3d11_texture_set_destroy(&set);
     CHECK(set.initialized == 0);
+    gex_d3d11_texture_set_destroy(&set);
+    gex_vfx_texture_bank_free(&bank);
+    remove(vfx_path);
+}
+
+/* Lee un texel del atlas (R8G8B8A8_UNORM) a través de una copia staging. */
+static int read_atlas_texel(gex_d3d11_device *device,
+                            const gex_d3d11_texture_set *set,
+                            UINT x, UINT y, uint8_t out[4])
+{
+    D3D11_TEXTURE2D_DESC desc;
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    ID3D11Texture2D *staging = NULL;
+    const uint8_t *row;
+    HRESULT hr;
+
+    memset(&desc, 0, sizeof(desc));
+    ID3D11Texture2D_GetDesc(set->atlas, &desc);
+    desc.Usage = D3D11_USAGE_STAGING;
+    desc.BindFlags = 0;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    desc.MiscFlags = 0;
+    hr = ID3D11Device_CreateTexture2D(device->device, &desc, NULL, &staging);
+    if (FAILED(hr) || staging == NULL) {
+        return 0;
+    }
+    ID3D11DeviceContext_CopyResource(device->context,
+                                     (ID3D11Resource *)staging,
+                                     (ID3D11Resource *)set->atlas);
+    hr = ID3D11DeviceContext_Map(device->context, (ID3D11Resource *)staging, 0,
+                                 D3D11_MAP_READ, 0, &mapped);
+    if (FAILED(hr)) {
+        ID3D11Texture2D_Release(staging);
+        return 0;
+    }
+    row = (const uint8_t *)mapped.pData + (size_t)y * mapped.RowPitch +
+          (size_t)x * 4u;
+    out[0] = row[0];
+    out[1] = row[1];
+    out[2] = row[2];
+    out[3] = row[3];
+    ID3D11DeviceContext_Unmap(device->context, (ID3D11Resource *)staging, 0);
+    ID3D11Texture2D_Release(staging);
+    return 1;
+}
+
+/*
+ * S-8: el atlas tiene que medir la fila MÁS ANCHA, no la última.
+ *
+ * 130 texturas de 32x32 ocupan 34x34 con el borde. En una fila caben 120
+ * (120 * 34 = 4080 <= 4096); las 10 restantes van a una segunda fila de 340.
+ * El defecto devolvía 340 como ancho del atlas: las texturas 0..119 se
+ * escribían y se muestreaban fuera de rango. La prueba comprueba el ancho
+ * (4080), el alto (68) y texeles de la primera fila (0 y 100) y de la
+ * segunda (129). Además cruza el límite antiguo de 128 entradas.
+ */
+#define MULTI_TEXTURE_COUNT 130u
+#define MULTI_TEXTURE_SIZE 32u
+#define MULTI_TEXTURE_CELL (MULTI_TEXTURE_SIZE + 2u)
+#define MULTI_TEXTURE_PER_ROW \
+    (GEX_D3D11_TEXTURE_ATLAS_MAX_WIDTH / MULTI_TEXTURE_CELL)
+
+static void test_texture_set_multiatlas(gex_d3d11_device *device)
+{
+    const char *vfx_path = "gex_test_texture_multi.vfx";
+    gex_vfx_texture_bank bank;
+    gex_d3d11_texture_set set = GEX_D3D11_TEXTURE_SET_INITIALIZER;
+    uint32_t wanted[MULTI_TEXTURE_COUNT];
+    uint8_t texel[4];
+    uint32_t i;
+    int status;
+
+    CHECK(write_synthetic_vfx_multi(vfx_path, MULTI_TEXTURE_COUNT,
+                                    MULTI_TEXTURE_SIZE) == 0);
+    memset(&bank, 0, sizeof(bank));
+    for (i = 0; i < MULTI_TEXTURE_COUNT; i++) {
+        wanted[i] = i;
+    }
+    CHECK(gex_vfx_texture_bank_load(&bank, vfx_path, wanted,
+                                    MULTI_TEXTURE_COUNT) == GEX_VFX_OK);
+    CHECK(bank.texture_count == MULTI_TEXTURE_COUNT);
+
+    status = gex_d3d11_texture_set_create(&set, device, &bank,
+                                          GEX_NCC_UV_MODE_TEXEL);
+    CHECK(status == GEX_D3D11_TEXTURE_OK);
+    if (status == GEX_D3D11_TEXTURE_OK) {
+        CHECK(set.texture_count == MULTI_TEXTURE_COUNT);
+        CHECK(set.entry_count == MULTI_TEXTURE_COUNT);
+        CHECK(MULTI_TEXTURE_PER_ROW == 120u);
+        CHECK(set.atlas_width == 4080u);
+        CHECK(set.atlas_height == 68u);
+
+        /* Textura 0: fila 0, columna 0, texel (5,5). Color R=0, G=17, B=34. */
+        CHECK(read_atlas_texel(device, &set, 1u + 5u, 1u + 5u, texel));
+        CHECK(texel[0] == 0u && texel[1] == 17u && texel[2] == 34u &&
+              texel[3] == 255u);
+
+        /* Textura 100: fila 0, columna 100 (x = 1 + 3400 + 5 = 3406). Con el
+         * ancho antiguo (340) esta lectura caía en otra fila. */
+        CHECK(read_atlas_texel(device, &set, 1u + 100u * MULTI_TEXTURE_CELL + 5u,
+                               1u + 5u, texel));
+        CHECK(texel[0] == 204u && texel[1] == 85u && texel[2] == 238u &&
+              texel[3] == 255u);
+
+        /* Textura 129: fila 1, columna 9. */
+        CHECK(read_atlas_texel(device, &set, 1u + 9u * MULTI_TEXTURE_CELL + 5u,
+                               1u + MULTI_TEXTURE_CELL + 5u, texel));
+        CHECK(texel[0] == 51u && texel[1] == 102u && texel[2] == 153u &&
+              texel[3] == 255u);
+    }
+
     gex_d3d11_texture_set_destroy(&set);
     gex_vfx_texture_bank_free(&bank);
     remove(vfx_path);
@@ -1509,6 +1675,7 @@ int main(void)
     test_no_partial_resources(&device);
     test_draw_cube(&device);
     test_texture_set(&device);
+    test_texture_set_multiatlas(&device);
     test_blend_runs(&device);
     test_texture_uv_scale(&device);
 

@@ -96,9 +96,17 @@ typedef enum gex_ncc_uv_mode {
  * Medido en S-5: el fotograma final del vuelo de MAP7 usa **65** índices
  * distintos y el menú añade los ocho de `tvbutn__` (600..607), así que hacen
  * falta 73. El límite anterior (64) obligaba a descartar texturas: se
- * quedaban fuera el 2,4 % de los vértices del encuadre del menú. 128 cubre
- * el fotograma con margen y el constant buffer resultante mide 4 KiB. */
-#define GEX_D3D11_TEXTURE_MAX_ENTRIES 128
+ * quedaban fuera el 2,4 % de los vértices del encuadre del menú. 128 cubría
+ * el fotograma final con margen.
+ *
+ * S-8: el **vuelo completo** de MAP7 toca **231** índices distintos. Con 128
+ * entradas el atlas se quedaba corto y el pixel shader caía al color por
+ * vértice en las texturas descartadas: hasta el 17 % de los píxeles cubiertos
+ * de un fotograma intermedio (p. ej. `samples=101`) aparecía como superficie
+ * lisa gris azulada. 256 entradas cubren las 231 del vuelo con margen y
+ * siguen dentro de los límites de D3D11: la tabla son 256 x 32 B = 8 KiB y el
+ * constant buffer completo mide 8 208 B (muy por debajo de los 64 KiB). */
+#define GEX_D3D11_TEXTURE_MAX_ENTRIES 256
 
 /* Ancho máximo del atlas antes de partir en más filas. */
 #define GEX_D3D11_TEXTURE_ATLAS_MAX_WIDTH 4096u

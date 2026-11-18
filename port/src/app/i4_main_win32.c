@@ -54,12 +54,15 @@ typedef struct i4_options {
     uint64_t screenshot_frame; /* 0 = el ultimo frame del limite */
     int textures_final; /* 1 = texturas del fotograma final del vuelo */
     int menu; /* 1 = anade el menu del televisor al final de la trayectoria */
+    uint64_t camera_freeze; /* muestra exacta en la que congelar la camara */
+    int camera_freeze_set;  /* 1 = --camera-path-freeze presente */
 } i4_options;
 
 static void usage(const char *exe)
 {
     printf("usage: %s [--frames N] [--seconds N] [--level PATH] "
            "[--diagnostic-view] [--camera-path] [--textures-final] "
+           "[--camera-path-freeze N] "
            "[--screenshot PATH [--screenshot-frame N]]\n", exe);
     printf("  --frames N   exit after N presented frames\n");
     printf("  --seconds N  exit after N seconds\n");
@@ -78,6 +81,8 @@ static void usage(const char *exe)
            "the most used over the flight\n");
     printf("  --menu  when the camera path ends, add the TV main menu "
            "(tvmenu__ panel + the four tvbutn__ labels) to the scene\n");
+    printf("  --camera-path-freeze N  advance the camera path exactly N "
+           "samples and freeze it (reproducible screenshots)\n");
     printf("  (default: run until Escape or the window is closed)\n");
 }
 
@@ -136,6 +141,7 @@ typedef struct i4_camera_path {
     gex_d3d11_mesh *mesh;
     uint32_t samples;   /* muestras producidas */
     int finished;       /* el centinela ya se alcanzo */
+    int frozen;         /* 1 = camara congelada (captura reproducible) */
     int error;          /* fallo de la re-emision */
     int menu;           /* 1 = anadir el menu del televisor al terminar */
 } i4_camera_path;
@@ -149,7 +155,7 @@ static int i4_camera_path_update(void *ctx)
     i4_camera_path *state = (i4_camera_path *)ctx;
     int step;
 
-    if (state->finished || state->error) {
+    if (state->frozen || state->finished || state->error) {
         return 0;
     }
 
@@ -225,6 +231,8 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->screenshot_frame = 0;
     options->textures_final = 0;
     options->menu = 0;
+    options->camera_freeze = 0;
+    options->camera_freeze_set = 0;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             usage(argv[0]);
@@ -245,6 +253,13 @@ static int parse_options(int argc, char **argv, i4_options *options)
             options->camera_path = 1;
         } else if (strcmp(argv[i], "--textures-final") == 0) {
             options->textures_final = 1;
+        } else if (strcmp(argv[i], "--camera-path-freeze") == 0 &&
+                   i + 1 < argc) {
+            if (!parse_u64(argv[++i], &options->camera_freeze)) {
+                fprintf(stderr, "invalid --camera-path-freeze value\n");
+                return 0;
+            }
+            options->camera_freeze_set = 1;
         } else if (strcmp(argv[i], "--menu") == 0) {
             options->menu = 1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
@@ -470,6 +485,12 @@ int main(int argc, char **argv)
                         "--level PATH\n");
         return 1;
     }
+    if (options.camera_freeze_set &&
+        (!options.camera_path || options.level_path == NULL)) {
+        fprintf(stderr, "error: --camera-path-freeze needs --camera-path and "
+                        "--level PATH\n");
+        return 1;
+    }
 #if !defined(_WIN32)
     if (options.screenshot_path != NULL) {
         fprintf(stderr, "error: --screenshot needs the Direct3D 11 "
@@ -665,10 +686,11 @@ int main(int argc, char **argv)
                  *
                  * Con la secuencia de camara la geometria cambia en cada
                  * frame: las texturas que se ven NO son solo las del
-                 * frame 0, sino las de todo el vuelo (mas que las 64 que
-                 * caben en el atlas). Para no tocar el modulo de texturas ni
-                 * el shader, se recorre la trayectoria una vez y se piden las
-                 * texturas MAS USADAS; la cobertura resultante se imprime. */
+                 * frame 0, sino las de todo el vuelo (mas que las 128 que
+                 * cabian en el atlas antes de S-8). Se recorre la trayectoria
+                 * una vez y se piden las texturas MAS USADAS; si caben todas
+                 * (S-8: 231 <= 256) la cobertura es el 100 % y la lista se
+                 * usa como conjunto completo. */
                 if (options.camera_path && scene.path_loaded) {
                     uint32_t *counts = (uint32_t *)calloc(16384u,
                                                           sizeof(uint32_t));
@@ -714,8 +736,9 @@ int main(int argc, char **argv)
                                 ? (uint32_t)GEX_D3D11_TEXTURE_MAX_ENTRIES : n;
                             /* S-4: el menu necesita sus ocho texturas
                              * (600..607). Se ponen las primeras de la lista
-                             * para que entren siempre en el atlas de 64
-                             * entradas, sin ampliarlo. */
+                             * para que entren siempre en el atlas, aunque el
+                             * vuelo use el resto (S-8: 231 indices, caben en
+                             * las 256 entradas). */
                             if (options.menu && idxs != NULL) {
                                 static const uint32_t menu_tex[8] = {
                                     600, 601, 602, 603, 604, 605, 606, 607};
@@ -952,8 +975,28 @@ int main(int argc, char **argv)
         path_state.mesh = &d3d11_mesh;
         path_state.samples = 0;
         path_state.finished = 0;
+        path_state.frozen = 0;
         path_state.error = 0;
         path_state.menu = options.menu;
+        /* Captura reproducible (S-8): avanzar exactamente N muestras antes
+         * de entrar en el bucle y congelar la camara. Sin esta opcion el
+         * numero de muestras por present depende del reloj y dos capturas
+         * del "mismo" frame pueden caer en poses distintas. */
+        if (options.camera_freeze_set) {
+            uint64_t k;
+            for (k = 0; k < options.camera_freeze; k++) {
+                if (i4_camera_path_update(&path_state) != 0 ||
+                    path_state.finished) {
+                    break;
+                }
+            }
+            path_state.frozen = 1;
+            printf("camera path: frozen at sample %u, pos=(%d, %d, %d) "
+                   "euler=(%d, %d, %d)\n",
+                   (unsigned)path_state.samples, path_cam.pos[0],
+                   path_cam.pos[1], path_cam.pos[2], path_cam.euler[0],
+                   path_cam.euler[1], path_cam.euler[2]);
+        }
         gex_i4_app_set_update_callback(&app, i4_camera_path_update, &path_state);
         g_camera_path_state = &path_state;
         printf("camera path: playing (%d records, one step per logical "

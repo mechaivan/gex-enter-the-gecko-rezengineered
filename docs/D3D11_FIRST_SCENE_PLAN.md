@@ -3304,3 +3304,143 @@ de referencia 512×384 no cambia por construcción.
 5. **`poly#116` (tex 317, layer −25):** decidir si el original lo dibuja; hoy
    el port lo dibuja después de los rótulos y solo se evita el efecto porque
    los rótulos se añaden al final.
+
+## 24. S-8: las superficies lisas del vuelo eran el atlas (2026-11-18)
+
+### 24.1 Síntoma y método
+
+Durante el vuelo de cámara de MAP7 aparecían zonas extensas **lisas,
+gris/azuladas**, que ocupaban muros, rampas y suelo en vez de la geometría
+texturizada; en varios encuadres parecían bloques planos desproporcionados. No
+había captura del framebuffer del original (la ventana devuelve negro), así que
+la investigación se hizo sobre los datos y el pipeline del port:
+
+- Capturas reales con GPU hardware en **poses congeladas** (`samples=36, 69,
+  101, 133, 166, 225, 278`), tomadas con la opción nueva
+  `--camera-path-freeze N`.
+- Una sonda temporal (fuera del repo) que carga `map7.dfx`, avanza la
+  trayectoria **N** muestras exactas, emite la escena y decide el triángulo
+  ganador por píxel (orden del pintor, sin *depth buffer*, igual que el
+  pipeline). Cuenta las texturas usadas por fotograma y por vuelo.
+
+### 24.2 Causa 1: el atlas admitía 128 entradas y el vuelo usa 231
+
+El vuelo completo de MAP7 toca **231 índices distintos** de textura (y el
+fotograma final 65). Hasta S-8 el atlas tenía
+`GEX_D3D11_TEXTURE_MAX_ENTRIES 128`, y la aplicación pedía solo las 128 más
+usadas. El pixel shader, si no encuentra el índice en `gex_tex_entries`,
+**deja el color por vértice y alfa 1**; como ese color ya lleva la niebla, la
+superficie sale plana y gris azulada.
+
+Medición sobre el triángulo ganador en el espacio lógico 512×384 (píxeles
+cubiertos cuyo textura está fuera del conjunto de 128):
+
+| muestra | píxeles afectados | cubiertos | % |
+|---|---|---|---|
+| 36 | 7 723 | 162 743 | 4,7 |
+| 69 | 29 771 | 193 356 | 15,4 |
+| 101 | 28 302 | 166 509 | **17,0** |
+| 133 | 3 408 | 184 883 | 1,8 |
+| 166 | 9 782 | 172 578 | 5,7 |
+| 225 | 3 742 | 141 185 | 2,7 |
+| 278 | 0 | 131 671 | 0 |
+
+La comparación visual lo confirma: en `samples=101` el muro de los grafitis
+sale como bloques lisos grises con 128 texturas y como **textura legible**
+con las 231.
+
+### 24.3 Causa 2: `atlas_layout` devolvía el ancho de la última fila
+
+`atlas_layout` calculaba el alto de cada fila correctamente, pero terminaba con
+`*width = x`, donde `x` es el ancho de la **última** fila. Si una fila anterior
+es más ancha, el atlas se crea demasiado estrecho:
+
+- `blit_with_border` escribe cada textura con `atlas_width` como paso; las
+  texturas de la fila ancha **invaden las filas siguientes**.
+- El shader calcula `atlas_uv = (origen + texels)/atlas_w`; con un origen mayor
+  que el ancho devuelto, `atlas_uv.x > 1` y el WRAP lee **otra zona del atlas**.
+
+Medido con el conjunto exacto que pedía la aplicación (texturas ordenadas por
+uso descendente):
+
+| conjunto | filas (anchos) | `*width` devuelto | máximo real |
+|---|---|---|---|
+| 128 (vuelo) | 4070 / 1278 | **1278** | **4070** |
+| 231 (vuelo) | 4070 / 4080 / 1616 | **1616** | **4080** |
+
+Es decir: la corrupción no la introdujo S-8 sino que ya existía con 128
+(texturas de la fila 0 con `x > 1278`), y al subir a 231 empeoró. En
+`samples=278`, donde **ninguna** textura falta de el conjunto de 128, el atlas
+corregido cambia el **19,7 %** de los píxeles: es el efecto aislado del ancho.
+
+### 24.4 Correcciones
+
+1. `port/include/gex/render/d3d11_texture.h`:
+   `GEX_D3D11_TEXTURE_MAX_ENTRIES 128 → 256`. La tabla son 256 × 32 B = 8 KiB;
+   el constant buffer completo mide **8 208 B**, muy por debajo de los 64 KiB
+   que admite D3D11.
+2. `port/src/render/d3d11_pipeline.c`: `gex_tex_entries[256] → [512]` (dos
+   `float4` por entrada). Es la única dimensión acoplada.
+3. `port/src/render/d3d11_texture.c`: `atlas_layout` devuelve el **ancho máximo
+   de fila** (nuevo `max_width`).
+4. `port/src/app/i4_main_win32.c`: con el nuevo límite la aplicación pide las
+   **231** texturas del vuelo y el log informa de cobertura **100 %** (239 con
+   el menú). Se añade `--camera-path-freeze N` para capturas reproducibles.
+
+No se tocan la cámara, la profundidad, el orden de dibujo, el scissor, el menú,
+la niebla, las UV ni la mezcla.
+
+### 24.5 Verificación
+
+- Suite completa de `port`: **0 fallos**. Sanitizers O0/O2/ASan/UBSan:
+  **TODO OK**.
+- `test_d3d11_pipeline`: **504 comprobaciones, 0 fallos**. Nueva prueba
+  `test_texture_set_multiatlas`: 130 texturas de 32×32 (dos filas, la última
+  más corta) ⇒ ancho **4 080**, alto **68**, y texeles verificados en la fila 0
+  (texturas 0 y 100, incluida `x = 3406`, que con el ancho antiguo caía fuera)
+  y en la fila 1 (129). Además cruza el antiguo límite de 128 entradas.
+- Atlas real: `1278×260` (128, con el bug) → **`4080×326`** (231, corregido);
+  menú: 239 texturas, atlas `4066×326`. Con `--textures-final`: 65 texturas,
+  atlas `2986×130` (antes también recortado por el mismo defecto).
+- Capturas reales 960×540 en las poses congeladas, antes (128 + bug) contra
+  después (231 + corrección):
+
+| muestra | píxeles distintos | % |
+|---|---|---|
+| 36 | 188 677 | 36,4 |
+| 69 | 243 632 | 47,0 |
+| 101 | 192 399 | 37,1 |
+| 133 | 203 415 | 39,2 |
+| 166 | 230 902 | 44,5 |
+| 225 | 195 899 | 37,8 |
+| 278 | 194 878 | 37,6 |
+
+- Menú (`--menu`, 239 texturas) y llama (textura 370 aditiva): capturas y
+  `test_menu` **223** / `test_actor` **80**, 0 fallos; sin regresión.
+
+### 24.6 Hipótesis descartadas
+
+- **Triangulación, índices, vértices, normales, materiales, comandos de emisión,
+  clipping, orden de dibujo y sombreado:** no hay ninguna diferencia que
+  explique el defecto. La emisión de MAP7 ya estaba validada **1123/1123** con
+  el mismo orden, y la anomalía desaparece solo con el atlas, sin tocar la
+  geometría.
+- **UV:** S-5 cerró la regla (`texels = uv · max(w, h)`) y midió que ninguna
+  textura recorre su UV más de una vez. No interviene.
+- **Patrón de bloques en la hierba:** las texturas 247/249/260/113/166/265 son
+  de 64×64 `YIQ_422`; el patrón de bloques está presente en los propios datos
+  decodificados (volcados a PPM). No es corrupción del atlas.
+- **Oscuridad general:** los 1 123 colores por vértice reproducen los valores
+  medidos del original y la niebla actúa antes de la textura como en la ruta de
+  nivel (§ 19.4). Sigue abierta la **escala RGB 0..2 de Glide** (§ 19.11): el
+  port normaliza a 0..1 y no se ha medido el factor del driver en la ruta
+  modulada. **No se toca** sin cerrar esa incógnita.
+
+### 24.7 Pendiente tras S-8
+
+1. Escala RGB 0..2 (§ 19.11): hace falta el *pixel shader* del nivel ensamblado
+   en runtime o una captura del framebuffer original (la ventana devuelve
+   negro).
+2. Pantalla inferior del televisor (§ 22.6): el cristal `311` tapa el logo
+   `368` por coplanaridad; sin relación demostrada con el atlas.
+3. Intercambio R/B (§ 23.5): experimento decisivo pendiente.

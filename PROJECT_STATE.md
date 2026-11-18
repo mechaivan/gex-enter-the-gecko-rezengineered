@@ -8,10 +8,78 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-18 (S-7: **mezcla de renderizado por comando**
-implementada; la llama de MAP7 pasa a aditiva y el resto del nivel conserva
-alfa, con tramos contiguos de índices y 5 estados D3D11; suite completa,
-sanitizers y capturas reales comparadas contra el baseline `9ecb09d`)
+**Last updated:** 2026-11-18 (S-8: **corregidos el atlas incompleto y el ancho
+del atlas**, causa de las superficies lisas grises del vuelo de MAP7; suite
+completa, sanitizers y capturas reales comparadas en poses congeladas)
+
+### S-8: anomalías visuales de MAP7 — atlas incompleto y ancho del atlas (2026-11-18)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 24 y
+`docs/VFX_TEXTURE_FORMAT.md` § 9.8.
+
+**Síntoma.** Durante el vuelo de cámara aparecían zonas extensas lisas,
+gris/azuladas, que ocupaban muros, rampas y suelo en vez de la geometría
+texturizada; en algunos encuadres parecían bloques planos desproporcionados.
+
+**Causa raíz (dos defectos del port, no de la geometría).**
+
+1. **El atlas tenía un máximo de 128 entradas y el vuelo usa 231.** La
+   aplicación pedía solo las 128 texturas más usadas del recorrido; las
+   restantes no están en la tabla `gex_tex_entries`, y el pixel shader, cuando
+   no encuentra el índice, devuelve el **color por vértice** (ya con niebla) y
+   alfa 1: superficie plana. Medido píxel a píxel sobre el triángulo ganador en
+   el espacio lógico 512×384: `samples=36` 7 723 px, `69` 29 771, `101`
+   28 302 (17,0 % de los píxeles cubiertos), `133` 3 408, `166` 9 782,
+   `225` 3 742, `278` 0.
+2. **`atlas_layout` devolvía el ancho de la última fila, no el máximo** de
+   todas ellas. Con 128 texturas la fila 0 medía 4 070 px y la última 1 278,
+   de modo que el atlas se creaba de 1 278 px: `blit_with_border` escribía con
+   ese paso y las texturas de la fila ancha invadían las filas siguientes;
+   además `atlas_uv = origen / atlas_w` superaba 1 y el WRAP las leía de otra
+   zona. Era una **corrupción global del atlas, latente desde el Módulo 4C**.
+   Al pedir 231 texturas la última fila pasaba a medir 1 616 y las anteriores
+   4 064/4 080, y la corrupción empeoraba.
+
+**Correcciones.**
+
+- `GEX_D3D11_TEXTURE_MAX_ENTRIES` 128 → **256**; `gex_tex_entries[512]` en el
+  HLSL (dos `float4` por entrada) y constant buffer de 8 208 B, muy por debajo
+  de los 64 KiB de D3D11. La aplicación pide las **231** del vuelo (cobertura
+  **100 %**) y 239 con el menú.
+- `atlas_layout` devuelve el **ancho máximo** de fila.
+- `--camera-path-freeze N`: avanza exactamente N muestras y congela la cámara.
+  Antes, el número de muestras por present dependía del reloj y dos capturas
+  del «mismo» fotograma podían caer en poses distintas.
+
+**Verificación.**
+
+- Suite completa de `port` sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- `test_d3d11_pipeline` **504 comprobaciones, 0 fallos**, con la nueva
+  `test_texture_set_multiatlas`: 130 texturas de 32×32 fuerzan dos filas (la
+  última más corta) y comprueban ancho 4 080, alto 68 y texeles concretos de la
+  fila 0 (texturas 0 y 100) y de la fila 1 (129); además cruza el antiguo límite
+  de 128.
+- Atlas real: `1278×260` (128 entradas con el bug) → **`4080×326`** (231
+  entradas corregidas); el menú carga 239 y el atlas es `4066×326`.
+- Capturas reales 960×540 con GPU hardware, mismo comando y **pose congelada**
+  en `samples=36/69/101/133/166/225/278`, antes (128 + bug de ancho) contra
+  después (231 + corrección): cambian entre **36,4 % y 47,0 %** de los píxeles.
+  En `samples=101` el muro de los grafitis pasa de bloques lisos grises a la
+  textura legible. El menú y la llama no muestran regresión (captura y
+  `test_menu` 223 / `test_actor` 80, 0 fallos).
+
+**Descartado y pendiente.**
+
+- **No hay defecto de triangulación, índices, vértices, UV, materiales ni orden
+  de dibujo:** la emisión ya estaba validada 1123/1123 con el mismo orden, y la
+  UV de cada textura no se recorre más de una vez (S-5).
+- **El patrón de bloques en la hierba** está presente en los propios datos de
+  las texturas de 64×64 YIQ_422 (volcadas a PPM y comparadas); no es corrupción
+  del atlas.
+- **La oscuridad general** sigue siendo la incógnita de § 19.11 (el color va en
+  0..2 en Glide y el port lo normaliza a 0..1). Los 1 123 colores por vértice
+  reproducen los valores medidos del original y la niebla actúa antes de la
+  textura como en la ruta de nivel; no se cambia sin cerrar la escala del driver.
 
 ### S-7: mezcla de renderizado por comando (2026-11-18)
 

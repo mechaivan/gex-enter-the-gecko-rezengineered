@@ -139,7 +139,7 @@ static const char GEX_HLSL_PIXEL[] =
     "\n"
     "cbuffer GexTex : register(b1) {\n"
     "    float4 gex_tex_header;\n"
-    "    float4 gex_tex_entries[256];\n"
+    "    float4 gex_tex_entries[512];\n"
     "};\n"
     "\n"
     "Texture2D gex_tex_atlas : register(t0);\n"

@@ -884,6 +884,32 @@ regresión visual ya no depende de la incógnita R/B (§ 23.5): se compara el
 mismo fotograma antes y después y el único cambio cae dentro del rectángulo de
 la llama.
 
+### 9.8 S-8: el vuelo completo de MAP7 y el ancho del atlas (2026-11-18)
+
+Dos defectos de empaquetado detrás de las superficies lisas que salían durante
+el vuelo de cámara:
+
+1. **Límite de entradas.** El atlas y la tabla constante admitían
+   `GEX_D3D11_TEXTURE_MAX_ENTRIES 128`. El **vuelo completo** de MAP7 usa **231**
+   índices distintos (el fotograma final, 65). La aplicación pedía las más
+   usadas; las que quedaban fuera se dibujaban con el color por vértice. El
+   límite sube a **256** (`gex_tex_entries[512]` en HLSL, dos `float4` por
+   entrada): constant buffer de **8 208 B**, dentro de los 64 KiB de D3D11.
+   Cobertura medida: del 95,3 % al **100 %**.
+2. **Ancho del atlas.** `atlas_layout` devolvía `*width = x` (la última fila),
+   no el máximo de todas. Con 128 texturas la fila 0 medía **4 070 px** y la
+   última **1 278**; el atlas se creaba de 1 278 px, `blit_with_border` escribía
+   con ese paso y las texturas de la fila ancha invadían las filas siguientes,
+   mientras `atlas_uv = origen/atlas_w` superaba 1 y el WRAP las leía de otra
+   zona. Devuelve ahora el **ancho máximo de fila**. Las filas no tienen por qué
+   ser uniformes: con 231 texturas son 4 070 / 4 080 / 1 616.
+
+**Prueba de regresión.** `test_texture_set_multiatlas`
+(`port/tests/test_d3d11_pipeline.c`): 130 texturas de 32×32 ⇒ dos filas de 120
+y 10 texturas, ancho **4 080**, alto **68**, y texeles verificados en la fila 0
+(texturas 0 y 100) y en la 1 (129). La prueba también cruza el antiguo límite de
+128 entradas. Detalle y capturas: `docs/D3D11_FIRST_SCENE_PLAN.md` § 24.
+
 ## 8. Limitaciones y siguiente paso
 
 1. **El Módulo 4C ya no está bloqueado por los datos**: hay decodificadores CPU

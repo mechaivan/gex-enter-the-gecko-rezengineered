@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2026-11-18 - 0.0.0 - S-8: atlas de MAP7 completo y ancho del atlas corregido (superficies lisas del vuelo)
+
+Las zonas que durante el vuelo de cámara salían lisas, grises o sin textura no
+eran geometría ausente ni triangulación incorrecta: eran **texturas que no
+estaban en el atlas** y un **atlas mal dimensionado**. La emisión, los índices,
+los vértices, las UV y el orden de dibujo se conservan intactos.
+
+**Causa 1: el atlas solo admitía 128 entradas.** El vuelo completo de MAP7 usa
+**231 índices distintos**; la aplicación pedía las 128 más usadas y el resto
+quedaba fuera de `gex_tex_entries`. El pixel shader, cuando no encuentra el
+índice, devuelve el color por vértice (ya con niebla) y alfa 1: una superficie
+plana. Medido sobre el triángulo ganador en 512×384: hasta el 17,0 % de los
+píxeles cubiertos en `samples=101` (28 302 px), 29 771 en `69`, 9 782 en `166`.
+
+**Causa 2: `atlas_layout` devolvía el ancho de la última fila.** Con 128
+texturas la fila 0 medía 4 070 px y la última 1 278, así que el atlas se creaba
+de 1 278 px y las texturas de la fila ancha se escribían y muestreaban fuera de
+rango (envolviendo a otras filas). Corrupción latente desde el Módulo 4C, que
+empeoró al pedir 231.
+
+**Correcciones.**
+
+- `GEX_D3D11_TEXTURE_MAX_ENTRIES` 128 → **256**, array HLSL
+  `gex_tex_entries[512]` y constant buffer de 8 208 B (< 64 KiB). Se piden las
+  **231** texturas del vuelo: cobertura **100 %** (239 con el menú).
+- `atlas_layout` devuelve el **ancho máximo** de fila.
+- Nueva opción `--camera-path-freeze N`: avanza exactamente N muestras y congela
+  la cámara para capturas reproducibles.
+
+**Pruebas.**
+
+- Suite completa de `port` sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- `test_d3d11_pipeline` **504 comprobaciones, 0 fallos**, con la nueva
+  `test_texture_set_multiatlas` (130 texturas 32×32, dos filas: ancho 4 080,
+  alto 68, texeles verificados en la fila 0 y la 1).
+- Atlas real: `1278×260` → **`4080×326`**; menú 239 texturas, atlas `4066×326`.
+- Capturas reales 960×540 con GPU hardware y pose congelada
+  (`samples=36/69/101/133/166/225/278`): cambian entre **36,4 % y 47,0 %** de los
+  píxeles; en `101` el muro de los grafitis pasa de bloques lisos a textura
+  legible. Menú y llama sin regresión (`test_menu` 223, `test_actor` 80).
+
+**Límites.** No se toca la oscuridad general: sigue abierta la escala RGB 0..2
+de Glide frente a 0..1 (§ 19.11). El patrón de bloques de la hierba está en las
+propias texturas 64×64 YIQ_422 y no es defecto del port.
+
 ## 2026-11-18 - 0.0.0 - S-7: mezcla de renderizado por comando (llama aditiva de MAP7)
 
 La mezcla deja de ser un estado global: se elige **por comando**, como en el
