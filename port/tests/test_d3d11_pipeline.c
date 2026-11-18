@@ -345,6 +345,11 @@ static void test_init_and_shutdown(gex_d3d11_device *device)
     CHECK(pipeline.input_layout != NULL);
     CHECK(pipeline.rasterizer != NULL);
     CHECK(pipeline.blend != NULL);
+    /* S-7: un estado por modo de mezcla, y `blend` es el alias del ALPHA. */
+    CHECK(pipeline.blend == pipeline.blends[GEX_BLEND_ALPHA]);
+    for (int mode = 0; mode < GEX_BLEND_MODE_COUNT; mode++) {
+        CHECK(pipeline.blends[mode] != NULL);
+    }
     CHECK(pipeline.depth_stencil != NULL);
     CHECK(pipeline.constant_buffer != NULL);
     CHECK(pipeline.compiler_module != NULL);
@@ -820,6 +825,9 @@ static void test_init_faults(gex_d3d11_device *device)
         CHECK(pipeline.input_layout == NULL);
         CHECK(pipeline.rasterizer == NULL);
         CHECK(pipeline.blend == NULL);
+        for (int mode = 0; mode < GEX_BLEND_MODE_COUNT; mode++) {
+            CHECK(pipeline.blends[mode] == NULL);
+        }
         CHECK(pipeline.depth_stencil == NULL);
         CHECK(pipeline.constant_buffer == NULL);
         CHECK(pipeline.compiler_module == NULL);
@@ -1104,8 +1112,7 @@ static int write_synthetic_vfx_64x32(const char *path)
 }
 
 /* Dibuja un triángulo con la MISMA UV en sus tres vértices y devuelve el
- * color del píxel interior (24, 16) del render target. */
-static int draw_flat_uv(gex_d3d11_device *device, gex_d3d11_pipeline *pipeline,
+ * color del píxel interior (24, 16) del render target. */static int draw_flat_uv(gex_d3d11_device *device, gex_d3d11_pipeline *pipeline,
                         offscreen *target, uint8_t u, uint8_t v,
                         uint8_t out[4])
 {
@@ -1159,6 +1166,248 @@ static int draw_flat_uv(gex_d3d11_device *device, gex_d3d11_pipeline *pipeline,
     gex_emit_output_free(&emit);
     free(pixels);
     return ok;
+}
+
+/*
+ * `.VFX` sintético con DOS texturas ARGB_4444 de 64x32: índice 0 negro y
+ * índice 1 rojo, ambas con alfa 8/15 (136). Permite distinguir la mezcla alfa
+ * de la aditiva sin depender de ninguna textura real.
+ */
+static int write_synthetic_vfx_blend(const char *path)
+{
+    static const uint16_t texels[2] = { 0x8000u, 0x8F00u };
+    const uint32_t size = 64u * 32u * 2u;
+    uint8_t header[0x8C];
+    uint16_t *data;
+    uint32_t count = 2;
+    uint32_t t, x, y;
+    FILE *fh;
+
+    data = (uint16_t *)malloc((size_t)size);
+    if (data == NULL) {
+        return -1;
+    }
+    fh = fopen(path, "wb");
+    if (fh == NULL) {
+        free(data);
+        return -1;
+    }
+    fwrite(&count, 1, sizeof(count), fh);
+    for (t = 0; t < 2u; t++) {
+        memset(header, 0, sizeof(header));
+        header[0] = 2;   /* smallLod = 2 -> lado mayor 64 */
+        header[4] = 2;   /* largeLod = 2 */
+        header[8] = 2;   /* aspect = GR_ASPECT_2x1 -> 64x32 */
+        header[12] = 12; /* format = GR_TEXFMT_ARGB_4444 */
+        header[0x84] = (uint8_t)(size & 0xFFu);
+        header[0x85] = (uint8_t)((size >> 8) & 0xFFu);
+        header[0x86] = (uint8_t)((size >> 16) & 0xFFu);
+        header[0x87] = (uint8_t)((size >> 24) & 0xFFu);
+        for (y = 0; y < 32u; y++) {
+            for (x = 0; x < 64u; x++) {
+                data[y * 64u + x] = texels[t];
+            }
+        }
+        fwrite(&header[0], 1, sizeof(header), fh);
+        fwrite(data, 1, size, fh);
+    }
+    fclose(fh);
+    free(data);
+    return 0;
+}
+
+/*
+ * Dibuja un triángulo con una textura, una mezcla y un fondo conocidos y
+ * devuelve el píxel interior. El color por vértice es blanco, así que el
+ * resultado depende solo del texel, del alfa de la textura y del estado de
+ * mezcla del tramo.
+ */
+static int draw_blend_pixel(gex_d3d11_device *device,
+                            gex_d3d11_pipeline *pipeline, offscreen *target,
+                            uint16_t texture, uint8_t blend, float cr,
+                            float cg, float cb, uint8_t out[4])
+{
+    gex_emit_output emit;
+    gex_geometry geom;
+    gex_d3d11_mesh mesh = GEX_D3D11_MESH_INITIALIZER;
+    gex_emit_triangle *tris;
+    float clear_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+    uint8_t *pixels;
+    int ok = 0;
+    int c;
+
+    memset(&emit, 0, sizeof(emit));
+    tris = (gex_emit_triangle *)calloc(1, sizeof(*tris));
+    pixels = (uint8_t *)malloc(256u * 192u * 4u);
+    if (tris == NULL || pixels == NULL) {
+        free(tris);
+        free(pixels);
+        return 0;
+    }
+    clear_color[0] = cr;
+    clear_color[1] = cg;
+    clear_color[2] = cb;
+
+    tris->x[0] = 0;   tris->y[0] = 0;   tris->z[0] = 0x1000;
+    tris->x[1] = 256; tris->y[1] = 0;   tris->z[1] = 0x1000;
+    tris->x[2] = 0;   tris->y[2] = 192; tris->z[2] = 0x1000;
+    for (c = 0; c < 3; c++) {
+        tris->color[c] = 0xFFFFFFFFu;
+        tris->u[c] = 128u;
+        tris->v[c] = 64u;
+    }
+    tris->texture = texture;
+    tris->blend = blend;
+    tris->flags = GEX_EMIT_F_NEAR_EMITTER;
+    emit.tris = tris;
+    emit.count = 1;
+    emit.capacity = 1;
+
+    if (gex_geometry_build(&emit, &geom) == GEX_GEOM_OK &&
+        gex_d3d11_mesh_create(device->device, &geom, &mesh) ==
+            GEX_D3D11_MESH_OK &&
+        gex_d3d11_pipeline_set_target(pipeline, target->rtv, 256, 192,
+                                      GEX_D3D11_REFERENCE_WIDTH,
+                                      GEX_D3D11_REFERENCE_HEIGHT) ==
+            GEX_D3D11_PIPELINE_OK) {
+        clear_target(device->context, target->rtv, clear_color);
+        if (gex_d3d11_pipeline_draw(pipeline, &mesh) ==
+                GEX_D3D11_PIPELINE_OK &&
+            offscreen_read(device->context, target, pixels) == 0) {
+            pixel_at(pixels, 256, 24, 16, out);
+            ok = 1;
+        }
+    }
+    gex_d3d11_mesh_destroy(&mesh);
+    gex_emit_output_free(&emit);
+    free(pixels);
+    return ok;
+}
+
+/*
+ * S-7: mezcla por comando. Con una textura ARGB_4444 de alfa 136:
+ *
+ *   negro aditivo sobre blanco   -> blanco (el fondo negro de la llama no
+ *                                   oscurece el escenario)
+ *   negro alfa sobre blanco      -> 119 (prueba de que el estado cambia)
+ *   rojo aditivo sobre gris 128  -> 255,128 (los píxeles luminosos SUMAN)
+ *   rojo alfa sobre gris 128     -> 196,60
+ *
+ * Además, dos tramos en una sola malla producen dos DrawIndexed: el estado se
+ * elige por tramo, no por dibujo.
+ */
+static void test_blend_runs(gex_d3d11_device *device)
+{
+    const char *vfx_path = "gex_test_blend.vfx";
+    gex_vfx_texture_bank bank;
+    gex_d3d11_texture_set set = GEX_D3D11_TEXTURE_SET_INITIALIZER;
+    gex_d3d11_pipeline pipeline = GEX_D3D11_PIPELINE_INITIALIZER;
+    offscreen target;
+    uint32_t wanted[2];
+    uint8_t px[4];
+    int status;
+
+    if (write_synthetic_vfx_blend(vfx_path) != 0) {
+        printf("skip blend runs (no se pudo escribir el VFX)\n");
+        return;
+    }
+    memset(&bank, 0, sizeof(bank));
+    wanted[0] = 0;
+    wanted[1] = 1;
+    CHECK(gex_vfx_texture_bank_load(&bank, vfx_path, wanted, 2) == GEX_VFX_OK);
+    CHECK(bank.texture_count == 2u);
+
+    status = gex_d3d11_texture_set_create(&set, device, &bank,
+                                          GEX_NCC_UV_MODE_TEXEL);
+    CHECK(status == GEX_D3D11_TEXTURE_OK);
+    if (status == GEX_D3D11_TEXTURE_OK &&
+        gex_d3d11_pipeline_init(&pipeline, device) == GEX_D3D11_PIPELINE_OK &&
+        offscreen_create(device->device, 256, 192, &target) == 0) {
+        CHECK(gex_d3d11_pipeline_set_textures(&pipeline, &set) ==
+              GEX_D3D11_PIPELINE_OK);
+
+        /* (1) El negro aditivo no oscurece el fondo. */
+        CHECK(draw_blend_pixel(device, &pipeline, &target, 0,
+                               (uint8_t)GEX_BLEND_ADDITIVE, 1.0f, 1.0f, 1.0f,
+                               px) == 1);
+        CHECK(px[0] >= 253u && px[1] >= 253u && px[2] >= 253u);
+        /* El mismo texel con mezcla alfa sí oscurece: el estado del tramo se
+         * aplica de verdad. */
+        CHECK(draw_blend_pixel(device, &pipeline, &target, 0,
+                               (uint8_t)GEX_BLEND_ALPHA, 1.0f, 1.0f, 1.0f,
+                               px) == 1);
+        CHECK(px[0] >= 116u && px[0] <= 122u);
+        CHECK(px[1] >= 116u && px[1] <= 122u);
+        CHECK(px[2] >= 116u && px[2] <= 122u);
+
+        /* (2) Los píxeles luminosos de la llama suman sobre el escenario. */
+        CHECK(draw_blend_pixel(device, &pipeline, &target, 1,
+                               (uint8_t)GEX_BLEND_ADDITIVE, 0.5f, 0.5f, 0.5f,
+                               px) == 1);
+        CHECK(px[0] >= 250u);
+        CHECK(px[1] >= 126u && px[1] <= 130u);
+        CHECK(px[2] >= 126u && px[2] <= 130u);
+        /* El mismo texel con alfa deja el fondo visible (196,60). */
+        CHECK(draw_blend_pixel(device, &pipeline, &target, 1,
+                               (uint8_t)GEX_BLEND_ALPHA, 0.5f, 0.5f, 0.5f,
+                               px) == 1);
+        CHECK(px[0] >= 193u && px[0] <= 199u);
+        CHECK(px[1] >= 57u && px[1] <= 63u);
+
+        /* (3) Dos tramos -> dos DrawIndexed, en el orden de emisión. */
+        {
+            gex_emit_output emit;
+            gex_geometry geom;
+            gex_d3d11_mesh mesh = GEX_D3D11_MESH_INITIALIZER;
+            gex_emit_triangle tris[2];
+            uint64_t before_calls = pipeline.draw_calls;
+            uint64_t before_tris = pipeline.triangles_drawn;
+            float clear_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+            int c;
+
+            memset(&emit, 0, sizeof(emit));
+            for (c = 0; c < 2; c++) {
+                memset(&tris[c], 0, sizeof(tris[c]));
+                tris[c].x[0] = 0;   tris[c].y[0] = 0;
+                tris[c].x[1] = 256; tris[c].y[1] = 0;
+                tris[c].x[2] = 0;   tris[c].y[2] = 192;
+                for (int k = 0; k < 3; k++) {
+                    tris[c].z[k] = 0x1000;
+                    tris[c].color[k] = 0xFFFFFFFFu;
+                    tris[c].u[k] = 128u;
+                    tris[c].v[k] = 64u;
+                }
+                tris[c].texture = 1u;
+                tris[c].flags = GEX_EMIT_F_NEAR_EMITTER;
+            }
+            tris[0].blend = (uint8_t)GEX_BLEND_ALPHA;
+            tris[1].blend = (uint8_t)GEX_BLEND_ADDITIVE;
+            emit.tris = tris;
+            emit.count = 2;
+            emit.capacity = 2;
+
+            CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
+            CHECK(geom.run_count == 2u);
+            CHECK(gex_d3d11_mesh_create(device->device, &geom, &mesh) ==
+                  GEX_D3D11_MESH_OK);
+            CHECK(mesh.run_count == 2u);
+            if (mesh.run_count == 2u) {
+                clear_target(device->context, target.rtv, clear_color);
+                CHECK(gex_d3d11_pipeline_draw(&pipeline, &mesh) ==
+                      GEX_D3D11_PIPELINE_OK);
+                CHECK(pipeline.draw_calls == before_calls + 2u);
+                CHECK(pipeline.triangles_drawn == before_tris + 2u);
+            }
+            gex_d3d11_mesh_destroy(&mesh);
+            gex_geometry_free(&geom);
+        }
+
+        offscreen_destroy(&target);
+    }
+    gex_d3d11_pipeline_shutdown(&pipeline);
+    gex_d3d11_texture_set_destroy(&set);
+    gex_vfx_texture_bank_free(&bank);
+    remove(vfx_path);
 }
 
 /*
@@ -1260,6 +1509,7 @@ int main(void)
     test_no_partial_resources(&device);
     test_draw_cube(&device);
     test_texture_set(&device);
+    test_blend_runs(&device);
     test_texture_uv_scale(&device);
 
     gex_d3d11_device_shutdown(&device);

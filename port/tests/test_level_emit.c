@@ -534,7 +534,7 @@ static void test_subdivide(void) {
     int16_t vtx[9] = {-600, -600, 100, 600, 600, 100, 0, -600, 100};
     gex_emit_output out; memset(&out, 0, sizeof(out));
 
-    CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0x7, 2, 0, 0, 999,
+    CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0x7, 2, 0, 0, 0, 999,
                              &out) == GEX_EMIT_OK);
     CHECK(out.count == 5);
     CHECK(out.fog_pass_count == 0);
@@ -585,7 +585,7 @@ static void test_subdivide(void) {
     /* Alfa con bit 1 puesto: sin slivers -> 4 */
     memset(&out, 0, sizeof(out));
     uint32_t color4[3] = {0xFF010203u, color[1], color[2]};
-    CHECK(gex_emit_subdivide(&m, vtx, color4, u, v, 0x7, 2, 0, 0, 1,
+    CHECK(gex_emit_subdivide(&m, vtx, color4, u, v, 0x7, 2, 0, 0, 0, 1,
                              &out) == GEX_EMIT_OK);
     CHECK(out.count == 4);
     gex_emit_output_free(&out);
@@ -593,7 +593,7 @@ static void test_subdivide(void) {
     /* Un principal rechazado por el gate aborta conservando lo emitido:
      * estado de recorte global -> el primer subtriángulo ya no pasa. */
     memset(&out, 0, sizeof(out));
-    CHECK(gex_emit_subdivide(&m, vtx, color4, u, v, 0x7, 2, 0,
+    CHECK(gex_emit_subdivide(&m, vtx, color4, u, v, 0x7, 2, 0, 0,
                              GEX_EMIT_STATE_CLIP_MASK, 1, &out) == GEX_EMIT_OK);
     CHECK(out.count == 0);
     gex_emit_output_free(&out);
@@ -649,7 +649,7 @@ static void test_capacity_growth(void) {
     /* 500 subdivisiones x 5 triángulos = 2500 */
     for (int i = 0; i < 500; i++) {
         int16_t vtx[9] = {-600, -600, 100, 600, 600, 100, 0, -600, 100};
-        CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0, 0, 0, 0,
+        CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0, 0, 0, 0, 0,
                                  (uint32_t)i, &out) == GEX_EMIT_OK);
     }
     CHECK(out.count == 2500u);
@@ -1366,6 +1366,184 @@ static void test_material_reference(void)
     gex_dfx_release_container(&c);
 }
 
+/* ------------------------------------------------------------------ */
+/* Mezcla por comando (S-7)                                           */
+/* ------------------------------------------------------------------ */
+
+static void test_blend_rule(void)
+{
+    static const uint16_t alpha_tex[1] = { 185u };
+    gex_emit_triangle tris[6];
+    gex_emit_output out;
+    size_t i;
+
+    CHECK(strcmp(gex_blend_mode_name(GEX_BLEND_ALPHA), "alpha") == 0);
+    CHECK(strcmp(gex_blend_mode_name(GEX_BLEND_ADDITIVE), "additive") == 0);
+    CHECK(strcmp(gex_blend_mode_name(GEX_BLEND_OPAQUE), "opaque") == 0);
+    CHECK(strcmp(gex_blend_mode_name(GEX_BLEND_ERASE), "erase") == 0);
+    CHECK(strcmp(gex_blend_mode_name(GEX_BLEND_ADDITIVE_ALPHA_OFF),
+                 "additive-alpha-off") == 0);
+    CHECK(strcmp(gex_blend_mode_name((gex_blend_mode)99), "unknown") == 0);
+
+    /* Regla de 0x46558A: bit 0x04 (comando de nivel) y bit 0x02. */
+    CHECK(gex_emit_blend_for_command(0x32u, 0u, 0) == GEX_BLEND_ALPHA);
+    CHECK(gex_emit_blend_for_command(0xB4u, 3u, 0) == GEX_BLEND_ALPHA);
+    CHECK(gex_emit_blend_for_command(0xB4u, 3u, 1) == GEX_BLEND_ALPHA);
+    CHECK(gex_emit_blend_for_command(0xB6u, 0u, 0) == GEX_BLEND_ADDITIVE);
+    CHECK(gex_emit_blend_for_command(0xB6u, 1u, 0) == GEX_BLEND_ADDITIVE);
+    CHECK(gex_emit_blend_for_command(0xB6u, 0u, 1) == GEX_BLEND_ALPHA);
+    CHECK(gex_emit_blend_for_command(0xB6u, 1u, 1) == GEX_BLEND_ALPHA);
+    CHECK(gex_emit_blend_for_command(0xB6u, 2u, 0) == GEX_BLEND_ERASE);
+    CHECK(gex_emit_blend_for_command(0xB6u, 2u, 1) == GEX_BLEND_ERASE);
+    CHECK(gex_emit_blend_for_command(0xB6u, 3u, 0) ==
+          GEX_BLEND_ADDITIVE_ALPHA_OFF);
+    CHECK(gex_emit_blend_for_command(0xB6u, 4u, 0) == GEX_BLEND_ADDITIVE);
+
+    /* assign_blend: los comandos de nivel usan la regla; el menú (sin flags
+     * de emisor) y la pasada de niebla conservan ALPHA. */
+    memset(tris, 0, sizeof(tris));
+    for (i = 0; i < 6u; i++) {
+        tris[i].blend = 99u; /* basura previa: se debe reasignar */
+    }
+    tris[0].flags = GEX_EMIT_F_NEAR_EMITTER;
+    tris[0].opcode = 0xB4u;
+    tris[0].texture_mode = 0u;
+    tris[0].texture = 370u;
+    tris[1].flags = GEX_EMIT_F_FAR_EMITTER;
+    tris[1].opcode = 0xB6u;
+    tris[1].texture_mode = 1u;
+    tris[1].texture = 370u;
+    tris[2].flags = GEX_EMIT_F_FAR_EMITTER;
+    tris[2].opcode = 0xB6u;
+    tris[2].texture_mode = 1u;
+    tris[2].texture = 185u;
+    tris[3].flags = 0u; /* menú */
+    tris[3].opcode = 0xB4u;
+    tris[3].texture_mode = 1u;
+    tris[3].texture = 370u;
+    tris[4].flags = GEX_EMIT_F_FOG_PASS | GEX_EMIT_F_FAR_EMITTER;
+    tris[4].opcode = 0x32u;
+    tris[4].texture_mode = 0u;
+    tris[4].texture = 370u;
+    tris[5].flags = GEX_EMIT_F_FAR_EMITTER;
+    tris[5].opcode = 0xB6u;
+    tris[5].texture_mode = 2u;
+    tris[5].texture = 1u;
+
+    memset(&out, 0, sizeof(out));
+    out.tris = tris;
+    out.count = 6u;
+    out.capacity = 6u;
+    CHECK(gex_emit_assign_blend(&out, alpha_tex, 1u) == GEX_EMIT_OK);
+    CHECK(tris[0].blend == (uint8_t)GEX_BLEND_ALPHA); /* 0xB4 & 2 == 0 */
+    CHECK(tris[1].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+    CHECK(tris[2].blend == (uint8_t)GEX_BLEND_ALPHA);
+    CHECK(tris[3].blend == (uint8_t)GEX_BLEND_ALPHA);
+    CHECK(tris[4].blend == (uint8_t)GEX_BLEND_ALPHA);
+    CHECK(tris[5].blend == (uint8_t)GEX_BLEND_ERASE);
+
+    /* Sin lista de texturas con alfa todo lo 0xB6 con modo 0/1 es aditivo. */
+    CHECK(gex_emit_assign_blend(&out, NULL, 0u) == GEX_EMIT_OK);
+    CHECK(tris[2].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+
+    /* Argumentos incoherentes. */
+    CHECK(gex_emit_assign_blend(NULL, NULL, 0u) == GEX_EMIT_ERR_ARG);
+    CHECK(gex_emit_assign_blend(&out, NULL, 1u) == GEX_EMIT_ERR_ARG);
+    out.count = 7u; /* > capacity */
+    CHECK(gex_emit_assign_blend(&out, NULL, 0u) == GEX_EMIT_ERR_INCONSIST);
+}
+
+/*
+ * MAP7 real: la regla por comando con las texturas ARGB_4444 del .VFX deja
+ * exactamente los 6 triángulos de la llama (textura 370, opcode 0xB6) en
+ * ADDITIVE y el resto (1116 comandos, incluidos los 12 con textura ARGB_4444)
+ * en ALPHA. No hay pasada de niebla: `split_z` de MAP7 es 0xFFFF.
+ */
+static void test_map7_blend(void)
+{
+    gex_dfx_container c;
+    gex_dfx_level lv;
+    gex_emit_matrix m;
+    gex_emit_fog fog;
+    gex_emit_output out;
+    gex_bsp_walk_result leaves;
+    const int32_t *p = REF_EMIT_PARAMS[0];
+    FILE *f = fopen(MAP7_PATH, "rb");
+    size_t i;
+    size_t additive = 0, alpha = 0, other = 0, fog_tris = 0;
+
+    if (!f) {
+        printf("skip map7 blend (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&c, 0, sizeof(c));
+    memset(&lv, 0, sizeof(lv));
+    if (gex_dfx_load(MAP7_PATH, &c) != GEX_DFX_OK) {
+        printf("skip map7 blend (load)\n");
+        return;
+    }
+    if (gex_dfx_load_level(&c, &lv) != GEX_DFX_OK) {
+        printf("skip map7 blend (level)\n");
+        gex_dfx_release_container(&c);
+        return;
+    }
+
+    memset(&m, 0, sizeof(m));
+    memcpy(m.m, REF_EMIT_M[0], sizeof(m.m));
+    m.t[0] = REF_EMIT_T[0][0];
+    m.t[1] = REF_EMIT_T[0][1];
+    m.t[2] = REF_EMIT_T[0][2];
+    m.focal = p[0]; m.cx = p[1]; m.cy = p[2]; m.near_z = p[3];
+
+    memset(&fog, 0, sizeof(fog));
+    memcpy(fog.lut, REF_FOG_LUT, sizeof(fog.lut));
+    fog.have_lut = 1;
+    fog.threshold = p[4]; fog.split_z = p[5];
+    fog.a_q12 = p[6]; fog.b_q12 = p[7];
+    fog.fog_rgb[0] = 0x14; fog.fog_rgb[1] = 0x14; fog.fog_rgb[2] = 0x5A;
+
+    memset(&leaves, 0, sizeof(leaves));
+    leaves.leaves = (uint32_t *)REF_EMIT_LEAVES[0];
+    leaves.count = (uint32_t)p[11];
+
+    memset(&out, 0, sizeof(out));
+    CHECK(gex_level_emit(c.image, c.image_size, &lv.descriptor, &leaves, &m,
+                         &fog, 0, &out) == GEX_EMIT_OK);
+    CHECK(out.count == 1123u);
+    CHECK(gex_emit_assign_blend(&out, REF_ALPHA_TEXTURES,
+                                sizeof(REF_ALPHA_TEXTURES) /
+                                    sizeof(REF_ALPHA_TEXTURES[0])) ==
+          GEX_EMIT_OK);
+
+    for (i = 0; i < out.count; i++) {
+        const gex_emit_triangle *t = &out.tris[i];
+        if ((t->flags & GEX_EMIT_F_FOG_PASS) != 0u) {
+            fog_tris++;
+            CHECK(t->blend == (uint8_t)GEX_BLEND_ALPHA);
+        } else if (t->blend == (uint8_t)GEX_BLEND_ADDITIVE) {
+            additive++;
+            CHECK(t->texture == 370u);
+            CHECK(t->opcode == 0xB6u);
+        } else if (t->blend == (uint8_t)GEX_BLEND_ALPHA) {
+            alpha++;
+        } else {
+            other++;
+        }
+    }
+    CHECK(fog_tris == 0u);
+    CHECK(additive == 6u);
+    CHECK(alpha == out.count - 6u);
+    CHECK(other == 0u);
+    printf("map7 blend: %zu ALPHA, %zu ADDITIVE (llama 370), %zu otros\n",
+           alpha, additive, other);
+
+    gex_emit_output_free(&out);
+    gex_dfx_release_level(&lv);
+    gex_dfx_release_container(&c);
+}
+
 int main(void) {
     test_api_smoke();
     test_project_identity();
@@ -1389,6 +1567,8 @@ int main(void) {
     test_aztec_real();
     test_map7_reference_emit();
     test_material_reference();
+    test_blend_rule();
+    test_map7_blend();
 
     printf("test_level_emit: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;

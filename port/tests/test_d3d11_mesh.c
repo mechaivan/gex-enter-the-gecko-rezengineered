@@ -186,6 +186,15 @@ static void test_create_warp(void)
     CHECK(mesh.vertex_buffer_bytes == 9u * GEX_VERTEX_STRIDE);
     CHECK(mesh.index_buffer_bytes == 9u * 2u);
     CHECK(mesh.vertex_buffer != NULL && mesh.index_buffer != NULL);
+    /* La geometría no traía tramos: la malla crea uno ALPHA que cubre todo
+     * (comportamiento anterior a S-7, obligatorio para las pruebas y las
+     * formas sintéticas). */
+    CHECK(mesh.run_count == 1u);
+    if (mesh.runs != NULL) {
+        CHECK(mesh.runs[0].index_offset == 0u);
+        CHECK(mesh.runs[0].index_count == 9u);
+        CHECK(mesh.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+    }
 
     if (mesh.vertex_buffer != NULL) {
         ID3D11Buffer_GetDesc(mesh.vertex_buffer, &vdesc);
@@ -418,6 +427,80 @@ static void test_errors(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Tramos de mezcla                                                   */
+/* ------------------------------------------------------------------ */
+
+static void test_runs(void)
+{
+    gex_d3d11_device dev = GEX_D3D11_DEVICE_INITIALIZER;
+    gex_emit_triangle tris[2];
+    gex_emit_output emit;
+    gex_geometry geom;
+    gex_d3d11_mesh mesh = GEX_D3D11_MESH_INITIALIZER;
+    gex_d3d11_mesh_status st;
+
+    if (gex_d3d11_device_init(&dev, GEX_D3D11_DRIVER_WARP, 0) !=
+        GEX_D3D11_DEVICE_OK) {
+        printf("skip runs (sin WARP)\n");
+        return;
+    }
+
+    tris[0] = mk_tri();
+    tris[1] = mk_tri();
+    tris[1].x[0] += 100;
+    tris[1].x[1] += 100;
+    tris[1].x[2] += 100;
+    tris[1].blend = (uint8_t)GEX_BLEND_ADDITIVE;
+    memset(&emit, 0, sizeof(emit));
+    emit.tris = tris;
+    emit.count = 2;
+    emit.capacity = 2;
+
+    CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
+    CHECK(geom.run_count == 2u);
+
+    st = gex_d3d11_mesh_create(dev.device, &geom, &mesh);
+    CHECK(st == GEX_D3D11_MESH_OK);
+    CHECK(mesh.run_count == 2u);
+    if (mesh.runs != NULL && mesh.run_count == 2u) {
+        CHECK(mesh.runs[0].index_offset == 0u);
+        CHECK(mesh.runs[0].index_count == 3u);
+        CHECK(mesh.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+        CHECK(mesh.runs[1].index_offset == 3u);
+        CHECK(mesh.runs[1].index_count == 3u);
+        CHECK(mesh.runs[1].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+    }
+    /* La malla copia los tramos: cambiar la geometría no la altera. */
+    if (geom.runs != NULL) {
+        geom.runs[1].blend = (uint8_t)GEX_BLEND_OPAQUE;
+    }
+    if (mesh.runs != NULL) {
+        CHECK(mesh.runs[1].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+    }
+    gex_d3d11_mesh_destroy(&mesh);
+    CHECK(mesh_is_initial(&mesh));
+
+    /* Tramos incoherentes: hueco -> BAD_GEOMETRY y nada vivo. */
+    if (geom.runs != NULL) {
+        geom.runs[1].index_offset = 6u;
+    }
+    CHECK(gex_d3d11_mesh_create(dev.device, &geom, &mesh) ==
+          GEX_D3D11_MESH_BAD_GEOMETRY);
+    CHECK(mesh.initialized == 0);
+    CHECK(mesh.runs == NULL && mesh.run_count == 0u);
+    if (geom.runs != NULL) {
+        geom.runs[1].index_offset = 3u;
+        geom.runs[0].index_count = 6u; /* se solapa con el segundo */
+    }
+    CHECK(gex_d3d11_mesh_create(dev.device, &geom, &mesh) ==
+          GEX_D3D11_MESH_BAD_GEOMETRY);
+    CHECK(mesh.initialized == 0);
+
+    gex_geometry_free(&geom);
+    gex_d3d11_device_shutdown(&dev);
+}
+
+/* ------------------------------------------------------------------ */
 /* Hardware, si el runtime lo permite                                 */
 /* ------------------------------------------------------------------ */
 
@@ -607,6 +690,7 @@ int main(void)
     test_initializer();
     test_create_warp();
     test_index_formats();
+    test_runs();
     test_errors();
     test_hardware();
     test_aztec_real();

@@ -307,6 +307,61 @@ static void release_blob(ID3DBlob **blob)
     }
 }
 
+/*
+ * Descriptor D3D11 de cada modo de mezcla por comando (S-7). Traduce los
+ * factores nGlide 2.10 del original (§19.8 del plan): 0 = ZERO, 1 =
+ * SRC_ALPHA, 4 = ONE, 5 = INV_SRC_ALPHA, 6 = INV_DEST_COLOR. El original no
+ * tiene alfa de destino propio: el canal alfa se escribe con ONE/ZERO cuando
+ * la cuádrupla lo deja en 4/0, y con ZERO/ZERO cuando lo apaga (0/0).
+ */
+static void blend_desc_for_mode(gex_blend_mode mode, D3D11_BLEND_DESC *desc)
+{
+    D3D11_RENDER_TARGET_BLEND_DESC *rt;
+
+    memset(desc, 0, sizeof(*desc));
+    desc->AlphaToCoverageEnable = FALSE;
+    desc->IndependentBlendEnable = FALSE;
+    rt = &desc->RenderTarget[0];
+    rt->BlendEnable = TRUE;
+    rt->BlendOp = D3D11_BLEND_OP_ADD;
+    rt->BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    rt->RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+    switch (mode) {
+    case GEX_BLEND_ADDITIVE:             /* (1,4,4,0) */
+        rt->SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        rt->DestBlend = D3D11_BLEND_ONE;
+        rt->SrcBlendAlpha = D3D11_BLEND_ONE;
+        rt->DestBlendAlpha = D3D11_BLEND_ZERO;
+        break;
+    case GEX_BLEND_OPAQUE:               /* (4,0,0,0) */
+        rt->SrcBlend = D3D11_BLEND_ONE;
+        rt->DestBlend = D3D11_BLEND_ZERO;
+        rt->SrcBlendAlpha = D3D11_BLEND_ONE;
+        rt->DestBlendAlpha = D3D11_BLEND_ZERO;
+        break;
+    case GEX_BLEND_ERASE:                /* (0,6,0,0) */
+        rt->SrcBlend = D3D11_BLEND_ZERO;
+        rt->DestBlend = D3D11_BLEND_INV_DEST_COLOR;
+        rt->SrcBlendAlpha = D3D11_BLEND_ZERO;
+        rt->DestBlendAlpha = D3D11_BLEND_ZERO;
+        break;
+    case GEX_BLEND_ADDITIVE_ALPHA_OFF:   /* (1,4,0,0) */
+        rt->SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        rt->DestBlend = D3D11_BLEND_ONE;
+        rt->SrcBlendAlpha = D3D11_BLEND_ZERO;
+        rt->DestBlendAlpha = D3D11_BLEND_ZERO;
+        break;
+    case GEX_BLEND_ALPHA:                /* (1,5,4,0) */
+    default:
+        rt->SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        rt->DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        rt->SrcBlendAlpha = D3D11_BLEND_ONE;
+        rt->DestBlendAlpha = D3D11_BLEND_ZERO;
+        break;
+    }
+}
+
 /* ========================================================================
  * Ciclo de vida
  * ======================================================================== */
@@ -322,8 +377,21 @@ static void release_all(gex_d3d11_pipeline *pipeline)
     if (pipeline->depth_stencil != NULL) {
         ID3D11DepthStencilState_Release(pipeline->depth_stencil);
     }
-    if (pipeline->blend != NULL) {
-        ID3D11BlendState_Release(pipeline->blend);
+    {
+        /* `blend` es el alias de `blends[ALPHA]`: se libera una sola vez. */
+        ID3D11BlendState *alpha = pipeline->blend;
+        int mode;
+        for (mode = 0; mode < GEX_BLEND_MODE_COUNT; mode++) {
+            if (pipeline->blends[mode] != NULL &&
+                pipeline->blends[mode] != alpha) {
+                ID3D11BlendState_Release(pipeline->blends[mode]);
+            }
+            pipeline->blends[mode] = NULL;
+        }
+        if (alpha != NULL) {
+            ID3D11BlendState_Release(alpha);
+        }
+        pipeline->blend = NULL;
     }
     if (pipeline->rasterizer != NULL) {
         ID3D11RasterizerState_Release(pipeline->rasterizer);
@@ -571,38 +639,34 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_init(gex_d3d11_pipeline *pipeline,
                          message);
     }
 
-    /* Blending: el original usa grAlphaBlendFunction(SRC_ALPHA,
-     * ONE_MINUS_SRC_ALPHA, ZERO, ZERO) en las rutas con alfa (el formato 12
-     * activa el blending alfa; los demás formatos no tienen alfa útil). Aquí
-     * se usa un único estado para todo el dibujo: con alfa 255 (el cubo de
-     * prueba y las texturas YIQ) el resultado es idéntico al de no
-     * mezclar. */
-    memset(&blend_desc, 0, sizeof(blend_desc));
-    blend_desc.AlphaToCoverageEnable = FALSE;
-    blend_desc.IndependentBlendEnable = FALSE;
-    blend_desc.RenderTarget[0].BlendEnable = TRUE;
-    blend_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    blend_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    blend_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    blend_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-    blend_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    blend_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    blend_desc.RenderTarget[0].RenderTargetWriteMask =
-        D3D11_COLOR_WRITE_ENABLE_ALL;
-
-    hr = ID3D11Device_CreateBlendState(pipeline->device, &blend_desc,
-                                       &pipeline->blend);
-    if (fault_at(8u)) {
-        hr = E_FAIL;
-        if (pipeline->blend != NULL) {
-            ID3D11BlendState_Release(pipeline->blend);
-            pipeline->blend = NULL;
+    /* Blending por comando (S-7): un estado por modo, igual que el original
+     * cambia grAlphaBlendFunction antes de cada comando. El estado ALPHA
+     * (SRC_ALPHA / INV_SRC_ALPHA, alfa ONE/ZERO) es el que el port usaba para
+     * todo el dibujo y sigue siendo el de `pipeline->blend`, el menú y las
+     * formas sintéticas. Los cinco se crean en el mismo stage de fallo: un
+     * fallo inyectado en 8 no deja ninguno vivo. */
+    {
+        int inject = fault_at(8u);
+        int mode;
+        for (mode = 0; mode < GEX_BLEND_MODE_COUNT; mode++) {
+            blend_desc_for_mode((gex_blend_mode)mode, &blend_desc);
+            hr = ID3D11Device_CreateBlendState(
+                pipeline->device, &blend_desc, &pipeline->blends[mode]);
+            if (inject) {
+                hr = E_FAIL;
+                if (pipeline->blends[mode] != NULL) {
+                    ID3D11BlendState_Release(pipeline->blends[mode]);
+                    pipeline->blends[mode] = NULL;
+                }
+            }
+            if (FAILED(hr) || pipeline->blends[mode] == NULL) {
+                snprintf(message, sizeof(message),
+                         "no se pudo crear el estado de blend");
+                return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED,
+                                 hr, message);
+            }
         }
-    }
-    if (FAILED(hr) || pipeline->blend == NULL) {
-        snprintf(message, sizeof(message), "no se pudo crear el estado de blend");
-        return fail_init(pipeline, GEX_D3D11_PIPELINE_CREATE_FAILED, hr,
-                         message);
+        pipeline->blend = pipeline->blends[GEX_BLEND_ALPHA];
     }
 
     /* Sin depth buffer: el orden de dibujo es el orden de emisión
@@ -881,8 +945,6 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_draw(gex_d3d11_pipeline *pipeline,
     ID3D11DeviceContext_PSSetShader(pipeline->context, pipeline->pixel_shader,
                                     NULL, 0);
     ID3D11DeviceContext_RSSetState(pipeline->context, pipeline->rasterizer);
-    ID3D11DeviceContext_OMSetBlendState(pipeline->context, pipeline->blend,
-                                        NULL, 0xFFFFFFFFu);
     ID3D11DeviceContext_OMSetDepthStencilState(pipeline->context,
                                                pipeline->depth_stencil, 0);
 
@@ -911,10 +973,41 @@ gex_d3d11_pipeline_status gex_d3d11_pipeline_draw(gex_d3d11_pipeline *pipeline,
                                                  &pipeline->tex_constants);
     }
 
-    ID3D11DeviceContext_DrawIndexed(pipeline->context, mesh->index_count, 0, 0);
+    /* Se dibuja por tramos contiguos de mezcla: un OMSetBlendState + un
+     * DrawIndexed por tramo, sin cambiar el orden de los índices. Así el
+     * estado cambia donde el original cambia grAlphaBlendFunction, y no por
+     * triángulo ni por textura. Una malla viva siempre tiene al menos un
+     * tramo: `gex_d3d11_mesh_create` añade uno ALPHA si la geometría no trae
+     * tramos. */
+    {
+        UINT run;
+        UINT total = 0;
+        for (run = 0; run < mesh->run_count; run++) {
+            const gex_geometry_run *r = &mesh->runs[run];
+            ID3D11BlendState *state = pipeline->blend;
+            UINT first;
+            UINT count;
 
-    pipeline->draw_calls++;
-    pipeline->triangles_drawn += mesh->index_count / 3u;
+            if (r->blend < (uint8_t)GEX_BLEND_MODE_COUNT &&
+                pipeline->blends[r->blend] != NULL) {
+                state = pipeline->blends[r->blend];
+            }
+            if (r->index_offset > (size_t)UINT_MAX ||
+                r->index_count > (size_t)UINT_MAX) {
+                pipeline->last_hresult = E_INVALIDARG;
+                return GEX_D3D11_PIPELINE_BAD_ARGUMENT;
+            }
+            first = (UINT)r->index_offset;
+            count = (UINT)r->index_count;
+            ID3D11DeviceContext_OMSetBlendState(pipeline->context, state, NULL,
+                                                0xFFFFFFFFu);
+            ID3D11DeviceContext_DrawIndexed(pipeline->context, count, first, 0);
+            total += count;
+        }
+        pipeline->draw_calls += mesh->run_count;
+        pipeline->triangles_drawn += total / 3u;
+    }
+
     pipeline->last_hresult = S_OK;
     return GEX_D3D11_PIPELINE_OK;
 }

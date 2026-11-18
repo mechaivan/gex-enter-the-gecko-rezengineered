@@ -842,7 +842,7 @@ de niebla por vértice).
   distintos y el contenido de la textura se reconoce en el panel con marco de
   la pared.
 
-### 9.7 El alfa de las texturas y la mezcla por comando (medido en S-6)
+### 9.7 El alfa de las texturas y la mezcla por comando (medido en S-6, implementado en S-7)
 
 El **alfa del texel no basta** para decidir la mezcla: el original cambia el
 estado de mezcla **por comando** y el mismo banco de texturas se usa con estados
@@ -852,19 +852,37 @@ distintos. El caso medido en MAP7:
   en los 1 024 texeles y **fondo negro**. El original la dibuja con
   `grAlphaBlendFunction (1, 4, 4, 0)` — **aditiva** (`src * 1 + dst * 1`) — en
   los 6 triángulos del opcode `0xB6`.
-- El port aplica el estado **global** `(1, 5, 4, 0)`
-  (`SRC_ALPHA`/`INV_SRC_ALPHA`), así que el negro del fondo se vuelve **opaco** y
-  tapa lo que hay detrás: es el "fuego rectangular con fondo negro" de la
+- Hasta S-6 el port aplicaba el estado **global** `(1, 5, 4, 0)`
+  (`SRC_ALPHA`/`INV_SRC_ALPHA`), así que el negro del fondo se volvía **opaco**
+  y tapaba lo que hay detrás: el "fuego rectangular con fondo negro" de la
   auditoría visual (S-6, `docs/D3D11_FIRST_SCENE_PLAN.md` § 23.3).
 - Con alfa 255, la mezcla aditiva y la sustitutiva solo difieren en el fondo
-  negro; el resto de la textura coincide. Por eso el defecto tiene **forma de
+  negro; el resto de la textura coincide. Por eso el defecto tenía **forma de
   rectángulo** y no de llama.
 
-**No implementado.** La corrección exige llevar la selección de mezcla hasta el
-triángulo (hoy el estado es único por frame), y su prueba de regresión natural
-—comparar los píxeles del fuego con el original— está contaminada por la
-incógnita del orden de canales R/B (§ 23.5 del mismo documento). El diseño está
-en § 19.10 y queda como pendiente de S-6.
+**La relación con el formato, que es lo que este documento aporta.** El
+original no decide por el índice de textura ni por un caso especial: en
+`0x46558A` consulta el registro de textura (`[0x6488F4][índice & 0x3FFF]`) y
+compara su campo `+0x0C` —el `GrTexInfo.format` que documenta este fichero—
+con `0x0C` (`GR_TEXFMT_ARGB_4444`). Si coincide, el comando va a mezcla alfa
+`(1,5,4,0)`; si no, a aditiva `(1,4,4,0)` (siempre que el opcode tenga los bits
+`0x04` y `0x02` y el modo de textura sea 0 o 1).
+
+Por eso el port no adivina el formato a partir de los píxeles ni de una lista
+fija de índices: la aplicación recorre **todos** los registros del `.VFX`
+(incluidos los que no se decodifican para el atlas) y pasa los que tienen
+`format == 12` a `gex_scene_level_set_alpha_textures`. En MAP7 son **103**
+registros; entre ellos están las texturas 185, 234 y 241 de los otros comandos
+`0xB6`, que por eso siguen en mezcla alfa. Solo la 370, que es `ARGB_1555`
+(formato 11, sin alfa), queda aditiva.
+
+**Implementado en S-7.** El triángulo lleva su `opcode`, su `texture_mode` y su
+`blend`; la geometría agrupa los índices en tramos contiguos y el pipeline
+D3D11 emite un `DrawIndexed` por tramo con el estado correspondiente. El
+detalle completo está en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.12. La prueba de
+regresión visual ya no depende de la incógnita R/B (§ 23.5): se compara el
+mismo fotograma antes y después y el único cambio cae dentro del rectángulo de
+la llama.
 
 ## 8. Limitaciones y siguiente paso
 

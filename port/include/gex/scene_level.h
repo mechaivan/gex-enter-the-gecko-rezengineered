@@ -86,6 +86,10 @@ typedef struct gex_scene_level {
     int emit_loaded;
     gex_geometry geometry;
     int geometry_loaded;
+    /* Texturas ARGB_4444 del .VFX del nivel (S-7): son las únicas que el
+     * original considera con alfa al elegir la mezcla por comando. */
+    uint16_t *alpha_textures;
+    size_t alpha_texture_count;
     /* Trayectoria de camara del nivel (S-3), si la tiene. */
     gex_dfx_camera_path dfx_path;
     int path_loaded;
@@ -253,6 +257,27 @@ gex_scene_status gex_scene_camera_path_final_texture_usage(
  * GEX_SCENE_ERR_NOMEM / GEX_SCENE_ERR_GEOMETRY si falla la reconstrucción.
  */
 gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected);
+
+/*
+ * Declara qué texturas del `.VFX` del nivel tienen formato ARGB_4444 (S-7).
+ *
+ * El original elige la mezcla por comando: un comando con `opcode & 2` y modo
+ * de textura 0/1 usa mezcla aditiva si su textura NO tiene canal alfa, y
+ * mezcla alfa si lo tiene. El port no adivina el formato: la aplicación pasa
+ * aquí los índices de 14 bits cuyo `GrTexInfo.format` es ARGB_4444 (formato
+ * 12) y la escena los guarda en una copia propia.
+ *
+ * Es idempotente: sustituye la lista anterior y, si ya hay emisión, vuelve a
+ * asignar `blend` a cada triángulo y reconstruye la geometría (los tramos de
+ * mezcla). El llamador debe volver a subir la geometría a la GPU después.
+ *
+ * `indices == NULL` con `count == 0` vacía la lista. Devuelve
+ * GEX_SCENE_ERR_ARG con argumentos incoherentes y GEX_SCENE_ERR_NOMEM si no
+ * puede copiar la lista.
+ */
+gex_scene_status gex_scene_level_set_alpha_textures(gex_scene_level *scene,
+                                                    const uint16_t *indices,
+                                                    size_t count);
 
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);

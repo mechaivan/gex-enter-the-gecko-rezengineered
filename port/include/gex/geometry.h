@@ -66,6 +66,21 @@ typedef struct {
 #define GEX_VERTEX_OFFSET_FLAGS    27u
 
 /* ========================================================================
+ * Tramos de mezcla. `gex_geometry_build` agrupa los triángulos aceptados en
+ * tramos CONTIGUOS que comparten `blend`; el orden de los índices no cambia
+ * (cada tramo es un rango consecutivo del index buffer). El renderer fija el
+ * estado de mezcla una vez por tramo y dibuja el rango con un DrawIndexed,
+ * igual que el original cambia grAlphaBlendFunction entre comandos.
+ *
+ * Los triángulos clipeados no aportan índices y no rompen un tramo.
+ * ======================================================================== */
+typedef struct gex_geometry_run {
+    size_t  index_offset;  /* primer índice del tramo dentro de `indices` */
+    size_t  index_count;   /* número de índices (siempre múltiplo de 3) */
+    uint8_t blend;         /* gex_blend_mode del tramo */
+} gex_geometry_run;
+
+/* ========================================================================
  * Geometría convertida. `indices` siempre es uint32_t; el módulo D3D11 elige
  * el formato real del índice (R16_UINT cuando cabe, R32_UINT si no).
  * ======================================================================== */
@@ -76,6 +91,8 @@ typedef struct {
     size_t      index_count;      /* siempre 3 * triangle_count */
     size_t      triangle_count;   /* triángulos aceptados (sin clipeados) */
     size_t      skipped_clipped;  /* descartados por GEX_EMIT_F_DEPTH_CLIPPED */
+    gex_geometry_run *runs;       /* tramos de mezcla contiguos */
+    size_t      run_count;
 } gex_geometry;
 
 typedef enum {

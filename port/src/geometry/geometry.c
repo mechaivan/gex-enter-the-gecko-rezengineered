@@ -101,12 +101,14 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
     gex_vertex *vertices;
     uint32_t *indices;
     uint32_t *table;
+    gex_geometry_run *runs;
     size_t max_vertices;
     size_t table_size;
     size_t mask;
     size_t vcount = 0;
     size_t icount = 0;
     size_t skipped = 0;
+    size_t run_count = 0;
     size_t t;
 
     if (out == NULL) {
@@ -139,6 +141,10 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
     }
     if (max_vertices > SIZE_MAX / sizeof(gex_vertex) ||
         max_vertices > SIZE_MAX / sizeof(uint32_t)) {
+        return GEX_GEOM_ERR_OVERFLOW;
+    }
+    /* Como mucho un tramo por triángulo (todos con mezcla distinta). */
+    if (emit->count > SIZE_MAX / sizeof(gex_geometry_run)) {
         return GEX_GEOM_ERR_OVERFLOW;
     }
     /* Tabla hash: potencia de dos con factor de carga <= 0.5. */
@@ -178,6 +184,14 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
     }
     memset(table, 0, table_size * sizeof(*table));
 
+    runs = (gex_geometry_run *)geom_alloc(emit->count * sizeof(*runs));
+    if (runs == NULL) {
+        free(table);
+        free(indices);
+        free(vertices);
+        return GEX_GEOM_ERR_NOMEM;
+    }
+
     for (t = 0; t < emit->count; t++) {
         const gex_emit_triangle *tri = &emit->tris[t];
         int corner;
@@ -213,12 +227,31 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
             }
             icount++;
         }
+
+        /* Tramo de mezcla: se extiende el último si comparte modo; si no,
+         * empieza uno nuevo en este índice. Los clipeados no llegan aquí y
+         * por tanto no rompen un tramo. */
+        {
+            uint8_t blend = tri->blend;
+            if (blend >= (uint8_t)GEX_BLEND_MODE_COUNT) {
+                blend = (uint8_t)GEX_BLEND_ALPHA;
+            }
+            if (run_count > 0u && runs[run_count - 1u].blend == blend) {
+                runs[run_count - 1u].index_count += 3u;
+            } else {
+                runs[run_count].index_offset = icount - 3u;
+                runs[run_count].index_count = 3u;
+                runs[run_count].blend = blend;
+                run_count++;
+            }
+        }
     }
 
     free(table);
 
     if (vcount == 0) {
         /* Todos los triángulos estaban clipeados: geometría vacía válida. */
+        free(runs);
         free(indices);
         free(vertices);
         out->skipped_clipped = skipped;
@@ -239,6 +272,13 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
             indices = shrunk;
         }
     }
+    if (run_count < emit->count) {
+        gex_geometry_run *shrunk = (gex_geometry_run *)realloc(
+            runs, run_count * sizeof(*shrunk));
+        if (shrunk != NULL) {
+            runs = shrunk;
+        }
+    }
 
     out->vertices = vertices;
     out->indices = indices;
@@ -246,6 +286,8 @@ gex_geom_status gex_geometry_build(const gex_emit_output *emit,
     out->index_count = icount;
     out->triangle_count = icount / 3u;
     out->skipped_clipped = skipped;
+    out->runs = runs;
+    out->run_count = run_count;
     return GEX_GEOM_OK;
 }
 
@@ -256,6 +298,7 @@ void gex_geometry_free(gex_geometry *geom)
     }
     free(geom->vertices);
     free(geom->indices);
+    free(geom->runs);
     memset(geom, 0, sizeof(*geom));
 }
 

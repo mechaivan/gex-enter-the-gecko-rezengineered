@@ -168,9 +168,9 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   es constante `1.0`. Por tanto, en esta ruta la salida es `texel.a`; el port
   ya no multiplica el alfa del texel por el byte alto del opcode y la regresión
   correspondiente falla con el comportamiento anterior (§19.8 y §19.11).
-  El modo `(1,5,4,0)` queda reproducido para la geometría ordinaria. Sigue
-  pendiente la mezcla `(1,4,4,0)` de los seis triángulos de textura 370
-  (§19.10), además de la escala RGB 0..2 frente a la normalización 0..1
+  El modo `(1,5,4,0)` queda reproducido para la geometría ordinaria y la mezcla
+  `(1,4,4,0)` de los seis triángulos de textura 370 se implementó en S-7
+  (§19.12). Sigue abierta la escala RGB 0..2 frente a la normalización 0..1
   (§19.11).
 
 ---
@@ -752,9 +752,9 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
    B/G/R, sin canal alfa; el alfa efectivo es constante 1.0. Para ARGB_4444,
    la salida es por tanto el alfa del texel. El port ya no utiliza el byte alto
    del comando como alfa y la prueba de regresión detecta el comportamiento
-   anterior (§19.8 y §19.11). Quedan pendientes la mezcla por comando de los
-   seis triángulos de textura 370 (§19.10) y la escala del color RGB 0..2
-   frente a la normalización 0..1 del port (§19.11).
+   anterior (§19.8 y §19.11). La mezcla por comando de los seis triángulos de
+   textura 370 se implementó en S-7 (§19.12). Queda pendiente la escala del
+   color RGB 0..2 frente a la normalización 0..1 del port (§19.11).
 5. **Materiales de producción, *depth buffer* y niebla después de la
    textura:** el recorrido, la visibilidad y la emisión de nivel ya están
    validados contra el ejecutable original (§ 4.3 y § 18.8) y la **cámara real
@@ -864,12 +864,12 @@ Avances del 2026-11-13 (`S3_MENU_CAMERA_SEQUENCE.md` § 4.5-4.14):
   de GPU hardware y suites automatizadas. La geometría del escenario se reutiliza:
   los demás niveles no requieren rehacer el renderer desde cero, aunque sí
   deberán cargarse y validarse y podrán revelar formatos o sistemas específicos.
-- **Pendientes de fidelidad del renderer que siguen acotados:** implementar el
-  estado aditivo `(1,4,4,0)` para los seis triángulos de la textura 370 mediante
-  tramos de índices (§19.10); medir la escala de los tres canales RGB de entrada
-  (0..2 de Glide frente a 0..1 del port; §19.11); y corregir la niebla para que
-  se componga después de la textura (§18.5). La equivalencia píxel a píxel con
-  el SST-1/Voodoo no está demostrada.
+- **Pendientes de fidelidad del renderer que siguen acotados:** medir la escala
+  de los tres canales RGB de entrada (0..2 de Glide frente a 0..1 del port;
+  §19.11) y corregir la niebla para que se componga después de la textura
+  (§18.5). La mezcla aditiva `(1,4,4,0)` de los seis triángulos de la textura
+  370 ya se implementó con tramos de índices en S-7 (§19.12). La equivalencia
+  píxel a píxel con el SST-1/Voodoo no está demostrada.
 - **No confundir con bloqueos del primer recorrido visible:** el emisor lejano
   no se ejercita en MAP7; el *depth buffer* y las ramas alternativas requieren
   evaluación según el comportamiento que se quiera reproducir. No se deben
@@ -1559,8 +1559,8 @@ profundidades, orden del pintor, determinismo, efecto del giro y conversión a
   real del vértice de MAP7. ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:**
   la captura de MAP7 demuestra que Glide recibe solo RGB y que el alfa efectivo
   es constante 1.0. El port ya devuelve el alfa del texel, sin usar el byte alto
-  del opcode. Quedan el modo de mezcla por comando (§19.10) y la escala RGB
-  (§19.11).
+  del opcode. El modo de mezcla por comando se implementó en S-7 (§19.12);
+  queda la escala RGB (§19.11).
 - Siguiente paso: **Módulo 4C (carga de texturas `.VFX` en D3D11; el Módulo 4B
   ya decodifica el píxel y las dimensiones)** y, con él, la firma definitiva del
   shader de producción, el *depth buffer* y el `ID3D11InputLayout` con los
@@ -1935,8 +1935,9 @@ evidencia local y **no se publica** en el repositorio.
   polígono** y la **niebla aplicada después de la textura** (§18.8).
   ~~Estado 2026-11-11~~ → **actualizado 2026-11-12:** el modo principal de
   mezcla está reproducido y el alfa de MAP7 corregido (§19.8 y §19.11).
-  Quedan el **modo de mezcla por comando** de seis triángulos (§19.10) y la
-  **escala RGB** de Glide frente a la del port (§19.11).
+  **S-7 (2026-11-18):** el **modo de mezcla por comando** de los seis
+  triángulos ya está implementado (§19.12). Queda la **escala RGB** de Glide
+  frente a la del port (§19.11).
 - **Cámara real**: el estado de cámara del juego ya está capturado y validado; la vista sigue siendo diagnóstica en cuanto a la
   juego para usar `cam+0xE0` y la visibilidad por esfera.
 - **Sin *depth buffer***: el orden del pintor produce solapes visibles.
@@ -2080,9 +2081,9 @@ El port usa un sampler lineal con WRAP y **no genera mipmaps** ✓.
   principal de MAP7. La ecuación de nGlide produce `texel.a × v0.a`, pero el
   vértice real no aporta canal alfa y el valor efectivo es 1.0: el alfa de salida
   es el del texel. El port ya corrigió la multiplicación indebida por el byte
-  alto del opcode y tiene una regresión específica (§19.8 y §19.11). Queda
-  pendiente el modo `SRC_ALPHA` / `ONE` para seis triángulos de textura 370
-  (§19.10).
+  alto del opcode y tiene una regresión específica (§19.8 y §19.11). El modo
+  `SRC_ALPHA` / `ONE` de los seis triángulos de textura 370 se implementó en
+  S-7 como un tramo de mezcla propio (§19.12).
 
 ### 18.6 Pruebas
 
@@ -2123,8 +2124,10 @@ reconoce en el panel con marco de la pared.
    comparar con el original.
 2. **El factor de zoom de la UV** (texels por byte) depende de esa cámara.
 3. **La niebla** debería aplicarse después de la textura (§18.5).
-4. El blending alfa se aplica a **todo** el dibujo; el original lo activa
-   **por polígono** según el formato de la textura.
+4. ~~El blending alfa se aplica a **todo** el dibujo; el original lo activa
+   **por polígono** según el formato de la textura.~~ **Resuelto en S-7
+   (§19.12):** la mezcla se elige por comando y se aplica por tramos contiguos
+   de índices.
 5. El atlas tiene un límite de 64 texturas y 4 096 px de ancho por fila
    (`GEX_D3D11_TEXTURE_MAX_ENTRIES`, `..._ATLAS_MAX_WIDTH`): con más
    texturas habría que revisar el empaquetado.
@@ -2208,8 +2211,9 @@ genérico expresa `alfa de salida = alfa del texel × v0.a`, pero la captura
 del vértice real de MAP7 demuestra que no hay canal alfa y que el valor efectivo
 es constante 1.0. La salida efectiva es, por tanto, el alfa del texel. El port
 ya fue corregido para devolver ese alfa, sin multiplicarlo por el byte alto
-del opcode. El estado global reproduce el modo principal; los seis triángulos
-con mezcla `SRC_ALPHA`/`ONE` siguen pendientes (§19.10).
+del opcode. El estado global reproduce el modo principal; desde S-7 los seis
+triángulos con mezcla `SRC_ALPHA`/`ONE` se dibujan con su propio estado
+(§19.12).
 
 ### 19.4 La niebla, antes que la textura
 
@@ -2420,7 +2424,7 @@ del juego**, que de otro modo no tendrían sentido gráfico.
 |---|---|---|
 | `(4,0,0,0)` | `0x4657BC` | `ONE/ZERO` → **substituye** el destino |
 | `(4,4,0,0)` | `0x465831`, `0x465881` | `ONE/ONE` → **aditivo** |
-| `(0,0,6,0)` | `0x465859`, `0x4659CA` | borra el RGB del destino |
+| `(0,6,0,0)` | `0x465859`, `0x4659CA` | borra el RGB del destino (`ZERO`/`INV_DEST_COLOR`) |
 | `(1,1,4,0)` | `0x4658A3`, `0x4659F2` | `(src+dst)·a` |
 | `(1,4,4,0)` | `0x465A14` | `src·a + dst` |
 | **`(1,5,4,0)`** | `0x465A3D` | **`src·a + dst·(1-a)`** |
@@ -2452,14 +2456,16 @@ framebuffer    = src.rgb·a + dst.rgb·(1-a)      (canal alfa: src·a)
 | Elemento | Original (nGlide 2.10, ruta MAP7) | Port |
 |---|---|---|
 | Mezcla del alfa | `texel.a × 1.0 = texel.a` | el *pixel shader* devuelve el alfa del texel, sin multiplicarlo por el byte alto del opcode; regresión específica en `test_d3d11_pipeline.c` ✔ |
-| Estado de mezcla | `SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO` | `D3D11_BLEND_SRC_ALPHA`/`INV_SRC_ALPHA`, `ONE`/`ZERO` (`d3d11_pipeline.c:558-561`) ✔ |
-| Caso opaco | `r9.a = 1.0` con `ONE/ZERO` → substituye | alfa 1 con el mismo estado → substituye ✔ |
+| Estado de mezcla | por comando: `(1,5,4,0)` general y `(1,4,4,0)` para los 6 triángulos de la textura 370 | un estado D3D11 por modo, elegido por tramo de índices (§19.12): `SRC_ALPHA`/`INV_SRC_ALPHA` y `SRC_ALPHA`/`ONE` ✔ |
+| Caso opaco | `r9.a = 1.0` con `ONE/ZERO` → substituye | alfa 1 con el estado ALPHA → substituye ✔ |
 | RGB | `v0.rgb × texel.rgb` (modo `6`) | `color.rgb × t.rgb` ✔ |
 
 La lectura `SRC_ALPHA`/`ONE_MINUS_SRC_ALPHA` de `(3,4,1,0,0)` queda
 **confirmada con evidencia**. Los **32 triángulos** ARGB_4444 ya reciben el
-alfa correcto del texel tras la corrección del shader; no necesitan otra
-modificación por este motivo. La escala RGB sigue sin cerrarse (§19.11).
+alfa correcto del texel tras la corrección del shader. La selección por comando
+se implementó en S-7 (§19.12): los 6 triángulos de la textura 370 salen ahora
+con `(1,4,4,0)` y el resto conserva `(1,5,4,0)`. La escala RGB sigue sin
+cerrarse (§19.11).
 
 **Lo que sigue sin poder afirmarse.**
 
@@ -2475,12 +2481,11 @@ modificación por este motivo. La escala RGB sigue sin cerrarse (§19.11).
   (el color viaja en tres flotantes B, G, R); el byte alto del color del
   comando es el **opcode**, no un alfa. El alfa efectivo de la unidad de
   mezcla es constante 1.0 y el port ya no multiplica por ese byte.
-- **Los modos de mezcla por comando.** **Medidos (2026-11-12, § 19.10):** MAP7
-  usa solo tres modos — `(1,5,4,0)` para la geometría del nivel, `(1,4,4,0)`
-  para **6** triángulos (la textura 370) y `(4,0,0,0)` para las 128 primitivas
-  2D. Los modos aditivos y de borrado **no aparecen**. El estado global del
-  port coincide en todo salvo esos 6 triángulos; el diseño de la corrección
-  queda cerrado en § 19.10.
+- **Los modos de mezcla por comando.** **Medidos (2026-11-12, § 19.10) e
+  implementados (S-7, § 19.12):** MAP7 usa solo tres modos — `(1,5,4,0)` para
+  la geometría del nivel, `(1,4,4,0)` para **6** triángulos (la textura 370) y
+  `(4,0,0,0)` para las 128 primitivas 2D. Los modos aditivos y de borrado **no
+  aparecen**. El port ya reproduce los tres por tramos contiguos de índices.
 
 ### 19.9 Auditoría de YIQ_422
 
@@ -2569,7 +2574,7 @@ del ejecutable) sobre una **copia de trabajo** del juego (`md5` del exe
 
 **Conclusiones:**
 
-1. Los modos **aditivo** `(4,4,0,0)` y **de borrado** `(0,0,6,0)` **no aparecen
+1. Los modos **aditivo** `(4,4,0,0)` y **de borrado** `(0,6,0,0)` **no aparecen
    nunca** en MAP7: 0 ocurrencias en 160 086 llamadas. Las otras dos ramas de
    `grAlphaBlendFunction` (`0x465831`/`0x465881` y `0x465859`/`0x4659CA`) solo
    se alcanzan con el «modo de iluminación» 1, 2 o 3, y en MAP7 el modo es 0
@@ -2588,35 +2593,35 @@ triángulos con la textura 370**; los otros 12 con opcode `0xB6` usan texturas
 ARGB_4444 (185, 234, 241) y por tanto van a `(1,5,4,0)`. La correspondencia
 cuadra uno a uno.
 
-**Contraste con el port.** El port usa un **único** estado global
-(`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`):
+**Contraste con el port.** Hasta S-6 el port usaba un **único** estado global
+(`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa `ONE`/`ZERO`); desde S-7 (§19.12) el estado
+se elige por comando y se aplica por tramos contiguos de índices:
 
-| Grupo | Original | Port | ¿Coincide? |
+| Grupo | Original | Port (S-7) | ¿Coincide? |
 |---|---|---|---|
-| 1 116 comandos (nivel opaco + ARGB_4444) | `(1,5,4,0)` | `(1,5,4,0)` | ✔ (con alfa 1: `src·1 + dst·0 = src`) |
-| 6 triángulos (textura 370) | `(1,4,4,0)` | `(1,5,4,0)` | ✘ (el original **suma** al destino) |
+| 1 116 comandos (nivel opaco + ARGB_4444) | `(1,5,4,0)` | `(1,5,4,0)` | ✔ |
+| 6 triángulos (textura 370) | `(1,4,4,0)` | `(1,4,4,0)` | ✔ |
 | 128 primitivas 2D | `(4,0,0,0)` | `(1,5,4,0)` | ✔ con alfa 1 |
 
-**La diferencia de los 6 triángulos está demostrada, pero no se corrige en esta
-ronda.** Reproducirla exige representar el modo **por triángulo**, y el modo
-depende de dos cosas que hoy no viajan en la emisión: el opcode (bit 1 del byte
-alto del color, que el port sí tiene) y el **formato** de la textura (solo el
-ARGB_4444 cambia de modo), que vive en la tabla de texturas del renderer.
-El cambio mínimo diseñado es:
+**La corrección se implementó en S-7 (§19.12).** La regla reproduce la decisión
+del original en `0x46558A`, no un caso especial de la textura 370:
 
-1. en la emisión, marcar el triángulo (un bit más en `GEX_EMIT_F_*`, que ya
-   viaja por vértice) cuando su opcode es `0xB6`;
-2. en el renderer, resolver el formato por índice de textura (la tabla de
-   texturas ya lo sabe) y **agrupar los índices en tramos contiguos** con el
-   mismo modo, emitiendo un `DrawIndexed` por tramo con el estado de mezcla
-   correspondiente (dos estados: `SRC_ALPHA`/`INV_SRC_ALPHA` y
-   `SRC_ALPHA`/`ONE`);
-3. **sin tocar** la cámara, la profundidad, el orden de dibujo (los tramos se
-   emiten en el mismo orden) ni la niebla.
+1. la emisión marca cada triángulo con su `opcode`, su `texture_mode` (bits
+   14-15 del word de textura) y, tras la fase `gex_emit_assign_blend`, su modo
+   de mezcla;
+2. la decisión usa la lista de texturas ARGB_4444 que la aplicación extrae del
+   propio `.VFX` del nivel (el original consulta el campo `format` del registro
+   de textura), no un índice fijo;
+3. la geometría agrupa los índices en **tramos contiguos** con el mismo modo y
+   el pipeline emite un `DrawIndexed` por tramo con su estado de mezcla, en el
+   mismo orden de emisión;
+4. **sin tocar** la cámara, la profundidad, el orden de dibujo ni la niebla.
 
-Afecta a **6 de 1 123 triángulos** (0,5 %): el cambio se difiere por su coste
-relativo y porque el resto del modelo de mezcla ya está verificado. Se deja
-como paso siguiente con el diseño cerrado.
+En MAP7 la regla deja exactamente **6 triángulos aditivos** (textura 370,
+opcode `0xB6`, modo de textura 1, sin alfa) y **1 117 alfa**, y la lista de
+texturas ARGB_4444 del `.VFX` incluye las 12 de los otros comandos `0xB6`, que
+por tanto siguen en alfa. El detalle completo, las pruebas y la comparación
+visual están en §19.12.
 
 ### 19.11 El byte alto del color de vértice (2026-11-12)
 
@@ -2687,6 +2692,104 @@ observable aquí (y su formato de vértice tampoco: el juego entrega vértices c
 flotantes, que no es el `GrVertex` clásico). La captura de ventana del juego
 devuelve negro, así que no hay verificación píxel a píxel: la comparación es a
 nivel de **ecuación y de estado de mezcla**.
+
+### 19.12 S-7: mezcla por comando implementada (2026-11-18)
+
+**Qué se implementó.** La selección de mezcla que el original hace en
+`0x46558A` antes de cada comando, transportada hasta el renderer D3D11 sin
+tocar la cámara, la profundidad, el orden de dibujo ni la niebla. No es un caso
+especial de la textura 370: es la regla completa, y la llama de MAP7 es su
+primera consecuencia visible.
+
+**La regla, tal como está en `gex_emit_blend_for_command`.** Con el opcode del
+comando (`0xB4 | ((color0 >> 24) & 3)` en el emisor cercano, `0xB6` en el
+lejano) y el modo de textura (bits 14-15 del word de textura del polígono):
+
+| Condición | Modo | Cuádrupla del original |
+|---|---|---|
+| `opcode & 0x04 == 0` | `ALPHA` | `(1,5,4,0)` |
+| `opcode & 0x02 == 0` | `ALPHA` | `(1,5,4,0)` |
+| modo 0/1 y la textura **tiene** alfa (ARGB_4444) | `ALPHA` | `(1,5,4,0)` |
+| modo 0/1 y la textura **no** tiene alfa | `ADDITIVE` | `(1,4,4,0)` |
+| modo 2 | `ERASE` | `(0,6,0,0)` |
+| modo 3 | `ADDITIVE_ALPHA_OFF` | `(1,4,0,0)` |
+| modo > 3 | `ADDITIVE` | `(1,4,4,0)` |
+
+El bit `0x04` es el camino de alphablend del binario; el `0x02` es el camino de
+«modo de iluminación». Solo los comandos de nivel lo llevan: el menú (flags 0) y
+la pasada de niebla (`GEX_EMIT_F_FOG_PASS`) se quedan en `ALPHA` por contrato.
+
+**Cómo viaja el estado.**
+
+1. La emisión escribe en cada `gex_emit_triangle` su `opcode`, su
+   `texture_mode` y su `blend`; `gex_emit_subdivide` recibe el modo como
+   parámetro para que los subtriángulos hereden el del polígono. El emisor
+   lejano fuerza `texture_mode = 1` y su pasada de niebla usa modo 0.
+2. `gex_emit_assign_blend(out, alpha_textures, count)` recorre la emisión y
+   aplica la tabla anterior. `has_alpha` se resuelve contra la lista de texturas
+   ARGB_4444 **del propio `.VFX`**, no contra un índice fijo: la aplicación
+   recorre todos los registros del banco y pasa los que tienen
+   `GEX_VFX_FORMAT_ARGB_4444` a `gex_scene_level_set_alpha_textures`. En MAP7
+   son **103** registros (incluidas las 12 texturas de los otros comandos
+   `0xB6`: 185, 234 y 241), así que esos 12 triángulos siguen en alfa.
+3. `gex_geometry_build` agrupa los índices en **tramos contiguos** con el mismo
+   modo (`gex_geometry_run`: `index_offset`, `index_count`, `blend`), saltando
+   los triángulos descartados por clipeado sin partir el tramo. El orden de los
+   índices no cambia.
+4. `gex_d3d11_pipeline_draw` hace un `OMSetBlendState` + `DrawIndexed` por
+   tramo. Una malla sin tramos (formas sintéticas, pruebas antiguas) recibe un
+   único tramo `ALPHA` que cubre todo: el comportamiento anterior se conserva.
+
+**Los cinco estados D3D11** (`blend_desc_for_mode`):
+
+| Modo | `SrcBlend` / `DestBlend` | `SrcBlendAlpha` / `DestBlendAlpha` |
+|---|---|---|
+| `ALPHA` | `SRC_ALPHA` / `INV_SRC_ALPHA` | `ONE` / `ZERO` |
+| `ADDITIVE` | `SRC_ALPHA` / `ONE` | `ONE` / `ZERO` |
+| `OPAQUE` | `ONE` / `ZERO` | `ONE` / `ZERO` |
+| `ERASE` | `ZERO` / `INV_DEST_COLOR` | `ZERO` / `ZERO` |
+| `ADDITIVE_ALPHA_OFF` | `SRC_ALPHA` / `ONE` | `ZERO` / `ZERO` |
+
+`pipeline->blend` sigue existiendo como alias de `blends[GEX_BLEND_ALPHA]` para
+no romper el contrato ni las pruebas que lo consultan.
+
+**Resultado en MAP7.** 1 123 comandos → **1 117 `ALPHA` + 6 `ADDITIVE`**; los
+6 son la textura 370, opcode `0xB6`, modo de textura 1, `ARGB_1555` (sin alfa).
+La geometría queda en **11 tramos**. En el fotograma final de la trayectoria
+(428 muestras, 1 722 triángulos) los tramos cubren el index buffer exacto y sin
+huecos.
+
+**Pruebas.** Todas en la suite de `port` (`build.ps1 test`), además de
+ASan/UBSan y O0/O2 (`run_sanitizers.ps1`, TODO OK):
+
+- `test_level_emit`: `test_blend_rule` (las siete filas de la tabla, el menú y
+  la niebla) y `test_map7_blend` (1117 + 6 sobre el `.DFX` real).
+- `test_geometry`: tramos contiguos, clipeado que no rompe el tramo, fallback y
+  fallo de reserva.
+- `test_d3d11_mesh`: copia y validación de tramos (contigüidad, múltiplos de 3,
+  cobertura exacta) y rechazo de tramos incoherentes.
+- `test_d3d11_pipeline`: `test_blend_runs` con píxeles medidos — negro aditivo
+  sobre blanco da ≥253 (no oscurece), el mismo texel en alfa da 116..122, rojo
+  aditivo sobre gris 128 da 250/128 (suma) y en alfa 193..199/57..63 — más dos
+  `DrawIndexed` para dos tramos y los cinco estados creados.
+- `test_camera_path_scene`: 6 aditivos en el fotograma 0 de MAP7, consistencia
+  tras las 428 muestras e idempotencia del setter.
+
+**Comparación visual con el baseline `9ecb09d`** (capturas reales 960×540, GPU
+hardware, mismo comando y mismo fotograma 1000):
+
+- Sin menú: **56 997 px** distintos, todos dentro del rectángulo de la llama
+  (`x 279..839`, `y 38..495`). El fondo negro de la llama deja de tapar el muro
+  y la planta, y los píxeles luminosos suman sobre el escenario.
+- Con menú: de los **8 861 px** que ocupa el menú, solo **170** cambian, y los
+  170 caen dentro del rectángulo de la llama; fuera de él, **0** cambios. El
+  panel, los botones y los rótulos no se tocan.
+
+**Límites.** La regla está medida sobre nGlide 2.10, el driver del proyecto; no
+se afirma equivalencia píxel a píxel con el SST-1. La escala RGB 0..2 sigue
+abierta (§19.11) y no se ha tocado el intercambio R/B (§23.5). Los modos
+`ERASE`, `OPAQUE` y `ADDITIVE_ALPHA_OFF` están implementados y probados de forma
+sintética, pero MAP7 no los ejercita.
 
 ## 20. Captura del fotograma y selección de texturas del encuadre final (2026-11-14)
 
@@ -3111,17 +3214,21 @@ resultado con menú queda **más cerca** del original que la captura sin menú
 la fórmula del degradado (no solo tres muestras); se deja diseñado para no
 inventar el gradiente.
 
-### 23.3 El fuego rectangular con fondo negro: mezcla de la textura 370
+### 23.3 El fuego rectangular con fondo negro: mezcla de la textura 370 (corregido en S-7)
 
 La llama usa la textura **370** (32×32, `ARGB_1555`, alfa 255 en los 1 024
 texeles y fondo **negro**). El original la dibuja con
 `grAlphaBlendFunction (1,4,4,0)` — **aditiva** — en los 6 triángulos del opcode
-`0xB6`; el port aplica el estado global `(1,5,4,0)`, así que el negro del fondo
-se vuelve opaco y tapa lo que hay detrás. El diseño de la corrección (selección
-de mezcla por comando) está en § 19.10 y **no se ha implementado**: exige
-cambiar el estado de mezcla por triángulo, y la prueba de regresión natural
-(comparar los píxeles del fuego con el original) está contaminada por el
-problema de color de § 23.5.
+`0xB6`. Hasta S-6 el port aplicaba el estado global `(1,5,4,0)`, así que el
+negro del fondo se volvía opaco y tapaba lo que hay detrás.
+
+**Corregido en S-7 (§19.12):** la mezcla se elige por comando y la geometría se
+dibuja por tramos contiguos de índices. Los 6 triángulos de la textura 370 usan
+`SRC_ALPHA`/`ONE` y el resto conserva `SRC_ALPHA`/`INV_SRC_ALPHA`. La
+comparación con el baseline confirma que el único cambio visual es el
+rectángulo de la llama: 56 997 px, todos dentro de su bbox; fuera de él no
+cambia ni un píxel, tampoco con el menú encima. La escala de color de §23.5
+sigue siendo un asunto aparte y no se ha tocado.
 
 ### 23.4 Límites laterales: scissor a la zona lógica (implementado)
 
@@ -3190,8 +3297,8 @@ de referencia 512×384 no cambia por construcción.
    color opuesto) para separar el orden del color de vértice del de la textura.
 2. **Fondo `0x64FB40`:** medir la fórmula del degradado (más de tres muestras)
    y sustituir el clear azul.
-3. **Mezcla por comando:** implementar la selección de § 19.10 para el opcode
-   `0xB6` (fuego aditivo).
+3. **Mezcla por comando:** ~~implementar la selección de § 19.10 para el opcode
+   `0xB6` (fuego aditivo)~~ — **hecho en S-7 (§19.12)**.
 4. **Logo de la pantalla inferior:** sigue pendiente lo de § 22.6 (el cristal
    `311` tapa el logo `368`).
 5. **`poly#116` (tex 317, layer −25):** decidir si el original lo dibuja; hoy

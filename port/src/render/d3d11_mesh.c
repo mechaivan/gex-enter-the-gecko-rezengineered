@@ -13,6 +13,59 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * Copia los tramos de mezcla de la geometría. Una geometría sin tramos
+ * (`runs == NULL`, la de las pruebas y las formas sintéticas) recibe un único
+ * tramo ALPHA que cubre todo el index buffer: conserva el comportamiento
+ * anterior a S-7. Unos tramos incoherentes (huecos, solapes, fuera del buffer
+ * o modos desconocidos) son geometría inválida: nunca se dibuja a medias.
+ */
+static gex_d3d11_mesh_status copy_runs(const gex_geometry *geom,
+                                      gex_d3d11_mesh *mesh)
+{
+    const gex_geometry_run *src = geom->runs;
+    gex_geometry_run single;
+    size_t n = geom->run_count;
+    size_t expect = 0u;
+    size_t i;
+
+    if (n == 0u || src == NULL) {
+        single.index_offset = 0u;
+        single.index_count = geom->index_count;
+        single.blend = (uint8_t)GEX_BLEND_ALPHA;
+        src = &single;
+        n = 1u;
+    }
+    for (i = 0; i < n; i++) {
+        if (src[i].index_offset != expect) {
+            return GEX_D3D11_MESH_BAD_GEOMETRY;
+        }
+        if (src[i].index_count == 0u || src[i].index_count % 3u != 0u) {
+            return GEX_D3D11_MESH_BAD_GEOMETRY;
+        }
+        if (src[i].index_count > geom->index_count - expect) {
+            return GEX_D3D11_MESH_BAD_GEOMETRY;
+        }
+        if (src[i].blend >= (uint8_t)GEX_BLEND_MODE_COUNT) {
+            return GEX_D3D11_MESH_BAD_GEOMETRY;
+        }
+        expect += src[i].index_count;
+    }
+    if (expect != geom->index_count) {
+        return GEX_D3D11_MESH_BAD_GEOMETRY;
+    }
+    if (n > (size_t)UINT_MAX || n > SIZE_MAX / sizeof(*mesh->runs)) {
+        return GEX_D3D11_MESH_OUT_OF_MEMORY;
+    }
+    mesh->runs = (gex_geometry_run *)malloc(n * sizeof(*mesh->runs));
+    if (mesh->runs == NULL) {
+        return GEX_D3D11_MESH_OUT_OF_MEMORY;
+    }
+    memcpy(mesh->runs, src, n * sizeof(*mesh->runs));
+    mesh->run_count = (UINT)n;
+    return GEX_D3D11_MESH_OK;
+}
+
 gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
                                             const gex_geometry *geom,
                                             gex_d3d11_mesh *mesh)
@@ -63,6 +116,14 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
         }
     }
 
+    /* Tramos de mezcla: copia validada (o el tramo ALPHA de reserva). */
+    {
+        gex_d3d11_mesh_status rst = copy_runs(geom, mesh);
+        if (rst != GEX_D3D11_MESH_OK) {
+            return rst;
+        }
+    }
+
     /* R16_UINT cubre hasta 65536 vértices (índices 0..65535). */
     if (geom->vertex_count <= 0x10000u) {
         index_stride = 2u;
@@ -80,6 +141,8 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
     if (index_stride == 2u) {
         indices16 = (UINT16 *)malloc((size_t)index_bytes);
         if (indices16 == NULL) {
+            free(mesh->runs);
+            mesh->runs = NULL;
             return GEX_D3D11_MESH_OUT_OF_MEMORY;
         }
         for (i = 0; i < geom->index_count; i++) {
@@ -109,6 +172,9 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
         mesh->last_hresult = hr;
         mesh->vertex_buffer = NULL;
         free(indices16);
+        free(mesh->runs);
+        mesh->runs = NULL;
+        mesh->run_count = 0;
         return GEX_D3D11_MESH_BUFFER_FAILED;
     }
 
@@ -134,6 +200,9 @@ gex_d3d11_mesh_status gex_d3d11_mesh_create(ID3D11Device *device,
             ID3D11Buffer_Release(mesh->vertex_buffer);
             mesh->vertex_buffer = NULL;
         }
+        free(mesh->runs);
+        mesh->runs = NULL;
+        mesh->run_count = 0;
         return GEX_D3D11_MESH_BUFFER_FAILED;
     }
 
@@ -202,6 +271,9 @@ gex_d3d11_mesh_status gex_d3d11_mesh_update(ID3D11Device *device,
         ID3D11Buffer_Release(mesh->vertex_buffer);
         mesh->vertex_buffer = NULL;
     }
+    free(mesh->runs);
+    mesh->runs = NULL;
+    mesh->run_count = 0;
     mesh->initialized = 0;
 
     st = gex_d3d11_mesh_create(device, geom, mesh);
@@ -222,6 +294,7 @@ void gex_d3d11_mesh_destroy(gex_d3d11_mesh *mesh)
     if (mesh->vertex_buffer != NULL) {
         ID3D11Buffer_Release(mesh->vertex_buffer);
     }
+    free(mesh->runs);
     memset(mesh, 0, sizeof(*mesh));
 }
 

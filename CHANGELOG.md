@@ -1,5 +1,75 @@
 # CHANGELOG
 
+## 2026-11-18 - 0.0.0 - S-7: mezcla de renderizado por comando (llama aditiva de MAP7)
+
+La mezcla deja de ser un estado global: se elige **por comando**, como en el
+original, y se aplica por tramos contiguos de índices. La cámara, la
+profundidad, el orden de dibujo, el scissor, el menú y la niebla no se han
+tocado.
+
+**La regla** (`gex_emit_blend_for_command`, medida en `0x46558A`):
+
+- comandos sin el bit `0x04` o sin el `0x02` → `ALPHA (1,5,4,0)`;
+- modo de textura 0/1: con textura ARGB_4444 → `ALPHA`; sin alfa →
+  `ADDITIVE (1,4,4,0)`;
+- modo 2 → `ERASE (0,6,0,0)`; modo 3 → `ADDITIVE_ALPHA_OFF (1,4,0,0)`;
+- modo > 3 → `ADDITIVE`.
+
+El menú (flags 0) y la pasada de niebla (`GEX_EMIT_F_FOG_PASS`) conservan
+`ALPHA`. El formato no se adivina: la aplicación pasa a
+`gex_scene_level_set_alpha_textures` **todos** los registros del `.VFX` con
+`format == 12` (ARGB_4444). En MAP7 son **103**, incluidas las texturas 185,
+234 y 241 de los otros comandos `0xB6`, que siguen en alfa.
+
+> Corrección de transcripción: la cuádrupla de borrado es **`(0,6,0,0)`**
+> (`ZERO`/`INV_DEST_COLOR`), no `(0,0,6,0)` como se escribió en algunas notas
+> de las rondas de 2026-11-12. El valor correcto es el que ya estaba en el
+> desensamblado de `0x465859`/`0x4659CA`.
+
+**Cómo viaja el estado.**
+
+- `gex_emit_triangle` gana `opcode`, `texture_mode` y `blend`;
+  `gex_emit_subdivide` recibe el modo para que los subtriángulos lo hereden y
+  `gex_emit_assign_blend` reasigna la mezcla en cada re-emisión (incluidas las
+  428 muestras de la trayectoria).
+- `gex_geometry_build` construye **tramos contiguos** (`gex_geometry_run`) con
+  el mismo modo, saltando los triángulos clipeados sin partir el tramo y sin
+  cambiar el orden.
+- `gex_d3d11_pipeline_draw` hace `OMSetBlendState` + `DrawIndexed` por tramo.
+  Una malla sin tramos recibe un tramo `ALPHA` completo: el comportamiento
+  anterior se conserva.
+- Cinco estados D3D11: `ALPHA`, `ADDITIVE`, `OPAQUE`, `ERASE` y
+  `ADDITIVE_ALPHA_OFF`. `pipeline->blend` sigue siendo el alias de
+  `blends[GEX_BLEND_ALPHA]`.
+
+**Resultado en MAP7.** 1 123 comandos → **1 117 `ALPHA` + 6 `ADDITIVE`** (los 6
+de la textura 370, opcode `0xB6`, modo 1, `ARGB_1555`), en **11 tramos**. El
+negro del fondo de la llama deja de tapar el muro y la planta, y los píxeles
+luminosos suman sobre el escenario.
+
+**Pruebas.**
+
+- Suite completa de `port` sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- `test_level_emit`: `test_blend_rule` (las siete filas de la regla, menú y
+  niebla) y `test_map7_blend` (1117 + 6 sobre el `.DFX` real).
+- `test_geometry`: tramos, clipeado que no los parte, fallback y fallo de
+  reserva. `test_d3d11_mesh`: copia, validación y rechazo de tramos
+  incoherentes. `test_d3d11_pipeline`: `test_blend_runs` mide píxeles (negro
+  aditivo ≥253 sobre blanco; el mismo texel en alfa 116..122; rojo aditivo
+  250/128; en alfa 193..199/57..63) y cuenta dos `DrawIndexed` para dos tramos.
+  `test_camera_path_scene`: 6 aditivos en el fotograma 0, consistencia tras 428
+  muestras e idempotencia.
+- Capturas reales 960×540 con GPU hardware, mismo comando y fotograma 1000
+  contra el baseline `9ecb09d`: sin menú **56 997 px** distintos, todos dentro
+  del bbox de la llama (`x 279..839`, `y 38..495`); con menú, de los 8 861 px
+  del menú solo cambian **170**, y los 170 caen dentro de ese bbox. Fuera de la
+  llama, **0 px** de diferencia.
+
+**Límites.** Regla medida sobre nGlide 2.10, no sobre el SST-1. La escala RGB
+0..2 y el intercambio R/B siguen abiertos y no se han tocado. `ERASE`, `OPAQUE`
+y `ADDITIVE_ALPHA_OFF` están implementados y probados de forma sintética, pero
+MAP7 no los ejercita.
+
 ## 2026-11-17 - 0.0.0 - S-6: auditoría visual de MAP7; el panel del menú se ordena con el nivel y el port recorta a la zona lógica
 
 Auditoría del fotograma de referencia de MAP7 comparando original y port en el

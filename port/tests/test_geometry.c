@@ -87,6 +87,12 @@ static void test_single_triangle(void)
     CHECK(g.triangle_count == 1u);
     CHECK(g.skipped_clipped == 0u);
     CHECK(g.vertices != NULL && g.indices != NULL);
+    CHECK(g.runs != NULL && g.run_count == 1u);
+    if (g.runs != NULL) {
+        CHECK(g.runs[0].index_offset == 0u);
+        CHECK(g.runs[0].index_count == 3u);
+        CHECK(g.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+    }
     if (g.vertices == NULL || g.indices == NULL) {
         gex_geometry_free(&g);
         return;
@@ -207,6 +213,85 @@ static void test_clipped_skipped(void)
     CHECK(g.triangle_count == 0u);
     CHECK(g.skipped_clipped == 3u);
     CHECK(g.vertices == NULL && g.indices == NULL);
+    CHECK(g.runs == NULL && g.run_count == 0u);
+    gex_geometry_free(&g);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tramos de mezcla                                                   */
+/* ------------------------------------------------------------------ */
+
+static void test_blend_runs(void)
+{
+    gex_emit_triangle tris[5];
+    gex_emit_output in;
+    gex_geometry g;
+
+    /* ALPHA, ALPHA, ADDITIVE, (clipeado), ADDITIVE, ALPHA ->
+     * 3 tramos contiguos; el clipeado no rompe el tramo aditivo. */
+    tris[0] = mk_tri();
+    tris[1] = mk_tri();
+    tris[1].x[0] += 10;
+    tris[1].x[1] += 10;
+    tris[1].x[2] += 10;
+    tris[2] = mk_tri();
+    tris[2].x[0] += 20;
+    tris[2].x[1] += 20;
+    tris[2].x[2] += 20;
+    tris[2].blend = (uint8_t)GEX_BLEND_ADDITIVE;
+    tris[3] = mk_tri();
+    tris[3].x[0] += 30;
+    tris[3].x[1] += 30;
+    tris[3].x[2] += 30;
+    tris[3].flags |= GEX_EMIT_F_DEPTH_CLIPPED;
+    tris[3].blend = (uint8_t)GEX_BLEND_ADDITIVE;
+    tris[4] = mk_tri();
+    tris[4].x[0] += 40;
+    tris[4].x[1] += 40;
+    tris[4].x[2] += 40;
+
+    in = wrap(tris, 4); /* 0, 1, 2, 3 */
+    CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_OK);
+    CHECK(g.triangle_count == 3u);
+    CHECK(g.run_count == 2u);
+    if (g.runs != NULL && g.run_count == 2u) {
+        CHECK(g.runs[0].index_offset == 0u);
+        CHECK(g.runs[0].index_count == 6u);
+        CHECK(g.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+        CHECK(g.runs[1].index_offset == 6u);
+        CHECK(g.runs[1].index_count == 3u);
+        CHECK(g.runs[1].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+    }
+    gex_geometry_free(&g);
+
+    /* El clipeado entre un aditivo y un alfa no crea un tramo vacío. */
+    in = wrap(tris, 5);
+    CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_OK);
+    CHECK(g.skipped_clipped == 1u);
+    CHECK(g.triangle_count == 4u);
+    CHECK(g.run_count == 3u);
+    if (g.runs != NULL && g.run_count == 3u) {
+        CHECK(g.runs[0].index_offset == 0u && g.runs[0].index_count == 6u);
+        CHECK(g.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+        CHECK(g.runs[1].index_offset == 6u && g.runs[1].index_count == 3u);
+        CHECK(g.runs[1].blend == (uint8_t)GEX_BLEND_ADDITIVE);
+        CHECK(g.runs[2].index_offset == 9u && g.runs[2].index_count == 3u);
+        CHECK(g.runs[2].blend == (uint8_t)GEX_BLEND_ALPHA);
+        /* Los tramos cubren el index buffer exactamente y sin huecos. */
+        CHECK(g.runs[0].index_count + g.runs[1].index_count +
+                  g.runs[2].index_count == g.index_count);
+    }
+    gex_geometry_free(&g);
+
+    /* Modo desconocido: se normaliza a ALPHA (nunca deja un tramo inválido). */
+    tris[0] = mk_tri();
+    tris[0].blend = 200u;
+    in = wrap(tris, 1);
+    CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_OK);
+    CHECK(g.run_count == 1u);
+    if (g.runs != NULL) {
+        CHECK(g.runs[0].blend == (uint8_t)GEX_BLEND_ALPHA);
+    }
     gex_geometry_free(&g);
 }
 
@@ -266,7 +351,7 @@ static void test_subdivided(void)
     m.focal = 0x140; m.cx = 0x100; m.cy = 0; m.near_z = 0x50;
 
     memset(&out, 0, sizeof(out));
-    CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0x0123, 2, 0, 0, 999,
+    CHECK(gex_emit_subdivide(&m, vtx, color, u, v, 0x0123, 2, 0, 0, 0, 999,
                              &out) == GEX_EMIT_OK);
     CHECK(out.count == 5u); /* 4 principales + 1 sliver */
 
@@ -585,11 +670,12 @@ static void test_alloc_failure(void)
     tris[1].x[0] += 5;
     in = wrap(tris, 2);
 
-    for (int n = 1; n <= 3; n++) {
+    for (int n = 1; n <= 4; n++) {
         gex_geom_test_fail_alloc = n;
         memset(&g, 0xAA, sizeof(g));
         CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_ERR_NOMEM);
         CHECK(g.vertices == NULL && g.indices == NULL);
+        CHECK(g.runs == NULL && g.run_count == 0u);
         CHECK(g.vertex_count == 0u && g.index_count == 0u);
         gex_geometry_free(&g); /* no-op seguro tras el fallo */
     }
@@ -709,6 +795,7 @@ int main(void)
     test_single_triangle();
     test_multiple_triangles();
     test_clipped_skipped();
+    test_blend_runs();
     test_fog_pass();
     test_subdivided();
     test_end_to_end_far();

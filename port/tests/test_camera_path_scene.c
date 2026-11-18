@@ -202,6 +202,31 @@ static void test_trajectory(void)
     CHECK(scene.path_frames == 0);
     CHECK(scene.path_finished == 0);
 
+    /* S-7: la mezcla por comando con las texturas ARGB_4444 de MAP7. En el
+     * fotograma inicial los 6 triángulos de la llama (370) son ADDITIVE y el
+     * resto ALPHA; la lista se guarda y se re-aplica en cada re-emisión. */
+    {
+        static const uint16_t alpha_tex[6] = { 6, 8, 185, 188, 234, 241 };
+        size_t i, additive_tris = 0, alpha_tris = 0;
+
+        CHECK(gex_scene_level_set_alpha_textures(&scene, alpha_tex, 6) ==
+              GEX_SCENE_OK);
+        CHECK(scene.alpha_texture_count == 6u);
+        CHECK(scene.geometry.run_count >= 2u);
+        for (i = 0; i < scene.geometry.run_count; i++) {
+            const gex_geometry_run *r = &scene.geometry.runs[i];
+            CHECK(r->index_count % 3u == 0u);
+            if (r->blend == (uint8_t)GEX_BLEND_ADDITIVE) {
+                additive_tris += r->index_count / 3u;
+            } else {
+                CHECK(r->blend == (uint8_t)GEX_BLEND_ALPHA);
+                alpha_tris += r->index_count / 3u;
+            }
+        }
+        CHECK(additive_tris == 6u);
+        CHECK(alpha_tris + additive_tris == scene.geometry.triangle_count);
+    }
+
     /* The 428 samples, one per logical update, without tolerances. */
     for (frame = 0; frame < GEX_REF_MENU_CAMERA_PATH_FRAMES; frame++) {
         int step = gex_scene_level_camera_path_step(&scene, &cam);
@@ -289,6 +314,38 @@ static void test_trajectory(void)
     CHECK(scene.geometry.vertex_count > 0);
     CHECK(scene.geometry.vertices[0].x != first_vertex_x ||
           scene.geometry.vertices[0].z != first_vertex_z);
+
+    /* S-7: tras las 428 re-emisiones la lista sigue aplicada: todos los
+     * tramos son ALPHA o ADDITIVE y cubren el index buffer completo. El
+     * número de triángulos aditivos del último fotograma no se fija: la llama
+     * puede quedar fuera de cámara al final del vuelo. */
+    {
+        static const uint16_t alpha_tex[6] = { 6, 8, 185, 188, 234, 241 };
+        size_t indices_before = scene.geometry.index_count;
+        size_t i, tris_total = 0;
+
+        CHECK(scene.alpha_texture_count == 6u);
+        CHECK(scene.geometry.run_count >= 1u);
+        for (i = 0; i < scene.geometry.run_count; i++) {
+            const gex_geometry_run *r = &scene.geometry.runs[i];
+            CHECK(r->index_count % 3u == 0u);
+            CHECK(r->blend == (uint8_t)GEX_BLEND_ALPHA ||
+                  r->blend == (uint8_t)GEX_BLEND_ADDITIVE);
+            tris_total += r->index_count / 3u;
+        }
+        CHECK(tris_total == scene.geometry.triangle_count);
+
+        /* Idempotente y reconstruye sin cambiar el orden ni los conteos. */
+        CHECK(gex_scene_level_set_alpha_textures(&scene, alpha_tex, 6) ==
+              GEX_SCENE_OK);
+        CHECK(scene.geometry.index_count == indices_before);
+        CHECK(scene.geometry.run_count >= 1u);
+        CHECK(gex_scene_level_set_alpha_textures(&scene, NULL, 0u) ==
+              GEX_SCENE_OK);
+        CHECK(scene.alpha_texture_count == 0u);
+        CHECK(gex_scene_level_set_alpha_textures(&scene, alpha_tex, 6) ==
+              GEX_SCENE_OK);
+    }
 
     gex_scene_level_free(&scene);
 }

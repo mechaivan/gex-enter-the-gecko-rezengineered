@@ -461,6 +461,7 @@ gex_emit_status gex_emit_collect(const uint8_t *image, size_t image_size,
              * dword del registro UV (+6): el comando escribe el dword
              * de UV en +0x1C y 0x46558A toma word[+0x1E] & 0x3FFF [A]. */
             p->texture = (uint16_t)(tw & 0x3FFFu); /* índice 14 bits [A] */
+            p->texture_mode = (uint8_t)((tw >> 14) & 0x3u); /* bits 14-15 [A] */
             p->layer = (int8_t)uv[0x0Bu];          /* movsx: con signo [A] */
 
             /* Colores del vértice: dword[vtx+8] [A]. */
@@ -740,6 +741,7 @@ static gex_emit_status sub_emit(const gex_emit_matrix *mat,
                                 const uint32_t cs[3],
                                 const uint8_t us[3], const uint8_t vv[3],
                                 uint16_t texture, int8_t layer,
+                                uint8_t texture_mode,
                                 uint16_t poly_flags, uint32_t state_flags,
                                 uint32_t source_poly,
                                 gex_emit_output *out, int *emitted,
@@ -748,6 +750,11 @@ static gex_emit_status sub_emit(const gex_emit_matrix *mat,
     gex_emit_status st = gex_emit_project(mat, vs, cs, us, vv, texture, layer,
                                           source_poly, &tri);
     if (st != GEX_EMIT_OK) return st;
+
+    /* El emisor cercano escribe 0xB4 | ((color0 >> 24) & 3) y conserva el
+     * word de textura del polígono (incluidos sus bits 14-15) [A]. */
+    tri.texture_mode = texture_mode;
+    tri.opcode = (uint8_t)(0xB4u | ((cs[0] >> 24) & 0x3u));
 
     *emitted = 0;
     if (emit_backfacing(&tri)) {
@@ -776,6 +783,7 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
                                    const uint32_t color[3],
                                    const uint8_t u[3], const uint8_t v[3],
                                    uint16_t texture, int8_t layer,
+                                   uint8_t texture_mode,
                                    uint16_t poly_flags,
                                    uint32_t state_flags,
                                    uint32_t source_poly,
@@ -833,8 +841,9 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
         out->subtriangle_count++;
         gex_emit_status st = sub_emit(mat, main4[t].vs, main4[t].cs,
                                       main4[t].us, main4[t].vv, texture,
-                                      layer, poly_flags, state_flags,
-                                      source_poly, out, &emitted, &fatal);
+                                      layer, texture_mode, poly_flags,
+                                      state_flags, source_poly, out,
+                                      &emitted, &fatal);
         if (st != GEX_EMIT_OK) return st;
         /* 0x4272D4 / 0x4273AC / 0x4274A1: solo det2d >= 0 aborta la
          * subdivision, y solo en los tres primeros principales. El cuarto
@@ -871,8 +880,9 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
         out->subtriangle_count++;
         gex_emit_status st = sub_emit(mat, slivers[t].vs, slivers[t].cs,
                                       slivers[t].us, slivers[t].vv, texture,
-                                      layer, poly_flags, state_flags,
-                                      source_poly, out, &emitted, &fatal);
+                                      layer, texture_mode, poly_flags,
+                                      state_flags, source_poly, out,
+                                      &emitted, &fatal);
         if (st != GEX_EMIT_OK) return st;
         (void)emitted;
         (void)fatal; /* los slivers nunca abortan la subdivision */
@@ -901,6 +911,88 @@ gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count) {
     if (tris == NULL && count > 0) return GEX_EMIT_ERR_ARG;
     if (count > 1) qsort(tris, count, sizeof(*tris), tri_compare);
     return GEX_EMIT_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mezcla por comando (S-7)                                           */
+/* ------------------------------------------------------------------ */
+
+gex_blend_mode gex_emit_blend_for_command(uint8_t opcode, uint8_t texture_mode,
+                                          int has_alpha) {
+    /* Solo los comandos de nivel con el bit 0x04 llegan a la selección por
+     * modo; los demás (menú, niebla 0x32, …) usan la mezcla alfa. */
+    if ((opcode & 0x04u) == 0u) return GEX_BLEND_ALPHA;
+    if ((opcode & 0x02u) == 0u) return GEX_BLEND_ALPHA;
+
+    switch (texture_mode) {
+    case 0u:
+    case 1u:
+        /* Modo 0/1: con canal alfa el original mezcla (1,5,4,0); sin alfa
+         * usa (1,4,4,0), la mezcla aditiva. */
+        return has_alpha ? GEX_BLEND_ALPHA : GEX_BLEND_ADDITIVE;
+    case 2u:
+        return GEX_BLEND_ERASE;             /* (0,6,0,0) */
+    case 3u:
+        return GEX_BLEND_ADDITIVE_ALPHA_OFF; /* (1,4,0,0) */
+    default:
+        return GEX_BLEND_ADDITIVE;           /* rama > 3 del binario */
+    }
+}
+
+static int blend_list_has(const uint16_t *list, size_t count,
+                          uint16_t index) {
+    size_t i;
+    for (i = 0; i < count; i++) {
+        if (list[i] == index) return 1;
+    }
+    return 0;
+}
+
+gex_emit_status gex_emit_assign_blend(gex_emit_output *out,
+                                      const uint16_t *alpha_textures,
+                                      size_t alpha_texture_count) {
+    size_t i;
+
+    if (out == NULL) return GEX_EMIT_ERR_ARG;
+    if (out->count > 0 && out->tris == NULL) return GEX_EMIT_ERR_ARG;
+    if (out->count > out->capacity) return GEX_EMIT_ERR_INCONSIST;
+    if (alpha_texture_count > 0 && alpha_textures == NULL) {
+        return GEX_EMIT_ERR_ARG;
+    }
+
+    for (i = 0; i < out->count; i++) {
+        gex_emit_triangle *t = &out->tris[i];
+        int has_alpha;
+
+        /* La pasada de niebla y los triángulos ajenos a los emisores de
+         * nivel (menú, formas sintéticas) conservan la mezcla alfa. */
+        if ((t->flags & GEX_EMIT_F_FOG_PASS) != 0u) {
+            t->blend = GEX_BLEND_ALPHA;
+            continue;
+        }
+        if ((t->flags & (GEX_EMIT_F_NEAR_EMITTER | GEX_EMIT_F_FAR_EMITTER)) ==
+            0u) {
+            t->blend = GEX_BLEND_ALPHA;
+            continue;
+        }
+
+        has_alpha = blend_list_has(alpha_textures, alpha_texture_count,
+                                   t->texture);
+        t->blend = (uint8_t)gex_emit_blend_for_command(
+            t->opcode, t->texture_mode, has_alpha);
+    }
+    return GEX_EMIT_OK;
+}
+
+const char *gex_blend_mode_name(gex_blend_mode mode) {
+    switch (mode) {
+    case GEX_BLEND_ALPHA: return "alpha";
+    case GEX_BLEND_ADDITIVE: return "additive";
+    case GEX_BLEND_OPAQUE: return "opaque";
+    case GEX_BLEND_ERASE: return "erase";
+    case GEX_BLEND_ADDITIVE_ALPHA_OFF: return "additive-alpha-off";
+    default: return "unknown";
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -970,28 +1062,39 @@ gex_emit_status gex_level_emit(const uint8_t *image, size_t image_size,
         if (cls.subdivide) {
             /* La subdivisión ya proyecta y aplica el gate por subtriángulo. */
             st = gex_emit_subdivide(mat, vtx, p->color, p->u, p->v,
-                                    p->texture, p->layer, p->poly_flags,
-                                    state_flags, p->source_poly, out);
+                                    p->texture, p->layer, p->texture_mode,
+                                    p->poly_flags, state_flags,
+                                    p->source_poly, out);
         } else if (cls.emitter == GEX_EMIT_FAR) {
             /* Registro principal 0x34 con los colores del llamador (ya
-             * mezclados si maxz >= umbral) [A]. */
+             * mezclados si maxz >= umbral) [A]. El emisor lejano fija el
+             * opcode 0xB6 y fuerza el modo 1 del word de textura
+             * (`or ch, 0x40` en 0x426588). */
             tri.flags |= GEX_EMIT_F_FAR_EMITTER;
+            tri.opcode = 0xB6u;
+            tri.texture_mode = 1u;
             memcpy(tri.color, cls.fog_color, sizeof(tri.color));
             st = push_tri(out, &tri);
             if (st != GEX_EMIT_OK) break;
 
             /* Registro de niebla 0x24: base 0x00FFFFFF, factor por vértice,
-             * sin UV [A]. */
+             * sin UV [A]. Su comando es 0x32 (no 0xB4/0xB6): nunca aporta
+             * mezcla aditiva. */
             gex_emit_triangle fogtri = tri;
             fogtri.flags = GEX_EMIT_F_FOG_PASS | GEX_EMIT_F_FAR_EMITTER;
+            fogtri.opcode = 0x32u;
+            fogtri.texture_mode = 0u;
             for (int j = 0; j < 3; j++) {
                 int32_t f = gex_emit_fog_factor(fog, tri.z[j]);
                 fogtri.color[j] = fog_pass_color(fog->fog_rgb, f);
             }
             st = push_tri(out, &fogtri);
         } else {
-            /* Emisor cercano 0x426256: un único registro con los colores. */
+            /* Emisor cercano 0x426256: un único registro con los colores y
+             * el opcode 0xB4 | ((color0 >> 24) & 3) [A]. */
             tri.flags |= GEX_EMIT_F_NEAR_EMITTER;
+            tri.opcode = (uint8_t)(0xB4u | ((p->color[0] >> 24) & 0x3u));
+            tri.texture_mode = p->texture_mode;
             memcpy(tri.color, cls.fog_color, sizeof(tri.color));
             st = push_tri(out, &tri);
         }

@@ -803,6 +803,51 @@ int main(int argc, char **argv)
                 }
                 if (gex_vfx_texture_bank_load(&texture_bank, vfx_path, used,
                                               used_count) == GEX_VFX_OK) {
+                    /* S-7: el original elige la mezcla por comando y, para
+                     * los comandos con `opcode & 2` y modo 0/1, la decisión
+                     * depende de si la textura tiene canal alfa: el formato
+                     * 12 (ARGB_4444) es el único que lo activa. La lista
+                     * sale del propio .VFX (todos los registros, no solo los
+                     * decodificados: un fallo de decodificación no cambia el
+                     * formato del comando). */
+                    {
+                        uint16_t *alpha_tex = NULL;
+                        size_t alpha_n = 0;
+                        uint32_t ri;
+                        if (texture_bank.vfx.record_count > 0) {
+                            alpha_tex = (uint16_t *)calloc(
+                                texture_bank.vfx.record_count,
+                                sizeof(*alpha_tex));
+                        }
+                        if (alpha_tex != NULL) {
+                            for (ri = 0; ri < texture_bank.vfx.record_count;
+                                 ri++) {
+                                if (texture_bank.vfx.records[ri].format ==
+                                    GEX_VFX_FORMAT_ARGB_4444) {
+                                    alpha_tex[alpha_n++] = (uint16_t)ri;
+                                }
+                            }
+                            if (gex_scene_level_set_alpha_textures(
+                                    &scene, alpha_tex, alpha_n) !=
+                                GEX_SCENE_OK) {
+                                fprintf(stderr,
+                                        "error: no se pudo asignar la mezcla "
+                                        "por comando\n");
+                            } else if (gex_d3d11_mesh_update(
+                                           d3d11_dev.device, &scene.geometry,
+                                           &d3d11_mesh) !=
+                                       GEX_D3D11_MESH_OK) {
+                                fprintf(stderr,
+                                        "error: mesh update failed (blend)\n");
+                            } else {
+                                printf("blend: %u texturas ARGB_4444 de '%s' "
+                                       "(tramos=%zu)\n",
+                                       (unsigned)alpha_n, vfx_path,
+                                       scene.geometry.run_count);
+                            }
+                            free(alpha_tex);
+                        }
+                    }
                     texture_status = gex_d3d11_texture_set_create(
                         &d3d11_textures, &d3d11_dev, &texture_bank,
                         GEX_NCC_UV_MODE_TEXEL);

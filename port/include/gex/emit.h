@@ -89,6 +89,35 @@ void gex_emit_fog_generate(gex_emit_fog *fog, int16_t total_z,
                            int16_t none_z, const uint8_t fog_rgb[3]);
 
 /* ========================================================================
+ * Modo de mezcla por comando (0x46558A -> grAlphaBlendFunction).
+ *
+ * El original NO usa un único estado de mezcla: antes de cada comando fija
+ * una cuádrupla de factores. La tabla de factores del driver real (nGlide
+ * 2.10, §19.8 del plan) es 0 = ZERO, 1 = SRC_ALPHA, 4 = ONE,
+ * 5 = INV_SRC_ALPHA y 6 = INV_DEST_COLOR. De ahí salen estos cinco modos,
+ * que son los que el port reproduce en D3D11:
+ *
+ *   ALPHA      (1,5,4,0)  SRC_ALPHA / INV_SRC_ALPHA
+ *   ADDITIVE   (1,4,4,0)  SRC_ALPHA / ONE
+ *   OPAQUE     (4,0,0,0)  ONE / ZERO
+ *   ERASE      (0,6,0,0)  ZERO / INV_DEST_COLOR
+ *   ADDITIVE_ALPHA_OFF (1,4,0,0) SRC_ALPHA / ONE con alfa ZERO/ZERO
+ *
+ * Los dos últimos son completitud de la tabla del binario: MAP7 solo usa
+ * ALPHA y ADDITIVE. El valor 0 es ALPHA para que una estructura a cero (y
+ * cualquier triángulo que no pase por `gex_emit_assign_blend`, como el menú)
+ * conserve exactamente la mezcla que tenía el port antes de S-7.
+ * ======================================================================== */
+typedef enum {
+    GEX_BLEND_ALPHA = 0,
+    GEX_BLEND_ADDITIVE = 1,
+    GEX_BLEND_OPAQUE = 2,
+    GEX_BLEND_ERASE = 3,
+    GEX_BLEND_ADDITIVE_ALPHA_OFF = 4,
+    GEX_BLEND_MODE_COUNT = 5
+} gex_blend_mode;
+
+/* ========================================================================
  * Triángulo normalizado de salida.
  * ======================================================================== */
 #define GEX_EMIT_F_DEPTH_CLIPPED 0x01u /* algún vértice con z fuera de
@@ -105,6 +134,9 @@ typedef struct {
     uint8_t  u[3], v[3];   /* UV de 8 bits */
     uint16_t texture;      /* índice de textura, 14 bits */
     int8_t   layer;        /* byte[uv+0x0B] con signo (movsx) [A] */
+    uint8_t  texture_mode; /* bits 14-15 del word de textura (modo 0..3) */
+    uint8_t  opcode;       /* comando del emisor: 0xB4|.., 0xB6 o 0x32 */
+    uint8_t  blend;        /* gex_blend_mode (ALPHA por defecto) */
     uint8_t  flags;        /* GEX_EMIT_F_* */
     uint32_t source_poly;  /* índice global del polígono de origen (trazabilidad) */
     uint32_t seq;          /* secuencia de inserción (desempate LIFO en el sort) */
@@ -139,6 +171,7 @@ typedef struct {
     uint8_t  u[3], v[3];
     uint16_t texture;      /* word de textura del registro UV, 14 bits */
     int8_t   layer;        /* byte[uv+0x0B] con signo */
+    uint8_t  texture_mode; /* bits 14-15 del word de textura (modo 0..3) */
     uint16_t poly_flags;   /* +0x06 del polígono */
     uint32_t source_poly;  /* índice global del polígono de origen */
 } gex_emit_poly;
@@ -225,6 +258,7 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
                                    const uint32_t color[3],
                                    const uint8_t u[3], const uint8_t v[3],
                                    uint16_t texture, int8_t layer,
+                                   uint8_t texture_mode,
                                    uint16_t poly_flags,
                                    uint32_t state_flags,
                                    uint32_t source_poly,
@@ -233,6 +267,47 @@ gex_emit_status gex_emit_subdivide(const gex_emit_matrix *mat,
 /* Fase 5: ordenar por (maxz sar 2) + 4 * layer, descendente; LIFO dentro
  * de una misma clave (el último emitido se dibuja primero). */
 gex_emit_status gex_emit_sort(gex_emit_triangle *tris, size_t count);
+
+/* ========================================================================
+ * Mezcla por comando (S-7).
+ * ======================================================================== */
+
+/*
+ * Regla de `0x46558A` para los comandos de nivel. `opcode` es el byte de
+ * comando del emisor (`0xB4 | ((color0 >> 24) & 3)` en el cercano, `0xB6`
+ * en el lejano); `texture_mode` son los bits 14-15 del word de textura y
+ * `has_alpha` indica que el registro de textura es ARGB_4444 (formato 12,
+ * el único que activa el alfa en el original).
+ *
+ *   opcode & 0x04 == 0            -> ALPHA (no es un comando de nivel)
+ *   opcode & 0x02 == 0            -> ALPHA
+ *   modo 0/1                      -> has_alpha ? ALPHA : ADDITIVE
+ *   modo 2                        -> ERASE
+ *   modo 3                        -> ADDITIVE_ALPHA_OFF
+ *   modo > 3                      -> ADDITIVE
+ */
+gex_blend_mode gex_emit_blend_for_command(uint8_t opcode, uint8_t texture_mode,
+                                          int has_alpha);
+
+/*
+ * Asigna `tri->blend` a cada triángulo de nivel según su comando.
+ *
+ * Se saltan las pasadas de niebla (`GEX_EMIT_F_FOG_PASS`) y todo triángulo
+ * que no venga de un emisor de nivel (NEAR/FAR): el menú y las formas
+ * sintéticas se quedan con la mezcla ALFA que tenían. `alpha_textures` es la
+ * lista de índices de textura de 14 bits cuyo formato es ARGB_4444; el
+ * llamador la obtiene del `.VFX` del nivel. Con `count == 0` ningún índice se
+ * considera ARGB_4444: los comandos con modo 0/1 toman la rama ADDITIVE, que
+ * es la correcta para MAP7 (la llama, textura 370 ARGB_1555, es el único
+ * caso `0xB6` con modo 1 que no lleva alfa).
+ *
+ * Es idempotente y se puede llamar tras cada re-emisión de la trayectoria.
+ */
+gex_emit_status gex_emit_assign_blend(gex_emit_output *out,
+                                      const uint16_t *alpha_textures,
+                                      size_t alpha_texture_count);
+
+const char *gex_blend_mode_name(gex_blend_mode mode);
 
 /* ========================================================================
  * Orquestador.

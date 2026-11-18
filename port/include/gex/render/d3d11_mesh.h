@@ -64,6 +64,8 @@ typedef struct gex_d3d11_mesh {
     DXGI_FORMAT   index_format;
     UINT          vertex_buffer_bytes;
     UINT          index_buffer_bytes;
+    gex_geometry_run *runs;      /* tramos de mezcla (copia, malloc) */
+    UINT          run_count;     /* >= 1 en una malla viva */
     HRESULT       last_hresult;  /* S_OK o el fallo de CreateBuffer */
     int           initialized;   /* 1 = live; el único campo que lee create */
 } gex_d3d11_mesh;
@@ -79,7 +81,8 @@ typedef struct gex_d3d11_mesh {
         .vertex_buffer = NULL, .index_buffer = NULL, .vertex_count = 0,        \
         .index_count = 0, .vertex_stride = 0, .index_stride = 0,               \
         .index_format = DXGI_FORMAT_UNKNOWN, .vertex_buffer_bytes = 0,         \
-        .index_buffer_bytes = 0, .last_hresult = S_OK, .initialized = 0        \
+        .index_buffer_bytes = 0, .runs = NULL, .run_count = 0,                 \
+        .last_hresult = S_OK, .initialized = 0                                 \
     }
 
 /*

@@ -8,13 +8,78 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-17 (S-6: **auditoría visual de MAP7** con capturas
-del mismo encuadre; identificado el parche plano como el panel del televisor
-del menú, el azul de las esquinas como el clear del port y el fuego rectangular
-como mezcla de la textura `370`; **corregidos el orden del panel** (se ordena
-con el nivel y queda tras el suelo, con los rótulos encima) **y el recorte a la
-zona lógica** (scissor 512×384), con 66 + 1 771 + 30 comprobaciones nuevas;
-R/B y blending quedan medidos y diseñados, sin cambiar)
+**Last updated:** 2026-11-18 (S-7: **mezcla de renderizado por comando**
+implementada; la llama de MAP7 pasa a aditiva y el resto del nivel conserva
+alfa, con tramos contiguos de índices y 5 estados D3D11; suite completa,
+sanitizers y capturas reales comparadas contra el baseline `9ecb09d`)
+
+### S-7: mezcla de renderizado por comando (2026-11-18)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.12 y
+`docs/VFX_TEXTURE_FORMAT.md` § 9.7.
+
+**Qué se implementó.** La selección de mezcla que el original hace en
+`0x46558A` antes de cada comando, transportada hasta el renderer D3D11. No es un
+caso especial de la textura 370: es la regla completa. La cámara, la
+profundidad, el orden de dibujo, el scissor, el menú y la niebla **no se han
+tocado**.
+
+**La regla** (`gex_emit_blend_for_command`), con el opcode del comando y el modo
+de textura (bits 14-15 del word de textura):
+
+| Condición | Modo |
+|---|---|
+| `opcode & 0x04 == 0` u `opcode & 0x02 == 0` | `ALPHA` |
+| modo 0/1 y la textura es ARGB_4444 | `ALPHA` |
+| modo 0/1 y la textura no tiene alfa | `ADDITIVE` |
+| modo 2 | `ERASE` (`0,6,0,0`) |
+| modo 3 | `ADDITIVE_ALPHA_OFF` (`1,4,0,0`) |
+| modo > 3 | `ADDITIVE` |
+
+El menú (flags 0) y la pasada de niebla conservan `ALPHA`. `has_alpha` no se
+adivina: la aplicación pasa a `gex_scene_level_set_alpha_textures` **todos** los
+registros del `.VFX` con `format == 12` (ARGB_4444). En MAP7 son **103**.
+
+**Cómo viaja.** Cada triángulo lleva `opcode`, `texture_mode` y `blend`
+(`gex_emit_assign_blend` los reasigna en cada re-emisión, incluidas las 428
+muestras de la trayectoria). `gex_geometry_build` agrupa los índices en **tramos
+contiguos** con el mismo modo, saltando los clipeados y sin cambiar el orden; el
+pipeline hace un `OMSetBlendState` + `DrawIndexed` por tramo. Una malla sin
+tramos recibe un tramo `ALPHA` completo (compatibilidad).
+
+**Los cinco estados D3D11:** `ALPHA` (`SRC_ALPHA`/`INV_SRC_ALPHA`, alfa
+`ONE`/`ZERO`), `ADDITIVE` (`SRC_ALPHA`/`ONE`, alfa `ONE`/`ZERO`), `OPAQUE`
+(`ONE`/`ZERO`), `ERASE` (`ZERO`/`INV_DEST_COLOR`, alfa `ZERO`/`ZERO`) y
+`ADDITIVE_ALPHA_OFF` (`SRC_ALPHA`/`ONE`, alfa `ZERO`/`ZERO`). `pipeline->blend`
+sigue siendo el alias de `blends[ALPHA]`.
+
+**Resultado en MAP7.** 1 123 comandos → **1 117 `ALPHA` + 6 `ADDITIVE`** (los 6
+de la textura 370, opcode `0xB6`, modo 1, `ARGB_1555`), **11 tramos**. Los 12
+comandos `0xB6` con texturas 185/234/241 quedan en alfa porque su formato es
+ARGB_4444.
+
+**Pruebas y evidencias.**
+
+- Suite completa de `port` sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- `test_level_emit`: `test_blend_rule` (las siete filas de la regla, menú y
+  niebla) y `test_map7_blend` (1117 + 6 sobre el `.DFX` real).
+- `test_geometry`: tramos, clipeado que no los parte, fallback y fallo de
+  reserva. `test_d3d11_mesh`: copia, validación y rechazo de tramos
+  incoherentes. `test_d3d11_pipeline`: `test_blend_runs` mide píxeles (negro
+  aditivo ≥253 sobre blanco; el mismo texel en alfa 116..122; rojo aditivo
+  250/128; en alfa 193..199/57..63) y cuenta dos `DrawIndexed` para dos tramos.
+  `test_camera_path_scene`: 6 aditivos en el fotograma 0, consistencia tras 428
+  muestras e idempotencia.
+- Capturas reales 960×540 con GPU hardware, mismo comando y fotograma 1000
+  contra el baseline `9ecb09d`: sin menú **56 997 px** distintos, todos dentro
+  del bbox de la llama (`x 279..839`, `y 38..495`); con menú, de los 8 861 px
+  del menú solo cambian **170**, y los 170 caen dentro de ese bbox. Fuera de la
+  llama, **0 px** de diferencia.
+
+**Límites.** Regla medida sobre nGlide 2.10, no sobre el SST-1. La escala RGB
+0..2 (§ 19.11) y el intercambio R/B (§ 23.5) siguen abiertos y no se han
+tocado. `ERASE`, `OPAQUE` y `ADDITIVE_ALPHA_OFF` están implementados y probados
+de forma sintética, pero MAP7 no los ejercita.
 
 ### S-6: auditoría visual de MAP7 en el port D3D11 (2026-11-17)
 
@@ -77,7 +142,8 @@ del menú, no el suelo.**
   texeles y fondo **negro**. El original la dibuja con
   `grAlphaBlendFunction (1,4,4,0)` — **aditiva** — en los 6 triángulos del
   opcode `0xB6`; el port usa el estado global `(1,5,4,0)`, así que el negro
-  del fondo se vuelve opaco y tapa lo que hay detrás. Diseño en § 19.10.
+  del fondo se vuelve opaco y tapa lo que hay detrás. **Corregido en S-7**
+  (§ 19.12): la mezcla se elige por comando.
 
 **4. Límites laterales: el port no recortaba a la zona lógica. (Corregido.)**
 
@@ -524,10 +590,9 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
     posibles: `(1,5,4,0)` para la geometría del nivel, `(1,4,4,0)` para **6**
     triángulos (los de la textura 370) y `(4,0,0,0)` para las 128 primitivas
     2D. Los modos **aditivo** y **de borrado no aparecen nunca** (0 de 160 086
-    llamadas). El estado global del port coincide en todo salvo esos 6
-    triángulos; el diseño de la corrección (modo por triángulo, tramos de
-    índices) queda cerrado y **no se aplica en esta ronda** (0,5 % de la
-    escena). Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.10.
+    llamadas). **Implementado en S-7 (2026-11-18):** el modo se elige por
+    comando y se aplica por tramos contiguos de índices, con cinco estados
+    D3D11; la regla completa está en `docs/D3D11_FIRST_SCENE_PLAN.md` § 19.12.
   - **Byte alto del color de vértice**: el vértice que el juego entrega a Glide
     **no tiene canal alfa** (el color viaja en tres flotantes B, G, R;
     6 000 vértices volcados en ejecución). El byte alto del color del comando

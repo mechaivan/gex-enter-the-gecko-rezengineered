@@ -250,6 +250,17 @@ static void scene_camera_view(const gex_camera *cam, gex_emit_matrix *mat,
     }
 }
 
+/*
+ * Aplica la regla de mezcla por comando (S-7) a la emision actual. Se llama
+ * justo antes de construir la geometria, en cada re-emision: la trayectoria
+ * vuelve a emitir y los triangulos nuevos tienen que llevar su `blend`.
+ */
+static void scene_apply_blend(gex_scene_level *scene)
+{
+    (void)gex_emit_assign_blend(&scene->emit, scene->alpha_textures,
+                                scene->alpha_texture_count);
+}
+
 gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
 {
     gex_emit_matrix mat;
@@ -332,6 +343,7 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
     scene->stats.camera_mode = 0;
 
     /* 5. Conversión a vértices e índices. */
+    scene_apply_blend(scene);
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -412,6 +424,7 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
         gex_geometry_free(&scene->geometry);
         scene->geometry_loaded = 0;
     }
+    scene_apply_blend(scene);
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -498,6 +511,9 @@ gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected)
         gex_geometry_free(&scene->geometry);
         scene->geometry_loaded = 0;
     }
+    /* Los triángulos del menú conservan ALPHA (no son comandos de nivel); la
+     * llamada es idempotente y vuelve a marcar los del nivel. */
+    scene_apply_blend(scene);
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -797,6 +813,56 @@ int gex_scene_level_camera_path_step(gex_scene_level *scene, gex_camera *cam) {
     return 1;
 }
 
+gex_scene_status gex_scene_level_set_alpha_textures(gex_scene_level *scene,
+                                                    const uint16_t *indices,
+                                                    size_t count)
+{
+    uint16_t *copy = NULL;
+    gex_geom_status gst;
+
+    if (scene == NULL) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (count > 0 && indices == NULL) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (count > SIZE_MAX / sizeof(*copy)) {
+        return GEX_SCENE_ERR_NOMEM;
+    }
+    if (count > 0) {
+        copy = (uint16_t *)malloc(count * sizeof(*copy));
+        if (copy == NULL) {
+            return GEX_SCENE_ERR_NOMEM;
+        }
+        memcpy(copy, indices, count * sizeof(*copy));
+    }
+
+    free(scene->alpha_textures);
+    scene->alpha_textures = copy;
+    scene->alpha_texture_count = count;
+
+    /* Sin emisión todavía: la lista se aplicará en la próxima construcción. */
+    if (!scene->emit_loaded) {
+        return GEX_SCENE_OK;
+    }
+    scene_apply_blend(scene);
+    if (!scene->geometry_loaded) {
+        return GEX_SCENE_OK;
+    }
+
+    gex_geometry_free(&scene->geometry);
+    scene->geometry_loaded = 0;
+    gst = gex_geometry_build(&scene->emit, &scene->geometry);
+    if (gst != GEX_GEOM_OK) {
+        return GEX_SCENE_ERR_GEOMETRY;
+    }
+    scene->geometry_loaded = 1;
+    scene->stats.vertices = scene->geometry.vertex_count;
+    scene->stats.indices = scene->geometry.index_count;
+    scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
+    return GEX_SCENE_OK;
+}
+
 void gex_scene_level_free(gex_scene_level *scene)
 {
     if (scene == NULL) {
@@ -830,6 +896,9 @@ void gex_scene_level_free(gex_scene_level *scene)
         gex_dfx_release_container(&scene->container);
         scene->container_loaded = 0;
     }
+    free(scene->alpha_textures);
+    scene->alpha_textures = NULL;
+    scene->alpha_texture_count = 0;
     memset(&scene->stats, 0, sizeof(scene->stats));
     scene->loaded = 0;
 }

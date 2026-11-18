@@ -74,7 +74,10 @@ typedef struct gex_d3d11_pipeline {
     ID3D11PixelShader *pixel_shader;
     ID3D11InputLayout *input_layout;
     ID3D11RasterizerState *rasterizer;
-    ID3D11BlendState *blend;
+    ID3D11BlendState *blend;           /* == blends[GEX_BLEND_ALPHA] (compat) */
+    /* Un estado por modo de mezcla de comando (S-7). `blend` es el alias del
+     * ALPHA, el que existía antes y el que usan el menú y las formas. */
+    ID3D11BlendState *blends[GEX_BLEND_MODE_COUNT];
     ID3D11DepthStencilState *depth_stencil;
     ID3D11Buffer *constant_buffer;     /* viewport + resolución de referencia */
     ID3D11Buffer *tex_constants;       /* tabla de texturas (b1), vacía si no hay */
@@ -92,6 +95,7 @@ typedef struct gex_d3d11_pipeline {
         .device = NULL, .context = NULL, .vertex_shader = NULL,            \
         .pixel_shader = NULL, .input_layout = NULL, .rasterizer = NULL,    \
         .blend = NULL, .depth_stencil = NULL, .constant_buffer = NULL,     \
+        .blends = {NULL, NULL, NULL, NULL, NULL},                          \
         .tex_constants = NULL, .textures = NULL, .compiler_module = NULL,   \
         .last_hresult = S_OK, .last_error = {0},                           \
         .initialized = 0, .draw_calls = 0, .triangles_drawn = 0             \
