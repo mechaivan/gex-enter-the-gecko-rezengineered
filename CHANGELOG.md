@@ -1,5 +1,70 @@
 # CHANGELOG
 
+## 2026-11-19 - 0.0.0 - S-10: la visibilidad BSP de MAP7 confirmada y cableada sin predicados
+
+**Hallazgo principal.** La premisa de partida («`scene_visible_all` dibuja
+todas las hojas») **no describe el estado real**: desde S-3 (commit `86c7e3b`)
+los modos con cámara (`gex_scene_level_load_camera` y
+`gex_scene_level_load_camera_path`) pasan `cam_ctx` a `gex_bsp_walk`, y el
+recorrido aplica la prueba de esfera de los seis semiplanos original además del
+predicado. `scene_visible_all` era un predicado redundante que siempre
+devolvía 1; el culling ya era real. Lo demuestra el experimento de control:
+poniendo `cam=NULL` en esa misma llamada vuelven las **1483** hojas (vista
+diagnóstica) y **1818** triángulos en la pose final, frente a **249** hojas y
+**1722** triángulos con la cámara.
+
+**Algoritmo original (recapitulación, ya documentado en S-2).** DFS con pila;
+por nodo, esfera (centro `+0x00/+0x02/+0x04`, radio `+0x06` sin signo) contra
+seis semiplanos: fila 0 de A con corte lejano `cam+0x5C` y tolerancia `-r`,
+filas 1-2 de A y 0-1 de B con tolerancia `-r`; la fila 2 de B no se compara.
+A/B se construyen desde el marco local y `M = transpose(O)`; `O` sale de la
+cadena Euler Z→Y→X (`0x46DD40`→`0x46E643`). Orden de hijos por
+`d = ((camPos·N) >> 12) − distance`, con `sar` y wrap de 32 bits. Hoja cuando
+`(tipo & 1) == 0`. Todo ello ya está en `port/src/bsp/bsp.c`.
+
+**Correcciones de S-10.**
+
+- `port/src/scene/scene_level.c`: eliminado el predicado `scene_visible_all`.
+  Los dos recorridos pasan `visible = NULL`; la visibilidad la decide solo
+  `cam_ctx` (el original no tiene predicado adicional). El modo diagnóstico
+  sigue recorriendo las 1483 hojas y se documenta como tal.
+- `scene_emit_with_camera` reconstruye la cadena de orientación sobre una copia
+  local (`gex_cam_update`) antes del recorrido y de la emisión: el original
+  ejecuta `0x46DD40`→`0x46E643`→`0x405C41` antes de `0x401C00`, y la escena ya
+  no depende de que el llamador haya actualizado A/B, `a_cam` y `b_cam`.
+- `port/include/gex/scene_level.h`: corregido el comentario obsoleto que
+  afirmaba que la visibilidad era «todas las hojas»; `leaf_count` pasa a
+  «hojas visibles del BSP».
+- `port/src/app/i4_main_win32.c`: la aplicación imprimía las estadísticas del
+  fotograma **inicial** (siempre `leaves=307`, `triangles=1123`), lo que
+  alimentó la confusión en las capturas de S-5/S-9. Ahora rotula ese bloque
+  como `(initial frame)` e imprime `frozen pose stats` tras
+  `--camera-path-freeze N` (y el resumen final incluye `leaves=`).
+
+**Pruebas.**
+
+- Nueva `test_map7_visibility_flight` en `test_scene_level`: reproduce los 18
+  fotogramas medidos (conteos y primeras 16 hojas), verifica que el conteo
+  cambia con la cámara, que el conjunto visible es estrictamente menor que las
+  1483 hojas, que la pose final da 249 hojas / 1722 triángulos, que una cámara
+  con A/B/`a_cam`/`b_cam` vacíos da el mismo resultado (cadena reconstruida) y
+  que dos escenas independientes producen la misma lista.
+- Suite completa de `port`: **0 fallos**. Sanitizers O0/O2/ASan/UBSan: **TODO OK**.
+- Capturas reales 960×540 con GPU hardware en `--camera-path-freeze
+  1/36/69/101/133/166/225/278` y menú final: 307/1123, 402/1676, 455/1730,
+  122/414, 353/1834, 166/787, 127/414, 119/437 y 249/1722 (1742 con menú).
+  Control todas-las-hojas vs. cámara: PSNR medio 24,45 dB (36), 26,03 (69),
+  29,37 (278) y 37,86 (menú final); la diferencia es exactamente la roca y los
+  edificios lejanos que el original no dibuja.
+- Sin regresión: las capturas posteriores son byte-idénticas a las de S-9
+  (PSNR infinito en las ocho poses); modo diagnóstico intacto (1483 hojas,
+  7802 triángulos).
+
+**Pendiente / no demostrado.** La comparación píxel a píxel con el framebuffer
+original en poses intermedias sigue sin captura de referencia; el rectángulo 2D
+de fondo `0x64FB40` (clear azul en las esquinas) y la pantalla inferior del
+televisor (`311` tapa `368`) siguen abiertos y no son de visibilidad BSP.
+
 ## 2026-11-19 - 0.0.0 - S-9: oscuridad general de MAP7 corregida (tabla de color de Glide)
 
 El vuelo de MAP7 salía más oscuro que el original, sobre todo en las sombras.

@@ -39,7 +39,7 @@ typedef struct gex_scene_stats {
     uint32_t container_entries;   /* entradas del contenedor .DFX */
     uint32_t descriptor_vertices;  /* vértices del descriptor del nivel */
     uint32_t descriptor_polygons;  /* polígonos del descriptor del nivel */
-    uint32_t leaf_count;           /* hojas del BSP recorridas */
+    uint32_t leaf_count;           /* hojas visibles del BSP */
     size_t   triangles;            /* triángulos emitidos */
     size_t   fog_triangles;        /* de ellos, pasadas de niebla */
     size_t   vertices;             /* vértices de la geometría */
@@ -113,12 +113,9 @@ typedef struct gex_scene_level {
  * reproducible (escala 0,25 en los tres ejes y traslación de profundidad
  * +0x1000) más una niebla generada con el mismo generador 0x461895 que usa
  * la prueba de emisión. Sirve para producir una imagen estable y auditable
- * del nivel; no sustituye a la cámara original, cuya validación dinámica
- * contra el ejecutable sigue pendiente.
- *
- * La visibilidad del BSP es "todas las hojas": la prueba de esfera de la
- * cámara original (`cam_ctx`) necesita el estado de cámara del juego, que el
- * port todavía no tiene.
+ * del nivel; no sustituye a la cámara original. En este modo el BSP se
+ * recorre **sin cámara** (todas las hojas), para poder auditar la geometría
+ * completa del nivel; no es el recorrido del juego.
  */
 /*
  * Cámara de referencia del juego para el escenario MAP7.

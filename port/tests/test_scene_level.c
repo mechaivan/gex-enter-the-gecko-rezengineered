@@ -233,6 +233,171 @@ static void test_aztec_real(void)
 
 
 /* ---------------------------------------------------------------------------
+ * S-10: la visibilidad del BSP depende de la camara en todo el vuelo.
+ *
+ * La escena recorre el BSP con la prueba de esfera original en cada paso, no
+ * solo en la pose inicial. Se contrasta con los 18 fotogramas medidos del
+ * ejecutable (`ref_map7_frames.h`) y se comprueba que:
+ *
+ *   - el conjunto visible cambia con la camara (nunca son las 1483 hojas);
+ *   - el estado despues de N pasos coincide con el fotograma medido N-1
+ *     (el primer paso repite la clave 0, como en la trayectoria medida);
+ *   - la escena reconstruye la cadena de orientacion aunque el llamador le
+ *     pase una camara con A/B/a_cam/b_cam vacios;
+ *   - dos escenas independientes dan la misma lista (determinismo).
+ * ------------------------------------------------------------------------- */
+static void test_map7_visibility_flight(void)
+{
+    gex_scene_level scene, other;
+    gex_camera cam, cam2;
+    gex_bsp_walk_result all;
+    FILE *f = fopen(MAP7_PATH, "rb");
+    uint32_t seen[REF_FRAME_COUNT];
+    int distinct = 0;
+    int i, s, steps, total_steps;
+
+    if (!f) {
+        printf("skip map7 visibility flight (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&scene, 0, sizeof(scene));
+    gex_scene_reference_camera(&cam);
+    CHECK(gex_scene_level_load_camera_path(&scene, MAP7_PATH, &cam) ==
+          GEX_SCENE_OK);
+
+    /* Todas las hojas del nivel (sin camara), para acotar la comparacion. */
+    memset(&all, 0, sizeof(all));
+    CHECK(gex_bsp_walk(scene.container.image, scene.container.image_size,
+                       scene.level.descriptor.root_bsp, NULL, NULL, NULL,
+                       &all) == GEX_BSP_OK);
+    CHECK(all.count > REF_FRAMES[0].count);
+
+    /* Estado inicial = fotograma medido 0. */
+    CHECK(cam.pos[0] == REF_FRAMES[0].pos[0]);
+    CHECK(cam.pos[1] == REF_FRAMES[0].pos[1]);
+    CHECK(cam.pos[2] == REF_FRAMES[0].pos[2]);
+    CHECK(scene.leaves.count == REF_FRAMES[0].count);
+
+    /* El primer paso repite la clave 0 (comportamiento de la trayectoria
+     * medida): el estado antes de pasos ya es el fotograma 0 y el paso 0
+     * vuelve a producirlo. Desde el paso 1 cada paso avanza un fotograma. */
+    total_steps = 0;
+    for (i = 0; i < REF_FRAME_COUNT; i++) {
+        int dup = 0;
+        CHECK(gex_scene_level_camera_path_step(&scene, &cam) == 1);
+        total_steps++;
+        CHECK(cam.pos[0] == REF_FRAMES[i].pos[0]);
+        CHECK(cam.pos[1] == REF_FRAMES[i].pos[1]);
+        CHECK(cam.pos[2] == REF_FRAMES[i].pos[2]);
+        CHECK(scene.leaves.count == REF_FRAMES[i].count);
+        CHECK(scene.stats.camera_mode == 1);
+        for (s = 0; s < 16 && s < (int)scene.leaves.count; s++) {
+            CHECK(scene.leaves.leaves[s] == REF_FRAMES[i].first[s]);
+        }
+        CHECK(scene.leaves.count < all.count);
+
+        for (s = 0; s < distinct; s++) {
+            if (seen[s] == scene.leaves.count) {
+                dup = 1;
+            }
+        }
+        if (!dup) {
+            seen[distinct++] = scene.leaves.count;
+        }
+    }
+    /* El conteo no es constante: el recorrido realmente se rehace por frame. */
+    CHECK(distinct >= 5);
+
+    /* Pose final de la trayectoria. */
+    for (steps = 0; steps < 4096; steps++) {
+        if (gex_scene_level_camera_path_step(&scene, &cam) <= 0) {
+            break;
+        }
+        total_steps++;
+    }
+    CHECK(total_steps == 428);
+    CHECK(steps == 410);
+    CHECK(scene.path_frames == 428u);
+    CHECK(cam.pos[0] == 2243 && cam.pos[1] == 487 && cam.pos[2] == 196);
+    /* 249 hojas visibles frente a las 1483 del nivel. */
+    CHECK(scene.leaves.count == 249u);
+    CHECK(scene.leaves.count < all.count);
+    CHECK(scene.stats.triangles == 1722u);
+
+    /* Determinismo: otra escena, mismas 20 muestras, misma lista. */
+    memset(&other, 0, sizeof(other));
+    gex_scene_reference_camera(&cam2);
+    CHECK(gex_scene_level_load_camera_path(&other, MAP7_PATH, &cam2) ==
+          GEX_SCENE_OK);
+    for (steps = 0; steps < 20; steps++) {
+        CHECK(gex_scene_level_camera_path_step(&other, &cam2) == 1);
+    }
+    CHECK(other.leaves.count > 0);
+    {
+        /* Compara con un tercer barrido de la primera escena hasta la muestra
+         * 20 (misma camara que `other`). */
+        gex_scene_level again;
+        gex_camera cam3;
+        memset(&again, 0, sizeof(again));
+        gex_scene_reference_camera(&cam3);
+        CHECK(gex_scene_level_load_camera_path(&again, MAP7_PATH, &cam3) ==
+              GEX_SCENE_OK);
+        for (steps = 0; steps < 20; steps++) {
+            CHECK(gex_scene_level_camera_path_step(&again, &cam3) == 1);
+        }
+        CHECK(again.leaves.count == other.leaves.count);
+        CHECK(memcmp(again.leaves.leaves, other.leaves.leaves,
+                     (size_t)again.leaves.count * sizeof(uint32_t)) == 0);
+
+        /* Recuento intermedio del vuelo (pose congelada 101 y 278): el
+         * conjunto visible cambia y es mucho menor que las 1483 hojas. */
+        while (steps < 101) {
+            CHECK(gex_scene_level_camera_path_step(&again, &cam3) == 1);
+            steps++;
+        }
+        CHECK(cam3.pos[0] == 1609 && cam3.pos[1] == 584 &&
+              cam3.pos[2] == 567);
+        CHECK(again.leaves.count == 122u);
+        CHECK(again.stats.triangles == 414u);
+        while (steps < 278) {
+            CHECK(gex_scene_level_camera_path_step(&again, &cam3) == 1);
+            steps++;
+        }
+        CHECK(cam3.pos[0] == 8430 && cam3.pos[1] == -1239 &&
+              cam3.pos[2] == 1187);
+        CHECK(again.leaves.count == 119u);
+        CHECK(again.stats.triangles == 437u);
+        gex_scene_level_free(&again);
+    }
+
+    /* La escena reconstruye la cadena de orientacion: una camara con A/B,
+     * a_cam y b_cam vacios debe dar el mismo conjunto visible. */
+    {
+        gex_scene_level stale;
+        gex_camera sc;
+        memset(&stale, 0, sizeof(stale));
+        gex_scene_reference_camera(&sc);
+        memset(sc.mat_a, 0, sizeof(sc.mat_a));
+        memset(sc.mat_b, 0, sizeof(sc.mat_b));
+        memset(sc.a_cam, 0, sizeof(sc.a_cam));
+        memset(sc.b_cam, 0, sizeof(sc.b_cam));
+        CHECK(gex_scene_level_load_camera(&stale, MAP7_PATH, &sc) ==
+              GEX_SCENE_OK);
+        CHECK(stale.stats.camera_mode == 1);
+        CHECK(stale.leaves.count == REF_FRAMES[0].count);
+        CHECK(stale.leaves.count < all.count);
+        gex_scene_level_free(&stale);
+    }
+
+    gex_scene_level_free(&other);
+    gex_bsp_walk_free(&all);
+    gex_scene_level_free(&scene);
+}
+
+
+/* ---------------------------------------------------------------------------
  * Modo de camara original con el escenario MAP7.
  *
  * La escena se carga con la camara del juego (matriz de emision cam+0xE0,
@@ -432,6 +597,7 @@ int main(void)
     test_diagnostic_view();
     test_aztec_real();
     test_map7_camera_mode();
+    test_map7_visibility_flight();
     test_map7_menu_order();
 
     printf("test_scene_level: %d checks, %d failures\n", checks, failures);

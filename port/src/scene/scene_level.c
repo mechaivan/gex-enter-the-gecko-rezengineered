@@ -11,19 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* Predicado de visibilidad del BSP: todas las hojas. La visibilidad real de
- * la cámara (prueba de esfera de `gex_camera`) necesita el estado de cámara
- * del juego, que el port todavía no tiene; usarla aquí sería inventar. */
-static int scene_visible_all(const uint8_t *image, size_t image_size,
-                              uint32_t node_offset, void *ctx)
-{
-    (void)image;
-    (void)image_size;
-    (void)node_offset;
-    (void)ctx;
-    return 1;
-}
-
 void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog)
 {
     static const uint8_t fog_rgb[3] = {40, 60, 90};
@@ -295,10 +282,13 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
     scene->stats.descriptor_vertices = scene->level.descriptor.vertex_count;
     scene->stats.descriptor_polygons = scene->level.descriptor.polygon_count;
 
-    /* 3. Recorrido del BSP. */
+    /* 3. Recorrido del BSP. La vista diagnóstica no tiene cámara del juego:
+     *    se recorren todas las hojas (predicado y `cam_ctx` nulos), que es
+     *    el comportamiento histórico de este modo. El modo con cámara usa
+     *    la prueba de esfera original en `scene_emit_with_camera`. */
     bst = gex_bsp_walk(scene->container.image, scene->container.image_size,
-                       scene->level.descriptor.root_bsp, scene_visible_all,
-                       NULL, NULL, &scene->leaves);
+                       scene->level.descriptor.root_bsp, NULL, NULL, NULL,
+                       &scene->leaves);
     if (bst != GEX_BSP_OK) {
         return GEX_SCENE_ERR_BSP;
     }
@@ -364,6 +354,11 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
  * BSP se recorre con la camara (prueba de esfera de los seis semiplanos de
  * A/B) y la emision usa esa matriz. No hay matrices sinteticas ni encuadre.
  *
+ * La cadena de orientacion (O, M, A/B, a_cam/b_cam) se reconstruye aqui
+ * sobre una copia: el original la ejecuta (0x46DD40 -> 0x46E643 -> 0x405C41)
+ * antes de 0x401C00 y la escena no debe depender de que el llamante ya haya
+ * llamado a `gex_cam_update`.
+ *
  * Los bloques de la escena se liberan antes de volver a llenarlos: la
  * escena se puede re-emitir tantas veces como frames haga falta (es lo que
  * hace el juego en cada frame del vuelo).
@@ -376,17 +371,24 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
     gex_bsp_status bst;
     gex_emit_status est;
     gex_geom_status gst;
+    gex_camera cam_local;
+
+    /* 1. Estado de camara derivado (posicion y angulos -> O, M, A/B,
+     *    a_cam/b_cam). Es la misma cadena que usa el renderer. */
+    cam_local = *cam;
+    gex_cam_update(&cam_local);
 
     /* 2. Recorrido del BSP con la camara original: la prueba de esfera
      *    contra los seis semiplanos de A/B (0x00401C00) y el orden de
-     *    apilado por plano. */
+     *    apilado por plano. `cam_ctx` es la unica fuente de visibilidad:
+     *    no hay predicado adicional (el original no lo tiene). */
     if (scene->leaves_loaded) {
         gex_bsp_walk_free(&scene->leaves);
         scene->leaves_loaded = 0;
     }
     bst = gex_bsp_walk(scene->container.image, scene->container.image_size,
-                       scene->level.descriptor.root_bsp, scene_visible_all,
-                       NULL, cam, &scene->leaves);
+                       scene->level.descriptor.root_bsp, NULL, NULL,
+                       &cam_local, &scene->leaves);
     if (bst != GEX_BSP_OK) {
         return GEX_SCENE_ERR_BSP;
     }
@@ -398,7 +400,7 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
         gex_emit_output_free(&scene->emit);
         scene->emit_loaded = 0;
     }
-    scene_camera_view(cam, &mat, &fog);
+    scene_camera_view(&cam_local, &mat, &fog);
     est = gex_level_emit(scene->container.image, scene->container.image_size,
                          &scene->level.descriptor, &scene->leaves, &mat, &fog,
                          0, &scene->emit);

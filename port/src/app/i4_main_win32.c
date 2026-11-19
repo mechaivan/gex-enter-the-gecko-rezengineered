@@ -396,7 +396,8 @@ static void print_stats(const char *prefix, const gex_i4_app *app,
     if (g_camera_path_state != NULL) {
         const i4_camera_path *p = g_camera_path_state;
         printf("%s camera path: samples=%u finished=%d error=%d "
-               "pos=(%d, %d, %d) euler=(%d, %d, %d) triangles=%zu\n", prefix,
+               "pos=(%d, %d, %d) euler=(%d, %d, %d) "
+               "leaves=%u triangles=%zu\n", prefix,
                (unsigned)p->samples, p->finished, p->error,
                p->cam != NULL ? p->cam->pos[0] : 0,
                p->cam != NULL ? p->cam->pos[1] : 0,
@@ -404,6 +405,7 @@ static void print_stats(const char *prefix, const gex_i4_app *app,
                p->cam != NULL ? p->cam->euler[0] : 0,
                p->cam != NULL ? p->cam->euler[1] : 0,
                p->cam != NULL ? p->cam->euler[2] : 0,
+               p->scene != NULL ? p->scene->stats.leaf_count : 0u,
                p->scene != NULL ? p->scene->stats.triangles : 0);
     }
 #endif
@@ -902,7 +904,7 @@ int main(int argc, char **argv)
         if (geometry_status == GEX_D3D11_RENDERER_OK) {
             if (options.level_path != NULL) {
                 const gex_scene_stats *s = &scene.stats;
-                printf("geometry: level '%s'\n", options.level_path);
+                printf("geometry: level '%s' (initial frame)\n", options.level_path);
                 printf("  level: entries=%u vertices=%u polygons=%u leaves=%u\n",
                        s->container_entries, s->descriptor_vertices,
                        s->descriptor_polygons, s->leaf_count);
@@ -996,6 +998,13 @@ int main(int argc, char **argv)
                    (unsigned)path_state.samples, path_cam.pos[0],
                    path_cam.pos[1], path_cam.pos[2], path_cam.euler[0],
                    path_cam.euler[1], path_cam.euler[2]);
+            /* Las estadisticas impresas antes de congelar son las del
+             * fotograma inicial; las de la pose congelada son las que se van a
+             * capturar. */
+            printf("camera path: frozen pose stats: leaves=%u "
+                   "triangles=%zu vertices=%zu indices=%zu\n",
+                   scene.stats.leaf_count, scene.stats.triangles,
+                   scene.stats.vertices, scene.stats.indices);
         }
         gex_i4_app_set_update_callback(&app, i4_camera_path_update, &path_state);
         g_camera_path_state = &path_state;

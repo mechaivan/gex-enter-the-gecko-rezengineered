@@ -8,9 +8,50 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-19 (S-9: **corregida la oscuridad general del vuelo
-de MAP7**: el original entrega a Glide `min(2·byte, 255)`, no el byte
-normalizado; suite, sanitizers y capturas reales comparadas en poses congeladas)
+**Last updated:** 2026-11-19 (S-10: **la visibilidad BSP de MAP7 usa la cámara
+del juego en todo el vuelo**, sin predicados; se elimina `scene_visible_all` y
+se documenta que el culling por esfera ya estaba cableado desde S-3)
+
+### S-10: la visibilidad BSP de MAP7 — confirmada y cableada sin predicados (2026-11-19)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 26, `S2_BSP_TRAVERSAL.md`
+§ 10 y `S2_CAMERA_VISIBILITY.md` § 15.8.
+
+**Hallazgo.** La premisa «`scene_visible_all` dibuja todas las hojas» **no**
+describía el código: desde S-3 los modos con cámara pasan `cam_ctx` a
+`gex_bsp_walk`, que aplica la prueba de esfera original de los seis semiplanos.
+El predicado era redundante. El control lo demuestra: con `cam=NULL` la pose
+final vuelve a dar **1483** hojas / **1818** triángulos; con cámara da **249 /
+1722**.
+
+**Correcciones.**
+
+- Eliminado `scene_visible_all`; los dos recorridos usan `visible = NULL` y la
+  visibilidad la decide solo `cam_ctx`. La vista diagnóstica sigue recorriendo
+  las 1483 hojas, ahora declarada explícitamente como «sin cámara».
+- `scene_emit_with_camera` reconstruye la cadena de orientación (`gex_cam_update`)
+  sobre una copia local antes del recorrido y de la emisión, como hace el
+  original antes de `0x401C00`.
+- La aplicación ya no imprime las estadísticas del fotograma inicial como si
+  fueran las de la pose congelada (`frozen pose stats` + `(initial frame)`).
+
+**Verificación.**
+
+- Nueva `test_map7_visibility_flight`: 18 fotogramas medidos reproducidos
+  (conteo y lista), conteo variable, subconjunto estricto de las 1483 hojas,
+  pose final 249/1722, cadena reconstruida con A/B vacíos y determinismo.
+- Suite completa **0 fallos**; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- Capturas reales GPU hardware (`--camera-path-freeze 1/36/69/101/133/166/225/
+  278` y menú): 307/1123, 402/1676, 455/1730, 122/414, 353/1834, 166/787,
+  127/414, 119/437 y 249/1722 (1742 con menú). Control todas-las-hojas vs.
+  cámara: PSNR medio 24,45 dB (36), 26,03 (69), 29,37 (278) y 37,86 (menú).
+- Sin regresión: capturas byte-idénticas a S-9 (PSNR infinito); menú, llama y
+  231 texturas del vuelo intactos.
+
+**Pendiente.** Comparación píxel a píxel con el framebuffer original en poses
+intermedias (sin captura de referencia), el rectángulo 2D de fondo `0x64FB40`,
+la pantalla inferior del televisor y el intercambio R/B. Ninguno es de
+visibilidad BSP.
 
 ### S-9: oscuridad general de MAP7 — la tabla de color de Glide (2026-11-19)
 

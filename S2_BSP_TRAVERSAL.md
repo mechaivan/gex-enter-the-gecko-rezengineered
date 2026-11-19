@@ -1290,6 +1290,37 @@ capturados en `port/tests/ref_emit_frames.h` (`REF_EMIT_ACCEPTED`,
 * La **tabla de rutas del VFX** y la mezcla de color por vértice siguen
   pendiente de la comparación numérica con el original.
 
+## 10. S-10: la escena usa la visibilidad de cámara en todo el vuelo (2026-11-19)
+
+Revisión del cableado de la escena (`port/src/scene/scene_level.c`) contra el
+algoritmo de § 4 y los datos de § 9:
+
+* Los modos con cámara (`gex_scene_level_load_camera`,
+  `gex_scene_level_load_camera_path` y cada paso de
+  `gex_scene_level_camera_path_step`) llaman a `gex_bsp_walk` con
+  `cam_ctx = &cam`; el recorrido aplica la esfera de los seis semiplanos.
+  **El culling ya era real desde S-3**: el predicado `scene_visible_all`
+  devolvía 1 siempre y no anulaba la prueba.
+* Se elimina el predicado: `visible = NULL` en los dos recorridos. En los modos
+  con cámara la visibilidad la decide solo `cam_ctx`, igual que el original;
+  la vista diagnóstica pasa también `cam_ctx = NULL` y recorre las 1483 hojas,
+  ahora declarado explícitamente como «sin cámara».
+* `scene_emit_with_camera` reconstruye la cadena de orientación sobre una copia
+  local (`gex_cam_update`) antes del recorrido y de la emisión: el original
+  ejecuta la cadena antes de `0x401C00`.
+* La aplicación ya no imprime el conteo del fotograma inicial como si fuera el
+  de la pose congelada (antes siempre `leaves=307`, `triangles=1123`); imprime
+  `frozen pose stats` tras `--camera-path-freeze N`.
+
+Control medido (pose final): con `cam_ctx = NULL`, **1483 hojas / 1818
+triángulos**; con cámara, **249 / 1722** (1742 con el menú). Recuento por pose:
+307, 402, 455, 122, 353, 166, 127, 119 y 249 hojas en las poses
+`1/36/69/101/133/166/225/278/final`. Las 18 listas de referencia siguen
+reproduciéndose a nivel de escena (`test_map7_visibility_flight`).
+
+Sin regresión: las capturas de las ocho poses son byte-idénticas a las de S-9
+(PSNR infinito). No se tocan niebla, R/B, UV, atlas, orden, scissor ni mezcla.
+
 
 ---
 

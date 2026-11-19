@@ -3109,13 +3109,21 @@ El fondo sigue mostrando cielo y edificios donde el original tiene la
 habitación porque `scene_visible_all` dibuja todas las hojas; es la limitación
 conocida de S-2/S-3 y **no** es una regresión de S-5.
 
+> **Corregido en S-10 (§ 26).** Esta afirmación era incorrecta: los modos con
+> cámara ya pasaban `cam_ctx` a `gex_bsp_walk` desde S-3, y el predicado
+> `scene_visible_all` era redundante. La confusión venía del bloque de
+> estadísticas de la aplicación, que imprimía el conteo del fotograma inicial.
+> Véase § 26.1 y § 26.4.
+
 ### 22.6 Lo que queda (S-6)
 
 1. **Logo de la pantalla inferior:** identificar el modelo/actor de los quads
    `311` y `368`, comprobar si el cristal pertenece a un estado que el original
    no dibuja, y solo entonces ajustar la visibilidad (sin romper la regla LIFO).
 2. **Visibilidad del BSP:** sustituir `scene_visible_all` por el recorrido
-   visible de cámara para que el fondo coincida con el original.
+   visible de cámara para que el fondo coincida con el original. **(Hecho en
+   S-10, § 26: el recorrido ya usaba la cámara; se eliminó el predicado
+   redundante.)**
 3. **Materiales:** blending por polígono y niebla después de la textura.
 4. **Entrada y estado del menú** (mover el índice y confirmar) y las
    cinemáticas previas.
@@ -3595,3 +3603,155 @@ menú (cobertura 100 %), menú y llama presentes, `test_menu` 223 y `test_actor`
   byte; la relación entre canales no cambia.
 - **Escala de texturas, UV, atlas (§ 24), orden, cámara, scissor y mezcla:** sin
   cambios; la comparación antes/después se explica solo por el color.
+
+## 26. S-10: la visibilidad BSP de MAP7, confirmada y cableada sin predicados (2026-11-19)
+
+### 26.1 Premisa de partida y hallazgo
+
+La premisa decía que `scene_visible_all` dibuja todas las hojas del BSP y que
+por eso el fondo muestra cielo y edificios donde el original tiene la habitación.
+**Esa descripción no corresponde al estado real del código.** Revisando el
+historial, los modos con cámara pasan `cam_ctx` a `gex_bsp_walk` desde S-3
+(commit `86c7e3b`, «la trayectoria del menú llega al renderer D3D11»). El
+recorrido aplica la prueba de esfera de los seis semiplanos original **además**
+del predicado (`if (vis && cam != NULL)`), así que `scene_visible_all` —que
+siempre devolvía 1— era un predicado redundante, no una anulación del culling.
+
+El control lo demuestra sin ambigüedad. En la pose final, con la llamada
+original (`visible = scene_visible_all`, `cam_ctx = &cam`):
+
+```text
+level: leaves=249   emitted: triangles=1722   (1742 con el menú)
+```
+
+Cambiando solo `cam_ctx = NULL` (misma vista sintética de encuadre y mismo
+código) reaparecen todas las hojas:
+
+```text
+level: leaves=1483  emitted: triangles=1818   (1838 con el menú)
+```
+
+Es decir: **el culling por cámara ya funcionaba en todo el vuelo**. La
+limitación registrada en § 22.5/§ 22.6 era una lectura equivocada del bloque de
+estadísticas, agravada por un defecto real de informe que se corrige aquí (§
+26.4).
+
+### 26.2 Algoritmo original utilizado para decidir las hojas visibles
+
+No se rehízo: es el de [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 4 y
+[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 7, ya validado bit a bit
+contra el ejecutable (18/18 fotogramas con la lista completa idéntica).
+
+Datos que usa:
+
+* **De la cámara:** posición `cam+0x00..0x04`, ángulos Euler `cam+0x30..0x34`,
+  focal `cam+0x40`, ancho `cam+0x48`, corte lejano `cam+0x5C` (8500 capturado
+  en MAP7), marco local `local[0..4]` (`0x402DC0`), matriz M (`transpose(O)`,
+  `0x46DD40`→`0x46E643`), matrices A/B (`0x405C41`) y los vectores
+  `a_cam`/`b_cam`.
+* **Del nodo:** centro `+0x00/+0x02/+0x04`, radio `+0x06` (leído sin signo),
+  normal `+0x0C..0x10`, distancia `+0x14` (dword reinterpretado con signo),
+  tipo `+0x12` e hijos `+0x18/+0x1C`.
+
+Recorrido: DFS con pila. Por nodo, esfera contra seis semiplanos —fila 0 de A con
+el corte lejano y filas 1-2 de A y 0-1 de B con tolerancia `-r`; la fila 2 de B
+no se compara—. Si el nodo pasa y es hoja (`(tipo & 1) == 0`), se anexa; si es
+interno, los hijos se apilan en el orden dado por
+`d = ((camPos·N) >> 12) − distance` (`sar` aritmético y wrap de 32 bits).
+Con `cam_ctx = NULL` el recorrido conserva un orden fijo y **no culla**, que es
+el modo diagnóstico.
+
+### 26.3 Correcciones
+
+1. **`scene_visible_all` eliminado.** Los dos llamadores de `gex_bsp_walk` en
+   `port/src/scene/scene_level.c` usan `visible = NULL`. En los modos con
+   cámara la visibilidad la decide solo `cam_ctx` (como en el original, que no
+   tiene predicado aparte); en la vista diagnóstica el recorrido pasa también
+   `cam_ctx = NULL` y recorre las 1483 hojas, comportamiento que ahora está
+   declarado explícitamente como «sin cámara».
+2. **Cadena de orientación reconstruida en la escena.**
+   `scene_emit_with_camera` copia la cámara y llama a `gex_cam_update` antes del
+   recorrido y de la emisión. El original ejecuta la cadena antes de `0x401C00`;
+   así la escena no depende de que el llamador haya actualizado A/B, `a_cam` y
+   `b_cam`. Es idempotente para las cámaras ya actualizadas.
+3. **Documentación del contrato.** `port/include/gex/scene_level.h`: el
+   comentario de la vista diagnóstica ya no dice que la visibilidad del juego
+   esté pendiente, y `leaf_count` pasa a «hojas visibles del BSP».
+4. **Informe de estadísticas de la aplicación.** `i4_main_win32.c` imprimía el
+   bloque `geometry:` con las estadísticas del fotograma **inicial** (siempre
+   `leaves=307`, `triangles=1123`), antes del bucle de `--camera-path-freeze`;
+   cualquier captura congelada parecía tener el mismo conteo. Ahora el bloque
+   se rotula `(initial frame)` y, tras congelar, se imprime
+   `camera path: frozen pose stats: leaves=... triangles=... vertices=...
+   indices=...`; la línea final también incluye `leaves=`. Este defecto de
+   medida es la causa más probable de la creencia registrada en § 22.5/§ 22.6.
+
+### 26.4 Comportamiento durante todo el vuelo
+
+Recuento por pose con GPU hardware y `--camera-path-freeze N` (el primer paso
+repite la clave 0 de la trayectoria; el estado tras N pasos es el fotograma
+medido `N-1`):
+
+| freeze | posición | hojas | triángulos |
+|---|---|---|---|
+| 1 | (2341, 4071, 3074) | 307 | 1123 |
+| 36 | (6871, 6253, 1631) | 402 | 1676 |
+| 69 | (5808, 2711, 544) | 455 | 1730 |
+| 101 | (1609, 584, 567) | 122 | 414 |
+| 133 | (-1994, -2345, 2273) | 353 | 1834 |
+| 166 | (1757, -4880, 672) | 166 | 787 |
+| 225 | (7460, -8501, 512) | 127 | 414 |
+| 278 | (8430, -1239, 1187) | 119 | 437 |
+| final (428) | (2243, 487, 196) | 249 | 1722 |
+
+El conjunto visible cambia en cada pose (de 119 a 455 hojas) y nunca son las
+1483 del nivel. El primer fotograma reproduce las **307 hojas medidas del
+original, en el mismo orden** (`REF_FULL_0`, validadas dinámicamente en S-2), y
+los 18 fotogramas de referencia quedan reproducidos a nivel de escena
+(`test_map7_visibility_flight`).
+
+### 26.5 Comparación con la vista de todas las hojas
+
+Mismo binario, misma pose, única diferencia `cam_ctx`:
+
+| pose | PSNR medio (todas las hojas vs. cámara) | hojas / triángulos extra |
+|---|---|---|
+| 36 | 24,45 dB | +1 081 hojas, +473 triángulos |
+| 69 | 26,03 dB | +1 028 hojas, +155 triángulos |
+| 101 | 80,67 dB | +1 361 hojas, +7 triángulos |
+| 278 | 29,37 dB | +1 364 hojas, +13 triángulos |
+| menú final | 37,86 dB | +1 234 hojas, +96 triángulos |
+
+Las imágenes de diferencia (blend de diferencia amplificado) muestran que lo
+que desaparece con la cámara es exactamente la roca y los edificios lejanos, no
+las paredes ni el suelo de la habitación. En 101 la diferencia es casi nula
+porque la mayor parte de las hojas fuera de cámara tampoco supera el gate de
+emisión; el test de visibilidad y el gate trabajan en cascada.
+
+Las capturas tras la limpieza son **byte-idénticas** a las de S-9 (PSNR
+infinito en las ocho poses): la corrección no cambia la imagen, solo hace
+explícito que la visibilidad la aporta la cámara.
+
+### 26.6 Verificación
+
+* `test_map7_visibility_flight` (nuevo en `port/tests/test_scene_level.c`):
+  18 fotogramas medidos (conteos y primeras 16 hojas), conteo variable,
+  subconjunto estricto de las 1483 hojas, pose final 249/1722, determinismo
+  entre escenas y reconstrucción de la cadena con A/B/`a_cam`/`b_cam` vacíos.
+* Suite completa de `port`: **0 fallos**. Sanitizers O0/O2/ASan/UBSan:
+  **TODO OK**.
+* Capturas reales 960×540 con GPU hardware en las ocho poses y el menú; menú,
+  llama, logo y texturas sin regresión (231 en el vuelo, 239 con menú).
+
+### 26.7 Lo que queda abierto
+
+* **Comparación píxel a píxel con el framebuffer original en poses intermedias:**
+  no hay captura de referencia; la validación dinámica disponible son los 18
+  fotogramas de hojas y la lista completa del frame 0.
+* **Rectángulo 2D de fondo `0x64FB40`:** las esquinas azules son el *clear* y
+  el original pinta un degradado 2D; no es visibilidad BSP (§ 23.2).
+* **Pantalla inferior del televisor** (cristal `311` tapa logo `368`),
+  **intercambio R/B** (§ 23.5) y **`poly#116`** (tex 317, layer −25).
+* **Duplicación del fotograma 0 en la trayectoria** (el primer paso repite la
+  clave 0): es comportamiento de cámara medido y se conserva; no afecta a la
+  lista de poses renderizadas ni a la visibilidad.

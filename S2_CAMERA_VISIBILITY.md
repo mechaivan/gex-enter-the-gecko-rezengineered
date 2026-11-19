@@ -1267,4 +1267,25 @@ contexto de emisión reconstruido estáticamente, no sobre una captura del
 original. El contrato de emisión (`docs/D3D11_FIRST_SCENE_PLAN.md` §11) **no
 se da por validado** hasta esa comparación.
 
+### 15.8 S-10: la escena cablea esta cadena en todo el vuelo (2026-11-19)
+
+La visibilidad de cámara ya no es una pieza suelta: `gex_scene_level` la usa
+en la carga con cámara y en cada paso de la trayectoria. Revisión del cableado:
+
+* `scene_emit_with_camera` copia la cámara y llama a `gex_cam_update` **antes**
+  del recorrido, reproduciendo el orden del original (cadena de orientación y
+  A/B/`a_cam`/`b_cam` listos antes de `0x401C00`). Ya no depende de que el
+  llamador haya actualizado la cámara.
+* `gex_bsp_walk` recibe `visible = NULL` y `cam_ctx = &cam`: la visibilidad la
+  aporta la esfera de § 7, sin predicado adicional.
+* En la vista diagnóstica `cam_ctx = NULL`: todas las hojas, declarado como
+  comportamiento sin cámara.
+
+Medición (pose final): con cámara **249 hojas / 1722 triángulos**; con
+`cam_ctx = NULL`, **1483 / 1818**. Las ocho poses de referencia dan 307, 402,
+455, 122, 353, 166, 127 y 119 hojas, y los 18 fotogramas medidos quedan
+reproducidos por `test_map7_visibility_flight`. Detalle en
+[`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 10 y en
+`docs/D3D11_FIRST_SCENE_PLAN.md` § 26.
+
 ---
