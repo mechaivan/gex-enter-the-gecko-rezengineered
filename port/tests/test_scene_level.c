@@ -377,7 +377,7 @@ static void test_map7_menu_order(void)
      * panel (`poly#136`, ganador del píxel (341,341) en la captura). */
     for (i = 0; i < scene.emit.count; i++) {
         const gex_emit_triangle *t = &scene.emit.tris[i];
-        if (t->texture == 0u && t->color[0] == 0xFF101018u) {
+        if (t->texture == 0u && t->color[0] == 0xFF08080Cu) {
             if (!have_panel || tri_key(t) > tri_key(&scene.emit.tris[last_panel])) {
                 last_panel = i;
             }

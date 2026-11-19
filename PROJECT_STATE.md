@@ -8,9 +8,58 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-18 (S-8: **corregidos el atlas incompleto y el ancho
-del atlas**, causa de las superficies lisas grises del vuelo de MAP7; suite
-completa, sanitizers y capturas reales comparadas en poses congeladas)
+**Last updated:** 2026-11-19 (S-9: **corregida la oscuridad general del vuelo
+de MAP7**: el original entrega a Glide `min(2·byte, 255)`, no el byte
+normalizado; suite, sanitizers y capturas reales comparadas en poses congeladas)
+
+### S-9: oscuridad general de MAP7 — la tabla de color de Glide (2026-11-19)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 25 (y cierre de § 19.11).
+
+**Síntoma.** El vuelo de MAP7 se veía más oscuro que el original, sobre todo en
+las sombras: hierba, madera y suelo casi negros. § 19.11 había dejado abierta la
+«escala del color» al ver flotantes como 40.0 o 180.0 en el vértice de Glide.
+
+**Causa raíz demostrada.** El motor no entrega el byte de color del comando: lo
+convierte con una **tabla de 256 flotantes en `0x555158`**, leída del ejecutable,
+con `tabla[i] = min(2·i, 255)` (0→0,0; 1→2,0; 20→40,0; 127→254,0; 128→255,0;
+255→255,0). La tabla se aplica al **construir el vértice** (`0x467d85`–`0x467dbf`,
+justo antes de `grDrawTriangle` en `0x467e5b`), **después** de la niebla
+(`0x46B727`, llamada desde `0x426d41`–`0x426dc5`), que mezcla sobre el byte
+crudo. nGlide usa ese flotante como **0..255 sin normalizar** y lo trunca
+(medido con un arnés de 32 bits y el `glide2x.dll` real: 0,5→0; 1,0→0;
+127,5→127; 255→255; 510→255). Por tanto el color efectivo del original es
+`min(2·byte, 255) / 255`. El port hacía `byte / 255`: mitad de brillo hasta 127
+y más oscuro aún por encima, porque el original satura en blanco desde 128.
+
+**Corrección.**
+
+- `port/src/geometry/geometry.c`: `vertex_from_triangle` aplica la tabla
+  (`color_to_vertex`) a R/G/B; el alfa no se toca. Se hace en la construcción
+  del vértice y **no en `emit`**, para que el registro de comando siga siendo
+  byte-exacto frente al original.
+- El panel sintético del menú se entrega como su mitad exacta (`0xFF08080C`)
+  para que la pantalla conserve `0xFF101018`; el panel está fuera de encuadre.
+- No se tocan niebla, R/B, escala de texturas, atlas, cámara, orden, scissor ni
+  mezcla.
+
+**Verificación.**
+
+- Nueva `test_color_table` con los valores medidos; actualizados
+  `test_geometry`, `test_d3d11_mesh`, `test_d3d11_pipeline`, `test_menu` y
+  `test_scene_level`. `test_geometry` añadido a la matriz de sanitizers.
+- Suite completa sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- Capturas reales 960×540 en poses congeladas (`36/69/101/133/166/225/278`),
+  antes/después: la luminancia media sube de 34,3→45,0 (36), 27,0→37,7 (69),
+  33,9→45,1 (101), 32,3→45,9 (133), 38,5→53,5 (166), 43,5→57,4 (225) y
+  48,2→65,3 (278); el centro sube entre el +62 % y el +100 %. El blanco puro
+  sigue en el 0,00 % (máximo 0,38 % en los brillos de la llama): no se pierde
+  detalle.
+- 231 texturas en el vuelo y 239 con el menú (cobertura 100 %); menú, logo y
+  llama sin regresión (`test_menu` 223, `test_actor` 80, 0 fallos).
+
+**Pendiente que sigue abierto:** pantalla inferior del televisor (§ 22.6),
+intercambio R/B (§ 23.5) y `poly#116`.
 
 ### S-8: anomalías visuales de MAP7 — atlas incompleto y ancho del atlas (2026-11-18)
 
@@ -76,10 +125,9 @@ texturizada; en algunos encuadres parecían bloques planos desproporcionados.
 - **El patrón de bloques en la hierba** está presente en los propios datos de
   las texturas de 64×64 YIQ_422 (volcadas a PPM y comparadas); no es corrupción
   del atlas.
-- **La oscuridad general** sigue siendo la incógnita de § 19.11 (el color va en
-  0..2 en Glide y el port lo normaliza a 0..1). Los 1 123 colores por vértice
-  reproducen los valores medidos del original y la niebla actúa antes de la
-  textura como en la ruta de nivel; no se cambia sin cerrar la escala del driver.
+- **La oscuridad general** era la incógnita de § 19.11: el original entrega a
+  Glide `min(2·byte, 255)` (tabla `0x555158`) y el port normalizaba el byte.
+  **Corregido en S-9** (§ 25).
 
 ### S-7: mezcla de renderizado por comando (2026-11-18)
 

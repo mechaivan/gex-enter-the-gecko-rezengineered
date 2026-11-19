@@ -31,6 +31,7 @@ foreach ($v in $variants) {
       @{ s = 'tests/test_camera_path_tsv.c'; n = 'test_camera_path_tsv'; x = @($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_bsp.c';         n = 'test_bsp';         x = @($bspSrc + $cameraSrc + $dfxBspSrc); f = @('-DGEX_BSP_TEST_FAULT_INJECT', '-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_level_emit.c';  n = 'test_level_emit';  x = @($dfxBspSrc + $bspSrc + $cameraSrc + $emitSrc); f = @('-I' + (Join-Path $root 'tests')) },
+      @{ s = 'tests/test_geometry.c';    n = 'test_geometry';    x = @($geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $dfxBspSrc); f = @('-DGEX_GEOM_TEST_FAULT_INJECT') },
       @{ s = 'tests/test_scene_level.c'; n = 'test_scene_level'; x = @($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_vfx.c';        n = 'test_vfx';        x = @($vfxSrc + $vfxDecodeSrc + $vfxTexSrc + $dfxBspSrc + $emitSrc + $bspSrc + $cameraSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_actor.c';      n = 'test_actor';      x = @($actorSrc + $dfxBspSrc); f = @() },

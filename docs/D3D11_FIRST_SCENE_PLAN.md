@@ -2693,6 +2693,17 @@ flotantes, que no es el `GrVertex` clásico). La captura de ventana del juego
 devuelve negro, así que no hay verificación píxel a píxel: la comparación es a
 nivel de **ecuación y de estado de mezcla**.
 
+**Cerrado en S-9 (2026-11-19): no es un rango 0..2, es una tabla.** Los tres
+flotantes del vértice no salen de multiplicar por 2 en coma flotante: salen de
+la **tabla de 256 flotantes en `0x555158`**, leída del ejecutable, con
+`tabla[i] = min(2·i, 255)`. Por eso el byte 0x14 se ve como 40.0 y el 0x5A como
+180.0 (2 × 20 y 2 × 90), pero el byte 0x80 ya vale **255.0** y de ahí en
+adelante satura: no hay ningún valor por encima de 255 en el vértice. nGlide
+usa ese flotante como **0..255 sin normalizar** (medido con un arnés 32 bits:
+0,5 → 0; 127,5 → 127; 255 → 255), así que el color efectivo del original es
+`min(2·byte, 255)`. La corrección del port y la comparación medida están en
+§ 25.
+
 ### 19.12 S-7: mezcla por comando implementada (2026-11-18)
 
 **Qué se implementó.** La selección de mezcla que el original hace en
@@ -3432,15 +3443,155 @@ la niebla, las UV ni la mezcla.
   decodificados (volcados a PPM). No es corrupción del atlas.
 - **Oscuridad general:** los 1 123 colores por vértice reproducen los valores
   medidos del original y la niebla actúa antes de la textura como en la ruta de
-  nivel (§ 19.4). Sigue abierta la **escala RGB 0..2 de Glide** (§ 19.11): el
-  port normaliza a 0..1 y no se ha medido el factor del driver en la ruta
-  modulada. **No se toca** sin cerrar esa incógnita.
+  nivel (§ 19.4). La **escala del color** quedó abierta aquí y se cerró en S-9:
+  el original entrega a Glide `min(2·byte, 255)` (tabla `0x555158`), no un
+  flotante 0..1 (§ 19.11 y § 25).
 
 ### 24.7 Pendiente tras S-8
 
-1. Escala RGB 0..2 (§ 19.11): hace falta el *pixel shader* del nivel ensamblado
-   en runtime o una captura del framebuffer original (la ventana devuelve
-   negro).
+1. ~~Escala RGB 0..2 (§ 19.11)~~: **cerrada en S-9** (§ 25). Era la tabla
+   `0x555158` del original, `min(2·byte, 255)`.
 2. Pantalla inferior del televisor (§ 22.6): el cristal `311` tapa el logo
    `368` por coplanaridad; sin relación demostrada con el atlas.
 3. Intercambio R/B (§ 23.5): experimento decisivo pendiente.
+
+## 25. S-9: la oscuridad del vuelo era la tabla de color de Glide (2026-11-19)
+
+### 25.1 Síntoma y método
+
+El vuelo de MAP7 se veía **más oscuro que el original**, sobre todo en las
+zonas de sombra: la hierba, la madera y el suelo quedaban casi negros. § 19.11
+dejó abierta la «escala del color» porque el vértice de Glide llevaba valores
+como 40.0 o 180.0, que parecían un rango 0..2. La investigación de S-9 no
+aplica ningún multiplicador a ojo: reconstruye el recorrido completo del color
+en el ejecutable original y lo contrasta con el driver real.
+
+1. **Estático**: desensamblado del ejecutable original y lectura directa de la
+   tabla de color y de las instrucciones que la usan.
+2. **Dinámico**: arnés de 32 bits que carga el `glide2x.dll` real (nGlide 2.10)
+   y llama a `grDrawTriangle` con vértices de color conocido, para medir qué
+   hace el driver con esos flotantes.
+3. **En el port**: capturas reales 960×540 con GPU hardware en poses congeladas
+   (`--camera-path-freeze 36/69/101/133/166/225/278`), antes y después, y
+   medición por regiones.
+
+### 25.2 La tabla `0x555158`: `tabla[i] = min(2·i, 255)`
+
+En `.data`, dirección `0x555158`, hay **256 flotantes** de 4 B. Leídos del
+ejecutable:
+
+| byte | flotante | byte | flotante |
+|---|---|---|---|
+| 0 | 0.0 | 127 | 254.0 |
+| 1 | 2.0 | 128 | **255.0** |
+| 2 | 4.0 | 150 | 255.0 |
+| 20 | 40.0 | 200 | 255.0 |
+| 64 | 128.0 | 255 | 255.0 |
+
+No es un rango 0..2: es una tabla que **duplica el byte y satura en 255**. Por
+eso el byte 0x14 se veía como 40.0 y el 0x5A como 180.0 (§ 19.11), pero el
+0x80 ya vale 255.0 y de ahí en adelante no crece.
+
+**Dónde se aplica.** En la ruta de nivel, `0x467d85`–`0x467dbf` leen los bytes
+`+0x20`, `+0x21` y `+0x22` del vértice, los indexan en `0x555158` y guardan los
+tres flotantes en el vértice que se pasa a `grDrawTriangle` (`0x467e5b`). La
+ruta 2D usa la misma tabla con `grConstantColorValue4` (`0x46737e`, `0x466328`).
+
+**Orden demostrado.** El byte del registro de comando **no** se escala al
+emitirse:
+
+1. el registro de comando conserva el byte crudo;
+2. la niebla (`0x46B727`, llamada desde `0x426d41`–`0x426dc5`) mezcla sobre ese
+   byte crudo;
+3. la tabla `0x555158` convierte el resultado en el flotante del vértice;
+4. el vértice se entrega a Glide.
+
+La pasada de niebla lejana usa blanco `0x00FFFFFF`, que la tabla deja en 255.
+
+### 25.3 Qué hace nGlide con ese flotante
+
+El arnés de 32 bits crea un contexto Glide real y dibuja triángulos con colores
+conocidos; el framebuffer se lee con `grLfbReadRegion`. Resultados:
+
+| valor en el vértice | píxel leído |
+|---|---|
+| 0.5 | 0 |
+| 1.0 | 0 |
+| 127.5 | 127 |
+| 255.0 | 255 |
+| 510.0 | 255 |
+
+nGlide **trunca el flotante a entero 0..255** y no lo normaliza como 0..1. Por
+tanto el color efectivo del original es exactamente `min(2·byte, 255) / 255`.
+
+El port hacía `byte / 255`: la mitad de brillo hasta el byte 127 y **más oscuro
+todavía** por encima, porque el original satura en blanco desde 128 y el port
+seguía subiendo. Eso explica la oscuridad general y que las zonas claras
+perdieran intensidad.
+
+### 25.4 Corrección
+
+`port/src/geometry/geometry.c`: `vertex_from_triangle` aplica la tabla al
+construir el vértice (`color_to_vertex`, canal a canal, alfa intacto). Se aplica
+**en la construcción del vértice y no en `emit`**, para que el registro de
+comando (y `gex_emit_triangle.color`) siga siendo **byte-exacto** frente al
+original, igual que en el motor.
+
+El panel del menú es geometría sintética del port: su color vive en espacio de
+pantalla (`0xFF101018`) y se entrega a la tabla como su mitad exacta
+(`0xFF08080C`), de modo que la pantalla no cambia. El panel queda fuera del
+encuadre del menú, así que el resultado visible es idéntico.
+
+No se toca la niebla (opera sobre bytes crudos en ambos), ni el intercambio R/B
+(§ 23.5), ni la escala de texturas, ni la cámara, el orden, el scissor, la
+mezcla o el atlas.
+
+### 25.5 Verificación
+
+**Pruebas específicas.** Nueva `test_color_table` en `test_geometry` con los
+valores medidos del ejecutable: 0→0, 1→2, 2→4, 20→40, 64→128, 127→254,
+128→255, 200→255, 255→255, y alfa intacto. Se actualizaron las comprobaciones
+de color de vértice de `test_geometry`, `test_d3d11_mesh` (lectura del vertex
+buffer en la GPU) y `test_d3d11_pipeline` (píxeles reales), y el color del panel
+en `test_menu` y `test_scene_level`. `test_geometry` se añadió a la matriz de
+sanitizers.
+
+**Suite y sanitizers.** Suite completa de `port`: **0 fallos**. Sanitizers
+O0/O2/ASan/UBSan: **TODO OK** (incluida `test_geometry`).
+
+**Capturas reales.** Mismo binario y mismo comando, solo con el cambio de
+color; luminancia media de la imagen completa (0..255) y porcentaje de píxeles
+distintos:
+
+| muestra | luminancia antes | después | píxeles distintos |
+|---|---|---|---|
+| 36 | 34,3 | 45,0 | 61,9 % |
+| 69 | 27,0 | 37,7 | 73,3 % |
+| 101 | 33,9 | 45,1 | 63,5 % |
+| 133 | 32,3 | 45,9 | 68,4 % |
+| 166 | 38,5 | 53,5 | 63,2 % |
+| 225 | 43,5 | 57,4 | 53,8 % |
+| 278 | 48,2 | 65,3 | 50,1 % |
+| menú | 33,5 | 46,3 | 60,4 % |
+
+El centro de la imagen (donde estaban las sombras más cerradas) sube entre el
++62 % y el +100 %. **No se satura el detalle**: los píxeles de blanco puro
+siguen siendo el 0,00 % en casi todas las poses y como máximo el 0,38 % en una
+región de `166`, que son los brillos de la llama. La imagen después coincide con
+el aspecto esperado del juego: hierba verde intensa, roca naranja, madera
+legible y el logo `GEX` del menú con sus colores.
+
+**Sin regresión en lo demás.** 231 texturas distintas en el vuelo y 239 con el
+menú (cobertura 100 %), menú y llama presentes, `test_menu` 223 y `test_actor`
+80 comprobaciones sin fallos.
+
+### 25.6 Hipótesis descartadas
+
+- **Multiplicador global arbitrario o ajuste «a ojo»:** el factor no se elige;
+  sale de una tabla del ejecutable y de la medición del driver.
+- **Niebla:** se aplica sobre el byte crudo antes de la tabla, igual que en el
+  original; no se toca.
+- **Intercambio R/B (§ 23.5):** el cambio afecta por igual a R y B según su
+  byte; la relación entre canales no cambia.
+- **Escala de texturas, UV, atlas (§ 24), orden, cámara, scissor y mezcla:** sin
+  cambios; la comparación antes/después se explica solo por el color.

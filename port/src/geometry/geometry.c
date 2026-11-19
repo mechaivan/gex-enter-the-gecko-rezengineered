@@ -71,13 +71,46 @@ static uint32_t vertex_hash(const gex_vertex *v)
     return h;
 }
 
+/* Tabla de color del original (S-9): el motor no entrega a Glide el byte de
+ * color del registro de comando, sino el flotante `tabla[byte]` de la tabla
+ * de 256 entradas en 0x555158. Leída del ejecutable, `tabla[i] = min(2*i,
+ * 255)`:
+ *
+ *     0 -> 0    1 -> 2    20 -> 40   127 -> 254
+ *     128 -> 255   200 -> 255   255 -> 255
+ *
+ * La tabla se aplica al construir el vértice, DESPUÉS de la niebla (0x46B727
+ * mezcla sobre el byte crudo y 0x426d41..0x426dc5 guarda el resultado en el
+ * vértice), y sus tres flotantes se copian tal cual al vértice de Glide
+ * (0x467d85..0x467dbf, llamada a grDrawTriangle en 0x467e5b). nGlide usa ese
+ * flotante como 0..255 sin normalizar (medido: 0,5 -> 0; 127,5 -> 127;
+ * 255 -> 255), así que el color efectivo en pantalla es `min(2*byte,255)`.
+ *
+ * El registro de comando (y por tanto `gex_emit_triangle.color`) conserva el
+ * byte crudo: la conversión pertenece a esta fase, igual que en el original.
+ * El alfa no pasa por la tabla (Glide lo lleva aparte). */
+static uint8_t color_byte_to_vertex(uint8_t c)
+{
+    uint32_t v = (uint32_t)c * 2u;
+    return (uint8_t)(v > 255u ? 255u : v);
+}
+
+/* Aplica la tabla 0x555158 a los canales R, G y B de un AARRGGBB. */
+static uint32_t color_to_vertex(uint32_t color)
+{
+    uint32_t r = color_byte_to_vertex((uint8_t)((color >> 16) & 0xFFu));
+    uint32_t g = color_byte_to_vertex((uint8_t)((color >> 8) & 0xFFu));
+    uint32_t b = color_byte_to_vertex((uint8_t)(color & 0xFFu));
+    return (color & 0xFF000000u) | (r << 16) | (g << 8) | b;
+}
+
 static void vertex_from_triangle(gex_vertex *v, const gex_emit_triangle *tri,
                                  int corner)
 {
     v->x = (float)tri->x[corner];
     v->y = (float)tri->y[corner];
     v->z = (float)tri->z[corner];
-    v->color = tri->color[corner];
+    v->color = color_to_vertex(tri->color[corner]);
     /* Normalización exacta y reversible: round(u * 256) == byte original.
      *
      * El divisor es 256 y no 255 por el motivo del módulo 4C: el espacio de

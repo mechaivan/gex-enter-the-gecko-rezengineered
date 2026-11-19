@@ -1,5 +1,47 @@
 # CHANGELOG
 
+## 2026-11-19 - 0.0.0 - S-9: oscuridad general de MAP7 corregida (tabla de color de Glide)
+
+El vuelo de MAP7 salía más oscuro que el original, sobre todo en las sombras.
+No era la niebla, ni el orden, ni las texturas: el motor original **no entrega a
+Glide el byte de color del comando**, sino el flotante de una **tabla de 256
+entradas en `0x555158`** con `tabla[i] = min(2·i, 255)`.
+
+**Prueba.** La tabla se leyó del ejecutable (0→0,0; 1→2,0; 20→40,0; 127→254,0;
+128→**255,0**; 255→255,0) y se localizaron sus usos: en la ruta de nivel,
+`0x467d85`–`0x467dbf` construyen el color del vértice justo antes de
+`grDrawTriangle` (`0x467e5b`); la ruta 2D usa la misma tabla con
+`grConstantColorValue4`. El orden es **byte crudo → niebla (`0x46B727`) → tabla →
+vértice**. Un arnés de 32 bits con el `glide2x.dll` real (nGlide 2.10) midió que
+el driver usa el flotante como **0..255 sin normalizar** y lo trunca (0,5→0;
+1,0→0; 127,5→127; 255→255; 510→255). Por tanto el color efectivo del original
+es `min(2·byte, 255)/255`; el port hacía `byte/255` (mitad de brillo hasta 127 y
+más oscuro aún por encima, porque el original satura en blanco desde 128).
+
+**Corrección.**
+
+- `port/src/geometry/geometry.c`: `vertex_from_triangle` aplica la tabla a R/G/B
+  (alfa intacto) al construir el vértice, **no en `emit`**: el registro de
+  comando y `gex_emit_triangle.color` siguen siendo byte-exactos frente al
+  original.
+- El panel sintético del menú se entrega como su mitad exacta (`0xFF08080C`)
+  para que la pantalla conserve `0xFF101018`; el panel está fuera de encuadre.
+- No se tocan niebla, intercambio R/B, escala de texturas, atlas, cámara, orden,
+  scissor ni mezcla.
+
+**Pruebas.**
+
+- Nueva `test_color_table` con los valores medidos; actualizados `test_geometry`,
+  `test_d3d11_mesh`, `test_d3d11_pipeline`, `test_menu` y `test_scene_level`.
+  `test_geometry` añadido a la matriz de sanitizers.
+- Suite completa sin fallos; sanitizers O0/O2/ASan/UBSan **TODO OK**.
+- Capturas reales 960×540 en poses congeladas (`36/69/101/133/166/225/278`):
+  luminancia media 34,3→45,0; 27,0→37,7; 33,9→45,1; 32,3→45,9; 38,5→53,5;
+  43,5→57,4; 48,2→65,3. El centro sube entre el +62 % y el +100 %; el blanco
+  puro se queda en ≤ 0,38 % (brillos de la llama), sin perder detalle.
+- 231 texturas en el vuelo y 239 con el menú (cobertura 100 %); menú, logo y
+  llama sin regresión (`test_menu` 223, `test_actor` 80).
+
 ## 2026-11-18 - 0.0.0 - S-8: atlas de MAP7 completo y ancho del atlas corregido (superficies lisas del vuelo)
 
 Las zonas que durante el vuelo de cámara salían lisas, grises o sin textura no

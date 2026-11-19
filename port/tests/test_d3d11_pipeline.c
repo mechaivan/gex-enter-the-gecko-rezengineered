@@ -422,9 +422,11 @@ static void test_draw_and_colors(gex_d3d11_device *device)
         return;
     }
 
-    /* Triángulo sólido con un color cuyo R y B distinguishes: 0xFF3366CC es
-     * R=0x33, G=0x66, B=0xCC. Sin la permutación del byte order en el
-     * vertex shader se vería (0xCC, 0x66, 0x33). */
+    /* Triángulo sólido con un color cuyo R y B se distinguen. El byte de
+     * comando es 0xFF3366CC; la tabla 0x555158 del original (S-9) lo duplica
+     * al construir el vértice, así que en pantalla se ve (0x66,0xCC,0xFF).
+     * Sin la permutación del byte order en el vertex shader se vería
+     * (0xFF,0xCC,0x66). */
     make_triangle(&emit, 64, 64, 0xFF3366CCu, 448, 64, 0xFF3366CCu,
                   64, 320, 0xFF3366CCu);
     CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
@@ -461,22 +463,24 @@ static void test_draw_and_colors(gex_d3d11_device *device)
          * una referencia 512x384) el vértice (64,64) cae en el píxel (32,32)
          * y el (448,64) en el (224,32). */
         pixel_at(pixels, 256, 40, 40, px);
-        CHECK(px[0] == 0x33u && px[1] == 0x66u && px[2] == 0xCCu);
+        CHECK(px[0] == 0x66u && px[1] == 0xCCu && px[2] == 0xFFu);
         CHECK(px[3] == 0xFFu);
         pixel_at(pixels, 256, 100, 40, px);
-        CHECK(px[0] == 0x33u && px[1] == 0x66u && px[2] == 0xCCu);
+        CHECK(px[0] == 0x66u && px[1] == 0xCCu && px[2] == 0xFFu);
         /* Fuera del triángulo sigue el color de limpieza. */
         pixel_at(pixels, 256, 250, 185, px);
         CHECK(px[0] == 0u && px[1] == 0u && px[2] == 0u);
     }
 
     /* Segundo triángulo con tres colores: el centro debe ser el promedio
-     * (el color por vértice se interpola). */
+     * (el color por vértice se interpola). Los bytes de comando 0x7F dan 254
+     * tras la tabla 0x555158; 0xFF daría 255 y los tres colores se
+     * confundirían con blanco. */
     gex_d3d11_mesh_destroy(&mesh);
     gex_geometry_free(&geom);
     gex_emit_output_free(&emit);
-    make_triangle(&emit, 64, 64, 0xFFFF0000u, 448, 64, 0xFF00FF00u,
-                  64, 320, 0xFF0000FFu);
+    make_triangle(&emit, 64, 64, 0xFF7F0000u, 448, 64, 0xFF007F00u,
+                  64, 320, 0xFF00007Fu);
     CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
     CHECK(gex_d3d11_mesh_create(device->device, &geom, &mesh) ==
           GEX_D3D11_MESH_OK);
@@ -529,8 +533,9 @@ static void test_resize(gex_d3d11_device *device)
         return;
     }
 
-    make_triangle(&emit, 64, 64, 0xFFFF0000u, 448, 64, 0xFFFF0000u,
-                  64, 320, 0xFFFF0000u);
+    /* 0x7F -> 254 tras la tabla 0x555158 (0xFF daría blanco). */
+    make_triangle(&emit, 64, 64, 0xFF7F0000u, 448, 64, 0xFF7F0000u,
+                  64, 320, 0xFF7F0000u);
     CHECK(gex_geometry_build(&emit, &geom) == GEX_GEOM_OK);
     CHECK(gex_d3d11_mesh_create(device->device, &geom, &mesh) ==
           GEX_D3D11_MESH_OK);

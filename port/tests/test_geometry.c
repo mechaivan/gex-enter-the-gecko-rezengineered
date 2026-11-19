@@ -80,6 +80,13 @@ static void test_single_triangle(void)
     gex_emit_triangle tri = mk_tri();
     gex_emit_output in = wrap(&tri, 1);
     gex_geometry g;
+    /* Color del vértice = tabla 0x555158 del original, min(2*c,255) por canal
+     * RGB, alfa intacto (S-9). */
+    static const uint32_t expected_color[3] = {
+        0xFF224466u, /* 0xFF112233 */
+        0x8088AACCu, /* 0x80445566 */
+        0x00EEFFFFu, /* 0x00778899 */
+    };
 
     CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_OK);
     CHECK(g.vertex_count == 3u);
@@ -105,7 +112,7 @@ static void test_single_triangle(void)
         CHECK(v->x == (float)tri.x[i]);
         CHECK(v->y == (float)tri.y[i]);
         CHECK(v->z == (float)tri.z[i]);
-        CHECK(v->color == tri.color[i]);
+        CHECK(v->color == expected_color[i]);
         CHECK(v->u == (float)tri.u[i] / 256.0f);
         CHECK(v->v == (float)tri.v[i] / 256.0f);
         CHECK(v->texture == tri.texture);
@@ -304,6 +311,11 @@ static void test_fog_pass(void)
     gex_emit_triangle tris[2];
     gex_emit_output in;
     gex_geometry g;
+    /* Tabla 0x555158 aplicada al vértice (S-9). */
+    static const uint32_t main_color[3] = {0xFF224466u, 0x8088AACCu,
+                                           0x00EEFFFFu};
+    static const uint32_t fog_color[3] = {0x00204060u, 0x00204062u,
+                                          0x00204064u};
 
     /* Mismo triángulo, colores distintos y flag FOG_PASS: no se fusionan. */
     tris[0] = mk_tri();
@@ -325,8 +337,8 @@ static void test_fog_pass(void)
             const gex_vertex *fog_v = &g.vertices[g.indices[3 + i]];
             CHECK((main_v->flags & GEX_EMIT_F_FOG_PASS) == 0u);
             CHECK((fog_v->flags & GEX_EMIT_F_FOG_PASS) != 0u);
-            CHECK(main_v->color == tris[0].color[i]);
-            CHECK(fog_v->color == tris[1].color[i]);
+            CHECK(main_v->color == main_color[i]);
+            CHECK(fog_v->color == fog_color[i]);
         }
     }
     gex_geometry_free(&g);
@@ -790,6 +802,44 @@ static void test_aztec_real(void)
     gex_dfx_release_container(&c);
 }
 
+/* ------------------------------------------------------------------ */
+/* Tabla de color del original (S-9)                                  */
+/* ------------------------------------------------------------------ */
+
+/* El motor entrega a Glide `tabla[byte]` de 0x555158, con tabla[i] =
+ * min(2*i, 255). Valores leídos del ejecutable original. */
+static void test_color_table(void)
+{
+    static const struct { uint8_t in; uint8_t out; } cases[] = {
+        {0u, 0u}, {1u, 2u}, {2u, 4u}, {20u, 40u}, {64u, 128u},
+        {127u, 254u}, {128u, 255u}, {200u, 255u}, {255u, 255u},
+    };
+    const size_t n = sizeof(cases) / sizeof(cases[0]);
+
+    for (size_t i = 0; i < n; i++) {
+        gex_emit_triangle tri = mk_tri();
+        gex_emit_output in = wrap(&tri, 1);
+        gex_geometry g;
+        uint8_t c = cases[i].in;
+        uint8_t e = cases[i].out;
+        uint32_t raw = 0x80000000u | ((uint32_t)c << 16) |
+                       ((uint32_t)c << 8) | (uint32_t)c;
+
+        tri.color[0] = tri.color[1] = tri.color[2] = raw;
+        CHECK(gex_geometry_build(&in, &g) == GEX_GEOM_OK);
+        if (g.vertices != NULL) {
+            uint32_t want = 0x80000000u | ((uint32_t)e << 16) |
+                            ((uint32_t)e << 8) | (uint32_t)e;
+            for (size_t v = 0; v < g.vertex_count; v++) {
+                CHECK(g.vertices[v].color == want);
+            }
+            /* El alfa del vértice no pasa por la tabla. */
+            CHECK((g.vertices[0].color >> 24) == 0x80u);
+        }
+        gex_geometry_free(&g);
+    }
+}
+
 int main(void)
 {
     test_single_triangle();
@@ -797,6 +847,7 @@ int main(void)
     test_clipped_skipped();
     test_blend_runs();
     test_fog_pass();
+    test_color_table();
     test_subdivided();
     test_end_to_end_far();
     test_end_to_end_subdivide();

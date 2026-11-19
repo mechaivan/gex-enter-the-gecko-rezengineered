@@ -223,14 +223,16 @@ static void test_create_warp(void)
         for (int i = 0; i < 9; i++) {
             CHECK(iread[i] == (uint16_t)geom.indices[i]);
         }
-        /* Atributos conservados en la GPU: color, UV, textura, capa, flags. */
-        CHECK(vread[0].color == tris[0].color[0]);
+        /* Atributos conservados en la GPU: color, UV, textura, capa, flags.
+         * El color es el del vértice, ya con la tabla 0x555158 (S-9):
+         * 0xFF112233 -> 0xFF224466 y 0x00102030 -> 0x00204060. */
+        CHECK(vread[0].color == 0xFF224466u);
         CHECK(vread[0].texture == 0x0123u);
         CHECK(vread[0].layer == -3);
         CHECK(vread[0].flags == GEX_EMIT_F_NEAR_EMITTER);
         CHECK(vread[3].flags ==
               (GEX_EMIT_F_FOG_PASS | GEX_EMIT_F_FAR_EMITTER));
-        CHECK(vread[3].color == 0x00102030u);
+        CHECK(vread[3].color == 0x00204060u);
         CHECK(vread[6].x == (float)(tris[2].x[0]));
     } else {
         printf("skip read-back (sin memoria del host)\n");

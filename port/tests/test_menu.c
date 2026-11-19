@@ -68,10 +68,12 @@ static void test_scene(void)
     CHECK_EQ_I(scene.count, PANEL_TRIS + LABEL_TRIS);
     CHECK_EQ_I(scene.selected, -1);
 
-    /* Panel: 12 triángulos sin textura, con el color de la carcasa. */
+    /* Panel: 12 triángulos sin textura, con el color de la carcasa. El valor
+     * guardado es la mitad exacta del color de pantalla 0xFF101018: la tabla
+     * 0x555158 del original lo duplica al construir el vértice (S-9). */
     for (i = 0; i < PANEL_TRIS; i++) {
         CHECK_EQ_I(scene.tris[i].texture, 0);
-        CHECK_EQ_I(scene.tris[i].color, 0xFF101018u);
+        CHECK_EQ_I(scene.tris[i].color, 0xFF08080Cu);
         CHECK_EQ_I(scene.tris[i].u[0], 0);
         CHECK_EQ_I(scene.tris[i].v_uv[0], 0);
     }

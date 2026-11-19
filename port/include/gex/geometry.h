@@ -28,6 +28,10 @@
  *    contrato de `gex_emit_project` obliga al llamador a saltarlos y sus x/y
  *    valen 0, así que dibujarlos sería geometría falsa. Se cuentan en
  *    `skipped_clipped`.
+ *  - El color de `gex_emit_triangle` es el byte crudo del registro de comando.
+ *    Al construir el vértice se aplica la tabla del original (0x555158,
+ *    `tabla[i] = min(2*i, 255)`), que es lo que el motor entrega a Glide
+ *    (S-9). El alfa no se toca.
  */
 
 #ifndef GEX_GEOMETRY_H
@@ -50,7 +54,8 @@ extern "C" {
  * ======================================================================== */
 typedef struct {
     float    x, y, z;   /* píxeles proyectados + profundidad de emisión */
-    uint32_t color;     /* AARRGGBB por vértice (niebla ya aplicada si procede) */
+    uint32_t color;     /* AARRGGBB por vértice, ya con la tabla 0x555158
+                         * (min(2*c,255)) aplicada a R/G/B; alfa intacto */
     float    u, v;      /* UV normalizadas 0..1 desde los bytes 0..255 (/256) */
     uint16_t texture;   /* índice de textura del registro UV (14 bits útiles) */
     int8_t   layer;     /* byte[uv+0x0B] con signo */

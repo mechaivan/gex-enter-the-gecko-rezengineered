@@ -28,8 +28,14 @@
 
 /* Color del panel del televisor cuando no hay textura. El original dibuja
  * este polígono sin registro UV (uv_ptr = 0x20800080), así que no hay textura
- * que reproducir: se usa el color oscuro de la carcasa del CRT. */
-#define MENU_PANEL_COLOR 0xFF101018u
+ * que reproducir: se usa el color oscuro de la carcasa del CRT.
+ *
+ * `gex_geometry_build` aplica al vértice la tabla del original (0x555158,
+ * min(2*c,255)), que está pensada para los bytes de comando. Este panel es
+ * sintético y su color vive en espacio de PANTALLA (0xFF101018), así que se
+ * entrega su mitad exacta (2*0x08 = 0x10, 2*0x0C = 0x18) y la pantalla sigue
+ * mostrando 0xFF101018. */
+#define MENU_PANEL_COLOR 0xFF08080Cu
 
 /* Colocación medida de un actor del menú. */
 typedef struct menu_actor_placement {
