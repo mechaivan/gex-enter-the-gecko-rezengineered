@@ -3755,3 +3755,135 @@ explícito que la visibilidad la aporta la cámara.
 * **Duplicación del fotograma 0 en la trayectoria** (el primer paso repite la
   clave 0): es comportamiento de cámara medido y se conserva; no afecta a la
   lista de poses renderizadas ni a la visibilidad.
+
+## 27. S-11: el fondo de MAP7, medido en el original (2026-11-20)
+
+### 27.1 Síntoma y método
+
+El port limpiaba el *backbuffer* con `{0.2f, 0.2f, 0.8f}` =
+**(51, 51, 204)**, un azul de marca que no aparece en ninguna captura del
+original. Todas las zonas donde el original tiene cielo o fondo (esquinas del
+vuelo, marco completo del menú) salían azules. S-10 ya había demostrado que no
+era geometría ausente: ni con 249 hojas ni con las 1483 aparece un polígono en
+`(20,20)`; era el color de limpieza.
+
+La referencia es una **grabación externa del ejecutable original** con
+`gdigrab` a 640x480 y 38 s. La cronología se midió con la diferencia media
+entre fotogramas consecutivos: vuelo aprox. **6,3-15,9 s** sin corte, parada
+suave en **16,0 s** (MAD 33,1 -> 9,2) y menú estático **16,2-30 s** (MAD < 2).
+Se extrajeron 60 fotogramas a 5 fps, 48 a 30 fps y una pasada de 10 fps sobre
+la parada.
+
+**Limitación del método:** el fps del original es variable, así que **no hay
+sincronía exacta entre una pose del port y un fotograma del vídeo**. La
+comparación se hace por hitos visuales (esquinas, cielo, marco del menú,
+televisor, estatua) y con métricas globales sobre el fotograma de reposo.
+
+### 27.2 Medición del fondo
+
+| Zona | Fotogramas | Valor medido |
+| --- | --- | --- |
+| Vuelo: esquinas y bandas de cielo | 60 a 5 fps + 48 a 30 fps | **(8, 9, 40)** plano |
+| Menú: `y = 40` | reposo 16,2-30 s | (15, 10, 51) |
+| Menú: `y = 100` | reposo | (29, 10, 74) |
+| Menú: `y = 220` | reposo | (46, 10, 118) |
+
+El fondo del vuelo **no cambia** con la pose ni con la cámara: es un color
+plano, no un degradado ni un *skybox*. El del menú sí es un degradado
+morado/azul, pero pertenece a la interfaz (ver 27.3).
+
+### 27.3 El fondo del menú es 2D y no está en la tabla del nivel
+
+Se volcaron las **652 texturas** de `MAP7.VFX`. Las entradas **325..365** son
+un atlas de fondo: gradiente morado/azul con estrellas, en tiles de 16x16 y
+32x32. Sus medias reproducen el degradado medido:
+
+| Tile | Media RGB | Fila del original |
+| --- | --- | --- |
+| 352 | aprox. (15, 10, 51) | `y` aprox. 40 |
+| 353 | aprox. (18, 10, 57) | `y` aprox. 60 |
+| 333 | aprox. (29, 10, 74) | `y` aprox. 100 |
+| 354 | aprox. (32, 10, 82) | `y` aprox. 120 |
+| 356 | aprox. (38, 10, 96) | `y` aprox. 160 |
+| 357 | aprox. (41, 10, 105) | `y` aprox. 180 |
+| 344 | aprox. (46, 10, 118) | `y` aprox. 220 |
+
+Barrida la tabla completa del nivel (`s11_probe3`: **16 292 polígonos**,
+9606 vértices) se comprueba que usa las texturas **320..324 y 366..370** y que
+**ningún polígono referencia 325..365**. Es decir: el fondo 2D de la interfaz
+**no se puede emitir con el BSP**, porque no es geometría del nivel. Además el
+tile **325** es plano y vale **(8, 8, 41)**, coherente con el fondo del vuelo
+(8, 9, 40).
+
+Consecuencia de diseño: mientras no se reconstruya el compositor 2D de la
+interfaz (el rectángulo `0x64FB40` de 23.2 es otra pieza del mismo problema),
+el color plano medido es la aproximación documentada para el menú.
+
+### 27.4 Corrección
+
+* `port/include/gex/scene_level.h`: `GEX_SCENE_BACKGROUND_R/G/B` (8/9/40) y
+  `gex_scene_background_rgba(float out[4])`, con la justificación y la
+  limitación del menú en el comentario.
+* `port/src/scene/scene_level.c`: la función escribe `byte / 255.0f` sin
+  redondeo intermedio, para que el *clear* de D3D11 (que multiplica por 255 al
+  escribir el UNORM) devuelva exactamente 8, 9 y 40.
+* `port/src/app/i4_main_win32.c`: `clear_color` se rellena con la función y la
+  consola imprime `clear color: RGB(8, 9, 40)` con los bytes, no con flotantes.
+
+No se tocan cámara, proyección, BSP, culling, atlas, UV, mezcla, orden,
+niebla, scissor ni el intercambio R/B.
+
+### 27.5 Verificación
+
+* Nueva `test_background_color` en `port/tests/test_scene_level.c`
+  (9 comprobaciones): ida y vuelta a byte 8/9/40, alfa 1, descarte explícito
+  del azul anterior (51,51,204) y rango 0..1. `test_scene_level` pasa de
+  14 848 a **14 857** comprobaciones, 0 fallos.
+* Suite completa de `port`: **0 fallos**. Sanitizers O0/O2/ASan/UBSan:
+  **44/44 TODO OK**.
+* Capturas reales 960x540 con GPU hardware en `--camera-path-freeze
+  1/36/69/101/133/166/225/278` y con `--menu`, recortadas al área lógica
+  (720x540 en `x = 120`) y escaladas a 640x480 para comparar con el original.
+
+Cobertura del color de fondo sobre el área lógica:
+
+| Captura | Antes (51,51,204) | Después (8,9,40) |
+| --- | --- | --- |
+| Pose 225 | 109 615 px (28,19 %) | **239 215 px (46,14 %)** |
+| Menú | 37 285 px (9,59 %) | **166 905 px (32,20 %)** |
+
+Menú contra el fotograma real de reposo del original:
+
+| Versión | MAE | MSE | PSNR |
+| --- | --- | --- | --- |
+| Antes (S-10) | 44,72 | 3869,5 | 12,25 dB |
+| Después (S-11) | **39,79** | **3002,5** | **13,36 dB** |
+
+El resto de la diferencia del menú es el fondo 2D (degradado y estrellas que el
+BSP no puede emitir) y el encuadre (ver 27.6).
+
+### 27.6 Limitación: el encuadre del menú
+
+La cámara de reposo **sí** está medida: la fila
+`# estable 69042 2243 487 196 -29 0 2842` del TSV de `analysis/` es la muestra
+427, exactamente la que congela el port (`pos=(2243,487,196)`,
+`euler=(-29,0,2842)`). Aun así el encuadre difiere del original: el televisor
+aparece más pequeño y la estatua entra completa donde el original la recorta.
+
+Se probó que **no es solo focal**: simulando un aumento de x1,405 sobre el
+centro lógico (la escala que separa la ventana de 960 px del área lógica de
+720 px) el televisor se acerca al tamaño del original, pero la composición
+sigue desplazada y la estatua sigue cortada. La causa más probable es que el
+original usa para el menú una cámara distinta de la del vuelo (o una matriz de
+presentación 2D), y **el TSV solo sigue el objeto de cámara del vuelo**. Sin
+una medición nueva de esa cámara no se toca ni la cámara ni la proyección.
+
+### 27.7 Lo que queda abierto
+
+* **Fondo 2D de la interfaz** (tiles 325..365 + rectángulo `0x64FB40`): requiere
+  reconstruir el compositor 2D, no el BSP.
+* **Encuadre del menú**: falta medir la cámara (o matriz) que usa el original
+  al presentar el menú.
+* **Pantalla inferior del televisor** (cristal `311` tapa logo `368`),
+  **intercambio R/B** (ver 23.5), **`poly#116`** y el **patrón de bloques de la
+  hierba**: pendientes heredados, sin cambios en S-11.

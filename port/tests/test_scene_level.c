@@ -32,6 +32,35 @@ static int failures;
         }                                                                    \
     } while (0)
 
+/* ------------------------------------------------------------------ */
+/* Fondo de pantalla (S-11)                                           */
+/* ------------------------------------------------------------------ */
+
+static void test_background_color(void)
+{
+    float rgba[4] = {-1.0f, -1.0f, -1.0f, -1.0f};
+    unsigned r, g, b;
+
+    gex_scene_background_rgba(NULL); /* no debe tocar nada ni fallar */
+
+    gex_scene_background_rgba(rgba);
+    /* El clear de D3D11 escribe UNORM: 0..1 * 255 debe devolver el byte
+     * medido en el original sin desviarse. */
+    r = (unsigned)(rgba[0] * 255.0f + 0.5f);
+    g = (unsigned)(rgba[1] * 255.0f + 0.5f);
+    b = (unsigned)(rgba[2] * 255.0f + 0.5f);
+    CHECK(r == GEX_SCENE_BACKGROUND_R);
+    CHECK(g == GEX_SCENE_BACKGROUND_G);
+    CHECK(b == GEX_SCENE_BACKGROUND_B);
+    CHECK(r == 8u && g == 9u && b == 40u); /* medido en la grabacion */
+    CHECK(rgba[3] == 1.0f);
+    /* El azul de marca anterior (51,51,204) queda explicitamente descartado. */
+    CHECK(!(r == 51u && g == 51u && b == 204u));
+    CHECK(rgba[0] >= 0.0f && rgba[0] <= 1.0f);
+    CHECK(rgba[1] >= 0.0f && rgba[1] <= 1.0f);
+    CHECK(rgba[2] >= 0.0f && rgba[2] <= 1.0f);
+}
+
 static void test_status_names(void)
 {
     CHECK(strcmp(gex_scene_status_name(GEX_SCENE_OK), "ok") == 0);
@@ -591,6 +620,7 @@ static void test_map7_menu_order(void)
 
 int main(void)
 {
+    test_background_color();
     test_status_names();
     test_bad_arguments();
     test_load_errors();

@@ -8,11 +8,52 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-19 (S-10: **la visibilidad BSP de MAP7 usa la cámara
-del juego en todo el vuelo**, sin predicados; se elimina `scene_visible_all` y
-se documenta que el culling por esfera ya estaba cableado desde S-3)
+**Last updated:** 2026-11-20 (S-11: **el fondo de MAP7 era azul de marca**; el
+original limpia a `(8,9,40)` en el vuelo y monta un fondo 2D de interfaz con
+los tiles 325..365 del `.VFX`, que el nivel no referencia)
 
-### S-10: la visibilidad BSP de MAP7 — confirmada y cableada sin predicados (2026-11-19)
+### S-11: el fondo de MAP7 - medido en el original y corregido (2026-11-20)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` §27.
+
+**Síntoma y método.** El port limpiaba a `{0.2f,0.2f,0.8f}` = **(51,51,204)**,
+un azul de marca que no aparece en ninguna captura del original. La referencia
+es una grabación externa real del ejecutable (`gdigrab`, 640×480, 38 s), con
+vuelo ≈6,3–15,9 s y menú estático 16,2–30 s; 60 fotogramas a 5 fps, 48 a 30 fps
+y 10 fps sobre la parada. La comparación es por hitos visuales: **no hay
+sincronía exacta pose↔fotograma** porque el fps del original es variable.
+
+**Medición.** Fondo del vuelo **plano `(8,9,40)`** en esquinas y bandas de
+cielo de los 60 fotogramas. En el menú el original monta un fondo 2D de
+interfaz con degradado `(15,10,51)`@`y=40` → `(46,10,118)`@`y=220` y estrellas.
+
+**Hallazgo.** `MAP7.VFX` tiene **652 texturas**; **325..365** son ese atlas de
+fondo (tiles 16×16/32×32) y sus medias reproducen el degradado. La tabla del
+nivel (**16 292 polígonos**, 9606 vértices) usa 320..324 y 366..370 y **nunca
+325..365**: el fondo de la interfaz **no se puede emitir con el BSP**. El tile
+325 es plano y vale `(8,8,41)`, coherente con el fondo del vuelo.
+
+**Corrección.** `gex_scene_background_rgba()` + `GEX_SCENE_BACKGROUND_R/G/B`
+(8/9/40) en `port/include/gex/scene_level.h` y `port/src/scene/scene_level.c`;
+`i4_main_win32.c` limpia con la función y no con el azul. Sin cambios en
+cámara, proyección, BSP, culling, atlas, UV, mezcla, orden, niebla ni R/B.
+
+**Verificación.**
+
+- Nueva `test_background_color` (9 comprobaciones); `test_scene_level`
+  14 857 comprobaciones, 0 fallos.
+- Suite completa **0 fallos**; sanitizers O0/O2/ASan/UBSan **44/44 TODO OK**.
+- Capturas reales 960×540 GPU hardware (`--camera-path-freeze
+  1/36/69/101/133/166/225/278` y menú).
+- Cobertura del fondo: pose 225 28,19 %→**46,14 %**; menú 9,59 %→**32,20 %**.
+- Menú vs. original: MAE 44,72→**39,79**, PSNR 12,25→**13,36 dB**.
+
+**Limitación.** El encuadre del menú sigue difiriendo. La cámara de reposo está
+medida (fila `# estable` del TSV, muestra 427), pero no la del menú renderizado;
+descartado que sea solo focal (×1,405 desplaza y recorta la estatua). No se
+toca cámara ni proyección sin medición nueva.
+
+### S-10: la visibilidad BSP de MAP7 - confirmada y cableada sin predicados (2026-11-19)
 
 Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 26, `S2_BSP_TRAVERSAL.md`
 § 10 y `S2_CAMERA_VISIBILITY.md` § 15.8.

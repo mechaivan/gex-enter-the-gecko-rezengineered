@@ -11,6 +11,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+void gex_scene_background_rgba(float out[4])
+{
+    if (out == NULL) {
+        return;
+    }
+    /* S-11: color medido en el original (ver gex/scene_level.h). Se pasa a
+     * 0..1 sin redondeo intermedio para que el clear de D3D11, que multiplica
+     * por 255 al escribir el UNORM, devuelva exactamente 8, 9 y 40. */
+    out[0] = (float)GEX_SCENE_BACKGROUND_R / 255.0f;
+    out[1] = (float)GEX_SCENE_BACKGROUND_G / 255.0f;
+    out[2] = (float)GEX_SCENE_BACKGROUND_B / 255.0f;
+    out[3] = 1.0f;
+}
+
 void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog)
 {
     static const uint8_t fog_rgb[3] = {40, 60, 90};

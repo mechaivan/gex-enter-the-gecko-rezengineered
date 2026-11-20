@@ -134,6 +134,32 @@ void gex_scene_reference_camera(gex_camera *cam);
 void gex_scene_diagnostic_view(gex_emit_matrix *mat, gex_emit_fog *fog);
 
 /*
+ * Fondo de pantalla del original (S-11).
+ *
+ * El original no limpia a un color arbitrario: durante el vuelo de MAP7 el
+ * fondo visible es **plano** y vale (8,9,40). Esta medido en la grabacion del
+ * ejecutable original (640x480, 60 fotogramas a 5 fps y 48 a 30 fps) en las
+ * esquinas y en las bandas de cielo, y coincide con el tile plano 325 del
+ * `MAP7.VFX` (media (8,8,41), sin gradiente). El port limpiaba a
+ * `{0.2f,0.2f,0.8f}` = (51,51,204), que es el azul de marca y no aparece en
+ * ninguna captura del original.
+ *
+ * En el menu el original sigue dibujando un fondo, pero **no** es un color
+ * plano: es el fondo 2D de la interfaz montado con los tiles 325..365 del
+ * `.VFX` (gradiente morado/azul con estrellas). Ese fondo no esta en la lista
+ * de poligonos del nivel (16292 poligonos, ninguno referencia 325..365), asi
+ * que el port no lo puede emitir con el BSP; el color plano medido es la
+ * aproximacion documentada mientras no se reconstruya el fondo de la
+ * interfaz (docs/D3D11_FIRST_SCENE_PLAN.md, seccion 27).
+ */
+#define GEX_SCENE_BACKGROUND_R 0x08u /* 8  */
+#define GEX_SCENE_BACKGROUND_G 0x09u /* 9  */
+#define GEX_SCENE_BACKGROUND_B 0x28u /* 40 */
+
+/* Escribe el fondo medido como RGBA normalizado (0..1) para el clear. */
+void gex_scene_background_rgba(float out[4]);
+
+/*
  * Carga un nivel completo: `.DFX` -> descriptor -> BSP -> emisión ->
  * geometría. En éxito, `scene->geometry` es la geometría lista para
  * `gex_d3d11_mesh_create`.

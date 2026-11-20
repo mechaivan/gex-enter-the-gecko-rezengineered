@@ -548,8 +548,11 @@ int main(int argc, char **argv)
     gex_d3d11_device d3d11_dev = GEX_D3D11_DEVICE_INITIALIZER;
     gex_d3d11_swapchain d3d11_sw = GEX_D3D11_SWAPCHAIN_INITIALIZER;
     gex_d3d11_swapchain_config sw_cfg = GEX_D3D11_SWAPCHAIN_CONFIG_INITIALIZER;
-    float clear_color[4] = {0.2f, 0.2f, 0.8f, 1.0f}; /* Blue color */
-    
+    float clear_color[4];
+    /* S-11: el fondo del original no es azul. Medido en la grabacion del
+     * ejecutable (vuelo de MAP7): (8,9,40), plano, igual que el tile 325 del
+     * .VFX. Ver gex/scene_level.h y docs/D3D11_FIRST_SCENE_PLAN.md, seccion 27. */
+    gex_scene_background_rgba(clear_color);
     /* Configure swapchain for the window */
     sw_cfg.hwnd = window.hwnd;
     sw_cfg.width = 960;
@@ -602,7 +605,9 @@ int main(int argc, char **argv)
     printf("backbuffer: %u x %u, %u buffers\n", 
            (unsigned)sw_cfg.width, (unsigned)sw_cfg.height, 
            (unsigned)d3d11_sw.desc.BufferCount);
-    printf("clear color: RGB(%.1f, %.1f, %.1f)\n", clear_color[0], clear_color[1], clear_color[2]);
+    printf("clear color: RGB(%u, %u, %u)\n",
+           (unsigned)GEX_SCENE_BACKGROUND_R, (unsigned)GEX_SCENE_BACKGROUND_G,
+           (unsigned)GEX_SCENE_BACKGROUND_B);
 
     /* Módulo 5A: pipeline de dibujo y geometría visible. Módulo 5B: con
      * `--level` se dibuja la geometría real de un nivel .DFX; sin él, el

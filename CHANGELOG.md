@@ -1,5 +1,61 @@
 # CHANGELOG
 
+## 2026-11-20 - 0.0.0 - S-11: el fondo de MAP7 era azul de marca; el original limpia a (8,9,40)
+
+**Síntoma y método.** Auditoría visual de MAP7 contra capturas **reales** del
+ejecutable original (grabación externa `gdigrab`, 640×480, 38 s: vuelo
+≈6,3–15,9 s y menú estático 16,2–30 s; 60 fotogramas a 5 fps, 48 a 30 fps y una
+pasada de 10 fps sobre la parada). El port pintaba de azul `(51,51,204)` todas
+las zonas donde el original tiene cielo/fondo: esquinas del vuelo y todo el
+marco del menú. No era geometría ausente (S-10 ya lo había descartado con
+249 hojas y con 1483): era el color de limpieza.
+
+**Medición del original.** En el vuelo el fondo es **plano** y vale
+`(8,9,40)`, medido en las cuatro esquinas y en las bandas de cielo de los 60
+fotogramas; el valor no cambia con la pose ni con la cámara. En el menú el
+original **no** limpia a un color plano: monta un fondo 2D de interfaz con
+degradado morado/azul y estrellas, medido de `(15,10,51)` en `y=40` a
+`(46,10,118)` en `y=220`.
+
+**Hallazgo en el `.VFX`.** `MAP7.VFX` tiene **652 texturas**; las **325..365**
+son ese atlas de fondo (gradiente + estrellas, tiles de 16×16 y 32×32) y sus
+medias reproducen el degradado medido (352≈`y=40`, 353≈`y=60`, 333≈`y=100`,
+354≈`y=120`, 356≈`y=160`, 357≈`y=180`, 344≈`y=220`). Barrida la tabla de
+polígonos del nivel completa (`s11_probe3`: **16 292 polígonos**, 9606
+vértices) se comprueba que usa 320..324 y 366..370 y **ningún polígono
+referencia 325..365**. Por tanto el fondo 2D de la interfaz **no se puede
+emitir con el BSP**: no es geometría del nivel. El tile 325 es además plano y
+vale `(8,8,41)`, que coincide con el fondo del vuelo.
+
+**Corrección.** `gex_scene_background_rgba()` y las constantes
+`GEX_SCENE_BACKGROUND_R/G/B` (8/9/40) en `port/include/gex/scene_level.h` y
+`port/src/scene/scene_level.c`; `port/src/app/i4_main_win32.c` limpia con esa
+función en lugar de `{0.2f,0.2f,0.8f}` y lo imprime como `clear color:
+RGB(8, 9, 40)`. No se tocan cámara, proyección, BSP, culling, atlas, UV,
+mezcla, orden, niebla ni el intercambio R/B.
+
+**Medición de la mejora.** Cobertura del color de fondo sobre el área lógica
+720×540: pose 225 pasa de 109 615 px (**28,19 %**) a 239 215 px (**46,14 %**);
+menú de 37 285 px (**9,59 %**) a 166 905 px (**32,20 %**). Menú contra el
+fotograma real del original: MAE 44,72→**39,79**, MSE 3869,5→**3002,5**,
+PSNR 12,25→**13,36 dB**.
+
+**Verificación.** Nueva `test_background_color` (9 comprobaciones: ida y vuelta
+a byte 8/9/40, alfa 1, descarte explícito del azul anterior, rango 0..1);
+`test_scene_level` 14 848→**14 857** comprobaciones, 0 fallos. Suite completa
+**0 fallos**; sanitizers O0/O2/ASan/UBSan **44/44 TODO OK**. Capturas reales
+960×540 con GPU hardware en `--camera-path-freeze 1/36/69/101/133/166/225/278`
+y menú.
+
+**Limitación documentada.** El encuadre del menú sigue difiriendo del original.
+La cámara de reposo **sí** está medida (fila `# estable 69042 2243 487 196 -29
+0 2842` del TSV = muestra 427, la que congela el port), pero el original no
+expone la cámara del menú renderizado. Se descartó que fuera solo focal
+(simulación ×1,405 sobre el centro lógico: el televisor se acerca en tamaño,
+pero la composición sigue desplazada y la estatua queda cortada); no se toca
+cámara ni proyección sin una medición nueva. Detalle en
+`docs/D3D11_FIRST_SCENE_PLAN.md` §27.
+
 ## 2026-11-19 - 0.0.0 - S-10: la visibilidad BSP de MAP7 confirmada y cableada sin predicados
 
 **Hallazgo principal.** La premisa de partida («`scene_visible_all` dibuja
