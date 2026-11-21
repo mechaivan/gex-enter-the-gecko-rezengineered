@@ -699,19 +699,56 @@ int main(int argc, char **argv)
                  * (S-8: 231 <= 256) la cobertura es el 100 % y la lista se
                  * usa como conjunto completo. */
                 if (options.camera_path && scene.path_loaded) {
+                    /* S-12: el port dibuja **todo** el vuelo, no solo el
+                     * fotograma final, asi que el atlas tiene que cubrirlo
+                     * entero. `--textures-final` solo se usa como recurso
+                     * cuando el conjunto del vuelo no cabe en el atlas; con
+                     * MAP7 dejaba 64 texturas fuera en la muestra 133 (de 97
+                     * que usa la pose) y esas superficies se dibujaban como
+                     * bloques lisos del color de vertice (blancos/rosas/azules
+                     * sin textura). */
                     uint32_t *counts = (uint32_t *)calloc(16384u,
                                                           sizeof(uint32_t));
+                    uint32_t *counts_final = options.textures_final
+                        ? (uint32_t *)calloc(16384u, sizeof(uint32_t))
+                        : NULL;
                     size_t distinct = 0;
+                    size_t distinct_final = 0;
+                    int used_final = 0;
                     gex_scene_status usage_status = GEX_SCENE_ERR_ARG;
                     if (counts != NULL) {
-                        usage_status =
-                            options.textures_final
-                                ? gex_scene_camera_path_final_texture_usage(
-                                      options.level_path, &path_cam, counts,
-                                      16384u, &distinct)
-                                : gex_scene_camera_path_texture_usage(
-                                      options.level_path, &path_cam, counts,
-                                      16384u, &distinct);
+                        usage_status = gex_scene_camera_path_texture_usage(
+                            options.level_path, &path_cam, counts, 16384u,
+                            &distinct);
+                    }
+                    if (counts_final != NULL && usage_status == GEX_SCENE_OK) {
+                        if (gex_scene_camera_path_final_texture_usage(
+                                options.level_path, &path_cam, counts_final,
+                                16384u, &distinct_final) != GEX_SCENE_OK) {
+                            free(counts_final);
+                            counts_final = NULL;
+                        }
+                    }
+                    if (counts_final != NULL &&
+                        distinct + (options.menu ? 8u : 0u) >
+                            (size_t)GEX_D3D11_TEXTURE_MAX_ENTRIES) {
+                        /* El vuelo no cabe: se limita al fotograma final y se
+                         * avisa, porque los frames intermedios se quedaran sin
+                         * textura. */
+                        fprintf(stderr,
+                                "aviso: el vuelo usa %u texturas y no caben en "
+                                "el atlas; se limita al fotograma final y los "
+                                "frames intermedios quedaran sin textura\n",
+                                (unsigned)distinct);
+                        free(counts);
+                        counts = counts_final;
+                        counts_final = NULL;
+                        distinct = distinct_final;
+                        used_final = 1;
+                    }
+                    if (counts_final != NULL) {
+                        free(counts_final);
+                        counts_final = NULL;
                     }
                     if (counts != NULL && usage_status == GEX_SCENE_OK) {
                         uint32_t *idxs = (uint32_t *)malloc(16384u *
@@ -795,9 +832,8 @@ int main(int argc, char **argv)
                                        "se piden %u (limite del atlas; cubren "
                                        "el %.1f%% de los vertices)\n",
                                        (unsigned)distinct,
-                                       options.textures_final
-                                           ? "el fotograma final"
-                                           : "el vuelo",
+                                       used_final ? "el fotograma final"
+                                                 : "el vuelo",
                                        (unsigned)used_count,
                                        total != 0
                                            ? 100.0 * (double)covered /

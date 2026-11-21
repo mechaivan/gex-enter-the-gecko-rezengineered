@@ -8,9 +8,59 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-20 (S-11: **el fondo de MAP7 era azul de marca**; el
-original limpia a `(8,9,40)` en el vuelo y monta un fondo 2D de interfaz con
-los tiles 325..365 del `.VFX`, que el nivel no referencia)
+**Last updated:** 2026-11-21 (S-12: las «superficies blancas» de MAP7 eran
+texturas fuera del atlas; `--textures-final` usaba el fotograma final (65
+índices) en un vuelo que necesita 231 y el *pixel shader* cae al color por
+vértice)
+
+### S-12: las «superficies blancas» de MAP7 - texturas fuera del atlas (2026-11-21)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` §28.
+
+**Síntoma y método.** En el vuelo congelado aparecían superficies **lisas y
+claras** (blanco, lavanda, rosa) que parecían «volúmenes inflados» y geometría
+sin material, sobre todo en las poses 1, 36, 69, 101 y 166. Para separar datos
+de camino D3D11 se construyó un rasterizador software (512×384) que replica el
+*vertex shader* y el *pixel shader* del port. Software y GPU coinciden casi
+píxel a píxel: el defecto **no está en D3D11** sino en los datos entregados.
+
+**Causa raíz demostrada.** `--textures-final` construía el atlas con las
+texturas del **fotograma final** (65 índices) mientras el port dibuja **todo el
+vuelo**. La muestra 133 usa **97** índices distintos: **64 fuera del atlas**,
+que afectaban a **1 030 de 1 834 triángulos**. Cuando el índice no está en la
+tabla de búsqueda el *pixel shader* **no falla**: devuelve el color por vértice
+sin textura, que es el bloque liso claro observado. La geometría era correcta;
+el material no.
+
+**Corrección.** `port/src/app/i4_main_win32.c`: el conjunto del vuelo se calcula
+siempre; `--textures-final` solo se aplica si el vuelo **no cabe** en el atlas
+(con aviso por `stderr`). En MAP7 el vuelo son **231** índices y con las ocho
+texturas del menú **239 ≤ 256**. Sin cambios en shader, atlas, UV, mezcla,
+orden, cámara, proyección, BSP, niebla ni color.
+
+**Verificación.**
+
+- Dos invariantes nuevos en `test_texture_usage`; `test_camera_path_scene`
+  **2 877→2 879** comprobaciones, 0 fallos.
+- Suite completa **0 fallos**; sanitizers O0/O2/ASan/UBSan **44/44 TODO OK**.
+- Capturas reales 960×540 GPU hardware en las ocho poses y menú, antes/después.
+- Pose 133: MAD 6,73→**0**; poses 36/69/101/166: MAD 41,22/45,29/39,05/28,14→**0**.
+- Atlas: 2 986×130 (65)→**4 080×326 (231)**; menú 4 026×130 (73)→**4 066×326
+  (239)**.
+- **Sin regresión en la ruta por defecto:** poses 36, 166 y 278 sin
+  `--textures-final` **byte-idénticas** a S-11 (SHA-256).
+
+**Hipótesis descartadas.** El cian de la papelera es **auténtico**: las
+texturas 86/87/88 son mimbre gris y el color lo pone el vértice (`0x0E8FFF` =
+RGB(14,143,255), azul de bolsa; la tabla `0x555158` satura G y deja cian). El
+borde negro dentado de la colina en la pose 101 también está en el original. El
+sangrado del atlas queda descartado por el borde replicado. En la pose del menú
+no falta ninguna textura (el `tex=0` es el panel sintético).
+
+**Limitación.** REA no está instalado en este host: la evidencia son el código
+estático, las mediciones publicadas y la grabación real del original; no hay
+sincronía exacta pose↔fotograma (fps variable).
+
 
 ### S-11: el fondo de MAP7 - medido en el original y corregido (2026-11-20)
 

@@ -432,6 +432,16 @@ static void test_texture_usage(void)
     }
     CHECK(total > 0);
 
+    /* S-12: el atlas se construye con **todo** el vuelo (231 indices), no
+     * con el fotograma final (65), porque el port dibuja el vuelo entero y
+     * el fotograma final solo cubre una pose. El invariante que sostiene esa
+     * eleccion es que el vuelo quepa en el atlas junto con las ocho texturas
+     * del menu (600..607): si dejara de caber, la aplicacion avisa y cae al
+     * fotograma final, y los frames intermedios se quedarian sin textura.
+     * 256 es GEX_D3D11_TEXTURE_MAX_ENTRIES. */
+    CHECK(distinct <= 256u);
+    CHECK(distinct + 8u <= 256u);
+
     /* Argument validation. */
     CHECK(gex_scene_camera_path_texture_usage(NULL, NULL, counts, 16384u,
                                                &distinct) == GEX_SCENE_ERR_ARG);

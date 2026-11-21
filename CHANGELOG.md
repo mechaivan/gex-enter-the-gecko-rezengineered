@@ -1,5 +1,88 @@
 # CHANGELOG
 
+## 2026-11-21 - 0.0.0 - S-12: las «superficies blancas» de MAP7 eran texturas fuera del atlas
+
+**Síntoma y método.** En el vuelo congelado aparecían grandes superficies
+**lisas y claras** (blanco, lavanda, rosa) que parecían «volúmenes inflados» y
+«geometría sin material», sobre todo en las poses 1, 36, 69, 101 y 166. El
+método fue separar **datos** de **camino D3D11**: se construyó un rasterizador
+software (`s12_raster.c`, 512×384) que replica el *vertex shader* y el *pixel
+shader* del port (UV afín, escala por lado mayor, tabla de color `0x555158`,
+alfa solo para `ARGB_4444`, modos de mezcla por comando, orden de pintor sin
+*depth buffer*). Software y GPU coinciden casi píxel a píxel, así que el defecto
+**no está en D3D11** sino en los datos que se le entregan.
+
+**Causa raíz demostrada.** `--textures-final` construía el atlas con las
+texturas del **fotograma final** (65 índices en MAP7) mientras el port dibuja
+**todo el vuelo**. En la muestra 133 la pose usa **97** índices distintos:
+**64 no estaban en el atlas** y afectaban a **1 030 de los 1 834 triángulos**
+(56 %). El *pixel shader* no falla cuando el índice no está en la tabla: dibuja
+el **color por vértice sin textura** (`color = input.color`), que es exactamente
+el bloque liso claro observado. La geometría era correcta; el material no.
+
+**Corrección.** `port/src/app/i4_main_win32.c`: el conjunto del vuelo se calcula
+**siempre**; `--textures-final` pasa a ser un recurso que solo se aplica cuando
+el vuelo **no cabe** en el atlas (y entonces se avisa por `stderr` de que los
+fotogramas intermedios se quedarán sin textura). En MAP7 el vuelo son **231**
+índices y con las ocho texturas del menú (600..607) **239 ≤ 256**
+(`GEX_D3D11_TEXTURE_MAX_ENTRIES`), así que siempre cabe. No se tocan shader,
+atlas, UV, mezcla, orden, cámara, proyección, BSP, niebla ni color.
+
+**Medición de la mejora** (misma pose, mismo binario, antes vs. después, área
+lógica 512×384; MAD = diferencia media absoluta por canal 0..255):
+
+| Pose | MAD antes→después | Píxeles que cambian (>12) |
+|---|---:|---:|
+| 1 | 18,25 → **0,00** | 23,68 % → 0 % |
+| 36 | 41,22 → **0,00** | 40,34 % → 0 % |
+| 69 | 45,29 → **0,00** | 43,00 % → 0 % |
+| 101 | 39,05 → **0,00** | 36,82 % → 0 % |
+| 133 | 6,73 → **0,00** | 8,42 % → 0 % |
+| 166 | 28,14 → **0,00** | 28,96 % → 0 % |
+| 225 | 0,23 → **0,00** | 0,38 % → 0 % |
+| 278 | 7,93 → **0,00** | 8,12 % → 0 % |
+| menú | 0,00 | 0,01 % |
+
+Atlas: pose 133 **2 986×130 (65 texturas)** → **4 080×326 (231)**; menú
+**4 026×130 (73)** → **4 066×326 (239)**.
+
+**Verificación.** Dos invariantes nuevos en `test_texture_usage`
+(`port/tests/test_camera_path_scene.c`): el vuelo cabe en el atlas y cabe con
+las ocho texturas del menú; `test_camera_path_scene` **2 877→2 879**
+comprobaciones. Suite completa **0 fallos**; sanitizers O0/O2/ASan/UBSan
+**44/44 TODO OK**. Capturas reales 960×540 con GPU hardware en
+`--camera-path-freeze 1/36/69/101/133/166/225/278` y menú, antes y después.
+**Sin regresión en la ruta por defecto:** las capturas sin `--textures-final`
+de las poses 36, 166 y 278 son **byte-idénticas** a las de S-11 (SHA-256).
+
+**Hipótesis descartadas (con evidencia).**
+
+- **El cian de la papelera no es un defecto.** Los 21 polígonos con vértices
+  `0x0E8FFF` son una papelera de mimbre: las texturas **86/87/88** (32×64,
+  `ARGB_4444`) son **grises** (mimbre), y el color lo pone el vértice. Con el
+  orden del `.DFX` (`AARRGGBB`) `0x0E8FFF` = **RGB(14,143,255)**, un azul de
+  bolsa de basura; la tabla `0x555158` satura G a 255 y deja el cian. El objeto
+  tiene además marrones (`0x51352F`, `0x281A17`) y negro (`0x000000`) en la
+  base. La modulación `texel × color de vértice` es la fórmula del original ya
+  validada (§19.11, §25); no se cambia.
+- **El borde negro dentado de la colina (pose 101)** aparece igual en el
+  original (t≈8,5 s de la grabación). No es un artefacto del port.
+- **El sangrado del atlas** no puede ser la causa: `atlas_layout` +
+  `blit_with_border` replican un texel de borde alrededor de cada textura.
+- **Faltan texturas en la pose del menú**: falso; con 239 entradas la
+  cobertura es del 100 % y el `tex=0` restante es el panel sintético del menú
+  (`src=0..11`, color `0xFF08080C`), intencional.
+- **El renderer no usa *depth buffer*** (orden de pintor, 1 123/1 123
+  triángulos en el mismo orden que el original): no se cambia en esta tanda.
+
+**Limitación documentada.** REA **no está instalado en este host**
+(`docs/REA_WINDOWS_ENABLEMENT.md`), así que no hay traza en vivo del ejecutable:
+la evidencia son el código estático del repo, las mediciones ya publicadas
+(`U1F_RESULTADOS.md`, `U1G_RESULTADOS.md`) y la grabación real del original
+(`gdigrab`, 640×480, 38 s). Tampoco hay sincronía exacta pose↔fotograma (fps
+variable), por lo que la comparación con el original es por hitos visuales.
+Detalle en `docs/D3D11_FIRST_SCENE_PLAN.md` §28.
+
 ## 2026-11-20 - 0.0.0 - S-11: el fondo de MAP7 era azul de marca; el original limpia a (8,9,40)
 
 **Síntoma y método.** Auditoría visual de MAP7 contra capturas **reales** del

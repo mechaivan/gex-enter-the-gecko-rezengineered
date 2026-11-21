@@ -3887,3 +3887,139 @@ una medición nueva de esa cámara no se toca ni la cámara ni la proyección.
 * **Pantalla inferior del televisor** (cristal `311` tapa logo `368`),
   **intercambio R/B** (ver 23.5), **`poly#116`** y el **patrón de bloques de la
   hierba**: pendientes heredados, sin cambios en S-11.
+
+## 28. S-12: las «superficies blancas» de MAP7 eran texturas fuera del atlas (2026-11-21)
+
+### 28.1 Síntoma y método
+
+En el vuelo congelado aparecían grandes superficies **lisas y claras** (blanco,
+lavanda, rosa) que daban la impresión de «volúmenes inflados» y de geometría sin
+material. Se veían sobre todo en las poses 1, 36, 69, 101 y 166, y no en la 225
+ni en la 278. El síntoma no dependía de la cámara ni de la posición: era el
+mismo tipo de bloque plano en objetos distintos.
+
+El primer paso fue **separar los datos del camino D3D11**. Se escribió un
+rasterizador software (`s12_raster.c`, 512x384) que replica el *vertex shader*
+y el *pixel shader* del port: UV afín con escala por lado mayor, tabla de color
+`0x555158` (`min(2c,255)`), alfa solo para `ARGB_4444`, modos de mezcla por
+comando y orden de pintor sin *depth buffer*. Software y captura de GPU
+coinciden casi píxel a píxel. Conclusión: **el defecto no está en D3D11** sino en
+los datos que se le entregan (textura, color o UV).
+
+### 28.2 Causa raíz demostrada
+
+`--textures-final` construía el atlas con las texturas del **fotograma final**.
+En MAP7 ese fotograma usa **65 índices**, pero el port dibuja **todo el vuelo**
+(231 índices distintos). En la muestra 133 la pose usa **97** índices:
+
+| Medición (pose 133) | Valor |
+| --- | --- |
+| Índices distintos en la pose | 97 |
+| Índices presentes en el atlas (`--textures-final`) | 33 |
+| **Índices ausentes** | **64** |
+| Triángulos afectados | **1 030 de 1 834 (56,2 %)** |
+
+El *pixel shader* no falla cuando el índice no está en la tabla de búsqueda:
+cae al **color por vértice sin textura** (`color = input.color`). Ese camino es
+deliberado (cubre el panel sintético del menú, `tex=0`) y es exactamente el
+bloque liso claro observado. **La geometría era correcta; el material no.**
+
+El mismo defecto explica las diferencias grandes de las poses 1, 36, 69, 101 y
+166 y la ausencia de diferencias en la 225 (que casualmente solo usa texturas
+del fotograma final).
+
+### 28.3 Corrección
+
+`port/src/app/i4_main_win32.c`:
+
+* El conjunto de texturas del **vuelo** se calcula **siempre** que hay
+  `--camera-path` (recorrido de la trayectoria con
+  `gex_scene_camera_path_texture_usage`).
+* `--textures-final` deja de forzar el fotograma final: pasa a ser un **recurso**
+  que solo se aplica si el conjunto del vuelo **no cabe** en
+  `GEX_D3D11_TEXTURE_MAX_ENTRIES` (256). En ese caso se avisa por `stderr` de
+  que los fotogramas intermedios quedarán sin textura.
+* El menú reserva sus ocho texturas (600..607). MAP7: **231 + 8 = 239 <= 256**,
+  así que el vuelo entero cabe siempre y la reserva nunca se activa.
+
+No se tocan *shader*, atlas, UV, mezcla, orden de pintor, cámara, proyección,
+BSP, niebla, culling ni la tabla de color.
+
+### 28.4 Verificación
+
+Comparación antes/después con **el mismo binario y la misma pose** (área lógica
+512x384; MAD = diferencia media absoluta por canal 0..255):
+
+| Pose | MAD antes | MAD después | Píxeles que cambian (>12) antes |
+| --- | ---: | ---: | ---: |
+| 1 | 18,25 | **0,00** | 23,68 % |
+| 36 | 41,22 | **0,00** | 40,34 % |
+| 69 | 45,29 | **0,00** | 43,00 % |
+| 101 | 39,05 | **0,00** | 36,82 % |
+| 133 | 6,73 | **0,00** | 8,42 % |
+| 166 | 28,14 | **0,00** | 28,96 % |
+| 225 | 0,23 | **0,00** | 0,38 % |
+| 278 | 7,93 | **0,00** | 8,12 % |
+| Menú | 0,00 | 0,00 | 0,01 % |
+
+Atlas construido:
+
+| Caso | Antes (fotograma final) | Después (vuelo) |
+| --- | --- | --- |
+| Pose 133 | 2 986 x 130, 65 texturas | **4 080 x 326, 231 texturas** |
+| Menú | 4 026 x 130, 73 texturas | **4 066 x 326, 239 texturas** |
+
+* Dos invariantes nuevos en `test_texture_usage`
+  (`port/tests/test_camera_path_scene.c`): el vuelo cabe en el atlas y cabe con
+  las ocho texturas del menú. `test_camera_path_scene` pasa de 2 877 a
+  **2 879** comprobaciones, 0 fallos.
+* Suite completa de `port`: **0 fallos**. Sanitizers O0/O2/ASan/UBSan:
+  **44/44 TODO OK**.
+* Capturas reales 960x540 con GPU hardware en `--camera-path-freeze
+  1/36/69/101/133/166/225/278` y con `--menu`, antes y después.
+* **Sin regresión en la ruta por defecto:** las capturas sin
+  `--textures-final` de las poses 36, 166 y 278 son **byte-idénticas** a las de
+  S-11 (SHA-256).
+
+### 28.5 Hipótesis descartadas (con evidencia)
+
+* **El cian de la papelera/barril no es un defecto.** Los 21 polígonos con
+  vértice `0x0E8FFF` son una papelera de mimbre: sus texturas **86/87/88**
+  (32x64, `ARGB_4444`) son **grises** y todo el color lo pone el vértice. Con el
+  orden del `.DFX` (`AARRGGBB`), `0x0E8FFF` = **RGB(14,143,255)**, un azul de
+  bolsa de basura; la tabla `0x555158` satura G a 255 y deja el cian. El objeto
+  tiene además marrones (`0x51352F`, `0x281A17`) y negro (`0x000000`) en la
+  base. La modulación `texel x color de vértice` es la fórmula del original ya
+  validada (19.11 y 25) y no se cambia.
+* **El borde negro dentado de la colina (pose 101)** aparece igual en el
+  original (aprox. t = 8,5 s de la grabación). No es un artefacto del port.
+* **El sangrado del atlas** no puede ser la causa: `atlas_layout` +
+  `blit_with_border` replican un texel de borde alrededor de cada textura.
+* **Faltan texturas en la pose del menú:** falso. Con 239 entradas la cobertura
+  es del 100 % y el `tex=0` restante es el **panel sintético del menú**
+  (`src = 0..11`, color `0xFF08080C`), intencional.
+* **Intercambio R/B como causa del cian:** falso. `geometry.c` guarda
+  `0xAARRGGBB` en memoria (bytes B,G,R,A), el VS lee `R8G8B8A8_UNORM` y el PS
+  reordena a `(r,g,b)`; el resultado neto es correcto y no hay *swap* efectivo.
+* **El fondo azul del menú como geometría ausente:** descartado en S-11. El
+  original compone un fondo 2D de interfaz (tiles 325..365 del `.VFX`, que
+  ningún polígono referencia) y el port lo aproxima con el *clear* `(8,9,40)`.
+  Implementar ese compositor queda fuera de esta tanda.
+* **Falta de *depth buffer*:** el renderer usa orden de pintor, igual que el
+  original (1 123 de 1 123 triángulos en el mismo orden). No se cambia aquí.
+
+### 28.6 Limitaciones y lo que queda abierto
+
+* **REA no está instalado en este host** (`docs/REA_WINDOWS_ENABLEMENT.md`), así
+  que no hay traza en vivo del ejecutable. La evidencia son el código estático
+  del repo, las mediciones ya publicadas (`U1F_RESULTADOS.md`,
+  `U1G_RESULTADOS.md`) y la grabación real del original (`gdigrab`, 640x480,
+  38 s).
+* **No hay sincronía exacta pose <-> fotograma** del vídeo original (fps
+  variable y velocidad dependiente del *framerate*). La comparación con el
+  original es por hitos visuales; las comparaciones antes/después del port sí
+  son exactas porque usan la misma pose congelada.
+* Sigue abierto: el **compositor 2D del menú** (degradado y estrellas), el
+  **encuadre del menú** (cámara distinta de la del vuelo, 27.6), la **pantalla
+  inferior del televisor** (cristal `311` tapa logo `368`), **`poly#116`** y el
+  **patrón de bloques de la hierba**.
