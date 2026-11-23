@@ -90,6 +90,7 @@ Consulta la [hoja de ruta detallada](ROADMAP.md) y el [estado técnico actual](P
 | Documento | Para qué sirve |
 |---|---|
 | [PROJECT_STATE.md](PROJECT_STATE.md) | Registro técnico detallado y estado actual |
+| [Índice de documentación técnica](docs/TECHNICAL_DOCUMENTATION_INDEX.md) | Informes de investigación, resultados de fases y auditorías organizados por tema |
 | [ROADMAP.md](ROADMAP.md) | Etapas del proyecto y próximos hitos |
 | [PROJECT_STATUS.svg](docs/PROJECT_STATUS.svg) | Panel visual de progreso |
 | [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Criterios, inventarios y cálculo de porcentajes |
@@ -102,7 +103,7 @@ Consulta la [hoja de ruta detallada](ROADMAP.md) y el [estado técnico actual](P
 
 ## Repositorio y contenido
 
-El repositorio contiene código nuevo, herramientas propias y documentación. Los archivos originales del juego y otros materiales propietarios no se publican aquí. Consulta [LICENSE.md](LICENSE.md).
+Los informes de investigación y resultados de fases se organizan bajo `docs/reports/` y las auditorías bajo `docs/audits/`; consulta el [índice de documentación técnica](docs/TECHNICAL_DOCUMENTATION_INDEX.md).\n\nEl repositorio contiene código nuevo, herramientas propias y documentación. Los archivos originales del juego y otros materiales propietarios no se publican aquí. Consulta [LICENSE.md](LICENSE.md).
 
 ---
 

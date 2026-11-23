@@ -4,7 +4,7 @@
 **Phase:** 1 — Research & Original PC Documentation (Fase 0 cerrada 2026-10-08)
 **Version:** 0.0.0
 **Original artifact inventory:** COMPLETE (2026-10-08, EU v1.00.000)
-**Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`; U-1f completada 2026-11-05 con corrección de U-1a…U-1e, `U1F_RESULTADOS.md`; U-1g completada 2026-11-06, `U1G_RESULTADOS.md`)
+**Reverse Engineering:** Deep RE started (Etapa A documented in Phase 1; bounded static E-3/M-13 + Línea A/B executed read-only 2026-10-10 under explicit authorization - no Ghidra/decomp; static function map + call graph + per-function imports on the EU exe 2026-10-25, `docs/FUNCTION_MAP.md`; first evidence-based subsystem segmentation 2026-10-30, `docs/SUBSYSTEM_SEGMENTS.md`; dynamic frame-step trace with hardware breakpoints 2026-10-30, `docs/FRAME_STEP_TRACE.md`; static DirectSound init routes 2026-10-31, `docs/AUDIO_INIT_PATHS.md`; U-1f completada 2026-11-05 con corrección de U-1a…U-1e, `docs/reports/u1/U1F_RESULTADOS.md`; U-1g completada 2026-11-06, `docs/reports/u1/U1G_RESULTADOS.md`)
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
@@ -145,8 +145,8 @@ toca cámara ni proyección sin medición nueva.
 
 ### S-10: la visibilidad BSP de MAP7 - confirmada y cableada sin predicados (2026-11-19)
 
-Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 26, `S2_BSP_TRAVERSAL.md`
-§ 10 y `S2_CAMERA_VISIBILITY.md` § 15.8.
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 26, `docs/reports/scene/S2_BSP_TRAVERSAL.md`
+§ 10 y `docs/reports/scene/S2_CAMERA_VISIBILITY.md` § 15.8.
 
 **Hallazgo.** La premisa «`scene_visible_all` dibuja todas las hojas» **no**
 describía el código: desde S-3 los modos con cámara pasan `cam_ctx` a
@@ -482,7 +482,7 @@ del menú, no el suelo.**
   `[0x6474E8]` y `0xFFFF`, marca `0x40000` y el llamador `0x4015e3` descarta
   con máscara `0x7E07E000`) y el port hace lo mismo.
 - La diferencia de ~1 517 polígonos/frame citada en la documentación anterior
-  **no es comparable**: se midió en AZTEC16 (`S2_BSP_TRAVERSAL.md` § 8), no en
+  **no es comparable**: se midió en AZTEC16 (`docs/reports/scene/S2_BSP_TRAVERSAL.md` § 8), no en
   MAP7.
 
 **Validación.**
@@ -589,7 +589,7 @@ Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` § 22 y
 
 ### Menú del televisor en el port: actores medidos (2026-11-15)
 
-Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 11.
+Detalle completo en `docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md` § 11.
 
 - **El menú es geometría de actor, no overlay.** Ruta medida en el binario:
   `0x471552(actor, matriz de cámara, out, modo)` transforma las columnas del
@@ -608,7 +608,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 11.
   encuadre: se proyecta en `(310,305)-(741,848)` del espacio lógico, es decir
   ocupa el tercio inferior derecho de la pantalla (14 612 px de los 196 608 de
   la zona lógica). La afirmación anterior —"se proyecta **fuera** del
-  encuadre, arriba-derecha"— era **falsa**; ver `S3_MENU_CAMERA_SEQUENCE.md`
+  encuadre, arriba-derecha"— era **falsa**; ver `docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`
   § 11.2 y § 11.7.
 - **En el `.DFX`:** `tvmenu__` clase `0x0DFE68`, 1 modelo, `field_0x10 = 0`,
   caja de 8 vértices/12 polígonos, radio 552, **sin textura**
@@ -630,7 +630,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 11.
 
 ### Aparición del menú: estado medido y captura real (2026-11-14)
 
-Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 10.
+Detalle completo en `docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md` § 10.
 
 - **El menú no aparece al terminar los 428 frames.** Traza con breakpoints de
   hardware sobre `0x52754F` (update de `tvmenu__`) y `0x527432`
@@ -663,7 +663,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 10.
 
 ### Secuencia de cámara del menú: la orientación integrada (2026-11-13)
 
-Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 6.4 y § 8.
+Detalle completo en `docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md` § 6.4 y § 8.
 
 - **Refutada la premisa de matrices.** `0x40A6F2` **no** es una rutina de
   matrices sino un **muelle/limitador sobre puntos** (3 × int16) con cinco
@@ -755,7 +755,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 6.4 y § 8.
 
 ### Secuencia de cámara del menú: la orientación, cerrada (2026-11-13)
 
-Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
+Detalle completo en `docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md` § 8.
 
 - **Los 428 ángulos NO salen de un cuaternio.** El controlador de cámara del
   menú (`0x65CD80`) tiene **dos** trayectorias de **32 B** en el `.DFX`:
@@ -812,7 +812,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   local, M, A, B, a_cam y b_cam del original para esa cámara.
   Regresión en `port/tests/test_camera.c` (`test_dynamic_reference_camera`,
   `test_table_truncation`). Detalle en
-  [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14.
+  [`docs/reports/scene/S2_CAMERA_VISIBILITY.md`](docs/reports/scene/S2_CAMERA_VISIBILITY.md) § 14.
 - **El nivel real (2026-11-11, 2.ª tanda):** el juego carga
   `C:\GEX_REZ\GEX2\level\map7.dfx` (ruta capturada en vivo en el cargador
   `0x461E0B`), **no** `AZTEC16.DFX`. La discrepancia «307 hojas frente a 0» era
@@ -910,7 +910,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   los 428 frames. El fichero y la representación de los datos se precisan en
   el apartado siguiente. En ese momento seguían pendientes el instante exacto
   de aparición de los elementos del menú y la temporización. Detalle en
-  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
+  [`docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md).
 - **Controlador de cámara del menú (2026-11-13):** el fichero de datos es
   **`level\map7.dfx`**, abierto por `0x461B90` (fopen/fseek/ftell/malloc/fread/
   fclose) en el **mismo instante** en que la cámara empieza a volar
@@ -928,7 +928,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   representación de la trayectoria y la rutina por frame que escribe la
   posición; ambas se cerraron en las dos entradas siguientes. Siguen pendientes
   el papel de `+0x10/+0x12/+0x14` y el estado de menú. Detalle en
-  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md).
+  [`docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md).
 - **Escritor de la cámara del menú (2026-11-13):** con **breakpoints de
   escritura** (watchpoints de 4 B, nueva opción `watch:<addr>` del trazador del
   repo) sobre `cam+0x00/+0x04/+0x30/+0x34` se identifica **qué instrucción
@@ -944,7 +944,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   siguiente. Quedaba pendiente quién avanza el nodo y la curva exacta; se
   cerraron en la entrada siguiente, y el contador de `+0x46` **no** gobierna la
   selección. Detalle en
-  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.8-4.10.
+  [`docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md) § 4.8-4.10.
 - **Trayectoria del menú implementada y validada en el port (2026-11-13):**
   las tres rutinas medidas (`0x53F252` avance, `0x53EF00` evaluación, `0x53DEB0`
   Hermite Q15) están reproducidas con **aritmética entera** en
@@ -963,7 +963,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   24/24. **No** se declara la cámara completa: faltan la rotación (registros de
   10 B / cuaternio / Euler) y el estado de menú. La conexión de la trayectoria
   de posición al renderer se cerró en la tanda siguiente. Detalle en
-  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 4.5, § 6 y § 8.
+  [`docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md) § 4.5, § 6 y § 8.
 - **Trayectoria del menú conectada al renderer D3D11 (2026-11-13):** la
   integración cierra el circuito completo. (a) **Lectura de los registros
   reales**: `gex_dfx_load_camera_path()` recorre la cadena de punteros dentro de
@@ -991,7 +991,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   matriz no cambia: solo la traslación), y el atlas de texturas (64 entradas)
   cubre el **91,3 %** de los vértices del vuelo, que tocan 166 texturas
   distintas (con el atlas del frame 0 sería el 65,4 %). Detalle en
-  [`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) § 6.4.
+  [`docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md) § 6.4.
 - **Auditoría YIQ_422 (2026-11-11):** la decodificación en CPU del port
   coincide con la **referencia software del SDK** ( disposición de bits,
   coeficientes `Y+A+B`, croma de 9 bits con signo, saturación, alfa 255, un
@@ -1020,11 +1020,11 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   profundidades bit a bit en los 3429 polígonos, mismo conjunto de 1123
   triángulos, **mismo orden de dibujo** y mismas fases de subdivisión. La
   ruta del emisor lejano sigue abierta. Detalle en
-  [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 9.5.
+  [`docs/reports/scene/S2_BSP_TRAVERSAL.md`](docs/reports/scene/S2_BSP_TRAVERSAL.md) § 9.5.
 
 ### Auditoría: carga y relocalización `.DFX` (2026-11-08)
 
-- **Documento:** [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md), referencia técnica principal de la mecánica del contenedor.
+- **Documento:** [`docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md`](docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md), referencia técnica principal de la mecánica del contenedor.
 - **Método:** lectura estática del desensamblado + verificación byte a byte de `AZTEC16.DFX` y `GEX.DFX`. Sin ejecución, sin modificar `C:\GEX_REZ` ni el port.
 - **Hechos fijados:**
   - `aligned = (count + 0x200) & ~0x1FF` en DWORDs; imagen en `4*aligned`; relleno intermedio a cero.
@@ -1036,8 +1036,8 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
 - **Pendientes:** thunks de E/S, generalización de `[0x647FAC]`, llamadas
   calculadas (variante `0x00461ECA` ya analizada: `dfx_load_at(path, dest)`,
   sin llamadores estáticos) y direcciones absolutas en ejecución.
-- **S-1 (parser DFX):** implementado y documentado en `port/` ([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)); validado con AZTEC16 y GEX.DFX. No se declara S-1 completo mientras no se cierre la integración del primer escenario.
-- **S-2 (recorrido BSP + visibilidad de cámara):** implementado y documentado en `port/` ([`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md)); auditado (7.ª–18.ª pasada; la 11.ª solo documental, la 13.ª corrige el código de la 12.ª, la 14.ª la aritmética de 32 bits y la 18.ª la emisión): **37 comprobaciones de BSP, 889 de cámara y 38 855 de emisión, 0 fallos**, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, rotaciones Euler Z→Y→X con los ángulos **negados** (como en el original), `M = transpose(O)` con `M2` aplicado a las columnas) y la prueba de esfera contra seis semiplanos de `0x401C00` están implementadas en `port/src/camera/camera.c` ([`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md)) e integradas en `gex_bsp_walk` mediante `cam_ctx` opcional. Toda la aritmética de 32 bits reproduce el wrap de x86 sin desbordamiento con signo ni conversiones de implementación definida (acumuladores `uint32_t`, `sar 12` sobre los bits del registro, copias de bits para los campos crudos). `test_camera` y `test_bsp` están integrados en `build.ps1 test` y en `make test`. Limitaciones declaradas: la tabla trigonométrica retail ya está **verificada bit a bit** (truncado, 2026-11-11) y la cadena de cámara **validada dinámicamente**; siguen pendientes B fila 2 (`cam+0xB4..0xB8`), preservada por decisión del port, y el **espacio de datos del nivel**, que impide reproducir el recuento de hojas visibles del original (307 frente a 0). La **emisión de polígonos está implementada en código** (2026-11-10/11, 17.ª–18.ª pasadas): módulo puro `port/src/emit/emit.c` + [`port/include/gex/emit.h`](port/include/gex/emit.h) con `gex_level_emit` y sus fases separadas (`collect`, `project`, `classify`, `subdivide`, `sort`), reproduciendo la proyección exacta de `0x46A1D0`, la niebla `0x64FEA8`/`0x461895`, los umbrales `0x65BF80`/`0x65BF04`, el determinante de `0x46B6B5`, el reparto de color entre `0x426256` y `0x426588` (segunda pasada de niebla), la prioridad de la subdivisión (cuatro principales + hasta tres *slivers*, sin niebla), el gate completo de los emisores y la ordenación por `(maxz >> 2) + 4*layer` con desempate LIFO. La 18.ª pasada corrige los seis defectos detectados (x/y sin inicializar, aritmética con wrap x86, offsets comprobados, mezcla de color real, subdivisión/emisores/orden verificados y AZTEC16 estructural) y deja `test_level_emit` en **38 855 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. S-2 **no** se declara completo: la integración con el renderizador ya está hecha (Módulo 3, 5A, 5B y 4C), pero **falta la validación dinámica contra el ejecutable original**. El contrato revisado está en [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §11.
+- **S-1 (parser DFX):** implementado y documentado en `port/` ([`docs/reports/scene/S1_DFX_PARSER.md`](docs/reports/scene/S1_DFX_PARSER.md)); validado con AZTEC16 y GEX.DFX. No se declara S-1 completo mientras no se cierre la integración del primer escenario.
+- **S-2 (recorrido BSP + visibilidad de cámara):** implementado y documentado en `port/` ([`docs/reports/scene/S2_BSP_TRAVERSAL.md`](docs/reports/scene/S2_BSP_TRAVERSAL.md)); auditado (7.ª–18.ª pasada; la 11.ª solo documental, la 13.ª corrige el código de la 12.ª, la 14.ª la aritmética de 32 bits y la 18.ª la emisión): **37 comprobaciones de BSP, 889 de cámara y 38 855 de emisión, 0 fallos**, ASan/UBSan limpios, AZTEC16 = exactamente 815 hojas. La cadena de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, rotaciones Euler Z→Y→X con los ángulos **negados** (como en el original), `M = transpose(O)` con `M2` aplicado a las columnas) y la prueba de esfera contra seis semiplanos de `0x401C00` están implementadas en `port/src/camera/camera.c` ([`docs/reports/scene/S2_CAMERA_VISIBILITY.md`](docs/reports/scene/S2_CAMERA_VISIBILITY.md)) e integradas en `gex_bsp_walk` mediante `cam_ctx` opcional. Toda la aritmética de 32 bits reproduce el wrap de x86 sin desbordamiento con signo ni conversiones de implementación definida (acumuladores `uint32_t`, `sar 12` sobre los bits del registro, copias de bits para los campos crudos). `test_camera` y `test_bsp` están integrados en `build.ps1 test` y en `make test`. Limitaciones declaradas: la tabla trigonométrica retail ya está **verificada bit a bit** (truncado, 2026-11-11) y la cadena de cámara **validada dinámicamente**; siguen pendientes B fila 2 (`cam+0xB4..0xB8`), preservada por decisión del port, y el **espacio de datos del nivel**, que impide reproducir el recuento de hojas visibles del original (307 frente a 0). La **emisión de polígonos está implementada en código** (2026-11-10/11, 17.ª–18.ª pasadas): módulo puro `port/src/emit/emit.c` + [`port/include/gex/emit.h`](port/include/gex/emit.h) con `gex_level_emit` y sus fases separadas (`collect`, `project`, `classify`, `subdivide`, `sort`), reproduciendo la proyección exacta de `0x46A1D0`, la niebla `0x64FEA8`/`0x461895`, los umbrales `0x65BF80`/`0x65BF04`, el determinante de `0x46B6B5`, el reparto de color entre `0x426256` y `0x426588` (segunda pasada de niebla), la prioridad de la subdivisión (cuatro principales + hasta tres *slivers*, sin niebla), el gate completo de los emisores y la ordenación por `(maxz >> 2) + 4*layer` con desempate LIFO. La 18.ª pasada corrige los seis defectos detectados (x/y sin inicializar, aritmética con wrap x86, offsets comprobados, mezcla de color real, subdivisión/emisores/orden verificados y AZTEC16 estructural) y deja `test_level_emit` en **38 855 comprobaciones**, 0 fallos, limpio en Clang `-O0`/`-O2` y ASan/UBSan. S-2 **no** se declara completo: la integración con el renderizador ya está hecha (Módulo 3, 5A, 5B y 4C), pero **falta la validación dinámica contra el ejecutable original**. El contrato revisado está en [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §11.
 - **Módulo 3 (2026-11-11): implementado en dos mitades.** La conversión
   portable `gex_emit_output → gex_geometry` vive en
   [`port/include/gex/geometry.h`](port/include/gex/geometry.h) +
@@ -1199,7 +1199,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
    completa **16/16**. **Límites:** la niebla se aplica antes de la
    textura (el original la aplica después) y el blending alfa se aplica a todo
    el dibujo (el original, por polígono). La cámara real del juego ya está
-   integrada en el renderer (§15 de `S2_CAMERA_VISIBILITY.md`); de esa ruta
+   integrada en el renderer (§15 de `docs/reports/scene/S2_CAMERA_VISIBILITY.md`); de esa ruta
   [`docs/VFX_TEXTURE_FORMAT.md`](docs/VFX_TEXTURE_FORMAT.md) §9 y
   [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §18.
 - **Pendiente de integración:** los **materiales de producción** (el shader
@@ -1227,8 +1227,8 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   4. Texturas Cargadas - cargar .VFX y crear texturas D3D11
   5. Primer Renderizado Completo - renderizar AZTEC16 con D3D11
 - **Bloqueos reales:** Shaders (no documentados en U-1), formato NCC (conversión a D3D11), sistema de coordenadas.
-- **Estado de los hitos (2026-11-11):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural, visibilidad original de cámara y **emisión de polígonos** implementados y auditados (889 comprobaciones de cámara + 37 de BSP + 38 855 de emisión, 0 fallos); Hito 3 (buffers D3D11) **implementado**: conversión portable (`gex_geometry`) y creación real de vertex/index buffers (`gex_d3d11_mesh`) con WARP y hardware, 6 963 + 108 comprobaciones, 0 fallos; Hito 5 **parcial**: el Módulo 5A añade el pipeline de dibujo real (shaders, input layout, estados, `DrawIndexed`) y una geometría 3D de prueba visible en la ventana, 137 + 355 comprobaciones, 0 fallos. El **Hito 4 (texturas) está cerrado** (Módulo 4C: las texturas del `.VFX` se decodifican y se muestrean en D3D11, verificado en ejecución real con GPU hardware); quedan la validación dinámica de S-2 contra el ejecutable original y el resto del Hito 5 (materiales de producción, *depth buffer*, blending por polígono, niebla después de la textura y la cámara real). La mecánica de carga está documentada en `U1_DFX_RELOCATION_AUDIT.md`.
-- **Evidencia clave:** `U1_DFX_RELOCATION_AUDIT.md` (carga/relocalización verificada), `U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
+- **Estado de los hitos (2026-11-11):** Hito 1 (parser DFX) implementado y validado; Hito 2 (recorrido BSP) con recorrido estructural, visibilidad original de cámara y **emisión de polígonos** implementados y auditados (889 comprobaciones de cámara + 37 de BSP + 38 855 de emisión, 0 fallos); Hito 3 (buffers D3D11) **implementado**: conversión portable (`gex_geometry`) y creación real de vertex/index buffers (`gex_d3d11_mesh`) con WARP y hardware, 6 963 + 108 comprobaciones, 0 fallos; Hito 5 **parcial**: el Módulo 5A añade el pipeline de dibujo real (shaders, input layout, estados, `DrawIndexed`) y una geometría 3D de prueba visible en la ventana, 137 + 355 comprobaciones, 0 fallos. El **Hito 4 (texturas) está cerrado** (Módulo 4C: las texturas del `.VFX` se decodifican y se muestrean en D3D11, verificado en ejecución real con GPU hardware); quedan la validación dinámica de S-2 contra el ejecutable original y el resto del Hito 5 (materiales de producción, *depth buffer*, blending por polígono, niebla después de la textura y la cámara real). La mecánica de carga está documentada en `docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md`.
+- **Evidencia clave:** `docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md` (carga/relocalización verificada), `docs/reports/u1/U1_CONSOLIDACION.md` (geometría BSP demostrada), código R-1 a R-4 (renderer base), AZTEC16.DFX (caso de prueba completo).
 
 ### Avances recientes (U-1 - Geometría Original)
 
@@ -1241,7 +1241,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
 > `h=(arg2>>8)*12`, sin textura). La **geometría 3D real** está en `0x0046558A`
 > (17 068 B): flujo de comandos con opcode en `byte[+0xB]`, índice de 14 bits
 > (`& 0x3FFF`) hacia la tabla de texturas `0x006488F4` y vértices *inline*.
-> Evidencia completa: [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md).
+> Evidencia completa: [`docs/reports/u1/U1F_RESULTADOS.md`](docs/reports/u1/U1F_RESULTADOS.md).
 
 - **U-1a (stride y campos):** CORREGIDO en U-1f — no hay struct de 12 B; los
   argumentos de `0x00432DD1` son bytes empaquetados `x|(y<<8)` y `w|(h<<8)`.
@@ -1267,7 +1267,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   (`word[+0x1A] & 0x3FFF`) → `0x006488F4`, y formatos `.DFX` (`{count,
   offsets[]}` + imagen relocalizable) y `.VFX` (`count` + registros
   `0x8C+[+0x84]`) validados con `GEX.DFX`/`GEX.VFX`. Evidencia completa:
-  [`U1G_RESULTADOS.md`](U1G_RESULTADOS.md).
+  [`docs/reports/u1/U1G_RESULTADOS.md`](docs/reports/u1/U1G_RESULTADOS.md).
 
 - **U-1h (interpretación final):** COMPLETADO y AUDITADO (2026-11-06;
   auditoría final 2026-11-07) — contenedor `.DFX`
@@ -1281,9 +1281,9 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   `0xF0`. La consulta `0x4024B9` + `0x5015A9` marca polígonos `0x20`; su uso como
   *pickups*/triggers es **hipótesis** (no hay polígonos `0x20` en los tres
   niveles). `GEX.DFX` es un modelo/personaje, no un nivel. Evidencia completa:
-  [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md) (§18: auditoría final).
+  [`docs/reports/u1/U1H_RESULTADOS.md`](docs/reports/u1/U1H_RESULTADOS.md) (§18: auditoría final).
 
-- **Consolidación documental (2026-11-07):** `U1_CONSOLIDACION.md` fija el
+- **Consolidación documental (2026-11-07):** `docs/reports/u1/U1_CONSOLIDACION.md` fija el
   estado campo a campo del descriptor (10 demostrados, 1 hipótesis,
   3 sin identificar, 2 parciales), separa geometría BSP de nivel /
   geometría de modelos / formatos de comandos y registra los pendientes
@@ -1292,7 +1292,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   registro de `0x426588`.
 
 - **Ruta de emisión de polígonos (2026-11-10, solo documentación):**
-  `S2_BSP_TRAVERSAL.md` §5 reconstruye con evidencia estática el tramo
+  `docs/reports/scene/S2_BSP_TRAVERSAL.md` §5 reconstruye con evidencia estática el tramo
   `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
   `0x469836` → `0x46558A`: cinco argumentos de llamada, contrato de retorno
   (cursor final), buffer de comandos frente a bucket array, formatos de
@@ -1302,13 +1302,13 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   polígono (`0x34` B), no por comando. **Estado posterior (2026-11-11):** esa
   ruta ya está implementada en `gex_level_emit` y consumida por el Módulo 3; lo
   que sigue faltando es la validación dinámica contra el ejecutable. Detalle en
-  `U1H_RESULTADOS.md` §20 y en `docs/D3D11_FIRST_SCENE_PLAN.md` §11–§13.
+  `docs/reports/u1/U1H_RESULTADOS.md` §20 y en `docs/D3D11_FIRST_SCENE_PLAN.md` §11–§13.
 
 ### Pendientes
 
 - **Sin bloques de U-1:** Subfase C cerrada documentalmente. Quedan campos
   y ramas marcados como abiertos en U-1h §13.3/§14 y en
-  `U1_CONSOLIDACION.md` §6: consumidores de `desc+0x10/+0x14`, `desc+0x30`,
+  `docs/reports/u1/U1_CONSOLIDACION.md` §6: consumidores de `desc+0x10/+0x14`, `desc+0x30`,
   `desc+0x34` y `desc+0x3C`; estado de `desc+0x38` (hipótesis); bits de
   flags sin consumidor; emisor del opcode `0x2C`; layout de `0x28`;
   propósito del segundo registro de `0x426588` y formato del modelo
@@ -1327,7 +1327,7 @@ Detalle completo en `S3_MENU_CAMERA_SEQUENCE.md` § 8.
   E/S, la generalización de `[0x647FAC]` fuera de esta ruta, el propósito de la
   variante y la constante `0x801FC000`, y las direcciones absolutas reales en
   ejecución. Detalle en
-  [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §F y §H.
+  [`docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md`](docs/reports/u1/U1_DFX_RELOCATION_AUDIT.md) §F y §H.
 
 ## Estado vigente del port gráfico (R-1 a R-5)
 

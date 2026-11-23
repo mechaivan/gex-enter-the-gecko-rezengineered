@@ -84,4 +84,5 @@
   <text x="52" y="956" fill="#94a3b8" font-size="12">ACTUALIZADO 2026-11-23 · CRITERIOS Y HITOS: docs/PROJECT_STATUS.md</text>
   <text x="988" y="956" fill="#94a3b8" font-size="12" text-anchor="end">10% = 1 DE 10 HITOS CERRADOS</text>
   <text x="52" y="984" fill="#64748b" font-size="11">Los hitos parciales no suman. Investigar ≠ implementar ≠ validar. No es una estimación de tiempo.</text>
+  <desc>Panel de progreso vigente a 2026-11-23. Documentación técnica organizada en docs/reports y docs/audits; ver docs/TECHNICAL_DOCUMENTATION_INDEX.md.</desc>
 </svg>

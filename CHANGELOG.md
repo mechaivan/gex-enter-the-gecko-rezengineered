@@ -1,4 +1,4 @@
-## 2026-11-23 — Barra de progreso hacia la primera build jugable DX11
+## 2026-11-23 — Organización de documentación técnica\n\n- Movidos los informes U1, S1–S3 y R4 desde la raíz a `docs/reports/`, agrupados por línea de investigación.\n- Movidas las auditorías documentales y de parches a `docs/audits/`.\n- Añadido un índice técnico y actualizado el README para mantener una entrada clara.\n- Se conservan íntegros los contenidos y el historial Git; no se modifica código, assets ni datos del usuario.\n\n## 2026-11-23 — Barra de progreso hacia la primera build jugable DX11
 
 - Añadida una barra principal al dashboard con hitos verificables hasta la primera build jugable.
 - Línea base: 1 de 10 hitos completados (10%); los hitos parciales no suman.
