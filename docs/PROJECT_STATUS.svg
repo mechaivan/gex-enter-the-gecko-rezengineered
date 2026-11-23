@@ -1,22 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 940" role="img" aria-labelledby="title desc" font-family="Inter,Segoe UI,Arial,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 1040" role="img" aria-labelledby="title desc" font-family="Inter,Segoe UI,Arial,sans-serif">
   <title id="title">Gex REZengineered — panel de progreso</title>
-  <desc id="desc">Estado del port nativo de Gex: fundamentos 100 por ciento, gráficos MAP7 60 por ciento, audio 75 por ciento, entrada 33 por ciento, gameplay 0 por ciento y modernización 0 por ciento. Datos revisados el 23 de noviembre de 2026.</desc>
+  <desc id="desc">Camino a la primera build jugable DX11: 10 por ciento, un hito de diez completado. Después se muestran los progresos por subsistema: fundamentos 100 por ciento, gráficos MAP7 60 por ciento, audio 75 por ciento, entrada 33 por ciento, gameplay 0 por ciento y modernización 0 por ciento. Datos revisados el 23 de noviembre de 2026.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#100b20"/><stop offset="1" stop-color="#090d18"/></linearGradient>
     <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+    <linearGradient id="mainbar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a78bfa"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
   </defs>
-  <rect width="1040" height="940" rx="24" fill="url(#bg)"/>
-  <rect x="18" y="18" width="1004" height="904" rx="20" fill="none" stroke="#4c1d95" stroke-width="2"/>
+  <rect width="1040" height="1040" rx="24" fill="url(#bg)"/>
+  <rect x="18" y="18" width="1004" height="1004" rx="20" fill="none" stroke="#4c1d95" stroke-width="2"/>
   <text x="52" y="62" fill="#c4b5fd" font-size="15" font-weight="700" letter-spacing="4">GEX: ENTER THE GECKO</text>
   <text x="52" y="104" fill="#f8fafc" font-size="31" font-weight="800">REZengineered</text>
   <text x="52" y="135" fill="#a5b4fc" font-size="15">PORT NATIVO PARA PC · DIRECT3D 11 · PRESERVACIÓN + MODERNIZACIÓN</text>
-  <rect x="52" y="160" width="936" height="104" rx="14" fill="#17132b" stroke="#6d28d9"/>
-  <text x="76" y="193" fill="#c4b5fd" font-size="13" font-weight="700" letter-spacing="2">OBJETIVO PRINCIPAL</text>
-  <text x="76" y="222" fill="#f8fafc" font-size="20" font-weight="700">Primera versión nativa y jugable</text>
-  <text x="76" y="246" fill="#cbd5e1" font-size="13">MAP7 y menú en integración · los sistemas de gameplay aún están pendientes</text>
-  <text x="52" y="309" fill="#f8fafc" font-size="18" font-weight="700">Progreso por subsistema</text>
-  <text x="988" y="309" fill="#94a3b8" font-size="11" text-anchor="end">Cada porcentaje tiene un inventario verificable · no son acumulables</text>
-  <g transform="translate(52 332)">
+
+  <rect x="52" y="160" width="936" height="190" rx="16" fill="#17132b" stroke="#7c3aed" stroke-width="1.5"/>
+  <text x="78" y="195" fill="#c4b5fd" font-size="13" font-weight="700" letter-spacing="2">OBJETIVO PRINCIPAL · PRIMERA BUILD JUGABLE DX11</text>
+  <text x="78" y="253" fill="#f8fafc" font-size="49" font-weight="800">10%</text>
+  <text x="958" y="245" fill="#c4b5fd" font-size="14" font-weight="700" text-anchor="end">1 / 10 HITOS COMPLETADOS</text>
+  <rect x="78" y="273" width="884" height="18" rx="9" fill="#303047"/>
+  <rect x="78" y="273" width="88.4" height="18" rx="9" fill="url(#mainbar)"/>
+  <text x="78" y="319" fill="#e2e8f0" font-size="14" font-weight="600">Runtime nativo + presentación Direct3D 11 verificados</text>
+  <text x="958" y="319" fill="#94a3b8" font-size="12" text-anchor="end">Quedan 9 hitos · ver criterios en PROJECT_STATUS.md</text>
+
+  <text x="52" y="393" fill="#f8fafc" font-size="18" font-weight="700">Progreso por subsistema</text>
+  <text x="988" y="393" fill="#94a3b8" font-size="11" text-anchor="end">Métricas independientes · no se suman a la barra principal</text>
+
+  <g transform="translate(52 416)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">FUNDAMENTOS DEL PORT</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">100%</text>
@@ -25,7 +33,7 @@
     <rect x="20" y="101" width="256" height="10" rx="5" fill="#22c55e"/>
     <text x="20" y="139" fill="#86efac" font-size="12">IMPLEMENTADO Y VERIFICADO</text>
   </g>
-  <g transform="translate(372 332)">
+  <g transform="translate(372 416)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">GRÁFICOS MAP7</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">60%</text>
@@ -34,7 +42,7 @@
     <rect x="20" y="101" width="153.6" height="10" rx="5" fill="url(#bar)"/>
     <text x="20" y="135" fill="#c4b5fd" font-size="11">9 completos · 3 parciales · 3 pendientes</text>
   </g>
-  <g transform="translate(692 332)">
+  <g transform="translate(692 416)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">AUDIO</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">75%</text>
@@ -43,7 +51,7 @@
     <rect x="20" y="101" width="192" height="10" rx="5" fill="url(#bar)"/>
     <text x="20" y="139" fill="#c4b5fd" font-size="12">Base implementada · falta integrar contenido</text>
   </g>
-  <g transform="translate(52 520)">
+  <g transform="translate(52 604)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">ENTRADA Y CONTROLES</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">33%</text>
@@ -52,7 +60,7 @@
     <rect x="20" y="101" width="84.5" height="10" rx="5" fill="url(#bar)"/>
     <text x="20" y="139" fill="#c4b5fd" font-size="12">Teclado capturado · juego/mandos pendientes</text>
   </g>
-  <g transform="translate(372 520)">
+  <g transform="translate(372 604)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">SISTEMAS DE JUGABILIDAD</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">0%</text>
@@ -60,7 +68,7 @@
     <rect x="20" y="101" width="256" height="10" rx="5" fill="#293449"/>
     <text x="20" y="139" fill="#94a3b8" font-size="12">Personaje, físicas, colisiones y lógica pendientes</text>
   </g>
-  <g transform="translate(692 520)">
+  <g transform="translate(692 604)">
     <rect width="296" height="166" rx="13" fill="#151b2c" stroke="#334155"/>
     <text x="20" y="30" fill="#e2e8f0" font-size="14" font-weight="700">MODERNIZACIÓN</text>
     <text x="20" y="82" fill="#f8fafc" font-size="39" font-weight="800">0%</text>
@@ -68,11 +76,12 @@
     <rect x="20" y="101" width="256" height="10" rx="5" fill="#293449"/>
     <text x="20" y="139" fill="#94a3b8" font-size="12">26 objetivos propuestos · ninguno cerrado</text>
   </g>
-  <rect x="52" y="712" width="936" height="116" rx="13" fill="#111827" stroke="#334155"/>
-  <text x="76" y="746" fill="#86efac" font-size="13" font-weight="700" letter-spacing="1.5">ÚLTIMO HITO</text>
-  <text x="76" y="775" fill="#f8fafc" font-size="17" font-weight="700">S-13 · Composición 2D reconstruida e integrada</text>
-  <text x="76" y="800" fill="#cbd5e1" font-size="13">Cinco rutas 2D recuperadas · primitivas reutilizables · fondo aproximado conectado</text>
-  <text x="52" y="866" fill="#94a3b8" font-size="12">ACTUALIZADO 2026-11-23 · DATOS Y CRITERIOS: docs/PROJECT_STATUS.md</text>
-  <text x="988" y="866" fill="#94a3b8" font-size="12" text-anchor="end">NO ES UN PORCENTAJE GLOBAL DEL JUEGO</text>
-  <text x="52" y="896" fill="#64748b" font-size="11">Los entregables parciales no suman al numerador. Investigación ≠ implementación ≠ validación.</text>
+
+  <rect x="52" y="800" width="936" height="116" rx="13" fill="#111827" stroke="#334155"/>
+  <text x="76" y="834" fill="#86efac" font-size="13" font-weight="700" letter-spacing="1.5">ÚLTIMO HITO TÉCNICO</text>
+  <text x="76" y="863" fill="#f8fafc" font-size="17" font-weight="700">S-13 · Composición 2D reconstruida e integrada</text>
+  <text x="76" y="888" fill="#cbd5e1" font-size="13">Cinco rutas 2D recuperadas · primitivas reutilizables · fondo aproximado conectado</text>
+  <text x="52" y="956" fill="#94a3b8" font-size="12">ACTUALIZADO 2026-11-23 · CRITERIOS Y HITOS: docs/PROJECT_STATUS.md</text>
+  <text x="988" y="956" fill="#94a3b8" font-size="12" text-anchor="end">10% = 1 DE 10 HITOS CERRADOS</text>
+  <text x="52" y="984" fill="#64748b" font-size="11">Los hitos parciales no suman. Investigar ≠ implementar ≠ validar. No es una estimación de tiempo.</text>
 </svg>
