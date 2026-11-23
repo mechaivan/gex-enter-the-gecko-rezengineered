@@ -4,7 +4,7 @@
 **Rama de referencia:** `dev/gex`  
 **Último hito incorporado:** S-13 (reconstrucción de la capa de composición 2D de MAP7), commit [`00ec5cf`](https://github.com/mechaivan/gex-enter-the-gecko-rezengineered/commit/00ec5cf6f18fe16e5a91643073430a875ac561ca).
 
-Este documento es la fuente de verdad del panel [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg). Los porcentajes describen **listas de entregables delimitadas**, no el porcentaje de juego terminado, calidad visual, tiempo invertido ni una predicción de fechas.
+Este documento es la fuente de verdad del panel [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg). Los porcentajes por subsistema describen **listas de entregables delimitadas**; la barra principal mide hitos completos hacia una primera build jugable DX11. Ninguna cifra representa tiempo invertido ni una predicción de fechas.
 
 ## Cómo leer el panel
 
@@ -22,6 +22,29 @@ Cada área tiene un inventario cerrado de entregables de alcance comparable. Cad
 `porcentaje = 100 × entregables implementados y verificados / entregables definidos`
 
 Se redondea al entero más próximo. Los elementos parciales se muestran por separado y **no suman** al numerador. Los elementos planificados permanecen en el denominador. No se suman las áreas para crear un porcentaje global: sus alcances son distintos y algunas capacidades sirven de base a más de un subsistema.
+
+## Camino a la primera versión jugable DX11
+
+<badge color="info">10% · 1/10 hitos completados</badge>
+
+Esta es la barra principal del dashboard: mide el camino hasta una primera build que permita arrancar el port, entrar desde el menú a un nivel, controlar al personaje y jugar una sección funcional con colisiones y audio. **No mide cuánto renderer se ha programado ni el porcentaje de juego original reconstruido.**
+
+Se usa un criterio conservador de hitos completos: cada hito cuenta 1 punto cuando está integrado y verificado; los hitos parciales no suman. El porcentaje es `hitos completados / 10 × 100`.
+
+| # | Hito necesario para la primera build jugable | Estado |
+|---:|---|---|
+| 1 | Runtime nativo, ventana y presentación D3D11 en GPU real | ✓ Completado |
+| 2 | Escena inicial y presentación del menú reconstruidas y verificadas | ◐ Parcial: MAP7, cámara, geometría, texturas y elementos de menú funcionan; faltan fidelidad visual y encuadre |
+| 3 | Menú funcional: navegación, selección y transición a partida | ○ Pendiente |
+| 4 | Carga y presentación del primer nivel de gameplay | ○ Pendiente |
+| 5 | Control del personaje y movimiento jugable | ○ Pendiente |
+| 6 | Animaciones y estados del personaje integrados | ○ Pendiente |
+| 7 | Física, suelo y colisiones funcionales | ○ Pendiente |
+| 8 | Enemigos, objetos e interacciones esenciales | ○ Pendiente |
+| 9 | Lógica y eventos necesarios para completar una sección del nivel | ○ Pendiente |
+| 10 | Audio integrado y prueba de principio a fin de la primera sección jugable | ○ Pendiente |
+
+El 10% indica que está cerrado el primer hito de infraestructura; **quedan nueve hitos por cerrar**. El hito 2 está muy avanzado técnicamente, pero no se cuenta hasta completar sus criterios. Esta barra se actualizará solo al cerrar hitos, por lo que puede avanzar en saltos.
 
 ## Estado por áreas
 
@@ -115,7 +138,7 @@ Los 26 objetivos M-01…M-26 siguen siendo propuestas en el documento de referen
 1. Revisar el estado técnico y las evidencias del último trabajo.
 2. Cambiar un entregable a «implementado y verificado» solo cuando cumpla su criterio y exista evidencia.
 3. Recalcular la fracción de cada área con el inventario anterior.
-4. Actualizar el SVG con exactamente los mismos valores.
+4. Actualizar el SVG con exactamente los mismos valores, incluida la barra principal de hitos hacia la primera build jugable.
 5. Actualizar README, ROADMAP y CHANGELOG cuando el cambio afecte a la presentación pública.
 6. Comprobar enlaces, cifras y coherencia entre documentos.
 7. No eliminar registros históricos ni cambiar el alcance para inflar porcentajes.
