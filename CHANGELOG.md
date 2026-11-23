@@ -1,4 +1,10 @@
-# CHANGELOG
+## 2026-11-23 — Barra de progreso hacia la primera build jugable DX11
+
+- Añadida una barra principal al dashboard con hitos verificables hasta la primera build jugable.
+- Línea base: 1 de 10 hitos completados (10%); los hitos parciales no suman.
+- Documentados los diez criterios de aceptación en `docs/PROJECT_STATUS.md`.
+- README y ROADMAP enlazan y explican la nueva métrica.
+- Se mantienen intactos los porcentajes independientes por subsistema y el archivo histórico.
 
 ## 2026-11-23 — Reestructuración de la presentación pública y del panel de progreso
 
