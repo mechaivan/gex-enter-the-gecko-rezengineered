@@ -17,7 +17,7 @@ Este documento presenta el plan del proyecto en lenguaje accesible. El detalle t
 
 ### 1. Ingeniería inversa y documentación del original
 
-<badge color="success">Base de investigación establecida</badge>
+**Estado: base de investigación establecida.**
 
 Entender cómo funciona la versión original de PC: formatos, carga de niveles, cámara, renderizado, audio, entrada y lógica. Las conclusiones se documentan con su nivel de evidencia y se contrastan con el ejecutable original. Los ports antiguos de PC, incluidos los basados en 3DFX o desarrollados por el mismo estudio, se usan como referencias secundarias cuando ayudan a resolver dudas.
 
@@ -25,7 +25,7 @@ Entender cómo funciona la versión original de PC: formatos, carga de niveles, 
 
 ### 2. Fundamentos del port nativo
 
-<badge color="success">Implementados y probados</badge>
+**Estado: implementados y probados.**
 
 - Proceso y ventana nativos de Windows.
 - Bucle de ejecución y reloj.
@@ -37,7 +37,7 @@ Esto es la infraestructura del port, no el juego completo.
 
 ### 3. Primer escenario: MAP7 y menú
 
-<badge color="info">En integración</badge>
+**Estado: en integración.**
 
 MAP7 es el escenario que aparece durante la presentación del menú original. Ya se han integrado y probado en GPU real:
 
@@ -59,7 +59,7 @@ El desglose técnico está en [D3D11_FIRST_SCENE_PLAN.md](docs/D3D11_FIRST_SCENE
 
 ### 4. Integración de la jugabilidad
 
-<badge color="warning">Pendiente</badge>
+**Estado: pendiente.**
 
 Recuperar e integrar los sistemas que convierten la escena en un juego:
 
@@ -82,7 +82,7 @@ Integrar los sistemas anteriores en una experiencia que pueda jugarse de princip
 
 ### 6. Modernización y pulido
 
-<badge color="secondary">Planificado</badge>
+**Estado: planificado.**
 
 Una vez consolidada la experiencia original, abordar mejoras opcionales:
 
