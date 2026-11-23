@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 2026-11-23 — Reestructuración de la presentación pública y del panel de progreso
+
+- README reorganizado como presentación del objetivo, estado real, funcionalidades y mejoras futuras.
+- ROADMAP convertido en hoja de ruta pública por etapas; el detalle técnico anterior se conserva íntegro en `docs/archive/ROADMAP_TECHNICAL_2026-11-22.md`.
+- Panel SVG renovado con seis áreas, porcentajes trazables y estados legibles. No se publica un porcentaje global engañoso.
+- Metodología nueva en `docs/PROJECT_STATUS.md`: inventarios, fórmula, estados y evidencias por subsistema.
+- Copias íntegras previas preservadas en `docs/archive/`: README, ROADMAP, metodología v3.6 y SVG v3.6.
+- No se han eliminado archivos ni modificado código del port.
+
+# CHANGELOG
+
 ## 2026-11-22 - 0.0.0 - S-13: el compositor 2D del ejecutable, reconstruido y cableado
 
 **Sintoma y metodo.** S-11 dejo el fondo del menu como un color plano medido;
