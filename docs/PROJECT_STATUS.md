@@ -4,7 +4,7 @@
 **Rama de referencia:** `dev/gex`  
 **Último hito incorporado:** S-13 (reconstrucción de la capa de composición 2D de MAP7), commit [`00ec5cf`](https://github.com/mechaivan/gex-enter-the-gecko-rezengineered/commit/00ec5cf6f18fe16e5a91643073430a875ac561ca).
 
-Este documento es la fuente de verdad del panel [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg). Los porcentajes por subsistema describen **listas de entregables delimitadas**; la barra principal mide hitos completos hacia una primera build jugable DX11. Ninguna cifra representa tiempo invertido ni una predicción de fechas.
+Este documento es la fuente de verdad del panel [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg). Los informes técnicos y auditorías se organizan por línea de trabajo en el [índice de documentación técnica](TECHNICAL_DOCUMENTATION_INDEX.md). Los porcentajes por subsistema describen **listas de entregables delimitadas**; la barra principal mide hitos completos hacia una primera build jugable DX11. Ninguna cifra representa tiempo invertido ni una predicción de fechas.
 
 ## Cómo leer el panel
 

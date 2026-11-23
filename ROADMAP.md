@@ -1,6 +1,6 @@
 # Hoja de ruta — Gex: Enter the Gecko REZengineered
 
-Este documento presenta el plan del proyecto en lenguaje accesible. El detalle técnico, los análisis históricos y las tareas de ingeniería inversa se conservan íntegros en el [archivo de la hoja de ruta técnica anterior](docs/archive/ROADMAP_TECHNICAL_2026-11-22.md), además de sus documentos especializados.
+Este documento presenta el plan del proyecto en lenguaje accesible. Los informes de investigación y resultados se encuentran organizados en el [índice de documentación técnica](docs/TECHNICAL_DOCUMENTATION_INDEX.md). El detalle técnico, los análisis históricos y las tareas de ingeniería inversa se conservan íntegros en el [archivo de la hoja de ruta técnica anterior](docs/archive/ROADMAP_TECHNICAL_2026-11-22.md), además de sus documentos especializados.
 
 **Objetivo principal:** conseguir una primera versión nativa y jugable de *Gex: Enter the Gecko* para PC, basada en el comportamiento de la versión original y con un renderer Direct3D 11.
 
