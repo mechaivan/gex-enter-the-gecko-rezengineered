@@ -30,6 +30,7 @@
 #include "gex/render/d3d11_texture.h"
 #include "gex/geometry_shapes.h"
 #include "gex/scene_level.h"
+#include "gex/comp2d.h"
 #include "gex/vfx_texture.h"
 #endif
 
@@ -39,6 +40,77 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/*
+ * Fondo 2D del menu, medido en la grabacion del ejecutable original (S-13).
+ *
+ * El cielo visible entre los muros del menu no es plano: de (15,10,51) arriba
+ * a (46,10,118) en el tercio central. Son las paradas medidas en el video
+ * original (640x480) en las filas 40/100/220; la fila logica es la del video
+ * dividida por 1,25 (512x384 -> 640x480), es decir 32/80/176.
+ *
+ * Es una **aproximacion documentada**: el fondo real del menu lo monta el
+ * motor con los tiles 325..365 del `.VFX` (texturizados, con estrellas y un
+ * sol), y la tabla de colocacion de esos tiles todavia no se ha recuperado
+ * del ejecutable (docs/D3D11_FIRST_SCENE_PLAN.md seccion 29). Lo que si se
+ * sabe es que ningun poligono del nivel referencia 325..365: el fondo no se
+ * puede emitir con el BSP. La guirnalda de luces que el original dibuja sobre
+ * el televisor tampoco esta en el port (sus sprites siguen sin localizar).
+ * Hasta que se reconstruya esa capa, el degradado medido evita que el menu
+ * se vea sobre el color plano del vuelo.
+ *
+ * Fuera de las filas medidas se mantiene el color extremo mas cercano.
+ */
+#define GEX_I4_MENU_STOPS 3
+
+static const gex_comp2d_stop gex_i4_menu_stops[GEX_I4_MENU_STOPS] = {
+    {32, 15u, 10u, 51u},
+    {80, 29u, 10u, 74u},
+    {176, 46u, 10u, 118u},
+};
+
+/* Construye la capa de fondo y la entrega a la escena. Devuelve 1 si se pudo. */
+static int i4_apply_backdrop(gex_scene_level *scene)
+{
+    gex_emit_output bg;
+    gex_comp2d_box box;
+    gex_comp2d_stop stops[GEX_I4_MENU_STOPS];
+    gex_emit_status st;
+    size_t i;
+
+    /* La geometria duplica el byte de color al pasarlo a flotante (S-11:
+     * `color_byte_to_vertex`, porque nGlide usa el flotante como 0..255 sin
+     * normalizar), asi que el comando tiene que llevar la mitad del valor que
+     * se quiere en pantalla. Con los valores medidos (todos < 128) la division
+     * es exacta. */
+    for (i = 0; i < GEX_I4_MENU_STOPS; i++) {
+        stops[i] = gex_i4_menu_stops[i];
+        stops[i].r = (uint8_t)(stops[i].r / 2u);
+        stops[i].g = (uint8_t)(stops[i].g / 2u);
+        stops[i].b = (uint8_t)(stops[i].b / 2u);
+    }
+
+    memset(&bg, 0, sizeof(bg));
+    box.x = 0;
+    box.y = 0;
+    box.w = 512;
+    box.h = 384;
+    st = gex_comp2d_vertical_gradient(&bg, box, stops, GEX_I4_MENU_STOPS,
+                                      64u);
+    if (st != GEX_EMIT_OK) {
+        fprintf(stderr, "aviso: no se pudo construir el fondo 2D\n");
+        gex_emit_output_free(&bg);
+        return 0;
+    }
+    if (gex_scene_level_set_backdrop(scene, &bg) != GEX_SCENE_OK) {
+        fprintf(stderr, "aviso: no se pudo aplicar el fondo 2D\n");
+        gex_emit_output_free(&bg);
+        return 0;
+    }
+    printf("fondo 2D: degradado medido del menu (%zu triangulos)\n", bg.count);
+    gex_emit_output_free(&bg);
+    return 1;
+}
 
 #define GEX_I4_PRESENT_PERIOD_US 8333u /* 120 Hz presentation, not the step */
 #define GEX_I4_STATS_PERIOD_US 2000000u
@@ -54,6 +126,7 @@ typedef struct i4_options {
     uint64_t screenshot_frame; /* 0 = el ultimo frame del limite */
     int textures_final; /* 1 = texturas del fotograma final del vuelo */
     int menu; /* 1 = anade el menu del televisor al final de la trayectoria */
+    int backdrop; /* 1 = fondo 2D medido (S-13), detras de la geometria */
     uint64_t camera_freeze; /* muestra exacta en la que congelar la camara */
     int camera_freeze_set;  /* 1 = --camera-path-freeze presente */
 } i4_options;
@@ -81,6 +154,8 @@ static void usage(const char *exe)
            "the most used over the flight\n");
     printf("  --menu  when the camera path ends, add the TV main menu "
            "(tvmenu__ panel + the four tvbutn__ labels) to the scene\n");
+    printf("  --backdrop gradient  draw the measured 2D menu backdrop (S-13) "
+           "behind the level geometry\n");
     printf("  --camera-path-freeze N  advance the camera path exactly N "
            "samples and freeze it (reproducible screenshots)\n");
     printf("  (default: run until Escape or the window is closed)\n");
@@ -231,6 +306,7 @@ static int parse_options(int argc, char **argv, i4_options *options)
     options->screenshot_frame = 0;
     options->textures_final = 0;
     options->menu = 0;
+    options->backdrop = 0;
     options->camera_freeze = 0;
     options->camera_freeze_set = 0;
     for (i = 1; i < argc; i++) {
@@ -262,6 +338,21 @@ static int parse_options(int argc, char **argv, i4_options *options)
             options->camera_freeze_set = 1;
         } else if (strcmp(argv[i], "--menu") == 0) {
             options->menu = 1;
+        } else if (strcmp(argv[i], "--backdrop") == 0 && i + 1 < argc) {
+            i++;
+            if (strcmp(argv[i], "gradient") == 0) {
+                options->backdrop = 1;
+            } else if (strcmp(argv[i], "off") == 0) {
+                options->backdrop = 0;
+            } else {
+                fprintf(stderr, "invalid --backdrop value '%s' "
+                                "(use 'gradient' or 'off')\n",
+                        argv[i]);
+                return -1;
+            }
+        } else if (strcmp(argv[i], "--backdrop") == 0) {
+            fprintf(stderr, "invalid --backdrop value\n");
+            return -1;
         } else if (strcmp(argv[i], "--level") == 0 && i + 1 < argc) {
             options->level_path = argv[++i];
             if (options->level_path[0] == '\0') {
@@ -650,6 +741,13 @@ int main(int argc, char **argv)
                                                               &cam);
                 }
                 if (scene_status == GEX_SCENE_OK) {
+                    /* S-13: el fondo 2D va detras de la geometria. Se aplica
+                     * antes de crear la malla, porque recompone la emision y
+                     * la geometria; cada paso de la trayectoria lo prepende
+                     * de nuevo al re-emitir. */
+                    if (options.backdrop) {
+                        i4_apply_backdrop(&scene);
+                    }
                     mesh_status = gex_d3d11_mesh_create(
                         d3d11_dev.device, &scene.geometry, &d3d11_mesh);
                     if (mesh_status == GEX_D3D11_MESH_OK) {

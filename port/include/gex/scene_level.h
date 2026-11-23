@@ -84,6 +84,17 @@ typedef struct gex_scene_level {
     int leaves_loaded;
     gex_emit_output emit;
     int emit_loaded;
+    /* Capa 2D de fondo (S-13), delante de `emit` en el orden de dibujo. Se
+     * copia con `gex_scene_level_set_backdrop` y se prepende cada vez que la
+     * escena re-emite su geometria, porque `gex_level_emit` la vacia. */
+    gex_emit_output backdrop;
+    int backdrop_loaded;
+    /* 1 si los primeros `backdrop.count` triángulos de `emit` son la capa de
+     * fondo (los puso `gex_emit_output_prepend`). Se limpia cada vez que la
+     * escena reconstruye `emit` desde el nivel. Sirve para no prepender dos
+     * veces (p. ej. al añadir el menú o al cambiar texturas alfa) y para poder
+     * retirar la capa antes de sustituirla. */
+    int backdrop_in_emit;
     gex_geometry geometry;
     int geometry_loaded;
     /* Texturas ARGB_4444 del .VFX del nivel (S-7): son las únicas que el
@@ -301,6 +312,26 @@ gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected);
 gex_scene_status gex_scene_level_set_alpha_textures(gex_scene_level *scene,
                                                     const uint16_t *indices,
                                                     size_t count);
+
+/*
+ * Fondo 2D de la escena (S-13).
+ *
+ * Guarda una **copia** de `backdrop` como capa de fondo y la prepende a cada
+ * emisión, de modo que se dibuje detrás de la geometría del nivel (el pipeline
+ * no tiene depth buffer: manda el orden del array). La copia es propia, así que
+ * el llamador puede liberar la suya en cuanto vuelva de esta llamada.
+ *
+ * Es idempotente y acumulable solo por sustitución: una llamada nueva reemplaza
+ * la anterior (retira del frente de la emisión la capa vieja si ya estaba
+ * puesta) y `backdrop == NULL` con `count == 0` quita el fondo. La capa ocupa
+ * siempre las primeras posiciones de `emit`; `gex_scene_level_add_menu` ordena
+ * solo el tramo del nivel para no adelantarla.
+ *
+ * Devuelve GEX_SCENE_ERR_ARG si la escena no está cargada o los argumentos son
+ * incoherentes, y GEX_SCENE_ERR_NOMEM si no puede copiar.
+ */
+gex_scene_status gex_scene_level_set_backdrop(gex_scene_level *scene,
+                                              const gex_emit_output *backdrop);
 
 /* Libera todo lo que la escena haya creado. Idempotente. */
 void gex_scene_level_free(gex_scene_level *scene);

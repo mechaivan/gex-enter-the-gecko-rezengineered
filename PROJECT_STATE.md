@@ -8,10 +8,50 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-21 (S-12: las «superficies blancas» de MAP7 eran
-texturas fuera del atlas; `--textures-final` usaba el fotograma final (65
-índices) en un vuelo que necesita 231 y el *pixel shader* cae al color por
-vértice)
+**Last updated:** 2026-11-22 (S-13: el compositor 2D del ejecutable, reconstruido
+y cableado; cinco rutas 2D, `gex/comp2d.h`, prepend del fondo y
+`--backdrop gradient`)
+
+### S-13: el compositor 2D del ejecutable - reconstruido y cableado (2026-11-22)
+
+Detalle completo en `docs/D3D11_FIRST_SCENE_PLAN.md` §29.
+
+**Síntoma y método.** S-11 dejó el fondo del menú como un color plano medido.
+Faltaba recuperar las rutinas 2D originales y dar al port una capa 2D
+reutilizable sin tocar la geometría 3D. Análisis **estático** del PE32 x86 con
+`llvm-objdump` (volcado en `s13_dis.txt`) más las mediciones publicadas. REA
+6.7.0 sigue sin motor nativo (`healthy:false`), así que no hay descompilador ni
+traza en vivo.
+
+**Hallazgo principal: no hay una rutina 2D, hay cinco caminos.** Rectángulo
+sólido `0xF0` (`0x64FB40`/`0x00469268`), rectángulo de interfaz `0x00432DD1`,
+quad texturado `0x2C`/`0x24`, glifo `0x00432BBD` sobre `FONT.3DF` y línea `0x40`
+(`0x004FF06F`). El `0xF0` es un clear sólido de 512×384 reencadenado al final del
+frame: explica el fondo **del vuelo**, no el degradado del menú.
+
+**Los tiles 325..365 no son una rejilla 1:1.** 41 texturas, todas opacas, cada
+una con un degradado vertical entero; `325`/`365` planos e idénticos,
+`358..361` con el sol, `327`/`362`/`363` verdes. Descartadas con evidencia la
+tabla literal en `.data`/`.rdata`, `GEX.DFX`, la lista de polígonos de MAP7 y el
+emparejamiento vertical. Hipótesis de trabajo: el cielo del menú es una textura
+estirada del grupo `331..333`/`342`.
+
+**Corrección.** Nuevo `port/include/gex/comp2d.h` + `port/src/scene/comp2d.c`
+(cinco primitivas + `tiles` y degradado), `gex_emit_output_copy`/`prepend` en
+`gex/emit.h`, `gex_scene_level_set_backdrop` en `gex/scene_level.h` y la opción
+`gexloop.exe --backdrop gradient` con las tres paradas medidas por S-11. El fondo
+se prepende una sola vez y `add_menu` ordena solo el tramo del nivel (sin eso se
+duplicaba y podía quedar delante).
+
+**Verificación.** `test_comp2d` nuevo (**148** comprobaciones); `test_backdrop`
+nuevo en `test_scene_level` (**14 899**); suite 0 fallos; sanitizers
+O0/O2/ASan/UBSan **TODO OK**. Captura real GPU (`s13_menu_bg.ppm`): fila lógica
+32, original (15,10,51) vs port (14,10,50); fila 80, (29,10,74) vs (28,10,74).
+Sin regresión con `--backdrop off` (por defecto).
+
+**Pendiente.** El fondo del menú sigue siendo aproximación documentada (faltan el
+emitter y su tabla); la guirnalda de luces no se reproduce; el banding RGB555 no
+se replica; el encuadre del menú sigue distinto (§27.6).
 
 ### S-12: las «superficies blancas» de MAP7 - texturas fuera del atlas (2026-11-21)
 

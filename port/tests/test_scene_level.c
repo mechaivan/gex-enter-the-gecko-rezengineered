@@ -10,6 +10,7 @@
  */
 
 #include "gex/scene_level.h"
+#include "gex/comp2d.h"
 #include "ref_emit_frames.h"
 #include "ref_map7_frames.h"
 
@@ -618,6 +619,111 @@ static void test_map7_menu_order(void)
     CHECK(scene.emit.tris == NULL);
 }
 
+/* ------------------------------------------------------------------ */
+/* Capa 2D de fondo (S-13)                                            */
+/* ------------------------------------------------------------------ */
+
+static void test_backdrop(void)
+{
+    gex_scene_level scene;
+    gex_camera cam;
+    gex_emit_output bg, bg2;
+    gex_comp2d_box box;
+    FILE *f = fopen(MAP7_PATH, "rb");
+    size_t before;
+
+    if (!f) {
+        printf("skip backdrop (no file)\n");
+        return;
+    }
+    fclose(f);
+
+    memset(&bg, 0, sizeof(bg));
+    memset(&bg2, 0, sizeof(bg2));
+    box.x = 0;
+    box.y = 0;
+    box.w = 512;
+    box.h = 384;
+    CHECK(gex_comp2d_rect(&bg, box, 0xFF0F0A33u, GEX_BLEND_OPAQUE) ==
+          GEX_EMIT_OK);
+    CHECK(bg.count == 2);
+
+    memset(&scene, 0, sizeof(scene));
+    gex_scene_reference_camera(&cam);
+    CHECK(gex_scene_level_load_camera_path(&scene, MAP7_PATH, &cam) ==
+          GEX_SCENE_OK);
+    before = scene.emit.count;
+    CHECK(before > bg.count);
+
+    /* Sin fondo: la emision no cambia. */
+    CHECK(gex_scene_level_set_backdrop(&scene, NULL) == GEX_SCENE_OK);
+    CHECK(scene.emit.count == before);
+
+    /* Se guarda una copia y se prepende al re-emitar. */
+    CHECK(gex_scene_level_set_backdrop(&scene, &bg) == GEX_SCENE_OK);
+    CHECK(scene.backdrop_loaded == 1);
+    CHECK(scene.backdrop.count == bg.count);
+    /* Con emision cargada se aplica ya mismo (prepend). */
+    CHECK(scene.emit.tris[0].texture == GEX_COMP2D_NO_TEXTURE);
+
+    /* La copia es propia: el original puede liberarse. */
+    gex_emit_output_free(&bg);
+    CHECK(scene.backdrop.count == 2);
+    CHECK(scene.backdrop.tris[0].texture == GEX_COMP2D_NO_TEXTURE);
+    CHECK(scene.backdrop.tris[1].opcode == 0xF0);
+
+    CHECK(gex_scene_level_camera_path_step(&scene, &cam) >= 0);
+    /* El fondo queda en las primeras posiciones del array. */
+    CHECK(scene.emit.count > scene.backdrop.count);
+    CHECK(scene.emit.tris[0].texture == GEX_COMP2D_NO_TEXTURE);
+    CHECK(scene.emit.tris[1].texture == GEX_COMP2D_NO_TEXTURE);
+    CHECK(scene.emit.tris[2].texture != GEX_COMP2D_NO_TEXTURE);
+    CHECK(scene.emit.tris[0].color[0] == 0xFF0F0A33u);
+    CHECK(scene.emit.tris[0].blend == GEX_BLEND_OPAQUE);
+    /* La geometria generada incluye esos vertices. */
+    CHECK(scene.geometry.vertex_count >= 6);
+    /* `seq` queda renumerado y creciente. */
+    CHECK(scene.emit.tris[0].seq == 0);
+    CHECK(scene.emit.tris[scene.emit.count - 1].seq == scene.emit.count - 1);
+
+    /* Añadir el menú no duplica el fondo ni lo adelanta: el fondo sigue en las
+     * primeras posiciones y el recuento crece solo con los 20 triángulos del
+     * menú (12 panel + 8 rótulos). */
+    {
+        size_t with_bg = scene.emit.count;
+
+        CHECK(gex_scene_level_add_menu(&scene, 0) == GEX_SCENE_OK);
+        CHECK(scene.emit.count == with_bg + 20u);
+        CHECK(scene.emit.tris[0].texture == GEX_COMP2D_NO_TEXTURE);
+        CHECK(scene.emit.tris[1].texture == GEX_COMP2D_NO_TEXTURE);
+        CHECK(scene.emit.tris[2].texture != GEX_COMP2D_NO_TEXTURE);
+        CHECK(scene.emit.tris[0].color[0] == 0xFF0F0A33u);
+    }
+
+    /* Sustituir el fondo deja solo uno. */
+    box.w = 64;
+    box.h = 64;
+    CHECK(gex_comp2d_rect(&bg2, box, 0xFFFFFFFFu, GEX_BLEND_ALPHA) ==
+          GEX_EMIT_OK);
+    CHECK(gex_scene_level_set_backdrop(&scene, &bg2) == GEX_SCENE_OK);
+    CHECK(scene.backdrop.count == 2);
+    CHECK(gex_scene_level_camera_path_step(&scene, &cam) >= 0);
+    CHECK(scene.emit.tris[0].color[0] == 0xFFFFFFFFu);
+    CHECK(scene.emit.tris[0].blend == GEX_BLEND_ALPHA);
+    gex_emit_output_free(&bg2);
+
+    /* Quitarlo deja de prepender. */
+    CHECK(gex_scene_level_set_backdrop(&scene, NULL) == GEX_SCENE_OK);
+    CHECK(scene.backdrop_loaded == 0);
+    CHECK(gex_scene_level_camera_path_step(&scene, &cam) >= 0);
+    CHECK(scene.emit.tris[0].texture != GEX_COMP2D_NO_TEXTURE);
+    CHECK(scene.emit.tris[0].color[0] != 0xFFFFFFFFu);
+
+    gex_scene_level_free(&scene);
+    CHECK(scene.emit.tris == NULL);
+    CHECK(scene.backdrop.tris == NULL);
+}
+
 int main(void)
 {
     test_background_color();
@@ -629,6 +735,7 @@ int main(void)
     test_map7_camera_mode();
     test_map7_visibility_flight();
     test_map7_menu_order();
+    test_backdrop();
 
     printf("test_scene_level: %d checks, %d failures\n", checks, failures);
     return failures == 0 ? 0 : 1;

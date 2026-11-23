@@ -12,9 +12,10 @@ $vfxTexSrc = @((Join-Path $root 'src/asset/vfx_texture.c'))
 $emitSrc = @((Join-Path $root 'src/emit/emit.c'))
 $sagSrc = @((Join-Path $root 'src/asset/sag.c'))
 $geometrySrc = @((Join-Path $root 'src/geometry/geometry.c'))
-$sceneSrc = @((Join-Path $root 'src/scene/scene_level.c'), (Join-Path $root 'src/scene/menu.c'))
+$sceneSrc = @((Join-Path $root 'src/scene/scene_level.c'), (Join-Path $root 'src/scene/menu.c'), (Join-Path $root 'src/scene/comp2d.c'))
 $actorSrc = @((Join-Path $root 'src/asset/actor.c'))
 $menuSrc = @((Join-Path $root 'src/scene/menu.c'))
+$comp2dSrc = @((Join-Path $root 'src/scene/comp2d.c'))
 
 $variants = @(
   @{ n = 'O0';    c = @('-std=c11','-O0','-Wall','-Wextra','-Iinclude') },
@@ -35,7 +36,8 @@ foreach ($v in $variants) {
       @{ s = 'tests/test_scene_level.c'; n = 'test_scene_level'; x = @($sceneSrc + $geometrySrc + $emitSrc + $bspSrc + $cameraSrc + $cameraPathSrc + $dfxBspSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_vfx.c';        n = 'test_vfx';        x = @($vfxSrc + $vfxDecodeSrc + $vfxTexSrc + $dfxBspSrc + $emitSrc + $bspSrc + $cameraSrc); f = @('-I' + (Join-Path $root 'tests')) },
       @{ s = 'tests/test_actor.c';      n = 'test_actor';      x = @($actorSrc + $dfxBspSrc); f = @() },
-      @{ s = 'tests/test_menu.c';       n = 'test_menu';       x = @($menuSrc + $emitSrc); f = @() })) {
+      @{ s = 'tests/test_menu.c';       n = 'test_menu';       x = @($menuSrc + $emitSrc); f = @() },
+      @{ s = 'tests/test_comp2d.c';     n = 'test_comp2d';     x = @($comp2dSrc + $emitSrc); f = @('-I' + (Join-Path $root 'tests')) })) {
     $exe = Join-Path $OUTDIR ("{0}_{1}.exe" -f $t.n, $v.n)
     & $Compiler @($v.c) -o $exe (Join-Path $root $t.s) $sagSrc @($t.x) @($t.f) @('-lm') 2>&1 |
       Where-Object { $_ -match 'error' } | ForEach-Object { Write-Host "ERROR $_" }

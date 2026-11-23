@@ -330,6 +330,25 @@ gex_emit_status gex_level_emit(const uint8_t *image, size_t image_size,
 gex_emit_status gex_emit_output_push(gex_emit_output *out,
                                      const gex_emit_triangle *tri);
 
+/*
+ * Copia entera de una salida a otra (copia profunda, reutilizando el buffer de
+ * `dst` si cabe). Los `seq` se renumeran en el orden de copia; la contabilidad
+ * de niebla se recalcula. `dst` y `src` no pueden ser el mismo objeto.
+ */
+gex_emit_status gex_emit_output_copy(gex_emit_output *dst,
+                                     const gex_emit_output *src);
+
+/*
+ * Coloca `src` **delante** de lo que ya hay en `dst`, sin reordenar nada: los
+ * triángulos de `src` ocupan las primeras posiciones del array y conservan su
+ * `seq`, y los de `dst` se desplazan. Es la operación que necesita una capa 2D
+ * de fondo (S-13), que tiene que dibujarse antes que la geometría del nivel.
+ *
+ * No llama a `gex_emit_sort`: quien prepende es responsable del orden final.
+ */
+gex_emit_status gex_emit_output_prepend(gex_emit_output *dst,
+                                        const gex_emit_output *src);
+
 void gex_emit_output_free(gex_emit_output *out);
 void gex_emit_poly_list_free(gex_emit_poly_list *list);
 const char *gex_emit_status_name(gex_emit_status status);

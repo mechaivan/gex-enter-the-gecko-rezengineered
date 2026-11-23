@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Prepend de la capa 2D de fondo antes de convertir a geometria (S-13). */
+static gex_scene_status scene_apply_backdrop(gex_scene_level *scene);
+
 void gex_scene_background_rgba(float out[4])
 {
     if (out == NULL) {
@@ -333,6 +336,7 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
                 return GEX_SCENE_ERR_EMIT;
             }
             scene->emit_loaded = 1;
+            scene->backdrop_in_emit = 0;
             scene_box_add(&box, &scene->emit);
             if (round < 3) {
                 scene_frame_view(&mat, &box);
@@ -348,6 +352,12 @@ gex_scene_status gex_scene_level_load(gex_scene_level *scene, const char *path)
 
     /* 5. Conversión a vértices e índices. */
     scene_apply_blend(scene);
+    {
+        gex_scene_status bdst = scene_apply_backdrop(scene);
+        if (bdst != GEX_SCENE_OK) {
+            return bdst;
+        }
+    }
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -422,6 +432,7 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
         return GEX_SCENE_ERR_EMIT;
     }
     scene->emit_loaded = 1;
+    scene->backdrop_in_emit = 0;
     scene->stats.triangles = scene->emit.count;
     scene->stats.fog_triangles = scene->emit.fog_pass_count;
     scene->stats.view_cx = mat.cx;
@@ -441,6 +452,12 @@ static gex_scene_status scene_emit_with_camera(gex_scene_level *scene,
         scene->geometry_loaded = 0;
     }
     scene_apply_blend(scene);
+    {
+        gex_scene_status bdst = scene_apply_backdrop(scene);
+        if (bdst != GEX_SCENE_OK) {
+            return bdst;
+        }
+    }
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -508,9 +525,19 @@ gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected)
     {
         /* `push_tri` numera `seq` con el orden de inserción, así que el
          * desempate LIFO del original deja el panel detrás de los polígonos
-         * del nivel que comparten clave. */
-        gex_emit_status sst =
-            gex_emit_sort(scene->emit.tris, scene->emit.count);
+         * del nivel que comparten clave.
+         *
+         * La capa 2D de fondo (si la hay) ocupa las primeras posiciones y no
+         * entra en el ordenado: con `z = 0` su clave es la mínima y quedaría
+         * la última, es decir delante de la escena. Se ordena solo el tramo
+         * del nivel. */
+        size_t bg = scene->backdrop_in_emit ? scene->backdrop.count : 0u;
+        gex_emit_status sst;
+
+        if (bg > scene->emit.count) {
+            bg = 0u;
+        }
+        sst = gex_emit_sort(scene->emit.tris + bg, scene->emit.count - bg);
         if (sst != GEX_EMIT_OK) {
             gex_menu_scene_free(&menu);
             return GEX_SCENE_ERR_EMIT;
@@ -530,6 +557,12 @@ gex_scene_status gex_scene_level_add_menu(gex_scene_level *scene, int selected)
     /* Los triángulos del menú conservan ALPHA (no son comandos de nivel); la
      * llamada es idempotente y vuelve a marcar los del nivel. */
     scene_apply_blend(scene);
+    {
+        gex_scene_status bdst = scene_apply_backdrop(scene);
+        if (bdst != GEX_SCENE_OK) {
+            return bdst;
+        }
+    }
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -868,6 +901,12 @@ gex_scene_status gex_scene_level_set_alpha_textures(gex_scene_level *scene,
 
     gex_geometry_free(&scene->geometry);
     scene->geometry_loaded = 0;
+    {
+        gex_scene_status bdst = scene_apply_backdrop(scene);
+        if (bdst != GEX_SCENE_OK) {
+            return bdst;
+        }
+    }
     gst = gex_geometry_build(&scene->emit, &scene->geometry);
     if (gst != GEX_GEOM_OK) {
         return GEX_SCENE_ERR_GEOMETRY;
@@ -876,6 +915,110 @@ gex_scene_status gex_scene_level_set_alpha_textures(gex_scene_level *scene,
     scene->stats.vertices = scene->geometry.vertex_count;
     scene->stats.indices = scene->geometry.index_count;
     scene->stats.skipped_clipped = scene->geometry.skipped_clipped;
+    return GEX_SCENE_OK;
+}
+
+static gex_scene_status scene_apply_backdrop(gex_scene_level *scene)
+{
+    if (!scene->backdrop_loaded || scene->backdrop.count == 0) {
+        return GEX_SCENE_OK;
+    }
+    if (!scene->emit_loaded) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    /* Ya esta delante: no se duplica (add_menu y set_alpha_textures trabajan
+     * sobre la emision del fotograma, que puede llevarlo ya). */
+    if (scene->backdrop_in_emit) {
+        return GEX_SCENE_OK;
+    }
+    /* El fondo va delante: el pipeline no tiene depth buffer y dibuja en el
+     * orden del array. No se ordena: el llamante ya ha dejado el orden final
+     * (el menu, si lo hay, se anade despues). */
+    if (gex_emit_output_prepend(&scene->emit, &scene->backdrop) != GEX_EMIT_OK) {
+        return GEX_SCENE_ERR_NOMEM;
+    }
+    scene->backdrop_in_emit = 1;
+    return GEX_SCENE_OK;
+}
+
+/* Quita del frente de `emit` la capa de fondo ya prependida, si la hay. La capa
+ * ocupa siempre las primeras `backdrop.count` posiciones porque es lo unico que
+ * se prepende. */
+static void scene_strip_backdrop(gex_scene_level *scene)
+{
+    size_t n, i;
+
+    if (!scene->backdrop_in_emit) {
+        return;
+    }
+    scene->backdrop_in_emit = 0;
+    if (!scene->emit_loaded) {
+        return;
+    }
+    n = scene->backdrop.count;
+    if (n == 0 || n > scene->emit.count) {
+        return;
+    }
+    memmove(scene->emit.tris, scene->emit.tris + n,
+            (scene->emit.count - n) * sizeof(*scene->emit.tris));
+    scene->emit.count -= n;
+    scene->emit.fog_pass_count = 0;
+    for (i = 0; i < scene->emit.count; i++) {
+        scene->emit.tris[i].seq = (uint32_t)i;
+        if (scene->emit.tris[i].flags & GEX_EMIT_F_FOG_PASS) {
+            scene->emit.fog_pass_count++;
+        }
+    }
+}
+
+gex_scene_status gex_scene_level_set_backdrop(gex_scene_level *scene,
+                                              const gex_emit_output *backdrop)
+{
+    gex_emit_status est;
+
+    if (scene == NULL) {
+        return GEX_SCENE_ERR_ARG;
+    }
+    if (backdrop == NULL || backdrop->count == 0) {
+        scene_strip_backdrop(scene);
+        if (scene->backdrop_loaded) {
+            gex_emit_output_free(&scene->backdrop);
+            scene->backdrop_loaded = 0;
+        }
+        return GEX_SCENE_OK;
+    }
+    scene_strip_backdrop(scene);
+    if (scene->backdrop_loaded) {
+        gex_emit_output_free(&scene->backdrop);
+        scene->backdrop_loaded = 0;
+    }
+    est = gex_emit_output_copy(&scene->backdrop, backdrop);
+    if (est != GEX_EMIT_OK) {
+        return GEX_SCENE_ERR_NOMEM;
+    }
+    scene->backdrop_loaded = 1;
+
+    /* Si ya hay emision, se aplica ahora (como `set_alpha_textures`): el
+     * llamador debe volver a subir la geometria a la GPU. */
+    if (!scene->emit_loaded) {
+        return GEX_SCENE_OK;
+    }
+    if (scene_apply_backdrop(scene) != GEX_SCENE_OK) {
+        return GEX_SCENE_ERR_NOMEM;
+    }
+    if (scene->geometry_loaded) {
+        gex_geom_status gst;
+
+        gex_geometry_free(&scene->geometry);
+        scene->geometry_loaded = 0;
+        gst = gex_geometry_build(&scene->emit, &scene->geometry);
+        if (gst != GEX_GEOM_OK) {
+            return GEX_SCENE_ERR_GEOMETRY;
+        }
+        scene->geometry_loaded = 1;
+        scene->stats.vertices = scene->geometry.vertex_count;
+        scene->stats.indices = scene->geometry.index_count;
+    }
     return GEX_SCENE_OK;
 }
 
@@ -892,6 +1035,11 @@ void gex_scene_level_free(gex_scene_level *scene)
         gex_emit_output_free(&scene->emit);
         scene->emit_loaded = 0;
     }
+    if (scene->backdrop_loaded) {
+        gex_emit_output_free(&scene->backdrop);
+        scene->backdrop_loaded = 0;
+    }
+    scene->backdrop_in_emit = 0;
     if (scene->leaves_loaded) {
         gex_bsp_walk_free(&scene->leaves);
         scene->leaves_loaded = 0;

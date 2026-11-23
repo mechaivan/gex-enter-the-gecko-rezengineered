@@ -274,6 +274,66 @@ gex_emit_status gex_emit_output_push(gex_emit_output *out,
     return push_tri(out, tri);
 }
 
+/* Renumera `seq` (indice de insercion) y recuenta la pasada de niebla. */
+static void renumber_tris(gex_emit_output *out) {
+    size_t i;
+
+    out->fog_pass_count = 0;
+    for (i = 0; i < out->count; i++) {
+        out->tris[i].seq = (uint32_t)i;
+        if (out->tris[i].flags & GEX_EMIT_F_FOG_PASS) {
+            out->fog_pass_count++;
+        }
+    }
+}
+
+gex_emit_status gex_emit_output_copy(gex_emit_output *dst,
+                                     const gex_emit_output *src) {
+    if (dst == NULL || src == NULL) return GEX_EMIT_ERR_ARG;
+    if (dst == src) return GEX_EMIT_ERR_ARG;
+    if (grow_tris(dst, src->count) != 0) {
+        dst->overflow = 1;
+        return GEX_EMIT_ERR_NOMEM;
+    }
+    memcpy(dst->tris, src->tris, src->count * sizeof(*src->tris));
+    dst->count = src->count;
+    dst->overflow = 0;
+    renumber_tris(dst);
+    return GEX_EMIT_OK;
+}
+
+gex_emit_status gex_emit_output_prepend(gex_emit_output *dst,
+                                        const gex_emit_output *src) {
+    size_t need;
+
+    if (dst == NULL || src == NULL) return GEX_EMIT_ERR_ARG;
+    if (dst == src) return GEX_EMIT_ERR_ARG;
+    if (src->count == 0) return GEX_EMIT_OK;
+    need = src->count + dst->count;
+    if (need < src->count) { /* desbordamiento de size_t */
+        dst->overflow = 1;
+        return GEX_EMIT_ERR_OVERFLOW;
+    }
+    if (grow_tris(dst, need) != 0) {
+        dst->overflow = 1;
+        return GEX_EMIT_ERR_NOMEM;
+    }
+    memmove(dst->tris + src->count, dst->tris, dst->count * sizeof(*dst->tris));
+    memcpy(dst->tris, src->tris, src->count * sizeof(*src->tris));
+    dst->count = need;
+    /* Los `seq` de `src` ya eran los primeros indices; solo hay que renumerar
+     * la parte de `dst`, que ahora empieza en `src->count`. */
+    {
+        size_t i;
+
+        for (i = src->count; i < need; i++) {
+            dst->tris[i].seq = (uint32_t)i;
+        }
+    }
+    dst->fog_pass_count += src->fog_pass_count;
+    return GEX_EMIT_OK;
+}
+
 static int grow_polys(gex_emit_poly_list *list, size_t need) {
     if (list->capacity >= need) return 0;
     if (need > SIZE_MAX / sizeof(gex_emit_poly)) return -2;

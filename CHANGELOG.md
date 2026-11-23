@@ -1,5 +1,77 @@
 # CHANGELOG
 
+## 2026-11-22 - 0.0.0 - S-13: el compositor 2D del ejecutable, reconstruido y cableado
+
+**Sintoma y metodo.** S-11 dejo el fondo del menu como un color plano medido;
+faltaba recuperar las rutinas 2D originales y dar al port una capa 2D
+reutilizable para cualquier nivel, sin tocar la geometria 3D que ya funciona.
+Metodo: analisis estatico del PE32 x86 con `llvm-objdump` 22.1.8 (volcado
+completo en `s13_dis.txt`, 391 745 lineas) mas las mediciones publicadas
+(`U1F_RESULTADOS.md`, `U1G_RESULTADOS.md`, `U1H_RESULTADOS.md`). REA 6.7.0 sigue
+instalado pero `rea doctor --json` da `healthy:false`
+(`missing_analysis_engine`, `GHIDRA_INSTALL_DIR is not set`), asi que no hay
+descompilador ni traza en vivo.
+
+**El original no tiene una sola rutina 2D: son cinco caminos.** Reconstruidos
+uno a uno: rectangulo solido `0xF0` (constante `0x64FB40`, handler
+`0x00469268`), rectangulo de interfaz `0x00432DD1`, quad texturado `0x2C`/`0x24`
+(textura en `word[+0x1A] & 0x3FFF`), glifo `0x00432BBD` sobre `FONT.3DF` y linea
+`0x40` (`0x004FF06F`). El dispatcher usa `idx = (opcode & ~3) - 0x20` con mapa en
+`0x00469765` y doce punteros en `0x00469735`.
+
+**El `0xF0` explica el fondo del vuelo, no el del menu.** Es un clear solido de
+512x384 reencadenado como ultimo comando del frame (`0x462240..0x4622AB`), que
+coincide con el (8,9,40) medido durante el vuelo; el degradado del menu es otra
+capa.
+
+**Los tiles 325..365 no son una rejilla 1:1.** Se volcaron los 41: todas opacas
+(`fmt=1`, alfa media 255), **cada tile con un degradado vertical entero**, con
+`325`/`365` planos e identicos ((8.3,8.1,41.0)), `358..361` (32x32) brillando
+hacia abajo con el disco solar en `361`, y `327`/`362`/`363` verdes. Descartadas
+con evidencia: tabla literal en `.data`/`.rdata` (los «aciertos» son palabras
+altas de VAs `0x5501xx` o rampas en `0x179Fxx`; no existe ningun inmediato
+`$0x145`/`$0x16d`/`$0x16e`), `GEX.DFX` (hits en slots pares `mod 12`, indices de
+vertice), la lista de poligonos de MAP7 (ninguno referencia 325..365) y el
+emparejamiento vertical (no encadena; el mosaico por indice descendente da
+7,39,20,12,22,77,119,5, no monotono). Hipotesis de trabajo: el cielo del menu es
+una textura estirada del grupo `331..333`/`342`; falta el emitter.
+
+**Correccion.** Nuevo compositor portable `port/include/gex/comp2d.h` y
+`port/src/scene/comp2d.c`: cinco primitivas (`gex_comp2d_rect`,
+`gex_comp2d_quad`, `gex_comp2d_glyph`, `gex_comp2d_line`) mas dos conveniencias
+(`gex_comp2d_tiles`, `gex_comp2d_vertical_gradient`), todo en pixeles logicos,
+`z = 0` y con `GEX_COMP2D_NO_TEXTURE = 0x3FFF`. Nuevo
+`gex_emit_output_copy`/`gex_emit_output_prepend` en `gex/emit.h` (copia
+profunda y prepend sin reordenar, con `seq` renumerado y `fog_pass_count`
+recontado). Nueva `gex_scene_level_set_backdrop` (`gex/scene_level.h`), que
+guarda copia propia y prepende en cada re-emision. Nueva opcion
+`gexloop.exe --backdrop gradient`, con las tres paradas medidas por S-11
+(filas logicas 32/80/176) y la correccion del factor 2 de
+`color_byte_to_vertex` (el comando lleva la mitad del valor medido). El fondo se
+prepende **una sola vez** (`backdrop_in_emit`, que se limpia al reconstruir la
+emision) y `add_menu` ordena solo el tramo del nivel: sin eso el menu salia con
+128 triangulos de fondo duplicados (1 998 -> 1 870) y el degradado, con `z = 0`
+y clave minima, podia quedar delante de la escena. Al sustituir o retirar el
+fondo se quitan del frente los triangulos viejos.
+
+**Verificacion.** `test_comp2d` nuevo: **148** comprobaciones, 0 fallos. Nuevo
+`test_backdrop` en `test_scene_level`: copia independiente, prepend en las
+primeras posiciones, no duplicacion al anadir el menu, sustitucion, retirada y
+geometria regenerada; `test_scene_level` **14 899** comprobaciones, 0 fallos.
+Suite completa 0 fallos;
+sanitizers O0/O2/ASan/UBSan **TODO OK**. Captura real con GPU hardware
+(`s13_menu_bg.ppm`, 960x540): en la fila logica 32 el original mide
+(15,10,51) y el port (14,10,50); en la 80, (29,10,74) y (28,10,74) (desviacion
+de +-1 por la division entera). Sin regresion: con `--backdrop off`, que es el
+valor por defecto, la emision del nivel es identica.
+
+**Pendiente.** El fondo del menu sigue siendo una aproximacion documentada (el
+original usa los tiles texturizados con estrellas y sol); la guirnalda de luces
+del menu aun no se reproduce; el banding RGB555 del original no se replica (el
+port es de 8 bits); el encuadre del menu sigue siendo distinto (27.6). Para
+cerrarlo hace falta descompilar el emitter, lo que requiere Ghidra + JDK 21
+(`docs/REA_WINDOWS_ENABLEMENT.md`).
+
 ## 2026-11-21 - 0.0.0 - S-12: las «superficies blancas» de MAP7 eran texturas fuera del atlas
 
 **Síntoma y método.** En el vuelo congelado aparecían grandes superficies

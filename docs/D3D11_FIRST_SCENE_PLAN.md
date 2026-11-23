@@ -3819,6 +3819,14 @@ Consecuencia de diseño: mientras no se reconstruya el compositor 2D de la
 interfaz (el rectángulo `0x64FB40` de 23.2 es otra pieza del mismo problema),
 el color plano medido es la aproximación documentada para el menú.
 
+> **Corrección de S-13 (§ 29.4).** La tabla de esta sección daba a cada tile una
+> fila del original. La medición completa de los 41 tiles muestra que **cada tile
+> contiene un degradado vertical entero**, no una rebanada de pantalla, así que
+> esa correspondencia fila-a-fila no se sostiene. S-13 tampoco encontró ninguna
+> estructura que los coloque; la lectura vigente es que el cielo del menú es una
+> textura estirada del grupo `331..333`/`342`. El fondo ya no es plano en el port:
+> `--backdrop gradient` dibuja el degradado medido (§ 29.5).
+
 ### 27.4 Corrección
 
 * `port/include/gex/scene_level.h`: `GEX_SCENE_BACKGROUND_R/G/B` (8/9/40) y
@@ -4019,7 +4027,189 @@ Atlas construido:
   variable y velocidad dependiente del *framerate*). La comparación con el
   original es por hitos visuales; las comparaciones antes/después del port sí
   son exactas porque usan la misma pose congelada.
-* Sigue abierto: el **compositor 2D del menú** (degradado y estrellas), el
-  **encuadre del menú** (cámara distinta de la del vuelo, 27.6), la **pantalla
-  inferior del televisor** (cristal `311` tapa logo `368`), **`poly#116`** y el
-  **patrón de bloques de la hierba**.
+* Sigue abierto: el **compositor 2D del menú** (degradado y estrellas) —
+  resuelto parcialmente en S-13 (§ 29) —, el **encuadre del menú** (cámara
+  distinta de la del vuelo, 27.6), la **pantalla inferior del televisor**
+  (cristal `311` tapa logo `368`), **`poly#116`** y el **patrón de bloques de
+  la hierba**.
+
+## 29. S-13: el compositor 2D del ejecutable, reconstruido y cableado (2026-11-22)
+
+### 29.1 Objetivo y método
+
+S-11 dejó el fondo del menú como un color plano medido y S-12 cerró el atlas.
+Lo que faltaba era **recuperar las rutinas 2D originales** y dar al port una
+capa 2D reutilizable para cualquier nivel, sin tocar la geometría 3D que ya
+funciona.
+
+Método: análisis **estático** del PE32 x86 (`llvm-objdump` 22.1.8 sobre
+`GEX3D.EXE`, volcado completo en `s13_dis.txt`, 391 745 líneas) más las
+mediciones ya publicadas (`U1F_RESULTADOS.md`, `U1G_RESULTADOS.md`,
+`U1H_RESULTADOS.md`). REA 6.7.0 sigue instalado pero sin motor nativo
+(`rea doctor --json`: `healthy:false`, `missing_analysis_engine`,
+`GHIDRA_INSTALL_DIR is not set`), así que no hay descompilador ni traza en
+vivo; todo lo de esta sección es evidencia estática o numérica.
+
+### 29.2 El original no tiene **una** rutina 2D: son cinco caminos
+
+Reconstruidos en S-13 y reproducidos uno a uno por `port/src/scene/comp2d.c`:
+
+| Ruta | Evidencia en el ejecutable | Comando | Reproduce |
+| --- | --- | --- | --- |
+| Rectángulo sólido | `0x00469268` (handler) + constante `0x64FB40` | `0xF0` (0x14 B) | `gex_comp2d_rect` |
+| Rectángulo sólido (interfaz) | `0x00432DD1` | — | `gex_comp2d_rect` |
+| Cuadrilátero texturado | opcodes `0x2C` (0x2C B) y `0x24` (0x24 B); textura en `word[+0x1A] & 0x3FFF`; UV bytes 0..255 (S-5) | `0x2C`/`0x24` | `gex_comp2d_quad` |
+| Glifo | `0x00432BBD` sobre `FONT.3DF` | — | `gex_comp2d_glyph` |
+| Línea / primitiva 2D | `0x004FF06F`, opcode `0x40`, prefijo `0xE1` | `0x40` | `gex_comp2d_line` |
+
+Detalles medidos que el módulo fija:
+
+* `0xF0` (constante `0x64FB40`): normaliza esquinas, **descarta** si
+  `|dx| > 0x800` o `|dy| > 0x800`, y emite **dos** `grDrawTriangle` sin
+  textura. Color en `+0x08..+0x0A`, `x/y = 0`, `w/h = 0x200/0x180`; se
+  reencadena como último comando del frame desde `0x462240..0x4622AB`.
+* `0x00432DD1`: `x = xy & 0xFF`, `y = (xy >> 8) + 3`, `w = (wh & 0xFF) << 4`,
+  `h = (wh >> 8) * 12`, con `grAlphaBlendFunction(0, 0, 0, 6)`,
+  `grConstantColorValue4(0x43000000 × 3, 0)`, `grAlphaCombine(1, 0, 1, 2, 0)`
+  y `guColorCombineFunction(3)`.
+* Dispatcher: `idx = (opcode & ~3) - 0x20`, mapa en `0x00469765`, doce
+  punteros en `0x00469735`. Activos: `0x20`, `0x24`, `0x28`, `0x2C`, `0x30`,
+  `0x34`, `0x40`, `0x48`, `0x4C`, `0xB4`, `0xF0`.
+* Lista de visualización 2D en `0x0065BFC0` (registros de 6 B: `word x`,
+  `word y`, `byte estilo`, `byte glifo/extra`); contador `0x0065CBE0`
+  (máx. 511), emisor `0x00432852`; estilo `0x20` omite, `0x40` consume dos
+  ranuras, `&0x80` es glifo.
+
+### 29.3 El rectángulo `0xF0` explica el fondo **del vuelo**, no el del menú
+
+La constante `0x64FB40` pinta un **clear sólido** de 512×384 con el RGB de
+`+0x08..+0x0A` (en el vuelo, `(8, 9, 40)`), reencadenado como último comando
+del frame. Eso coincide con el fondo plano medido durante el vuelo y
+**desautoriza** leerlo como el degradado del menú: el degradado es una capa
+distinta.
+
+### 29.4 Los tiles 325..365: contenido real y hipótesis descartadas
+
+Se volcaron las **41** texturas (`s13_sky/*.ppm`) y se midieron fila superior,
+fila inferior y media. Tres hechos nuevos:
+
+1. **Todas son opacas** (`fmt = 1`, alfa media 255, píxeles `clear = 0 %`):
+   no son overlays de estrellas ni máscaras.
+2. **Cada tile contiene un degradado vertical completo** (arriba oscuro →
+   abajo brillante), no una rebanada plana del degradado de pantalla. Es decir,
+   la lectura de «mosaico 1:1 de la pantalla» que se usó en § 27.3 **no es
+   correcta**.
+3. La secuencia tiene estructura: `325` y `365` son planos e idénticos
+   (media (8.3, 8.1, 41.0) y (8.3, 8.1, 40.6)) y coinciden con el fondo del
+   vuelo; `358..361` (32×32) brillan progresivamente hacia abajo y `361`
+   contiene el disco solar (fila inferior (196, 137, 101), sd 50,5);
+   `327`/`362`/`363` son verdes (suelo).
+
+Hipótesis descartadas **con evidencia**:
+
+* **Tabla literal en `.data`/`.rdata`**: los 32 «aciertos» de `.data` son las
+  palabras altas de VAs `0x5501xx` en una tabla de 12 B, y en `.rdata` hay
+  rampas lineales en `0x179Fxx`. Ningún inmediato `$0x145`, `$0x16d` ni
+  `$0x16e` existe en el desensamblado: la base del rango se calcula en
+  *runtime* o llega por estructura.
+* **`GEX.DFX`**: sus coincidencias con 325..365 están repartidas en todos los
+  slots pares `mod 12` (índices de vértice). Falso positivo.
+* **Lista de polígonos de `MAP7`**: 16 292 polígonos; ninguno referencia
+  325..365 (los vecinos 316..324 y 366..372 sí son texturas de nivel).
+* **Emparejamiento vertical** (borde inferior de `i` contra borde superior de
+  `j`): los mejores casos (`334→358:276`, `344→358:347`, `343→358:359`,
+  `356→361:340`, `357→360:386`, `358→361:481`, `355→361:501`, `325→339:187`)
+  no encadenan en una rejilla coherente, y el mosaico por índice descendente da
+  7 → 39 → 20 → 12 → 22 → 77 → 119 → 5 (no monótono).
+
+Hipótesis de trabajo resultante: **el cielo del menú es una textura
+estirada**, no una rejilla. La rampa medida (15,10,51) → (46,10,118) casa con
+los tiles del grupo `331..333` / `342` (p. ej. `333`: fila superior
+(21, 10, 55), inferior (38, 9, 116)), y la variación horizontal lenta medida
+es la propia del tile. Falta la rutina emisora para decidir **cuál** y con qué
+UV: eso es lo que queda abierto.
+
+Por qué no se ha podido cerrar: el fondo no está en el `.DFX` (no es geometría
+ni hay tabla que lo referencie) y el emitter se busca por consumidores de los
+buffers `0x650060`/`0x650080` en el rango `0x462240..0x4627C1`, que requiere
+descompilación; con el estado actual de REA no es posible.
+
+### 29.5 Lo que sí se ha recuperado y cableado
+
+* `port/include/gex/comp2d.h` + `port/src/scene/comp2d.c`: compositor 2D
+  portable, sin D3D11/Win32/Glide. Cinco primitivas más dos conveniencias:
+  - `gex_comp2d_rect` (`0xF0`), `gex_comp2d_quad` (`0x2C`/`0x24`),
+    `gex_comp2d_glyph` (`0x00432BBD`, con el `+3` del original),
+    `gex_comp2d_line` (`0x40`, como cuadrilátero fino: el pipeline es una sola
+    lista de triángulos),
+    `gex_comp2d_tiles` (lista `(x, y, textura, w, h)`, la forma que tendrá el
+    fondo cuando se recupere su tabla),
+    `gex_comp2d_vertical_gradient` (bandas entre paradas medidas).
+  - Todo se emite en **píxeles lógicos** (0..511, 0..383) y `z = 0`;
+    `GEX_COMP2D_NO_TEXTURE = 0x3FFF` es el centinela de «sin textura».
+* `gex_emit_output_copy` y `gex_emit_output_prepend` (`gex/emit.h`): copia
+  profunda y prepend sin reordenar, con `seq` renumerado y `fog_pass_count`
+  recontado. El prepend es lo que permite poner el fondo **detrás** de la
+  geometría (el pipeline no tiene depth buffer: manda el orden del array).
+* `gex_scene_level_set_backdrop` (`gex/scene_level.h`): guarda una copia del
+  fondo y lo prepende en cada re-emisión (la escena vacía `emit` en cada paso
+  de la trayectoria). Si ya hay emisión, lo aplica al momento y reconstruye la
+  geometría, igual que `set_alpha_textures`.
+  - La capa se prepende **una sola vez**: la escena marca `backdrop_in_emit`
+    y lo limpia cada vez que reconstruye `emit` desde el nivel. Así `add_menu`
+    y `set_alpha_textures`, que trabajan sobre la emisión del fotograma, no
+    duplican el fondo (medido: el menú pasaba de 1 998 a 1 870 triángulos, los
+    128 de las 64 bandas duplicadas).
+  - `gex_scene_level_add_menu` ordena **solo el tramo del nivel**
+    (`tris + backdrop.count`). El fondo tiene `z = 0`, es decir la clave de
+    bucket mínima, y si entrara en el `gex_emit_sort` quedaría el último, delante
+    de la escena. Con la exclusión sigue en las primeras posiciones.
+  - Al sustituir o retirar el fondo se quitan primero del frente de `emit` los
+    `backdrop.count` triángulos viejos (`scene_strip_backdrop`), porque la capa
+    es lo único que se prepende.
+* `gexloop.exe --backdrop gradient`: dibuja el fondo medido del menú detrás del
+  nivel. La tabla de paradas es la medición de S-11 convertida a filas lógicas
+  (`y = 32/80/176` → (15,10,51) / (29,10,74) / (46,10,118)); fuera de ese
+  tramo se mantiene el extremo más cercano. Como la conversión de color de la
+  geometría duplica el byte (`color_byte_to_vertex`, S-11), el comando lleva
+  la **mitad** del valor medido.
+
+### 29.6 Verificación
+
+* `port/tests/test_comp2d.c`: **148** comprobaciones (rectángulo, quad, tiles,
+  glifo, línea, degradado, copia/prepend), 0 fallos.
+* `port/tests/test_scene_level.c`: nuevo `test_backdrop` (copia independiente,
+  prepend en las primeras posiciones, **no duplicación al añadir el menú**,
+  sustitución, retirada, geometría regenerada). 14 899 comprobaciones, 0 fallos.
+* `port/build.ps1 test`: verde; `port/run_sanitizers.ps1` (O0/O2/ASan/UBSan):
+  **TODO OK**.
+* **GPU real**: captura `s13_menu_bg.ppm` (960×540, `--menu --backdrop
+  gradient`, vuelo completo hasta el menú). Muestreando la capa de fondo en
+  `x = 400`:
+
+  | Fila lógica | Medido en el original | Render del port |
+  | --- | --- | --- |
+  | 32 | (15, 10, 51) | (14, 10, 50) |
+  | 80 | (29, 10, 74) | (28, 10, 74) |
+
+  Desviación de ±1 por la división entera de `byte/2`. No hay regresión: con
+  `--backdrop off` (por defecto) la emisión del nivel es idéntica.
+
+### 29.7 Limitaciones y lo que queda abierto
+
+* **El fondo del menú sigue siendo una aproximación documentada.** El original
+  usa los tiles 325..365 texturizados (con estrellas y sol); el port dibuja un
+  degradado de bandas sólidas a partir de tres paradas medidas. Falta
+  recuperar la rutina emisora y su tabla de colocación.
+* **La guirnalda de luces del menú no se reproduce.** Es visible en la grabación
+  original (cadena de puntos rojos/verdes/amarillos sobre el televisor) y no
+  aparece en el port. Su tabla de sprites está pendiente de localizar.
+* **Las bandas del degradado no replican el banding RGB555** del framebuffer
+  original: el port es de 8 bits y el banding medido (saltos de 2-3 niveles
+  cada 7-16 filas) es un artefacto de 16 bits. Es una diferencia conscionte y
+  menor.
+* **El encuadre del menú sigue sin ser el original** (27.6): la comparación es
+  por hitos visuales, no píxel a píxel.
+* **REA sigue sin motor nativo**; el siguiente paso natural es instalar
+  Ghidra + JDK 21 (`docs/REA_WINDOWS_ENABLEMENT.md`) para descompilar el
+  emitter del fondo en lugar de seguir buscándolo por evidencia numérica.
