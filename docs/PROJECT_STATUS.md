@@ -1,299 +1,123 @@
-# PROJECT_STATUS — Metodología y registro del panel de progreso
+# Panel de progreso — metodología y datos
 
-> Fuente de verdad del panel visual [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg).
-> El SVG es una representación de estos datos; nunca una fuente independiente.
-> Versión del panel: **v3.6** · Fecha: **2026-10-11** ·
-> Ref: **`3d342e8`** (última revisión del repo antes de esta
-> actualización).
-> v3.6 añade SOLO un dato de estado verificado a la micro-línea del
-> resumen (smoke in-game, reportado 2026-10-11: el shim H4a arranca el
-> juego real hasta el menú, copia aislada; registro 32-bit restaurado)
-> + fecha/ref: **cifras sin cambios** (A1 32, A2 46, A3 0, A4 0, A5 33;
-> global 20%; MAIN 40% — ningún hito, peso ni estado de área cambia;
-> el smoke no completa hitos del panel).
+**Última revisión:** 2026-11-23  
+**Rama de referencia:** `dev/gex`  
+**Último hito incorporado:** S-13 (reconstrucción de la capa de composición 2D de MAP7), commit [`00ec5cf`](https://github.com/mechaivan/gex-enter-the-gecko-rezengineered/commit/00ec5cf6f18fe16e5a91643073430a875ac561ca).
 
-## 1. Propósito
+Este documento es la fuente de verdad del panel [`PROJECT_STATUS.svg`](PROJECT_STATUS.svg). Los porcentajes describen **listas de entregables delimitadas**, no el porcentaje de juego terminado, calidad visual, tiempo invertido ni una predicción de fechas.
 
-Medir el avance real de REZengineered con cifras trazables a objetivos,
-hitos y evidencias documentadas. Los porcentajes son **estimaciones de
-avance documentadas**: no miden la calidad del juego ni predicen fechas.
+## Cómo leer el panel
 
-Dos métricas independientes: **MAIN** = avance hacia la primera versión
-jugable preparada para pruebas (§4.9); **progreso general** = avance del
-conjunto de la hoja de ruta (§4.8). MAIN al 100% no implica proyecto
-terminado, pulido al máximo ni distribución pública autorizada.
-El panel prioriza la comprensión inmediata: MAIN protagonista y
-progreso general en segundo plano.
+- **Implementado y verificado:** el entregable está integrado y cuenta con pruebas o ejecución real documentada.
+- **Parcial / en integración:** existe una parte funcional, pero queda validación, cobertura o integración necesaria.
+- **Pendiente / planificado:** todavía no está implementado.
+- **Aplazado:** fuera del alcance activo por decisión expresa.
 
-## 2. Alcance del panel (5 áreas)
+Los colores del SVG acompañan al texto; el estado nunca depende solo del color.
 
-| Código | Área | Cubre (IDs reales) |
-|---|---|---|
-| A1 | Compatibilidad y diagnóstico | FA-11, FA-12, FA-13, FA-14, FA-15, FA-09†, TESTING, COMPATIBILITY, I-15, I-16, I-21, I-22, F-05 |
-| A2 | Investigación técnica | FA-01, FA-02, FA-03, RESEARCH (S-21…), inventario estático, Etapa A |
-| A3 | Mejoras gráficas | M-04, M-12…M-17, FA-04, FA-05†, FA-07, cierre FA-13/FA-14 (Fase 4) |
-| A4 | Calidad de vida y UX | M-01…M-03, M-05, M-06…M-11, M-18…M-20, M-26, FA-06, FA-10† |
-| A5 | Preparación para publicación | BUILD.md, LICENSE.md §3–§6, hitos de publicación (ROADMAP) |
+## Porcentajes y fórmula
 
-† Cobertura parcial explícita: FA-09 solo hito «audibilidad base» en A1.2
-(mapeo profundo vía matriz A1.3); FA-05 y FA-10 profundos vía matriz A1.3;
-FA-10 «identificar reproductor» en A4.1. Sin solapes: cada hito vive en un
-solo objetivo (§4.4).
+Cada área tiene un inventario cerrado de entregables de alcance comparable. Cada entregable cuenta una vez:
 
-### Exclusiones N/A del panel (documentadas, no ocultas)
+`porcentaje = 100 × entregables implementados y verificados / entregables definidos`
 
-Fuera del denominador hasta que el panel crezca (área 6 u ampliación):
+Se redondea al entero más próximo. Los elementos parciales se muestran por separado y **no suman** al numerador. Los elementos planificados permanecen en el denominador. No se suman las áreas para crear un porcentaje global: sus alcances son distintos y algunas capacidades sirven de base a más de un subsistema.
 
-- M-21, M-22 (modos Original/Modern: contenedores que se evalúan en Fase 11).
-- M-23 (pack visual HD, Fase 12), M-24 (localización), M-25 (voces UK/USA).
-- X-01, X-02 (DEFERRED: fuera del alcance actual por definición).
-- FA-08 (ligado a M-25).
+## Estado por áreas
 
-## 3. Escala de pesos (puntos por hito)
+| Área | Resultado | Desglose |
+|---|---:|---|
+| Fundamentos del port | **100% · 7/7** | Base nativa, audio base, bucle, ventana, dispositivo, swapchain y pipeline de presentación |
+| Escenario y gráficos MAP7 | **60% · 9/15** | 9 completos, 3 parciales, 3 pendientes |
+| Audio del juego | **75% · 3/4** | Lectura, decodificación/streaming y salida DirectSound; integración del contenido real en gameplay pendiente |
+| Entrada y controles | **33% · 1/3** | Captura de teclado en Win32; mapeo de juego y mandos modernos pendientes |
+| Sistemas de jugabilidad | **0% · 0/6** | Personaje, animaciones, físicas/colisiones, enemigos/objetos, lógica de niveles y progresión/guardado |
+| Modernización de usuario | **0% · 0/26** | Objetivos M-01…M-26 (26 mejoras propuestas); ninguno declarado completado como función de usuario |
 
-| Talla | XS | S | M | L | XL |
-|---|---|---|---|---|---|
-| Puntos | 1 | 2 | 3 | 5 | 8 |
+Estas cifras son una instantánea del alcance que se define debajo. Si cambia el inventario, se documentará el cambio y su efecto en los porcentajes. Los objetivos aplazados X-01/X-02 no forman parte del denominador de modernización.
 
-Los pesos estiman carga/importancia del trabajo, no facilidad de cierre.
-Peso de un objetivo = suma de sus hitos. No se cambian pesos para inflar
-cifras (§7).
+## Inventario que respalda los porcentajes
 
-## 4. Metodología
+### Fundamentos del port — 7/7
 
-### 4.1 Estados verificables
+1. Lector del contenedor de audio SLAG.
+2. Decodificador IMA ADPCM, streaming y reproductor con backend inyectable.
+3. Salida de audio DirectSound.
+4. Bucle nativo de frames y planificador.
+5. Proceso Win32, ventana, reloj y captura de eventos de teclado.
+6. Dispositivo Direct3D 11 y swapchain DXGI.
+7. Pipeline D3D11 con presentación real en GPU.
 
-| Estado | Regla |
-|---|---|
-| COMPLETADO | Todos sus hitos cumplen criterios de aceptación con evidencia. |
-| EN CURSO | Trabajo activo + ≥1 hito completado con evidencia. |
-| EN INVESTIGACIÓN | 0 hitos completados pero existen indicios/información verificable. |
-| PENDIENTE | Sin iniciar. |
-| BLOQUEADO | No puede avanzar hasta resolver una dependencia (cuenta 0, se señaliza). |
-| N/A | Fuera del alcance del panel (§2); excluido del denominador. |
+El 100% se limita a estos fundamentos. No significa que el juego original esté integrado o sea jugable.
 
-Reglas duras: **investigar ≠ solucionar** (identificar una DLL no resuelve
-el renderer); **documentar ≠ implementar** (un M-xx PROPOSED puntúa 0);
-crédito parcial solo vía hitos definidos con evidencia. Estado de área =
-estado «más activo» de sus objetivos (EN CURSO > EN INVESTIGACIÓN >
-PENDIENTE); los bloqueos se señalizan aparte.
+### Escenario y gráficos MAP7 — 9/15
 
-### 4.2 Fórmulas
+**Implementados y verificados (9):**
+1. Trayectoria y orientación de cámara original de MAP7.
+2. Emisión de geometría del nivel y proyección reproducidas.
+3. Lectura VFX y decodificación de los formatos de textura utilizados.
+4. Conversión de geometría y recursos de malla para D3D11.
+5. Atlas con cobertura de las texturas del vuelo y del menú.
+6. Escala UV, conversión de color y mezcla por comando corregidas.
+7. Escena MAP7 dibujada en GPU real con la cámara del juego.
+8. Actor del menú, modelos de botones y rótulos integrados.
+9. Primitivas 2D reutilizables y capa de fondo conectada (S-13).
 
-```text
-% área   = 100 × puntos_completados_área / puntos_totales_área
-% global = 100 × puntos_completados_total / puntos_totales_total
-```
+**Parciales (3; no suman al porcentaje):**
+10. Parser DFX: ruta necesaria implementada, alcance global y validación completa aún abiertos.
+11. Recorrido BSP: estructura, visibilidad y emisión integradas; queda cerrar la validación dinámica integral.
+12. Fondo del menú: degradado aproximado conectado; falta recuperar el emisor, la tabla de colocación y las texturas originales.
 
-Redondeo: al entero más próximo (mitades hacia arriba). Se publica siempre
-la fracción de puntos junto al porcentaje (p. ej. `16% · 47/285 PTS`).
-Prohibido derivar cifras de commits, ficheros, líneas o sesiones.
+**Pendientes (3):**
+13. Encuadre exacto de la cámara al presentar el menú.
+14. Detalles visuales restantes: pantalla inferior del televisor, guirnalda de luces, patrón de hierba y polígono pendiente.
+15. Navegación e interacción funcional del menú y selección de opciones.
 
-### 4.3 Área A1 — Compatibilidad y diagnóstico (20/62 → 32%)
+### Audio — 3/4
 
-| Obj. | Hitos (peso) ✓/✗ | Pts | Estado | Evidencia |
-|---|---|---|---|---|
-| A1.1 Instalación manual (FA-11, I-15, F-05) | Procedimiento documentado (S) ✓ · Valores `.reg` en ejecución (M) ✓ · Causa admin (S) ✗ · Ubicación guardado (S) ✗ | 5/9 | EN CURSO | TESTING Hito 1; PATCH F-05 |
-| A1.2 Arranque + básico (FA-12, FA-09†, I-16) | Arranca con imagen (M) ✓ · Nivel + movimiento (M) ✓ · Música/SFX base (S) ✓ · Comportamiento sin CD (S) ✗ | 8/10 | EN CURSO | TESTING Hito 1 |
-| A1.3 Matriz compatibilidad | Protocolo + matriz (M) ✓ · Specs PC (S) ✗ · Filas P0 restantes (L) ✗ · Filas P1 (XL) ✗ | 3/18 | EN CURSO | TESTING matriz; COMPATIBILITY |
-| A1.4 Pantalla diagnosticada (I-21/22, FA-13/14) | I-21 observado ×2 (S) ✓ · I-22 observado ×2 (S) ✓ · Causa I-21 (M) ✗ · Causa I-22 (M) ✗ | 4/10 | EN INVESTIGACIÓN | TESTING Hito 1 + 2ª sesión; KNOWN I-21/22 |
-| A1.5 Referencia de época (FA-15) | Decisión HW (S) ✗ · Montaje (L) ✗ · Capturas referencia (XL) ✗ | 0/15 | PENDIENTE | TESTING vía C (sin HW) |
+1. Lector SLAG: implementado y probado.
+2. Decodificación IMA ADPCM, streaming y reproductor: implementados y probados.
+3. Backend DirectSound: implementado y probado con dispositivo real.
+4. Integración de los bancos y eventos de audio del juego dentro de la experiencia jugable: pendiente.
 
-### 4.4 Área A2 — Investigación técnica (25/54 → 46%)
+### Entrada y controles — 1/3
 
-| Obj. | Hitos (peso) ✓/✗ | Pts | Estado | Evidencia |
-|---|---|---|---|---|
-| A2.1 DLLs cargadas (FA-02) | Enumeración 32-bit (S) ✓ · Ficha glide2x (S) ✓ · Ficha 3dfxSpl2 (XS) ✓ · Fecha/firma (S) ✓ · Rol acompañantes (S) ✗ · Resto deps dinámicas (M) ✗ | 7/12 | EN CURSO | TESTING 2ª–4ª sesión |
-| A2.2 Ruta gráfica (FA-03) | glide2x cargada (M) ✓ · API efectiva (L) ✗ · Wrapper sí/no (L) ✓ SÍ | 8/13 | EN INVESTIGACIÓN | TESTING 2ª+5ª+6ª sesión; instalador nGlide→SysWOW64 |
-| A2.3 Procedencia (RESEARCH) | Atribución origen (L) ✓ nGlide 2.10 · Cadena/mecanismo (M) ✗ | 5/8 | EN CURSO | Payload-hash = drop instalador oficial (TESTING 9ª; S-22) |
-| A2.4 Base decisiones (FA-01, Etapa A) | Inventario EU (L) ✓ · Variantes US/demo (M) ✗ · Confirm. dinámicas mín. (L) ✗ · Etapa B Ghidra (XL) ✗ BLOQUEADO | 5/21 | EN CURSO +BLOQ | Inventario §4; RE plan (B+ bloqueadas) |
+1. Recepción de eventos de teclado y gestión de ventana/foco: implementada.
+2. Mapeo completo de acciones originales de Gex a la lógica del juego: pendiente.
+3. Compatibilidad moderna con mandos, reasignación y ajustes: planificada.
 
-Sin doble cuenta: A2.1 registra evidencias; A2.2/A2.3 registran
-conclusiones sobre esas evidencias. Artefactos distintos. «API efectiva»
-(A2.2) exige prueba a nivel de llamadas o efecto demostrable de un
-ajuste del wrapper (TESTING 5ª sesión).
+### Jugabilidad — 0/6
 
-### 4.5 Área A3 — Mejoras gráficas (0/69 → 0%)
+1. Movimiento y control del personaje.
+2. Animaciones y estados del personaje.
+3. Física, colisiones y detección de suelo.
+4. Enemigos, objetos e interacciones.
+5. Lógica y eventos de los niveles.
+6. Progresión, estados de partida y guardado.
 
-Nada implementado (Fase 1). Todo PENDIENTE.
+Los seis elementos representan los grandes sistemas necesarios para una primera versión jugable; no afirman que la investigación de esos sistemas esté completa.
 
-| Obj. | Hitos (peso) | Pts |
-|---|---|---|
-| A3.1 Resolución + panorámico (M-04, M-15, M-16) | Diseño (L) ✗ · Impl. (XL) ✗ · Verificación vs original (M) ✗ | 0/16 |
-| A3.2 Cámara/FOV (M-12, M-17, FA-07) | Comportamiento original (M) ✗ · Diseño (L) ✗ · Impl.+verif. (XL) ✗ | 0/16 |
-| A3.3 Render desacoplado (M-13, M-14, FA-04/05) | FA-04/05 entendidos (XL) ✗ · Diseño (L) ✗ · Impl. (XL) ✗ | 0/21 |
-| A3.4 Corrección I-21/22 (Fase 4, FA-13/14) | Diseño (L) ✗ · Impl. (XL) ✗ · Verificado sin regresión (M) ✗ | 0/16 |
+### Modernización — 0/26
 
-Correspondencia: A3.4 no tiene M-xx; mapea al ítem real «Fase 4: cerrar
-FA-13/FA-14 con verificación» (ROADMAP). Depende de las causas de A1.4.
+Los 26 objetivos M-01…M-26 siguen siendo propuestas en el documento de referencia. Incluyen configuración, resoluciones y pantalla, controles, cámara, frecuencia de refresco, experiencia en ventanas, modos Original/Modern, recursos visuales opcionales, localización, voces e introducción omisible. La existencia de infraestructura compartida no equivale a declarar una mejora de usuario terminada.
 
-### 4.6 Área A4 — Calidad de vida y UX (0/64 → 0%)
+## Evidencias y documentos de referencia
 
-Nada implementado (Fase 1). Todo PENDIENTE.
+- [PROJECT_STATE.md](../PROJECT_STATE.md): registro técnico cronológico y estado detallado.
+- [ROADMAP.md](../ROADMAP.md): hoja de ruta pública y etapas.
+- [MODERNIZATION_GOALS.md](../MODERNIZATION_GOALS.md): catálogo de objetivos de modernización.
+- [D3D11_FIRST_SCENE_PLAN.md](D3D11_FIRST_SCENE_PLAN.md): plan técnico y evidencias del primer escenario.
+- [CHANGELOG.md](../CHANGELOG.md): historial de cambios.
+- [Archivo de metodología anterior v3.6](archive/PROJECT_STATUS_METHODOLOGY_v3.6_2026-10-11.md): conservación íntegra del sistema anterior.
 
-| Obj. | Hitos (peso) | Pts |
-|---|---|---|
-| A4.1 Intro omisible (M-26, FA-10) | Reproductor/códec (M) ✗ · Diseño compatible exe intacto (M) ✗ · Impl.+verif. (L) ✗ | 0/11 |
-| A4.2 Configuración (M-01/02/03, M-20) | Diseño (L) ✗ · Impl. (XL) ✗ · Menú en juego (XL) ✗ | 0/21 |
-| A4.3 Input (M-06…M-11, FA-06) | Comportamiento original (M) ✗ · Diseño (L) ✗ · Impl.+verif. (XL) ✗ | 0/16 |
-| A4.4 Ventana/multi (M-05, M-18, M-19) | Alt+Tab robusto (L) ✗ · Borderless+multi/DPI (XL) ✗ · Verificado (M) ✗ | 0/16 |
+## Procedimiento de actualización
 
-### 4.7 Área A5 — Preparación para publicación (12/36 → 33%)
+1. Revisar el estado técnico y las evidencias del último trabajo.
+2. Cambiar un entregable a «implementado y verificado» solo cuando cumpla su criterio y exista evidencia.
+3. Recalcular la fracción de cada área con el inventario anterior.
+4. Actualizar el SVG con exactamente los mismos valores.
+5. Actualizar README, ROADMAP y CHANGELOG cuando el cambio afecte a la presentación pública.
+6. Comprobar enlaces, cifras y coherencia entre documentos.
+7. No eliminar registros históricos ni cambiar el alcance para inflar porcentajes.
 
-Solo puntúan entregables de planificación/documentación que EXISTEN;
-verificaciones y revisiones siguen pendientes. Nada implementado.
-
-| Obj. | Hitos (peso) ✓/✗ | Pts | Estado | Evidencia |
-|---|---|---|---|---|
-| A5.1 Docs instalación (BUILD) | Requisitos (M) ✓ · Guías escritas (L) ✗ · Guías verificadas (M) ✗ | 3/11 | EN CURSO | BUILD.md §distribución |
-| A5.2 Copias/restauración (BUILD) | Requisitos (S) ✓ · Procedimiento verificado (M) ✗ | 2/5 | EN CURSO | BUILD.md §distribución |
-| A5.3 Separación propio/original | Principio (S) ✓ · Diseño conforme (M) ✗ | 2/5 | EN CURSO | BUILD.md; LICENSE §3 |
-| A5.4 Legal/avisos (LICENSE) | Licencias doc. (S) ✓ · Aviso no-afiliación (XS) ✓ · Evaluación método (M) ✗ · Confirmación idoneidad (S) ✗ | 3/8 | EN CURSO | LICENSE §1–§6; README |
-| A5.5 Repo/historial | Checklist (S) ✓ · Auditoría ejecutada (M) ✗ · Limpieza si procede (S) ✗ | 2/7 | EN CURSO | LICENSE §6 |
-
-### 4.8 Cifras vigentes (2026-10-09, ref `e9e846c`)
-
-| Área | Puntos | % |
-|---|---|---|
-| A1 Compatibilidad y diagnóstico | 20/62 | 32% |
-| A2 Investigación técnica | 25/54 | 46% |
-| A3 Mejoras gráficas | 0/69 | 0% |
-| A4 Calidad de vida y UX | 0/64 | 0% |
-| A5 Preparación para publicación | 12/36 | 33% |
-| **GLOBAL** | **57/285** | **20%** |
-| **MAIN (1ª jugable)** | **14/35 · 6/12 hitos** | **40%** |
-
-Comprobación: 20+25+0+0+12=57 ✓ · 62+54+69+64+36=285 ✓ ·
-57/285=20.0%→20% · 20/62=32.26%→32% · 25/54=46.30%→46% ·
-12/36=33.33%→33%.
-MAIN: 2+3+3+2+2+2=14 ✓ · total 35 ✓ · 14/35=40.0%→40% · hitos 6/12 ✓.
-
-## 4.9 MAIN — primera versión jugable preparada para pruebas (14/35 → 40%)
-
-**Definición.** MAIN mide el avance hacia una versión mínima que permite
-probar el juego y las mejoras implementadas: arranque reproducible desde
-una copia legítima, sesión básica de pruebas posible (controles, gráficos
-y audio suficientes), incidencias críticas resueltas o aceptadas por
-escrito, y documentación de instalación/validación/limitaciones. Es una
-métrica independiente del progreso general, con su propio denominador.
-
-**Fórmula.** La misma escala de §3 (XS1/S2/M3/L5/XL8) y reglas de §4.1:
-`% MAIN = 100 × puntos completados / 35`, redondeo al entero. Se publica
-además el conteo de hitos (6/12). MAIN reutiliza *evidencias* de las áreas
-(referencias en la tabla) pero nunca sus puntos: sin doble cuenta dentro
-de cada métrica. Investigar, planificar o documentar una solución no
-completa un hito MAIN.
-
-| ID | Hito (condición de aceptación) | Peso | Estado | Evidencia |
-|---|---|---|---|---|
-| MAIN-1 | Original intacto (MD5 del exe verificado, sin sustitución silenciosa) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (MD5 re-confirmado) |
-| MAIN-2 | Método de ejecución reproducible documentado (F-05 + imagen, entorno Win definido) | M=3 | ✓ COMPLETADO | TESTING Hito 1 (ejecutado 1 vez) |
-| MAIN-3 | Arranque hasta sección jugable | M=3 | ✓ COMPLETADO | TESTING Hito 1 (nivel + movimiento) |
-| MAIN-4a | Audio suficiente (música + SFX en config base) | S=2 | ✓ COMPLETADO | TESTING Hito 1 |
-| MAIN-4b | Controles básicos (movimiento del personaje demostrado) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (mapeo → limitación) |
-| MAIN-4c | Gráficos suficientes (I-21 resuelto o aceptabilidad evaluada) | M=3 | ✗ PENDIENTE | I-21 sin causa ni evaluación |
-| MAIN-5 | Críticos resueltos o aceptados por escrito (I-21/I-22) | L=5 | ✗ PENDIENTE | KNOWN I-21/22 sin causa |
-| MAIN-6 | Guías de usuario (instalación, requisitos, validación, copias, restauración, desinstalación) | L=5 | ✗ PENDIENTE | Solo requisitos (BUILD) |
-| MAIN-7 | Lista BYO explicada (qué aporta cada usuario) | S=2 | ✓ COMPLETADO | TESTING Hito 1 (copia + imagen) |
-| MAIN-8 | Procedimiento de validación repetible + lista de limitaciones | M=3 | ✗ PENDIENTE | Checklist MAIN inexistente |
-| MAIN-9 | Sin materiales protegidos en el entregable | S=2 | ✗ PENDIENTE | Verificable al empaquetar |
-| MAIN-10 | Checklist de aceptación MAIN superado | M=3 | ✗ PENDIENTE | Checklist sin definir |
-
-**Fuera del alcance de MAIN** (siguen en el progreso general): M-01…M-03
-(config), M-04/M-05 (gráficos), M-06…M-11 (input moderno), M-12…M-17
-(gráficos), M-18/M-19/M-20, M-21/M-22, M-23, M-24, M-25, M-26,
-FA-04/05/07/08/15 en profundidad y RE Etapa B+
-(más allá de lo que exija MAIN-5). El método de corrección de I-21/I-22 se
-decidirá en Fase 3+; MAIN no presupone ninguna implementación concreta.
-
-**100% MAIN = PRIMERA VERSIÓN JUGABLE PREPARADA PARA PRUEBAS.** No significa
-proyecto terminado ni pulido máximo. Tres niveles distintos: (1) *jugable
-para pruebas* (MAIN 100%); (2) *autorizada para distribución pública*
-(requiere revisión legal, licencias y empaquetado: LICENSE §5–§6, fase
-independiente); (3) *modernización completa* (toda la hoja de ruta). En el SVG (v3.1+)
-esta leyenda se abrevia como etiqueta «VERSIÓN JUGABLE» bajo la barra
-MAIN; el significado completo vive en este documento, no en el panel.
-
-## 4.10 Zona de resumen del panel (contenido literal del SVG)
-
-Actualizar estas líneas solo con hechos verificados (§6). Hipótesis, no.
-
-**CONSEGUIDO**: Instalación + arranque + nivel / Audio base ·
-ficha glide2x.
-**EN INVESTIGACIÓN**: Wrapper: nGlide 2.10 / I-21 · I-22 ·
-API efectiva.
-**SIGUIENTE HITO**: Causa de 25 FPS estables (FA-05 · I-01/I-02);
-A/B VSync ejecutado (nulo, 6ª); siguiente: medida precisa+pacing (TESTING 6ª);
-enabler verificado (2026-10-11): shim Glide validado V-0→V-2 y exports
-38/38 resueltos por el cargador (P-W5, PC); micro-línea v3.6: «Shim OK
-V-0→V-2+P-W5 + smoke a menú» (smoke in-game 2026-10-11, reportado:
-arranque real hasta menú; copia aislada; registro restaurado).
-
-## 5. Registro de cambios del panel
-
-| Versión | Fecha | Commit | Cambio |
-|---|---|---|---|
-| v1.0 | 2026-10-09 | cbd7fab | Inicialización con datos Hito 1 (1ª–4ª sesión). Global 16%. |
-| v2.0 | 2026-10-09 | 3e56f1c | Sección MAIN (40%, 14/35, 6/12 hitos) + resumen + nombres legibles. Global sin cambios (16%). |
-| v3.0 | 2026-10-09 | 6ae7059 | Rediseño visual tarjeta: MAIN protagonista (40% gigante + barra ancha), global secundario, 5 mini-tarjetas, resumen compacto. Cifras idénticas. |
-| v3.1 | 2026-10-09 | 87f33e3 | Ajustes: 40% MAIN reducido (124→68px), secundarias ampliadas (resumen 12px, áreas 26/9.5/9px), leyenda 100% sustituida por etiqueta VERSIÓN JUGABLE. Cifras idénticas. |
-| v3.2 | 2026-10-09 | 6114f0b | Datos: A2.2 wrapper=SÍ (nGlide 2.10 + DLL 2.61 + render en HW moderno) → A2 37%, global 18%. Siguiente hito: causa 25 FPS. Mismo diseño. |
-| v3.3 | 2026-10-09 | (este commit) | Datos: A2.3 atribución nGlide 2.10 (payload-hash = drop oficial) → A2 46%, global 20%. Corrige cabecera §4.4 (stale). Mismo diseño. |
-| v3.4 | 2026-10-11 | 0c22556 | Estado verificado: instrumentación Glide validada en PC (shim V-0→V-2; V-2 = arnés 14/14 + `SUITE: ALL PASS` + `V2_RC=0`; log sha256 `3ff4672a…`) → micro-línea en la zona de resumen (col. SIGUIENTE HITO) + fecha/ref. **Cifras sin cambios** (ningún hito/área cambia). Mismo diseño. |
-| v3.5 | 2026-10-11 | (este commit) | Estado verificado: P-W5 SUPERADO (probe PC, reportado: resolución 38/38 de exports por el cargador; 3/3 hooks → shim, 35/35 forwarders → `glide2x_gex_real`; sin llamadas ni Gex; evidencias archivadas 2026-10-11 en `REZengineered/Reports/`, log SHA-256 `c630759a…`, ahora recomputado 2026-10-11 y coincidente) → micro-línea del resumen actualizada. **Cifras sin cambios** (P-W5 no completa ningún hito del panel). Mismo diseño. |
-| v3.6 | 2026-10-11 | (este commit) | Estado verificado: smoke in-game con H4a (reportado: arranque real hasta el menú; copia aislada; registro 32-bit restaurado) → micro-línea del resumen actualizada («Shim OK V-0→V-2+P-W5 + smoke a menú»). **Cifras sin cambios** (el smoke no completa hitos del panel). Mismo diseño. |
-
-## 6. Procedimiento de actualización (Arena)
-
-1. Leer este documento + los objetivos afectados por el último trabajo.
-2. Identificar qué criterios de aceptación cambiaron REALMENTE (evidencia).
-3. Actualizar estados y evidencias en las tablas (§4.3–§4.7, §4.9–§4.10).
-4. Recalcular con §4.2 (verificar sumas como en §4.8).
-5. Actualizar el SVG con los mismos datos (geometría abajo) + fecha/ref.
-6. Comprobar coherencia SVG ↔ este doc ↔ MODERNIZATION_GOALS ↔ ROADMAP.
-7. Registrar fecha, commit y fila en §5.
-8. Dejar constancia de bloqueos y faltas de evidencia.
-
-Actualizar solo ante cambios reales de estado; lo editorial no altera
-cifras. Prohibido tocar pesos/criterios/alcance para inflar el progreso;
-todo cambio metodológico se documenta con su impacto en cifras anteriores.
-
-### Regla permanente del dashboard (adoptada 2026-10-09)
-
-El SVG es el dashboard oficial y persistente. Actualizarlo SOLO ante
-cambio real y verificable: hito completado con evidencia; cambio
-justificado de % MAIN/global/área; cambio de estado documentado;
-nuevo siguiente hito o dato resumido; corrección de un dato erróneo.
-NO actualizar por revisar docs, analizar posibilidades, repetir
-diagnósticos sin evidencia nueva, reorganizar tareas o iniciar sesión.
-Investigar ≠ resolver; documentar ≠ solucionar. Al actualizar:
-evidencia → SVG (solo elementos afectados) → MD → CHANGELOG →
-revisión de coherencia. Sin cambios reales: SVG y MD intactos, sin
-commits vacíos. Conservar el diseño aprobado (solo datos, barras,
-estados y textos afectados); no rediseñar sin petición explícita.
-Cada sesión informa si el dashboard cambió o no, y por qué.
-
-### Geometría del SVG v3.6 (viewBox 0 0 760 700)
-
-- Tarjeta: x=16 y=16 w=728 h=668. MAIN: «40%» 68px + stats
-  (6/12 hitos, 14/35 puntos) + barra protagonista x=44 w=672 h=34 →
-  relleno = % × 6.72 (40% → 268.8); ticks en x=212/380/548 (25/50/75%);
-  etiqueta «VERSIÓN JUGABLE» bajo la barra (significado completo
-  en §4.9, no en el SVG).
-- Global secundario: «20%» 40px + barra x=140 w=400 h=16 →
-  relleno = % × 4.0 (20% → 80) + «57/285 PTS».
-- Mini-tarjetas de área: x=44/180/316/452/588, w=128 h=104;
-  minibarra x+10 w=108 h=10 → relleno = % × 1.0
-  (A1 32 · A2 46 · A3 0 · A4 0 · A5 33).
-- Jerarquía tipográfica: cabecera 15px · MAIN 68px · global 40px ·
-  % áreas 26px · stats 15px · secundarias 12/11/10.5px · micro 9.5/9px.
-- Textos a actualizar: % + puntos MAIN/global/áreas, estado MAIN, fecha
-  (UPD), referencia (REF), versión del panel, líneas del resumen.
-- Resumen: micro-línea verde 9px en la columna SIGUIENTE HITO
-  (x=520, y=630) con el dato de estado verificado (v3.6: «Shim OK
-  V-0→V-2+P-W5 + smoke a menú», 2026-10-11; ancho ≤ 36 chars a 9px
-  para no salir de la columna); retirar o actualizar solo si el
-  dato deja de ser el vigente.
-- Con 0% no hay rect de relleno (añadirlo al superar 0, misma x/y/h).
-- Colores: marco #7c3aed · texto #e9d5ff · dim #8b5cf6 ·
-  verde #4ade80 · ámbar #fbbf24 · gris #6b7280 · fondos #050309/#0c0616.
+**Regla:** investigar no equivale a implementar; documentar no equivale a integrar; compilar no equivale a validar en ejecución; mostrar MAP7 no equivale a tener un juego jugable.
