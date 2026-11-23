@@ -16,7 +16,7 @@ No es un remake con un motor nuevo ni una simple modificación del ejecutable or
 
 <img src="docs/PROJECT_STATUS.svg" alt="Panel de progreso de Gex REZengineered" width="100%" />
 
-Los porcentajes se calculan sobre entregables definidos y evidencias verificadas. No representan el porcentaje total del juego terminado. Consulta la [metodología y el desglose de cada cifra](docs/PROJECT_STATUS.md).
+La barra principal muestra el camino a la primera build jugable DX11: **10 hitos definidos, 1 completado (10%)**. Debajo aparecen los porcentajes independientes de cada subsistema. Los hitos parciales no suman hasta estar verificados. Consulta los [criterios y el desglose de cada cifra](docs/PROJECT_STATUS.md).
 
 ## ¿Qué queremos conseguir?
 
