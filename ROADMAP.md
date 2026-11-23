@@ -4,7 +4,7 @@ Este documento presenta el plan del proyecto en lenguaje accesible. El detalle t
 
 **Objetivo principal:** conseguir una primera versión nativa y jugable de *Gex: Enter the Gecko* para PC, basada en el comportamiento de la versión original y con un renderer Direct3D 11.
 
-**Estado a 2026-11-23:** fundamentos nativos implementados; escenario MAP7 y menú en integración; gameplay todavía pendiente.
+**Estado a 2026-11-23:** fundamentos nativos implementados; escenario MAP7 y menú en integración; gameplay todavía pendiente. El camino a la primera build jugable DX11 está en **10% (1/10 hitos completos)**; el criterio y la lista de hitos están en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 ## Estados
 
