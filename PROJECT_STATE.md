@@ -8,9 +8,55 @@
 **Implementation:** Started 2026-10-31 — native port skeleton in `port/` (C11, no dependencies): reader for the `SLAG` audio container (`0x0053899C` + loader `0x005388AC`), 29 test cases + fuzz, 69 305 checks, `docs/SAG_CONTAINER.md`; **audio route** implemented the same day (`0x00538285` IMA ADPCM decoder + `0x005380B3` streaming pump + `0x00538731` player) with an injectable backend, 60 052 + 144 checks, `docs/AUDIO_MIXER_RE.md`; **audible audio** added 2026-11-01 (I-2b): real DirectSound backend (`dsound.h`/`-ldsound`, no new dependency) and the frame-loop scheduler, 215 + 50 checks including the device suite, `docs/AUDIO_MIXER_RE.md` §16; **native frame loop** added 2026-11-01 (I-3): the M-13 accumulator moved into `port/src/core/loop_core.c` (single implementation, the prototype harness now compiles it), `port/src/core/frame.c` reproduces the measured order pre-frame → update × N → audio scheduler → present, 410 checks (incluida la regresión T6b del error de `pre_frame`) + `framedemo`, `docs/FRAME_LOOP_PORT.md`; **first native process** added 2026-11-02 (I-4): real Win32 window, `WM_KEYDOWN`/`WM_KEYUP` routing, focus loss, `QueryPerformanceCounter` clock and the I-3 frame loop behind a null renderer (`gexloop.exe`), 826 + 117 + 1009 new checks and a real-window run (Escape and `WM_CLOSE`, 0 errors), `docs/WINDOW_INPUT_PORT.md`; **renderer research & design** added 2026-11-02 (I-5): original Glide surface fully censused (38 imports), present sequence confirmed, alternatives evaluated (D3D 11 recommended over OpenGL/Glide-layer/software, conditioned on device-creation test R-1), `gex_renderer` contract proposed with the null renderer kept for tests, validation plan R-1…R-8; `docs/RENDERER_ARCHITECTURE_RESEARCH.md`; **D3D11 device** added 2026-11-02 (R-1): `gex_d3d11_device` creates/destroys the device in hardware and WARP modes (both reached feature level 11_1 on the maintainer machine), 205 new checks with Clang 22.1.8 and GCC 16.1.0, leak check by manual-refere... (line truncated to 2000 chars)
 **Testing:** Hito 1 + 5ª–9ª sesión (2026-10-09, PC mantenedor; nGlide 2.10, ≈25 FPS Steam, wrapper = nGlide 2.10 CONFIRMADO por payload-hash, imports solo-sistema/backend dinámico; A2 46%, global 20%; resto pendiente) + smoke in-game H4a (2026-10-11, PC mantenedor: arranque real hasta menú; registro restaurado)
 **Sync rule:** [docs/REPO_SYNC_RULE.md](docs/REPO_SYNC_RULE.md)
-**Last updated:** 2026-11-22 (S-13: el compositor 2D del ejecutable, reconstruido
-y cableado; cinco rutas 2D, `gex/comp2d.h`, prepend del fondo y
-`--backdrop gradient`)
+**Last updated:** 2026-11-24 (S-14: el «fondo 2D» del menú de MAP7 es un
+anillo de 16 paneles de cielo; emisor original localizado con REA + Ghidra)
+
+### S-14: el fondo del menú de MAP7 es un anillo de 16 paneles de cielo (2026-11-24)
+
+Detalle completo en
+[`docs/reports/scene/S14_MAP7_MENU_BACKGROUND.md`](docs/reports/scene/S14_MAP7_MENU_BACKGROUND.md).
+
+**Síntoma y método.** S-13 dejó el fondo del menú como aproximación (degradado
+de tres paradas) porque no encontraba el emisor: los tiles 325..365 no encajaban
+como rejilla y el BSP no los usaba. Para cerrarlo se habilitó por fin el carril
+nativo: **WSL2 Ubuntu + JDK 21 + Ghidra 12.1.4 + REA 6.7.0** (instalación local,
+sin `sudo`, variables de sesión), con `rea doctor --provider ghidra` →
+**`healthy:true`** e `rea inspect` aceptando el **PE32 x86**. Todo el trabajo
+sobre una copia verificada por SHA-256; originales intactos.
+
+**Hallazgo principal: no es un fondo 2D, es geometría de cielo.** La cabecera
+de nivel tiene un par `(cuenta, puntero)` en `+0x20`/`+0x24` = **(16, 0x45CC)**
+que apunta a un banco de **16 registros de 24 B**. Cada registro describe un
+panel: `{flags(bit0=oculto), 48 polígonos, ptr vértices, ptr polígonos, x, y, z,
+radio, 35 vértices}`. Cada panel es una rejilla **5×7 = 35 vértices** (8 B:
+`s16 x,y,z`) y **24 quads = 48 triángulos** (12 B: `v0,v1,v2,flags,uv_ptr`). Los
+16 paneles rodean el centro del nivel `(−4364,−3239)` con radio ≈ 8 765 y
+separación ~18–22°: un **cilindro de cielo**. Se dibujan **todos** en cada
+frame; no hay animación ni selección de fotograma.
+
+**Emisor original, localizado y decompilado.** `FUN_0043DD7A` (frame) registra
+`FUN_0040172B` en `+0x4CA4` y lo invoca; `FUN_0040172B` recorre los 16 registros
+(salta los que tienen el bit 0), fija la matriz por panel, hace *culling* con el
+radio y llama a `FUN_004013A0`; `FUN_004013A0` proyecta cada triángulo y lo
+encadena como comando **`0x24`** de 36 B (3 × `(x,y)` + 3 × `(uv,textura)`) en
+el buffer 2D del frame; `FUN_004659DA` lo rasteriza con `grTexSource` +
+`grDrawTriangle`.
+
+**Texturas, UV y orden.** Las **41** texturas `325..365` se usan **todas**, en
+ventanas de **4×6 celdas** por panel. El registro UV (12 B) lleva `(u8 u, u8 v)`
+por vértice y la **textura en `u16 +0x06`** (verificado en los 768 triángulos;
+el rasterizador la lee en `cmd+0x1A`). El **sol** está en el bloque `350..363`
+de los paneles 8 y 4 (los que miran a `+X`). `hideBG`/`unhideBG` alternan el bit
+0 de cada registro.
+
+**Corrección de S-13.** Los tiles **sí** forman rejilla, pero no una textura
+estirada: son ventanas de 4×6 sobre un panorama de 41 rodajas. La hipótesis
+«textura estirada de `331..333`/`342`» queda descartada.
+
+**Alcance.** Investigación **estática**, sin cambios en el port ni en assets.
+No se aumentan porcentajes: el panel sigue igual (S-14 no implementa nada).
+**Pendiente:** orden de celdas de 7 paneles con topología distinta, integrar los
+24 quads por panel en `gex_comp2d` y aclarar el origen de las estrellas.
 
 ### S-13: el compositor 2D del ejecutable - reconstruido y cableado (2026-11-22)
 

@@ -563,9 +563,9 @@ Estas cuestiones quedan **expresamente abiertas**:
 * [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md) — contenedor, descriptor y flujo 3D;
   §2.2 corregida por esta auditoría.
 * [`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md) — consolidación de U-1.
-* [`docs/U1_GEOMETRY_RECOVERY_PLAN.md`](docs/U1_GEOMETRY_RECOVERY_PLAN.md) —
+* [`docs/U1_GEOMETRY_RECOVERY_PLAN.md`](../../U1_GEOMETRY_RECOVERY_PLAN.md) —
   plan de recuperación de geometría.
-* [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) — plan del
+* [`docs/D3D11_FIRST_SCENE_PLAN.md`](../../D3D11_FIRST_SCENE_PLAN.md) — plan del
   primer escenario D3D11 (S-1 **no** implementado).
 
 ---

@@ -56,7 +56,7 @@ Estas mejoras son objetivos de futuro, no funciones que afirmemos tener ya imple
 | Fundamentos del port nativo | ✓ Implementados y probados |
 | Renderer Direct3D 11 | ✓ Base y pipeline funcionando en GPU real |
 | Escenario MAP7 | ◐ Geometría, cámara y texturas integradas; quedan detalles de fidelidad |
-| Menú principal | ◐ Escena y botones visibles; falta completar fondo exacto, encuadre e interacción |
+| Menú principal | ◐ Escena y botones visibles; fondo real localizado (anillo de 16 paneles de cielo, S-14) pendiente de integrar; falta encuadre e interacción |
 | Audio | ◐ Ruta base implementada; falta integrarla con el contenido y la lógica del juego |
 | Entrada | ◐ Ventana y teclado capturados; falta el control completo del personaje |
 | Jugabilidad | ○ Pendiente de integración |

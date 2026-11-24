@@ -157,7 +157,7 @@ cada una declara la API concreta. `0x0046558A` concentra `_grDrawTriangle`,
 `_grDrawLine`, `_grDrawPlanarPolygonVertexList`, `_grTexDownloadTable`, entre
 otras. Que sean «render» es la hipótesis; **qué** dibuja cada una no se afirma
 aquí (U-1f sí determinó el papel de `0x00432BBD` y `0x00432DD1`: glifo y
-rectángulo 2D, ver [`../U1F_RESULTADOS.md`](../U1F_RESULTADOS.md)).
+rectángulo 2D, ver [`../U1F_RESULTADOS.md`](reports/u1/U1F_RESULTADOS.md)).
 
 ### S3 — HYPOTHESIS: audio, mezcla y voz
 

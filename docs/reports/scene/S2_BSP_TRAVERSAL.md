@@ -598,7 +598,7 @@ vértices con el registro principal del mismo triángulo.
 > tres profundidades. El modo de mezcla **no** es global: lo decide el
 > registro de textura en tiempo de ejecución y puede ser "mezcla con alfa" o
 > "opaco" según el formato. Detalle y evidencia en
-> [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) § 19.
+> [`docs/D3D11_FIRST_SCENE_PLAN.md`](../../D3D11_FIRST_SCENE_PLAN.md) § 19.
 
 
 `cam+0xE0` es un **puntero** a una estructura de 0x20 B, distinta de la matriz

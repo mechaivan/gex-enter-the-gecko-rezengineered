@@ -12,7 +12,7 @@ de texto 2D y el dibujo de un rectángulo 2D sólido (HUD/consola). La geometrí
 del mundo se dibuja en `0x0046558A`, que no comparte argumentos, tablas ni
 recursos con ellas. Las hipótesis de U-1a…U-1e sobre «stride de 12 bytes» y
 «cálculo de w» eran lecturas incorrectas y quedan retiradas. Evidencia completa
-en [`U1F_RESULTADOS.md`](../U1F_RESULTADOS.md).
+en [`U1F_RESULTADOS.md`](reports/u1/U1F_RESULTADOS.md).
 
 ## Objetivos
 
@@ -163,12 +163,12 @@ de cabecera de `.DFX`/`.VFX`, estructura de `0x0057B600`.
 `+0x8`/`+0xB` en triángulos; longitud `0x20` del opcode `0x30`; estructura
 interna del grafo `.DFX`; semántica de `record[+0x0C]` y de `+0x14` del `.VFX`;
 registro de cierre `0x64FB40`. Véase
-[U1H_RESULTADOS.md §9, §10, §11 y §12](../U1H_RESULTADOS.md).
+[U1H_RESULTADOS.md §9, §10, §11 y §12](reports/u1/U1H_RESULTADOS.md).
 
 ## U-1h — Interpretación final (completada 2026-11-06; auditada 2026-11-07)
 
 **Estado:** ✅ COMPLETADA Y AUDITADA. Evidencia completa en
-[U1H_RESULTADOS.md](../U1H_RESULTADOS.md), con la auditoría final en §18.
+[U1H_RESULTADOS.md](reports/u1/U1H_RESULTADOS.md), con la auditoría final en §18.
 Subfase C (U-1) cerrada.
 
 **Objetivo:** cerrar la semántica de los campos del flujo 3D y del grafo `.DFX`,
@@ -182,7 +182,7 @@ y resolver estáticamente las cuestiones abiertas de U-1g.
   identificados: 10 tienen semántica demostrada, `+0x38` es hipótesis,
   `+0x34`/`+0x3C` son parciales y `+0x04`/`+0x08`/`+0x0C` no están
   identificados (estado campo a campo en
-  [`U1_CONSOLIDACION.md`](../U1_CONSOLIDACION.md) §5):
+  [`U1_CONSOLIDACION.md`](reports/u1/U1_CONSOLIDACION.md) §5):
   `[+0x28]+nPolys*0x14 == [+0x24]` → `+nVerts*12 == [+0x2C]` →
   `+nNormals*6 == [+0x00]`.
 - Nodo BSP `0x20` B (unión interno/hoja, tipo `+0x12` = 1/2), polígono `0x14` B,
@@ -209,7 +209,7 @@ del contenedor) **sigue sin iniciarse**.
 
 La mecánica de carga se verificó instrucción a instrucción contra el
 desensamblado y contra los bytes de `AZTEC16.DFX` y `GEX.DFX`. Referencia
-técnica única: [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md).
+técnica única: [`U1_DFX_RELOCATION_AUDIT.md`](reports/u1/U1_DFX_RELOCATION_AUDIT.md).
 
 Hechos fijados:
 
@@ -238,7 +238,7 @@ imagen de `GEX.DFX` en `0x800` (no 1 292), `delta = B` (no 0) y compactación a
 1. **Campos del descriptor sin consumidor localizado:** `desc+0x10/+0x14`,
    `desc+0x30`, `desc+0x34`, `desc+0x38/+0x3C` y los bits de flags de
    polígono sin marcar. Estado campo a campo en
-   [`U1_CONSOLIDACION.md`](../U1_CONSOLIDACION.md) §5: 10 demostrados,
+   [`U1_CONSOLIDACION.md`](reports/u1/U1_CONSOLIDACION.md) §5: 10 demostrados,
    1 hipótesis, 3 sin identificar y 2 parciales. Cerrarlos exige
    instrumentación dinámica.
 2. **`GEX.DFX`:** modelo/personaje, no nivel; el formato de modelo
@@ -263,7 +263,7 @@ imagen de `GEX.DFX` en `0x800` (no 1 292), `delta = B` (no 0) y compactación a
    (2026-11-08): firma `dfx_load_at(path, dest)`, sin llamadores estáticos en
    este build. Abiertas su intención, la constante `0x801FC000` y el recorte de
    `0x200` DWORDs
-   ([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md) §H). Tampoco
+   ([`U1_DFX_RELOCATION_AUDIT.md`](reports/u1/U1_DFX_RELOCATION_AUDIT.md) §H). Tampoco
    están resueltos la identidad exacta de los thunks de E/S ni la
    generalización de `[0x647FAC]` fuera de esta ruta (§F del mismo documento).
 
@@ -279,15 +279,15 @@ imagen de `GEX.DFX` en `0x800` (no 1 292), `delta = B` (no 0) y compactación a
 
 ## Documentación relacionada
 
-- [U1_CONSOLIDACION.md](../U1_CONSOLIDACION.md): consolidación final de U-1
+- [U1_CONSOLIDACION.md](reports/u1/U1_CONSOLIDACION.md): consolidación final de U-1
   (ámbitos, estado del descriptor y pendientes).
-- [U1_DFX_RELOCATION_AUDIT.md](../U1_DFX_RELOCATION_AUDIT.md): auditoría
+- [U1_DFX_RELOCATION_AUDIT.md](reports/u1/U1_DFX_RELOCATION_AUDIT.md): auditoría
   definitiva de la carga y relocalización `.DFX` (2026-11-08); referencia
   técnica de la mecánica del contenedor.
-- [U1H_RESULTADOS.md](../U1H_RESULTADOS.md): resultados detallados de U-1h.
-- [U1G_RESULTADOS.md](../U1G_RESULTADOS.md): resultados de U-1g (con nota de corrección de U-1h).
-- [U1F_RESULTADOS.md](../U1F_RESULTADOS.md): resultados detallados de U-1f.
-- [U1E_RESULTADOS.md](../U1E_RESULTADOS.md): resultados de U-1e (corregidos por U-1f).
+- [U1H_RESULTADOS.md](reports/u1/U1H_RESULTADOS.md): resultados detallados de U-1h.
+- [U1G_RESULTADOS.md](reports/u1/U1G_RESULTADOS.md): resultados de U-1g (con nota de corrección de U-1h).
+- [U1F_RESULTADOS.md](reports/u1/U1F_RESULTADOS.md): resultados detallados de U-1f.
+- [U1E_RESULTADOS.md](reports/u1/U1E_RESULTADOS.md): resultados de U-1e (corregidos por U-1f).
 - [CHANGELOG.md](../CHANGELOG.md): registro de cambios del proyecto.
 - [ROADMAP.md](../ROADMAP.md): roadmap del proyecto.
 - [PROJECT_STATE.md](../PROJECT_STATE.md): estado actual del proyecto.

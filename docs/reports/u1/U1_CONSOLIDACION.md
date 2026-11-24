@@ -87,7 +87,7 @@ en el documento correspondiente y aquí se registra el estado consolidado.
 
 | Documento | Contenido | Estado tras esta consolidación |
 |---|---|---|
-| [`docs/U1_GEOMETRY_RECOVERY_PLAN.md`](docs/U1_GEOMETRY_RECOVERY_PLAN.md) | objetivos, evidencias por ronda y pendientes | corregido: descriptor y pendientes |
+| [`docs/U1_GEOMETRY_RECOVERY_PLAN.md`](../../U1_GEOMETRY_RECOVERY_PLAN.md) | objetivos, evidencias por ronda y pendientes | corregido: descriptor y pendientes |
 | [`U1E_RESULTADOS.md`](U1E_RESULTADOS.md) | relación geometría-índices (U-1e) | histórico; nota de U-1f y remisión a esta consolidación |
 | [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md) | relación argumentos/índices-recursos; retirada de H1/H6 | histórico válido; remisión a esta consolidación |
 | [`U1G_RESULTADOS.md`](U1G_RESULTADOS.md) | ruta 3D y contenedores `.DFX`/`.VFX` | histórico; nota de corrección de U-1h y remisión |
@@ -208,7 +208,7 @@ en este build (sin `call`/`jmp`, sin VA literal y sin `.reloc`), por lo que es
 código no referenciado. Detalle: [`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) §H.
 
 El parser del contenedor (S-1) se ha implementado en `port/`
-([`S1_DFX_PARSER.md`](S1_DFX_PARSER.md)) y utiliza únicamente la ruta de
+([`S1_DFX_PARSER.md`](../scene/S1_DFX_PARSER.md)) y utiliza únicamente la ruta de
 `0x00461E0B`; la variante sigue sin uso.
 
 Ninguna de estas precisiones cambia los resultados estructurales de §4 y §5:
@@ -260,7 +260,7 @@ estructura.
 > solo para esos dos valores. La prueba de visibilidad de `0x401C00` no usa
 > planos en `cam+0xC8/0xD4/0xD8`, sino dos matrices `int16` de 3×3 en
 > `cam+0x88` (A) y `cam+0xA8` (B); detalle en
-> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md).
+> [`S2_CAMERA_VISIBILITY.md`](../scene/S2_CAMERA_VISIBILITY.md).
 > La matriz `M = *[cam+0xE8]` que alimenta A/B se genera por la cadena
 > `0x46DD40` → `0x46E643`: rotaciones Euler Z → Y → X con ángulos crudos
 > (`cam+0x30/0x32/0x34`, o `cam+0x128/0x12A/0x12C` en rama alternativa),

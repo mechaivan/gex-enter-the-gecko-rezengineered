@@ -662,7 +662,7 @@ Llamador único: `0x0043DECE`, dentro de `0x0043DC39`, justo antes de
 
 > **Nota de corrección (2026-11-09).** El texto anterior se conserva como
 > histórico, pero tres afirmaciones son incorrectas y quedan sustituidas por
-> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md):
+> [`S2_CAMERA_VISIBILITY.md`](../scene/S2_CAMERA_VISIBILITY.md):
 >
 > 1. `cam+0x88` no son «7 `int16`» sino **9 `int16`** (matriz **A**), y existe
 >    una segunda matriz **B** de 9 `int16` en `cam+0xA8`.
@@ -1417,7 +1417,7 @@ UV, recorridos, emisores de nivel y despacho siguen verificados.
 Esta sección completa §6.2, §7 y §8 sin reescribir el histórico. La
 especificación detallada, con las marcas **[A]** demostrado / **[B]**
 parcialmente demostrado / **[C]** hipótesis por afirmación, está en
-[`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) §5. Aquí se fija el estado.
+[`S2_BSP_TRAVERSAL.md`](../scene/S2_BSP_TRAVERSAL.md) §5. Aquí se fija el estado.
 
 ### 20.1 Cadena de llamada
 

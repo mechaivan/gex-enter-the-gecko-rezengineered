@@ -17,6 +17,69 @@
 
 # CHANGELOG
 
+## 2026-11-24 - 0.0.0 - S-14: el "fondo 2D" del menu de MAP7 es un anillo de 16 paneles de cielo
+
+**Sintoma y metodo.** S-13 dejo cerrado el fondo del menu con una hipotesis ("textura
+estirada del grupo `331..333`/`342`") y una limitacion ("falta el emitter y su
+tabla"). Para cerrarlo se habilito por fin el carril nativo que llevaba meses
+bloqueado: **WSL2 Ubuntu + JDK 21.0.12.1 + Ghidra 12.1.4 PUBLIC + REA 6.7.0**,
+instalacion local al usuario, sin `sudo`, variables solo de sesion. Verificado:
+`rea doctor --provider ghidra` da **`healthy:true`** y `rea inspect` acepta
+`GEX3D.EXE` como **PE32 x86** (`image_base 0x400000`, 2 725 procedimientos,
+2 052 cadenas). La restriccion x86-64 era de las releases de REA en Windows, no
+del motor. Todo el trabajo sobre una copia verificada (SHA-256
+`7a9b6851...3e8254`); originales intactos. Detalle del entorno en
+`docs/REA_WINDOWS_ENABLEMENT.md` seccion 8.
+
+**El hallazgo: no era 2D ni una textura estirada.** La cabecera de nivel del
+`.DFX` contiene pares `(cuenta, puntero)`; el par `+0x20`/`+0x24` vale
+**(16, 0x45CC)** y apunta a un banco de **16 registros de 24 B**. Cada registro
+es un panel de cielo: `{u16 flags(bit0=oculto), u16 = 48 poligonos, u32 ptr
+vertices, u32 ptr poligonos, s16 x, s16 y, s16 z, u16 radio, u16 = 35
+vertices}`. Cada panel es una rejilla **5x7 = 35 vertices** de 8 B
+(`{s16 x,y,z, u16 pad}`, `v = fila*5 + col`) y **24 quads = 48 triangulos** de
+12 B (`{u16 v0,v1,v2, u16 flags, u32 uv_ptr}`). Los 16 paneles rodean el centro
+del nivel `(-4364, -3239)` con radio ~8 765 y separacion ~18-22 grados: un
+cilindro. Se dibujan **todos** cada frame; no hay animacion ni fotograma.
+
+**Emisor localizado y decompilado.** `FUN_0043DD7A` (frame) registra el pase BG
+en `+0x4CA4` (`FUN_0040172B`) y lo invoca; el pase recorre los 16 registros,
+salta los ocultos, fija la matriz por panel, hace culling con el radio y llama
+a `FUN_004013A0`; este proyecta cada triangulo y lo encadena como comando
+**`0x24`** de 36 B (3x `(x,y)` + 3x `(uv,textura)`) en el buffer 2D del frame;
+`FUN_004659DA` lo rasteriza con `grTexSource` (`0x467563`) + `grDrawTriangle`
+(`0x46781B`/`0x46782F`). El registro UV (12 B) lleva `(u8 u, u8 v)` por vertice
+y la **textura en `u16 +0x06`**; el rasterizador la lee en `cmd + 0x1A`.
+
+**Texturas.** Las **41** texturas `325..365` se usan **todas**, en ventanas de
+**4x6 celdas** por panel; el **sol** esta en el bloque `350..363` de los paneles
+8 y 4 (los que miran a `+X`). `hideBG`/`unhideBG` alternan el bit 0 del primer
+`u16` de cada registro; `FUN_005357A8` opera sobre la otra lista BG
+(`+0x78`/`+0x7C`, objetos de 48 B).
+
+**Verificacion.** 768 triangulos leidos del `.DFX`; 16 registros coherentes con
+bloques contiguos de 856 B (`polys - verts = 280`, `polys + 48*12 = verts` del
+siguiente; el registro 17 con stride 24 ya cae en la tabla de vertices del panel 0).
+Montaje del panorama con las 41 texturas, comparado con la captura del menu
+(`%TEMP%\s14_sky_panorama.png` como evidencia local, fuera del repo).
+Descartados con codigo: `FUN_0043306A` (quad de pantalla), `FUN_00433A17`
+(glifos 3D), `starz___` (malla sin textura y no colocada en `0x7CCC`).
+
+**Alcance.** Investigacion **estatica**: no se modifica el port, ni `gex_comp2d`,
+ni assets, ni el ejecutable. El panel de progreso **no cambia** (S-14 no completa
+ningun hito ni entrega producto; criterio conservador de
+`docs/PROJECT_STATUS.md`). Nuevos documentos:
+`docs/reports/scene/S14_MAP7_MENU_BACKGROUND.md` y
+`docs/TECHNICAL_DOCUMENTATION_INDEX.md`. Tras la reorganizacion documental del
+remoto (commit `6b7c472`), se repararon **62 enlaces relativos** de documentacion
+activa hacia los informes movidos a `docs/reports/scene/` (S1/S2/S3),
+`docs/reports/u1/`, `docs/reports/r4/` y `docs/audits/`; `docs/archive/` se
+conserva intacto como instantanea historica.
+
+**Pendiente.** Orden de celdas de 7 paneles con topologia de vertices distinta;
+integrar los 24 quads por panel en `gex_comp2d`; origen de las estrellas
+(`starz___` existe pero no esta colocado).
+
 ## 2026-11-22 - 0.0.0 - S-13: el compositor 2D del ejecutable, reconstruido y cableado
 
 **Sintoma y metodo.** S-11 dejo el fondo del menu como un color plano medido;
@@ -1355,7 +1418,7 @@ original aqui a ~25).
 
 **DATOS PUBLICADOS.** `analysis/menu_camera_map7.tsv` (las 428 muestras del
 vuelo + la muestra estable, sin rutas ni logs) y
-[`S3_MENU_CAMERA_SEQUENCE.md`](S3_MENU_CAMERA_SEQUENCE.md) (metodo, tabla
+[`S3_MENU_CAMERA_SEQUENCE.md`](docs/reports/scene/S3_MENU_CAMERA_SEQUENCE.md) (metodo, tabla
 temporal, mecanismo, perfil, limites y diseño para DX11). Los logs crudos
 **no** se publican.
 
@@ -4008,7 +4071,7 @@ revisado: structs, firmas con `state_flags`, flags, gate, validación),
   argumentos que construyen vértices y los recursos del juego. Resultado
   principal: **no hay relación entre las rutas 2D y la geometría 3D**; cada una
   tiene su propio modelo de datos. Documento:
-  [`U1F_RESULTADOS.md`](U1F_RESULTADOS.md).
+  [`U1F_RESULTADOS.md`](docs/reports/u1/U1F_RESULTADOS.md).
 - **`0x00432BBD` = glifo de texto 2D (no geometría 3D):** el primer argumento es
   un **índice de glifo**; se descompone en `col = glyph & 0xF` y
   `fila = glyph >> 4` y se convierte en coordenadas de textura sobre una rejilla

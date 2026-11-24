@@ -4,7 +4,7 @@ Este documento presenta el plan del proyecto en lenguaje accesible. Los informes
 
 **Objetivo principal:** conseguir una primera versión nativa y jugable de *Gex: Enter the Gecko* para PC, basada en el comportamiento de la versión original y con un renderer Direct3D 11.
 
-**Estado a 2026-11-23:** fundamentos nativos implementados; escenario MAP7 y menú en integración; gameplay todavía pendiente. El camino a la primera build jugable DX11 está en **10% (1/10 hitos completos)**; el criterio y la lista de hitos están en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+**Estado a 2026-11-24:** fundamentos nativos implementados; escenario MAP7 y menú en integración; gameplay todavía pendiente. El camino a la primera build jugable DX11 está en **10% (1/10 hitos completos)**; el criterio y la lista de hitos están en [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). El fondo del menú ya está localizado en el original (anillo de 16 paneles de cielo, S-14), pendiente de integrar.
 
 ## Estados
 
@@ -49,7 +49,7 @@ MAP7 es el escenario que aparece durante la presentación del menú original. Ya
 
 **Trabajo pendiente:**
 
-- Recuperar el fondo original texturizado, sus estrellas, el sol y la colocación exacta.
+- Integrar el fondo original ya localizado en S-14: anillo de 16 paneles de cielo con las 41 texturas `325..365`, más el orden de celdas de 7 paneles, el origen de las estrellas y el sol.
 - Reproducir la guirnalda de luces y resolver detalles visuales restantes.
 - Ajustar el encuadre con la cámara que usa el menú.
 - Completar la presentación del televisor y otros elementos pendientes.
@@ -99,8 +99,8 @@ La lista íntegra y sus dependencias están en [MODERNIZATION_GOALS.md](MODERNIZ
 
 El siguiente foco continúa siendo cerrar MAP7 y el menú antes de ampliar el alcance:
 
-1. Habilitar Ghidra + JDK 21 para que REA pueda descompilar el ejecutable y recuperar el emisor del fondo 2D.
-2. Resolver el fondo texturizado, estrellas/sol y guirnalda de luces.
+1. Integrar en el compositor 2D los 16 paneles de cielo reconstruidos en S-14 (`docs/reports/scene/S14_MAP7_MENU_BACKGROUND.md`), con las texturas reales, y validarlos contra la captura del menú.
+2. Resolver el orden de celdas de los 7 paneles con topología distinta, el origen de las estrellas y la guirnalda de luces.
 3. Medir el encuadre exacto de la presentación del menú.
 4. Resolver los detalles gráficos pendientes con evidencia, sin introducir cambios especulativos.
 5. Completar la interacción del menú y preparar la transición al primer nivel jugable.

@@ -224,7 +224,7 @@ memoria (`fopen` `0x00541060`, `fseek` `0x00540F90`, `ftell` `0x00540DE0`,
 **compacta** el `.DFX`: mueve la **imagen** (la región que sigue a la tabla de
 relocalización, en `aligned*4`, con `aligned = (count + 0x200) & ~0x1FF`) al
 principio del buffer y devuelve ese puntero. Esto **ya estaba documentado** en
-[`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md) § C.6, que llama a
+[`U1_DFX_RELOCATION_AUDIT.md`](../u1/U1_DFX_RELOCATION_AUDIT.md) § C.6, que llama a
 ese resultado «B (imagen compactada)» y lo almacena en `level[+4]`.
 
 > **Corrección (2026-11-13).** Lo publicado el 2026-11-12 («un array de
@@ -298,7 +298,7 @@ algoritmo ni el número de puntos de control.
 
 - El **S4** (cine) se ejecuta **antes** de la ruta 3D (3,7 / 15,1 / 25,8 s) y
   es un bucle **bloqueante** con su propio `grSstWinOpen` de 640×480
-  ([`docs/SUBSYSTEM_SEGMENTS.md`](docs/SUBSYSTEM_SEGMENTS.md) § S4).
+  ([`docs/SUBSYSTEM_SEGMENTS.md`](../../SUBSYSTEM_SEGMENTS.md) § S4).
 - La cámara que se mueve es **`cam = 0x0065CD80`**, la del **nivel** (la misma
   que consume el renderer del port y que se capturó en la ruta 3D), y se mueve
   **dentro** de la ruta 3D, con el nivel dibujándose.

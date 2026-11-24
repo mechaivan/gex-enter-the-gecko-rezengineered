@@ -16,11 +16,11 @@ parchear el ejecutable.
 **Binario de referencia:** `C:\GEX_REZ\E2_A_ORIGINAL\GEX3D.EXE` (PE32 i386,
 `imageBase = 0x00400000`), desensamblado completo con `llvm-objdump`.
 
-**Referencias:** [`U1H_RESULTADOS.md`](U1H_RESULTADOS.md),
-[`U1_CONSOLIDACION.md`](U1_CONSOLIDACION.md),
+**Referencias:** [`U1H_RESULTADOS.md`](../u1/U1H_RESULTADOS.md),
+[`U1_CONSOLIDACION.md`](../u1/U1_CONSOLIDACION.md),
 [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md),
-[`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md),
-[`U1_DFX_RELOCATION_AUDIT.md`](U1_DFX_RELOCATION_AUDIT.md).
+[`docs/D3D11_FIRST_SCENE_PLAN.md`](../../D3D11_FIRST_SCENE_PLAN.md),
+[`U1_DFX_RELOCATION_AUDIT.md`](../u1/U1_DFX_RELOCATION_AUDIT.md).
 
 **Niveles de confianza usados en este documento:**
 
@@ -992,7 +992,7 @@ Consecuencias para el puerto:
 - El futuro `gex_level_emit` necesita un **contexto de emisión** propio
   (`gex_emit_mat3` + traslación), construido a partir de la misma rotación pero
   sin reutilizar `gex_camera.m`. Contrato propuesto en
-  [`docs/D3D11_FIRST_SCENE_PLAN.md`](docs/D3D11_FIRST_SCENE_PLAN.md) §11.
+  [`docs/D3D11_FIRST_SCENE_PLAN.md`](../../D3D11_FIRST_SCENE_PLAN.md) §11.
 - Dos consumidores del original copian la matriz a los globales
   `0x646BE0..0x646BF0`/`0x646BB4..0x646BBC` con una diferencia: `0x4269C2`
   (BSP) copia la traslación **tal cual** y `0x4013A0` (modelos) la copia

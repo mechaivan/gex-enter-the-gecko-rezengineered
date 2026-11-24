@@ -336,8 +336,8 @@ proceso del juego, con volcado de memoria de solo lectura (`ReadProcessMemory`),
 lectura de la pila al entrar en la función y guiones de teclas para navegar
 los menús. No parchea el ejecutable. Sobre esta base se hizo la validación
 dinámica de la cadena de cámara de S-2 (2026-11-11): ver
-[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) §14 y
-[`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) §8.
+[`S2_CAMERA_VISIBILITY.md`](docs/reports/scene/S2_CAMERA_VISIBILITY.md) §14 y
+[`S2_BSP_TRAVERSAL.md`](docs/reports/scene/S2_BSP_TRAVERSAL.md) §8.
 
 ### 4.1 Reglas de la validación dinámica (2026-11-11)
 

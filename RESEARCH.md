@@ -42,8 +42,8 @@ lo ya verificado se indica en § «Áreas de investigación futura».
 > correcciones que solo aparecieron al comparar **fases** y no totales: la
 > profundidad de referencia es el maximo de las tres, y en la subdivision solo
 > `det2d >= 0` aborta. Resultados en
-> [`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 14 y
-> [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 8. Metodología y
+> [`S2_CAMERA_VISIBILITY.md`](docs/reports/scene/S2_CAMERA_VISIBILITY.md) § 14 y
+> [`S2_BSP_TRAVERSAL.md`](docs/reports/scene/S2_BSP_TRAVERSAL.md) § 8. Metodología y
 > reglas en [`REVERSE_ENGINEERING.md`](REVERSE_ENGINEERING.md) § 4.1.
 
 Los materiales (2026-11-11) se han reconstruido con el mismo metodo: se

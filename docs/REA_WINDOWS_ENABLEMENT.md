@@ -1,9 +1,12 @@
-# REA en Windows — diagnóstico verificado y plan de habilitación
+# REA en Windows — diagnóstico verificado, habilitación y uso real
 
-> Estado: **DIAGNÓSTICO CERRADO (2026-10-16) · HABILITACIÓN PENDIENTE DE
-> AUTORIZACIÓN**. Este documento no ejecuta, descarga ni instala nada.
-> Ninguna afirmación sobre resultados de REA está inventada: REA **no** se
-> ha ejecutado y **no** ha analizado ningún binario de GEX.
+> Estado: **DIAGNÓSTICO CERRADO (2026-10-16) · HABILITADO Y USADO EN WSL
+> (2026-11-24, S-14)**. La vía elegida fue **WSL2 Ubuntu + Ghidra 12.1.4 +
+> REA 6.7.0**, instalada local al usuario y sin `sudo`. El resultado verificado
+> está en **§8**; el análisis que produjo se documenta en
+> [`reports/scene/S14_MAP7_MENU_BACKGROUND.md`](reports/scene/S14_MAP7_MENU_BACKGROUND.md).
+> Las secciones §1–§7 conservan el diagnóstico original (histórico) y no se
+> reescriben.
 
 ## 1. Qué es REA (CONFIRMADO, documentation-based)
 
@@ -221,3 +224,64 @@ sin salir del PC.
 - REA: `github.com/morluto/rea` — `README.md`, `docs/native-investigation.md`,
   `docs/raw-binary.md`, `docs/windows-ghidra-p0.md`, `docs/cli.md`,
   `docs/installation.md`, `docs/reverse-engineering-tools.md`.
+
+## 8. Habilitación verificada (2026-11-24, S-14)
+
+Esta sección sustituye al «pendiente de autorización» de §5: la vía **WSL2 +
+Ghidra + REA** se ejecutó y se usó para analizar `GEX3D.EXE` (PE32 x86).
+
+### 8.1 Versiones y hashes
+
+| Componente | Versión | Verificación |
+|---|---|---|
+| WSL | Ubuntu (WSL2) | `wsl -d Ubuntu` |
+| JDK | **21.0.12.1** | `/usr/lib/jvm/java-21-openjdk-amd64` |
+| Ghidra | **12.1.4 PUBLIC** | SHA-256 `ddac49f903da9d5bac833e5cc79395098b9c33cfd3279be5f31bd00387d2d4db` (zip `ghidra_12.1.4_PUBLIC_20260921.zip`, 569 649 598 B) |
+| REA | **6.7.0** | `~/.npm-global/bin/rea` |
+| `rea doctor --provider ghidra` | — | **`healthy:true`** (ghidra, version, headless, decompiler y java 21.0.12.1) |
+| Copia analizada | `GEX3D.EXE` | SHA-256 `7a9b68516867db5460b6ec0d152841742192b1bb47198d2c7b0357d7aa3e8254` (1 559 040 B) |
+
+Los avisos de `rea doctor` sobre `hopper`, `ida`, `jadx`, `kuna` y
+`skill:identity` son irrelevantes para este carril y **no** afectan a Ghidra.
+
+### 8.2 Capacidad PE32 x86 (CONFIRMADO)
+
+`rea inspect` **acepta** `GEX3D.EXE`: `pe`, `x86`, `image_base 0x400000`,
+2 725 procedimientos y 2 052 cadenas, con las secciones mapeadas. Esto confirma
+el diagnóstico de §1/§5.1: la restricción x86-64 es de las *releases* en
+**Windows**; en WSL/Linux el mismo REA 6.7.0 analiza PE32 x86 sin problema.
+
+### 8.3 Instalación local (reversible, sin `sudo`)
+
+```
+~/.rezengineered-rea/
+  ghidra/ghidra_12.1.4_PUBLIC/     # Ghidra
+  work/GEX3D.EXE                   # copia verificada por hash
+  work/*.json, *.pseudo.txt        # evidencias REA
+  env.sh                           # JAVA_HOME, GHIDRA_INSTALL_DIR, PATH
+~/.npm-global/                     # prefijo npm (rea)
+```
+
+- Variables **solo de sesión** (`source ~/.rezengineered-rea/env.sh`).
+- **No** se tocó el Java del sistema ni se instaló nada con `sudo`.
+- Reversión: borrar `~/.rezengineered-rea/`, `npm uninstall -g rea-agents` y
+  quitar el `source` de `env.sh`.
+
+### 8.4 Uso real
+
+```
+rea inspect   GEX3D.EXE --provider ghidra --json
+rea decompile GEX3D.EXE 0x40172b --provider ghidra --format md
+rea xrefs     GEX3D.EXE 0x650060 --provider ghidra --json
+```
+
+Cada `rea decompile` tarda ~20 s (incluye cabecera de evidencia con
+`evidence_id`, digest y perfil de análisis). El resultado de S-14 está en
+[`reports/scene/S14_MAP7_MENU_BACKGROUND.md`](reports/scene/S14_MAP7_MENU_BACKGROUND.md).
+
+### 8.5 Límites observados
+
+- `rea doctor` sigue marcando `healthy:false` en Windows nativo: no se usa.
+- Los snapshots de Ghidra aceleran el análisis (`--snapshot`) pero no se
+  versionan en el repo.
+- Las evidencias (JSON, pseudocódigo, capturas) se guardan **fuera del repo**.

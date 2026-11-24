@@ -53,14 +53,14 @@ La Subfase C (U-1a…U-1h) está cerrada documentalmente con consolidación fina
 
 > **Auditoría 2026-11-08.** La mecánica de lectura y relocalización del
 > contenedor está verificada en
-> [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md): carga completa,
+> [`U1_DFX_RELOCATION_AUDIT.md`](reports/u1/U1_DFX_RELOCATION_AUDIT.md): carga completa,
 > `aligned = (count + 0x200) & ~0x1FF` dwords, relocalización
 > `*(u32*)(B + 4*aligned + off) += B` y compactación a `B` (offset 0). La
 > variante `0x00461ECA` también está analizada (audit §H): es una ruta alternativa
 > **sin llamadores** en este build, así que S-1 sigue solo la ruta de
 > `0x00461E0B`. Esto **documenta** la mecánica necesaria para S-1, que **sí está
-> implementada** (ver §5.2 y [`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); S-2
-> (recorrido BSP) también está implementado (ver [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
+> implementada** (ver §5.2 y [`S1_DFX_PARSER.md`](reports/scene/S1_DFX_PARSER.md)); S-2
+> (recorrido BSP) también está implementado (ver [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md)).
 
 ---
 
@@ -99,12 +99,12 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
    - Ruta de referencia: la del cargador principal `0x00461E0B`; la variante
      `0x00461ECA` (audit §H) no se implementa: no tiene llamadores y su copia
      truncada produce punteros colgantes en AZTEC16
-   - Referencia: [`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md)
+   - Referencia: [`U1_DFX_RELOCATION_AUDIT.md`](reports/u1/U1_DFX_RELOCATION_AUDIT.md)
 
 2. **Recorrido BSP**
    - Algoritmo de `0x401C00`: recorre nodos y anexa hojas visibles
    - *Culling* de esfera contra el volumen de vista: **documentado, no
-     implementado** ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)).
+     implementado** ([`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md)).
      Es una prueba de esfera `(centro, radio)` contra 6 semiplanos (near, far y
      cuatro laterales) con tolerancia `-r`, usando dos matrices `int16` 3×3
      (`cam+0x88` = A, `cam+0xA8` = B) y `0x0046999C` (`(M·v) sar 12`). No es
@@ -160,7 +160,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   `ARGB_4444` están decodificados en CPU con salida RGBA8 (§17 y §18).
 - **Clipping:** El algoritmo BSP original (`0x401C00`) no incluye clipping
   explícito; sí hace *culling* de esfera contra 6 semiplanos, ya documentado en
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)
+  [`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md)
 - **Alpha blending:** la ecuación básica está **resuelta y corregida** (2026-11-12).
   Para ARGB_4444, nGlide genera el programa `r9.a = texel.a × v0.a`, pero la
   captura de 6 000 vértices demuestra que el vértice de MAP7 no lleva canal alfa:
@@ -182,12 +182,12 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   capturada en la ruta 3D de AZTEC16. Se corrigieron tres defectos reales (los
   ángulos Euler se niegan, `M2` se aplica por columnas y la tabla
   trigonométrica trunca). Detalle y valores en
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) § 14.
+  [`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md) § 14.
 - **Nivel de referencia (2026-11-11, 2.ª tanda):** el juego carga
   `C:\GEX_REZ\GEX2\level\map7.dfx`, no `AZTEC16.DFX`. Con ese nivel, el
   recorrido del port reproduce **18/18 frames** con el conteo y la lista
   completa de hojas visibles idénticos al original (§ 9 de
-  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md)).
+  [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md)).
 - **Contexto de emisión (2026-11-11, 3.ª y 4.ª tanda):** capturado el contexto
   real del original (`0x65CD60`: la `O` escalada por 1,6; traslación en
   `+0x14`; focal/cx/cy/near_z; LUT y umbrales de niebla) y reproducido **bit a
@@ -207,7 +207,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   mismo orden de dibujo**. Verificado con GPU hardware (D3D11 11_1) y
   ventana Win32 de 960×540. El modo sintético se conserva con
   `--diagnostic-view`. Detalle en
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) § 15.
+  [`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md) § 15.
 - **Contrato de emisión (§ 11): validado contra el original.** La emisión de
   nivel reproduce **triángulo a triángulo** el resultado del original: mismo
   conjunto (1123 en el frame de referencia, con las profundidades idénticas
@@ -216,7 +216,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   subtriángulos intentados, 0 emitidos). La aparente diferencia "1252 frente a
   1123" era un artefacto de medición: `0x46558A` cuenta comandos de todo tipo
   y 129 de ellos no son triángulos de nivel. Ver
-  [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) § 9.5.
+  [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md) § 9.5.
 
 ## 5. Arquitectura Mínima por Módulos
 
@@ -267,7 +267,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
   - Recorrer el árbol BSP (`0x401C00`): **estructural, hecho**
   - Recorrer nodos y añadir hojas visibles: **hecho con predicado inyectado**
   - Aplicar la visibilidad original de cámara: **implementada y auditada**
-    ([`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)). Incluye la cadena
+    ([`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md)). Incluye la cadena
     de orientación (`0x46DD40` → `0x46E643` → `0x405C41`, §6 del documento
     citado) para construir `M = *[cam+0xE8]`, las matrices A/B y la prueba de
     esfera contra seis semiplanos. Se activa pasando `cam_ctx` a `gex_bsp_walk`.
@@ -275,7 +275,7 @@ Buffers D3D11 → Shaders → Materiales → Renderizado D3D11
     consume el resultado del recorrido (§11).
   - Generar lista de polígonos visibles: **implementada** en
     `port/src/emit/emit.c` (`gex_level_emit`, §11), con contrato documentado en
-    [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5. La cadena original
+    [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md) §5. La cadena original
     `0x43DC3A` → `0x43DED0` → `0x4269C2` → `0x426256`/`0x426588` → buckets →
     `0x469836` → `0x46558A` está reproducida en código; lo que **no** existe
     es la comparación cuantitativa de la emisión contra el ejecutable, así que S-2 sigue abierto.
@@ -409,7 +409,7 @@ la arquitectura real, la del **Módulo 4A**, que trabaja sobre el contenedor
 - **Lo que se implementó después (Módulo 4B):** el **decodificador de píxel**,
   con el formato de píxel, las dimensiones y la tabla NCC **demostrados**
   (ver §4B). Detalle, evidencia y límites:
-  [`docs/VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md).
+  [`docs/VFX_TEXTURE_FORMAT.md`](VFX_TEXTURE_FORMAT.md).
 
 **4B. Investigación del formato de píxel (2026-11-11) — CERRADO**
 
@@ -522,10 +522,10 @@ nivel real ya se carga (§16): lo que queda es el material y la profundidad.
 5. **Módulo 5: Integración** - Punto de entrada completo
 
 **Estado real (2026-11-11):** el parser DFX (Módulo 1) está implementado en
-`port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)); el recorrido BSP
+`port/` ([`S1_DFX_PARSER.md`](reports/scene/S1_DFX_PARSER.md)); el recorrido BSP
 estructural, la visibilidad de cámara y la emisión de polígonos (Módulo 2)
-están implementados y auditados ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
-[`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
+están implementados y auditados ([`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md),
+[`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md)): 889 comprobaciones
 de cámara + 37 de BSP + 38 855 de emisión, 0 fallos. La **emisión de polígonos**
 también está implementada (`gex_level_emit`, §11) y auditada con 38 855
 comprobaciones; la validación dinámica del recorrido y la visibilidad está hecha (§ 4.3), pero falta la comparación cuantitativa de la emisión contra el ejecutable
@@ -538,7 +538,7 @@ también: shaders, `ID3D11InputLayout`, estados y `DrawIndexed` (§14), con 137
 comprobaciones offscreen con WARP. Lo que **no** existe todavía es el Módulo 4
 (cargador de texturas) y el resto del Módulo 5 (materiales, profundidad real,
 texturas). La investigación de la carga `.DFX` está cerrada
-([`U1_DFX_RELOCATION_AUDIT.md`](../U1_DFX_RELOCATION_AUDIT.md), incluida la
+([`U1_DFX_RELOCATION_AUDIT.md`](reports/u1/U1_DFX_RELOCATION_AUDIT.md), incluida la
 variante `0x00461ECA` en §H).
 
 ---
@@ -601,7 +601,7 @@ variante `0x00461ECA` en §H).
 
 ### Hito 1: Parser DFX Operativo
 - **Estado:** ✅ IMPLEMENTADO (2026-11-08). El parser del contenedor (Módulo 1)
-  está implementado en `port/` ([`S1_DFX_PARSER.md`](../S1_DFX_PARSER.md)) y
+  está implementado en `port/` ([`S1_DFX_PARSER.md`](reports/scene/S1_DFX_PARSER.md)) y
   valida AZTEC16.DFX (16 082 entradas, 3 882 vértices, 9 609 polígonos). Esto no
   cierra el escenario completo: la integración sigue pendiente.
 - **Objetivo:** Leer AZTEC16.DFX y extraer descriptor
@@ -614,8 +614,8 @@ variante `0x00461ECA` en §H).
 ### Hito 2: Recorrido BSP Funcional
 - **Estado:** 🔄 PARCIAL (2026-11-11). Recorrido estructural, visibilidad de
   cámara **y emisión de polígonos** implementados y auditados en `port/`
-  ([`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md),
-  [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md)); falta la
+  ([`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md),
+  [`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md)); falta la
   **comparación cuantitativa de la emisión contra el ejecutable original**, por lo que el hito no
   se declara completo.
 - **Objetivo:** Implementar algoritmo de `0x401C00` para recorrer nodos y generar
@@ -630,14 +630,14 @@ variante `0x00461ECA` en §H).
 **Estado 2026-11-11:** recorrido estructural implementado en `port/`
 (`gex_bsp_walk`, `S2_BSP_TRAVERSAL.md`): AZTEC16 produce 815 hojas con predicado
 NULL. La visibilidad original (cámara) está implementada en
-[`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) — prueba de esfera
+[`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md) — prueba de esfera
 contra 6 semiplanos con matrices A/B y orden de apilado — y auditada contra el
 desensamblado: 889 comprobaciones de cámara + 37 de BSP, 0 fallos, integradas
 en `build.ps1 test` y `make test`. `port/` sigue usando el predicado inyectado
 cuando no se pasa `cam_ctx`.
 
 **Emisión (implementada el 2026-11-11):** la ruta está descrita de extremo a
-extremo en [`S2_BSP_TRAVERSAL.md`](../S2_BSP_TRAVERSAL.md) §5 (llamada,
+extremo en [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md) §5 (llamada,
 descriptores, proyección a píxeles de 10 bits, subdivisión, niebla, emisores,
 buckets, diferencias con modelos y con la primitiva 2D `0x4FF06F`) y se
 implementa en `gex_level_emit` (§11), con 38 855 comprobaciones. Sigue
@@ -746,7 +746,7 @@ afirmar que el port reproduce el orden y los colores reales de una escena.
    las texturas se suben a D3D11).
 3. **Clipping:** Implementación futura con viewport (el *culling* de esfera de
    `0x401C00` ya está implementado en
-   [`S2_CAMERA_VISIBILITY.md`](../S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
+   [`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md) y `port/src/camera/camera.c`)
 4. **Alpha blending:** la ecuación básica está **resuelta y corregida**
    (2026-11-12). En MAP7, el vértice entregado a Glide contiene tres flotantes
    B/G/R, sin canal alfa; el alfa efectivo es constante 1.0. Para ARGB_4444,
@@ -792,7 +792,7 @@ encuadre final del menú, interfaz DX11 y navegación de sus opciones.
 la ruta 3D la cámara **vuela sola** 428 frames (~17,1 s a ~25 fps) desde el
 encuadre por defecto del nivel `(2341, 4071, 3074)` hasta el encuadre del menú
 `(2243, 487, 196)`, y se queda allí. Método, tabla temporal, mecanismo
-y límites en [`S3_MENU_CAMERA_SEQUENCE.md`](../S3_MENU_CAMERA_SEQUENCE.md); las
+y límites en [`S3_MENU_CAMERA_SEQUENCE.md`](reports/scene/S3_MENU_CAMERA_SEQUENCE.md); las
 428 muestras en `analysis/menu_camera_map7.tsv`. Para implementarla en DX11
 falta el instante de aparición de los elementos del menú.
 
@@ -890,8 +890,8 @@ cámara, el BSP, las texturas o el pipeline para cada escenario.
 
 Implementado en `port/src/emit/emit.c` (cabecera `port/include/gex/emit.h`).
 Deriva de la reconstrucción estática de
-[`S2_BSP_TRAVERSAL.md` §5](../S2_BSP_TRAVERSAL.md) y de
-[`S2_CAMERA_VISIBILITY.md` §13](../S2_CAMERA_VISIBILITY.md). La revisión del
+[`S2_BSP_TRAVERSAL.md` §5](reports/scene/S2_BSP_TRAVERSAL.md) y de
+[`S2_CAMERA_VISIBILITY.md` §13](reports/scene/S2_CAMERA_VISIBILITY.md). La revisión del
 2026-11-11 (18.ª pasada) corrige el contrato de `gex_emit_classify`,
 `gex_emit_subdivide` y `gex_level_emit` (`state_flags`), el tipo con signo de
 `layer`, el nombre de `GEX_EMIT_F_DEPTH_CLIPPED` y la clave de orden (`maxz`,
@@ -1950,7 +1950,7 @@ evidencia local y **no se publica** en el repositorio.
 ## 17. Módulos 4A y 4B: el contenedor de texturas `.VFX` y el formato de píxel (2026-11-11)
 
 El documento técnico completo está en
-[`VFX_TEXTURE_FORMAT.md`](../VFX_TEXTURE_FORMAT.md). Resumen:
+[`VFX_TEXTURE_FORMAT.md`](VFX_TEXTURE_FORMAT.md). Resumen:
 
 - **Contenedor demostrado** contra el ejecutable original y los ficheros
   originales: `count` en `+0x00`; tabla de registros con cabecera de `0x8C` B,
@@ -3638,8 +3638,8 @@ estadísticas, agravada por un defecto real de informe que se corrige aquí (§
 
 ### 26.2 Algoritmo original utilizado para decidir las hojas visibles
 
-No se rehízo: es el de [`S2_BSP_TRAVERSAL.md`](S2_BSP_TRAVERSAL.md) § 4 y
-[`S2_CAMERA_VISIBILITY.md`](S2_CAMERA_VISIBILITY.md) § 7, ya validado bit a bit
+No se rehízo: es el de [`S2_BSP_TRAVERSAL.md`](reports/scene/S2_BSP_TRAVERSAL.md) § 4 y
+[`S2_CAMERA_VISIBILITY.md`](reports/scene/S2_CAMERA_VISIBILITY.md) § 7, ya validado bit a bit
 contra el ejecutable (18/18 fotogramas con la lista completa idéntica).
 
 Datos que usa:
@@ -4048,7 +4048,8 @@ mediciones ya publicadas (`U1F_RESULTADOS.md`, `U1G_RESULTADOS.md`,
 `U1H_RESULTADOS.md`). REA 6.7.0 sigue instalado pero sin motor nativo
 (`rea doctor --json`: `healthy:false`, `missing_analysis_engine`,
 `GHIDRA_INSTALL_DIR is not set`), así que no hay descompilador ni traza en
-vivo; todo lo de esta sección es evidencia estática o numérica.
+vivo; todo lo de esta sección es evidencia estática o numérica. *(Estado de
+S-13; el carril nativo se habilitó en S-14: §30.)*
 
 ### 29.2 El original no tiene **una** rutina 2D: son cinco caminos
 
@@ -4213,3 +4214,86 @@ descompilación; con el estado actual de REA no es posible.
 * **REA sigue sin motor nativo**; el siguiente paso natural es instalar
   Ghidra + JDK 21 (`docs/REA_WINDOWS_ENABLEMENT.md`) para descompilar el
   emitter del fondo en lugar de seguir buscándolo por evidencia numérica.
+  *(Resuelto en S-14: §30.)*
+
+---
+
+## 30. S-14: el fondo del menú de MAP7 es un anillo de 16 paneles de cielo (2026-11-24)
+
+Informe completo:
+[`reports/scene/S14_MAP7_MENU_BACKGROUND.md`](reports/scene/S14_MAP7_MENU_BACKGROUND.md).
+
+### 30.1 Qué se ha cerrado
+
+S-13 cerró con una hipótesis («el cielo del menú es una textura estirada del
+grupo `331..333`/`342`») y una limitación («falta el emitter y su tabla»).
+S-14 **localiza el emisor y la tabla** con el carril nativo ya habilitado:
+WSL2 Ubuntu + JDK 21 + Ghidra 12.1.4 + REA 6.7.0 (`healthy:true`, PE32 x86
+admitido). Detalle en [`REA_WINDOWS_ENABLEMENT.md`](REA_WINDOWS_ENABLEMENT.md)
+§8.
+
+### 30.2 El dato
+
+La cabecera de nivel contiene pares `(cuenta, puntero)`:
+
+| Offset | Valor | Lista |
+|---|---|---|
+| `+0x10`/`+0x14` | `3` / `0x694` | auxiliar |
+| `+0x18`/`+0x1C` | `2` / `0x70C` | auxiliar |
+| **`+0x20`/`+0x24`** | **`16` / `0x45CC`** | **paneles de cielo (BG)** |
+| `+0x78`/`+0x7C` | `151` / `0x7CCC` | objetos del nivel |
+
+El banco son **16 registros de 24 B**:
+
+```
++0x00 u16 flags (bit 0 = oculto)   +0x02 u16 = 48 polígonos
++0x04 u32 vértices (8 B)           +0x08 u32 polígonos (12 B)
++0x0C s16 x   +0x0E s16 y   +0x10 s16 z   +0x12 u16 radio
++0x14 u16 = 35 vértices            +0x16 u16 relleno
+```
+
+Cada panel: **5×7 = 35 vértices** (`v = fila*5 + col`), **24 quads = 48
+triángulos**. Los 16 paneles forman un cilindro de radio ≈ 8 765 alrededor de
+`(−4364, −3239)`, con separación ~18–22°. **No hay animación**: se dibujan
+todos en cada frame.
+
+### 30.3 El emisor
+
+```
+FUN_0043DD7A  (frame)   -> registra y llama a +0x4CA4 = FUN_0040172B
+FUN_0040172B  (pase BG) -> 16 registros, bit 0 = oculto, matriz + culling
+FUN_004013A0  (panel)   -> 48 triángulos -> comandos 0x24 (36 B)
+FUN_004659DA  (raster)  -> grTexSource (0x467563) + grDrawTriangle (0x46781B/0x46782F)
+```
+
+`FUN_004013A0` copia al comando el `uv_ptr` del polígono (`+0x08`); el
+rasterizador toma la textura de `cmd + 0x1A` (mitad alta del segundo dword UV)
+y las UV como bytes. El registro UV (12 B) es `{u8 u0,v0, u16 aux, u8 u1,v1,
+u16 textura, u8 u2,v2, u16 aux}` con textura en `+0x06` (325..365).
+
+### 30.4 Corrección de §29
+
+- **Los tiles 325..365 sí son una rejilla.** No una textura estirada: son
+  ventanas de **4×6 celdas** por panel sobre un panorama de 41 rodajas; las 41
+  se usan.
+- **El sol** está en el bloque `350..363` de los paneles 8 y 4 (miran a `+X`).
+- **El cielo no es BSP**: es la lista BG del nivel, con su propio pase y su
+  propio flag de visibilidad (`hideBG`/`unhideBG`, bit 0 del registro).
+
+### 30.5 Qué NO cambia
+
+- **No se toca el port** en S-14: es investigación estática. `gex_comp2d`,
+  `gex_scene_level`, shaders, atlas, cámara y BSP quedan igual.
+- **No se tocan assets ni el ejecutable**; todo sobre copia verificada por
+  SHA-256.
+- **Los porcentajes del panel no suben** por instalar herramientas ni por
+  investigar: S-14 no implementa un entregable de producto.
+
+### 30.6 Siguiente paso
+
+1. Resolver el orden de celdas de los 7 paneles con topología de vértices
+   distinta.
+2. Implementar en `gex_comp2d` los 24 quads por panel con las texturas reales y
+   validar contra la captura del menú en la pose de reposo medida.
+3. Aclarar el origen de las estrellas (`starz___` existe pero no está en la
+   tabla de objetos `0x7CCC`).
